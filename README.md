@@ -24,26 +24,26 @@ To'liq reja, qabul qilingan qarorlar va bosqichlar [docs/plan.md](docs/plan.md) 
 
 ## Rollar
 
-| Rol | Vazifasi |
-|---|---|
-| superadmin | Butun tizim, filiallar, integratsiyalar |
-| admin | O'z filiali: haydovchilar, operatorlar, tariflar, hisobotlar |
-| operator | Qo'ng'iroq qabul qilish, buyurtma berish |
-| kassir | Haydovchi balansini naqd to'ldirish |
-| driver | Mobil ilova |
+| Rol        | Vazifasi                                                     |
+| ---------- | ------------------------------------------------------------ |
+| superadmin | Butun tizim, filiallar, integratsiyalar                      |
+| admin      | O'z filiali: haydovchilar, operatorlar, tariflar, hisobotlar |
+| operator   | Qo'ng'iroq qabul qilish, buyurtma berish                     |
+| kassir     | Haydovchi balansini naqd to'ldirish                          |
+| driver     | Mobil ilova                                                  |
 
 ## Texnologiyalar
 
-| Qism | Texnologiya |
-|---|---|
-| Backend | Laravel 13, PHP 8.3+ |
-| Panel | React 19, Inertia 3, Tailwind 4, shadcn/ui |
-| Ma'lumotlar bazasi | PostgreSQL + PostGIS, Redis |
-| Real vaqt | Laravel Reverb (WebSocket), Firebase Cloud Messaging |
-| Xarita | MapLibre + OpenStreetMap (o'z serverida), OSRM |
-| Telefoniya | Asterisk (PJSIP, WebRTC), Yandex SpeechKit (TTS) |
-| Haydovchi ilovasi | Kotlin, Jetpack Compose |
-| Server | 1 ta VPS + FastPanel |
+| Qism               | Texnologiya                                          |
+| ------------------ | ---------------------------------------------------- |
+| Backend            | Laravel 13, PHP 8.3+                                 |
+| Panel              | React 19, Inertia 3, Tailwind 4, shadcn/ui           |
+| Ma'lumotlar bazasi | PostgreSQL + PostGIS, Redis                          |
+| Real vaqt          | Laravel Reverb (WebSocket), Firebase Cloud Messaging |
+| Xarita             | MapLibre + OpenStreetMap (o'z serverida), OSRM       |
+| Telefoniya         | Asterisk (PJSIP, WebRTC), Yandex SpeechKit (TTS)     |
+| Haydovchi ilovasi  | Kotlin, Jetpack Compose                              |
+| Server             | 1 ta VPS + FastPanel                                 |
 
 ## Lokal ishga tushirish
 
