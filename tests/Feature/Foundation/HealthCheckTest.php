@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Http;
 
 test('detects a disconnected trunk and stopped call service, alerts Telegram only on change', function () {
     $this->seed(RolesSeeder::class);
-    SipTrunk::query()->create(['name' => 'sarkor', 'title' => 'Sarkor', 'host' => '10.0.0.5']);
+    $trunk = SipTrunk::query()->create(['name' => 'sarkor', 'title' => 'Sarkor', 'host' => '10.0.0.5']);
     Integration::for(IntegrationProvider::Telegram)->fill(['is_enabled' => true, 'credentials' => ['bot_token' => 'T', 'chat_id' => '42']])->save();
     Http::fake([
         '*/ari/endpoints/PJSIP' => Http::response([['resource' => 'trunk-sarkor', 'state' => 'offline']]),
@@ -22,7 +22,7 @@ test('detects a disconnected trunk and stopped call service, alerts Telegram onl
     ]);
 
     $problems = app(HealthCheck::class)->run();
-    expect($problems)->toHaveKeys(['trunk.1', 'ari']);
+    expect($problems)->toHaveKeys(["trunk.{$trunk->id}", 'ari']);
     Http::assertSent(fn (Request $r) => str_contains($r->url(), 'api.telegram.org') && str_contains((string) $r['text'], 'Sarkor'));
 
     // Holat o'zgarmasa — qayta yuborilmaydi
