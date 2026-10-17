@@ -58,6 +58,7 @@ Holat: **v5.0 — tasdiqlangan reja** · Sana: 2026-10-17
 | 46  | **FastPanel'dan to'liq voz kechildi.** Test va xaridor serverlari — toza Ubuntu LTS + o'rnatish skripti (Nginx, PHP-FPM, PostgreSQL, Redis, Asterisk, OSRM, Supervisor, Certbot)                                                                                    | 2026-10-17 |
 | 47  | **Haydovchi ↔ dispetcher aloqasi: ilova ichida qo'ng'iroq (WebRTC, yoziladi) + chat**                                                                                                                                                                               | 2026-10-17 |
 | 48  | **Haydovchi joylashuvi PostGIS'da** (`drivers.last_location` + GIST indeks), Redis GEO o'rniga: ~18 yangilanish/soniya PostgreSQL uchun yengil, holat va joylashuv bitta tranzaksiyada — "kim birinchi" ishonchliroq                                                | 2026-10-18 |
+| 49  | **Ilova ichida ovozli navigatsiya: OSRM manevrlari + telefonning TTS dvigateli** (Ferrostar + Valhalla o'rniga). Allaqachon ishlab turgan OSRM'dan foydalaniladi, qo'shimcha server yo'q; ko'rsatma banneri doim, ovoz — telefonda ilova tili (o'zbek/rus) bo'lsa | 2026-10-21 |
 
 ---
 
@@ -228,7 +229,7 @@ Barcha status o'zgarishlari `order_events` jadvaliga yoziladi (kim, qachon, qaye
     - MapLibre Native xaritasi: haydovchining o'z joylashuvi, mijoz nuqtasi (A), borish manzili (B)
     - **Marshrut chizig'i** — OSRM `route` API orqali (backend proksi qiladi: `/api/driver/v1/route`)
     - **Masofa va ETA** — ekranda doim ko'rinib turadi, haydovchi harakatlanganda har 15–30 soniyada yoki marshrutdan chiqqanda qayta hisoblanadi
-    - Ovozli "burilish-burilish" navigatsiya **MVP'da yo'q**. Kelajakda kerak bo'lsa: Ferrostar (ochiq kodli) + Valhalla — bepul, ~2–3 hafta ish
+    - Ovozli "burilish-burilish" navigatsiya: OSRM manevrlari + telefonning TTS dvigateli (qaror #49) — banner, 300 m va 60 m oldin ovozli ko'rsatma, yo'ldan chiqsa marshrut qayta hisoblanadi
     - Zaxira: "Navigatorda ochish" tugmasi (telefondagi tashqi navigator ilovasiga deep-link) — haydovchi xohlasa
 5. **Operator paneli xaritasi:** haydovchilar (bo'sh/band/oflayn ranglarda, real-time Reverb orqali), faol buyurtmalar, mo'ljal belgilash uchun xaritaga bosish
 
@@ -826,7 +827,7 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [x] Avtomatik ovozli xabarlar: tayinlandi (ETA bilan, mijoz liniyadan tushgach), yetib keldi, hali kutmoqda, topilmadi, bekor qilindi; 2 marta takror, "1" — qayta eshitish; javobsiz bo'lsa qayta urinish, so'ng operatorga belgi
 - [x] Ovozli bo'laklar kutubxonasi (SpeechKit, ayol ovozi, 8 kHz): panelda tinglash / matnni tuzatib qayta generatsiya / o'z yozuvini yuklash; filial salomlashuvi bir butun audio
 - [x] `MessageComposer` (davlat raqami, son, rang, model → bo'laklar) + testlar; telefoniya testlari (ARI soxtalashtirilgan) va haqiqiy Asterisk + Chrome + Android emulyatorda uchma-uch sinov
-- [ ] Ish vaqti / bayram jadvali (ishdan tashqari xabar) — keyingi versiyada
+- [x] Filial ish vaqti (tungi smena ham) va bayram kunlari: ishdan tashqari qo'ng'iroqqa xabar, "javobsiz" ro'yxatiga tushmaydi
 
 ### Bosqich 3b — Mahsulotlashtirish ✅ (Daniya serverida sinovdan tashqari)
 
@@ -844,14 +845,15 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [x] Yuklama sinovi (lokal VM, 2 CPU / 4 GB): 100 soxta haydovchi + ~210 buyurtma/soat — hammasi tayinlandi, xatosiz, server yuklamasi ~0.4. Firma serverida (haqiqiy telefonlar bilan) takrorlanadi
 - [ ] Firmaning yuklamasiga qarab kanallar sonini tekshirish (1000+/kun → 8–10 kanal)
 - [ ] Firma filial(lar)ida (panelda tanlangan shahar/tuman — qaror #31) real sinov
-- [ ] Firma shahar(lar)i uchun mo'ljallar bazasini oldindan to'ldirish
+- [x] Mo'ljallar bazasi OSM'dan avtomatik to'ldiriladi (o'rnatish skriptida; Farg'ona vodiysi uchun ~44 ming) — pilotda operatorlar to'ldirib boradi
 - [ ] Xatolarni tuzatish, operator fikr-mulohazasi
 
 ### Bosqich 5 — Kengaytmalar
 
-- [ ] Hisobotlar (kengaytirilgan)
-- [ ] IVR avto-buyurtma, pre-order
-- [ ] (ixtiyoriy) Ilova ichida ovozli navigatsiya — Ferrostar + Valhalla
+- [x] Kengaytirilgan hisobotlar: kunlik buyurtma/tushum/komissiya, bekor qilish sabablari, haydovchilar, operatorlar (o'rtacha javob vaqti), to'lov manbalari, buyurtma manbalari, kanal bandligi va tavsiya; CSV
+- [x] IVR avto-buyurtma (sozlamada yoqiladi) va oldindan buyurtma (15 daqiqa oldin efirga)
+- [x] Ilova ichida ovozli navigatsiya (qaror #49)
+- [x] §10 takliflari: soxta GPS aniqlash, audit jurnali, monitoring (panel + Telegram), zaxirani boshqa serverga (SFTP)
 
 **MVP taxminiy muddati:** **16–20 hafta** (1 dasturchi + AI, bosqichlar ketma-ket). Dastlabki 12–15 haftalik baho reja kengaygani uchun oshirildi: PBX panel, mahsulotlashtirish (o'rnatish, yangilash, white-label ilova), Click/Payme, jarima/reyting, qo'shimcha narx qoidalari. Bosqich 1 tugagach qayta baholanadi.
 

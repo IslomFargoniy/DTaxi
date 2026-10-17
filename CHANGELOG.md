@@ -3,6 +3,16 @@
 Versiya `VERSION` faylida. Firma serverida yangilash: `php artisan ibtaxi:update` (zaxira bilan),
 muammo bo'lsa `php artisan ibtaxi:update --rollback`.
 
+## 0.4.0 — 2026-10-21
+
+- Filial ish vaqti va bayram kunlari (ishdan tashqari qo'ng'iroqqa xabar)
+- Oldindan buyurtma; IVR avto-buyurtma (doimiy mijoz "1" ni bosadi)
+- Kengaytirilgan hisobotlar va CSV eksport; operator KPI
+- Haydovchi ilovasida qadam-baqadam navigatsiya (banner + ovoz)
+- Soxta GPS aniqlash, audit jurnali, tizim monitoringi (Telegram ogohlantirish), zaxirani SFTP serverga yuborish
+- Click/Payme orqali balansni to'ldirish
+- Tuzatishlar: Horizon menyusi, APK yuklash limitlari
+
 ## 0.3.0 — 2026-10-17
 
 - Telefoniya: Asterisk 20 (PJSIP Realtime, ARI), kiruvchi navbat va operatorlarga taqsimlash, IVR,

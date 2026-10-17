@@ -8,8 +8,8 @@ ibTaxi taksi firmalariga sotiladigan mahsulot. Har bir firma o'z serverida alohi
 
 ## Holat
 
-Versiya: `VERSION` fayli, o'zgarishlar — [CHANGELOG.md](CHANGELOG.md). Bosqich 0–3b va Bosqich 4'ning dasturiy qismi tayyor;
-pilot firma bilan sinov (Sarkor trunki, haqiqiy Click/Payme kalitlari, Daniya serveri) qoldi.
+Versiya: `VERSION` fayli, o'zgarishlar — [CHANGELOG.md](CHANGELOG.md). Rejadagi barcha dasturiy bosqichlar (0–5) tayyor;
+pilot firma bilan sinov (Sarkor trunki, haqiqiy Click/Payme kalitlari, SpeechKit ovozlari, Daniya serveri) qoldi.
 
 To'liq reja, qabul qilingan qarorlar va bosqichlar [docs/plan.md](docs/plan.md) faylida.
 
