@@ -52,6 +52,8 @@ class PhoneController extends Controller
         $missed = Call::query()
             ->where('kind', 'client')
             ->whereIn('status', ['missed', 'rejected'])
+            // Ish vaqtidan tashqari qo'ng'iroqlarga qayta qo'ng'iroq qilinmaydi
+            ->whereRaw("coalesce(meta->>'reason', '') <> 'closed'")
             ->where('started_at', '>=', now()->subDay())
             ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('calls as later')
                 ->whereColumn('later.started_at', '>', 'calls.started_at')

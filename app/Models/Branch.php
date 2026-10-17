@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\Branches\BranchProvisioner;
+use Carbon\CarbonImmutable;
 use Clickbar\Magellan\Data\Geometries\MultiPolygon;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Database\Factories\BranchFactory;
@@ -24,10 +25,12 @@ use Illuminate\Support\Carbon;
  * @property MultiPolygon|null $service_area
  * @property string $timezone
  * @property bool $is_active
+ * @property array<string, array{from: string, to: string}|null>|null $work_schedule null — kecha-kunduz
+ * @property list<string>|null $holidays Y-m-d sanalar
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'region_id', 'service_name', 'greeting_text', 'center', 'service_area', 'timezone', 'is_active'])]
+#[Fillable(['name', 'region_id', 'service_name', 'greeting_text', 'center', 'service_area', 'timezone', 'is_active', 'work_schedule', 'holidays'])]
 class Branch extends Model
 {
     /** @use HasFactory<BranchFactory> */
@@ -44,7 +47,39 @@ class Branch extends Model
             'center' => Point::class,
             'service_area' => MultiPolygon::class,
             'is_active' => 'boolean',
+            'work_schedule' => 'array',
+            'holidays' => 'array',
         ];
+    }
+
+    public const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+    /**
+     * Filial hozir ishlayaptimi (filial vaqt zonasida). Tunda ishlaydigan smena (22:00–06:00) ham hisobga olinadi.
+     */
+    public function isOpen(?\DateTimeInterface $at = null): bool
+    {
+        $now = CarbonImmutable::instance($at ?? now())->setTimezone($this->timezone);
+
+        if (in_array($now->toDateString(), $this->holidays ?? [], true)) {
+            return false;
+        }
+        if (! $this->work_schedule) {
+            return true;
+        }
+
+        $time = $now->format('H:i');
+        $today = $this->work_schedule[strtolower($now->format('D'))] ?? null;
+        if ($today && ($today['from'] <= $today['to']
+            ? $time >= $today['from'] && $time < $today['to']
+            : $time >= $today['from'])) {
+            return true;
+        }
+
+        // Kechagi tungi smena bugun ertalab davom etmoqda
+        $yesterday = $this->work_schedule[strtolower($now->subDay()->format('D'))] ?? null;
+
+        return $yesterday !== null && $yesterday['from'] > $yesterday['to'] && $time < $yesterday['to'];
     }
 
     /**

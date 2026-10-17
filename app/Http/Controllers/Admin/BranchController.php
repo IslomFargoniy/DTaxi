@@ -40,6 +40,8 @@ class BranchController extends Controller
                 'greeting_text' => $branch->greeting_text,
                 'timezone' => $branch->timezone,
                 'is_active' => $branch->is_active,
+                'work_schedule' => $branch->work_schedule,
+                'holidays' => $branch->holidays ?? [],
                 'region_id' => $branch->region_id,
                 'parent_region_id' => $branch->region?->parent_id,
                 'region' => $branch->region ? trim(($branch->region->parent?->name() ?? '').' / '.$branch->region->name(), ' /') : null,
@@ -83,6 +85,12 @@ class BranchController extends Controller
             'region_id' => ['nullable', Rule::exists('regions', 'id')->whereNotNull('parent_id')],
             'timezone' => ['required', 'timezone'],
             'is_active' => ['boolean'],
+            'work_schedule' => ['nullable', 'array:'.implode(',', Branch::WEEKDAYS)],
+            'work_schedule.*' => ['nullable', 'array:from,to'],
+            'work_schedule.*.from' => ['required', 'date_format:H:i'],
+            'work_schedule.*.to' => ['required', 'date_format:H:i', 'different:work_schedule.*.from'],
+            'holidays' => ['array', 'max:100'],
+            'holidays.*' => ['date_format:Y-m-d'],
             'settings' => ['array'],
             ...collect(self::BRANCH_SETTINGS)->mapWithKeys(fn (array $rules, string $key) => [
                 'settings.'.str_replace('.', '__', $key) => ['nullable', ...$rules],
@@ -95,6 +103,8 @@ class BranchController extends Controller
             'greeting_text' => $data['greeting_text'] ?? null,
             'timezone' => $data['timezone'],
             'is_active' => $data['is_active'] ?? true,
+            'work_schedule' => $data['work_schedule'] ?? null,
+            'holidays' => array_values(array_unique($data['holidays'] ?? [])) ?: null,
         ]);
 
         if (! empty($data['region_id']) && $branch->region_id !== (int) $data['region_id']) {

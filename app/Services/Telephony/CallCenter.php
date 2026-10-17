@@ -175,6 +175,15 @@ class CallCenter
 
         $this->ari->answer($channelId);
 
+        // Ish vaqtidan tashqari (yoki bayram): xabar va yakun — "javobsiz" ro'yxatiga tushmaydi
+        if (! $this->anyOpen($ivr ? $branchIds : array_map('intval', (array) data_get($call->meta, 'branch_ids', [])))) {
+            $call->forceFill(['status' => 'rejected'])->save();
+            $this->updateMeta($call, ['reason' => 'closed']);
+            $this->playFor($call, $channelId, $this->composer()->phrase('ivr', 'closed'), 'close');
+
+            return;
+        }
+
         if ($ivr) {
             $this->playIvrMenu($call);
         } else {
@@ -575,6 +584,15 @@ class CallCenter
 
     private function chooseBranch(Call $call, int $branchId): void
     {
+        if (! $this->anyOpen([$branchId])) {
+            $call->forceFill(['branch_id' => $branchId])->save();
+            $this->updateMeta($call, ['ivr' => false, 'reason' => 'closed']);
+            $call->forceFill(['status' => 'rejected'])->save();
+            $this->playFor($call, (string) $call->channel_id, $this->composer()->phrase('ivr', 'closed'), 'close');
+
+            return;
+        }
+
         if ($playback = data_get($call->meta, 'playback')) {
             $this->ari->stopPlayback((string) $playback);
         }
@@ -737,6 +755,14 @@ class CallCenter
     {
         // Daemon uzoq ishlaydi — panelda yangilangan bo'laklar ko'rinishi uchun har safar yangi
         return app(MessageComposer::class);
+    }
+
+    /**
+     * @param  list<int>  $branchIds
+     */
+    private function anyOpen(array $branchIds): bool
+    {
+        return $branchIds === [] || Branch::query()->whereIn('id', $branchIds)->get()->contains(fn (Branch $b) => $b->isOpen());
     }
 
     private function findCall(mixed $id): ?Call

@@ -26,8 +26,155 @@ type Branch = {
     region_id: number | null;
     parent_region_id: number | null;
     region: string | null;
+    work_schedule: Schedule | null;
+    holidays: string[];
     settings: Record<string, number | null>;
 };
+
+type DayHours = { from: string; to: string } | null;
+type Schedule = Record<string, DayHours>;
+
+const WEEKDAYS: [string, string][] = [
+    ['mon', 'Monday'],
+    ['tue', 'Tuesday'],
+    ['wed', 'Wednesday'],
+    ['thu', 'Thursday'],
+    ['fri', 'Friday'],
+    ['sat', 'Saturday'],
+    ['sun', 'Sunday'],
+];
+
+/**
+ * Ish vaqti: o'chiq — kecha-kunduz; yoqilsa har kun uchun soatlar (dam olish kuni — belgisiz), bayram sanalari.
+ */
+function ScheduleEditor({
+    schedule,
+    holidays,
+    onChange,
+    onHolidays,
+    errors,
+}: {
+    schedule: Schedule | null;
+    holidays: string[];
+    onChange: (s: Schedule | null) => void;
+    onHolidays: (h: string[]) => void;
+    errors: Record<string, string>;
+}) {
+    const { t } = useTrans();
+    const [holidayText, setHolidayText] = useState(holidays.join(', '));
+    const scheduleError = Object.entries(errors).find(([k]) =>
+        k.startsWith('work_schedule'),
+    )?.[1];
+
+    return (
+        <div className="grid gap-2 border-t pt-3">
+            <label className="flex items-center gap-2 text-sm font-medium">
+                <Checkbox
+                    checked={schedule !== null}
+                    onCheckedChange={(v) =>
+                        onChange(
+                            v
+                                ? Object.fromEntries(
+                                      WEEKDAYS.map(([d]) => [
+                                          d,
+                                          { from: '07:00', to: '23:00' },
+                                      ]),
+                                  )
+                                : null,
+                        )
+                    }
+                />
+                {t('Working hours (otherwise 24/7)')}
+            </label>
+            {schedule &&
+                WEEKDAYS.map(([day, label]) => {
+                    const hours = schedule[day] ?? null;
+
+                    return (
+                        <div
+                            key={day}
+                            className="grid grid-cols-[110px_1fr_1fr] items-center gap-2 text-sm"
+                        >
+                            <label className="flex items-center gap-2">
+                                <Checkbox
+                                    checked={hours !== null}
+                                    onCheckedChange={(v) =>
+                                        onChange({
+                                            ...schedule,
+                                            [day]: v
+                                                ? { from: '07:00', to: '23:00' }
+                                                : null,
+                                        })
+                                    }
+                                />
+                                {t(label)}
+                            </label>
+                            {hours ? (
+                                <>
+                                    <Input
+                                        type="time"
+                                        className="h-8"
+                                        value={hours.from}
+                                        onChange={(e) =>
+                                            onChange({
+                                                ...schedule,
+                                                [day]: {
+                                                    ...hours,
+                                                    from: e.target.value,
+                                                },
+                                            })
+                                        }
+                                    />
+                                    <Input
+                                        type="time"
+                                        className="h-8"
+                                        value={hours.to}
+                                        onChange={(e) =>
+                                            onChange({
+                                                ...schedule,
+                                                [day]: {
+                                                    ...hours,
+                                                    to: e.target.value,
+                                                },
+                                            })
+                                        }
+                                    />
+                                </>
+                            ) : (
+                                <span className="col-span-2 text-xs text-muted-foreground">
+                                    {t('Day off')}
+                                </span>
+                            )}
+                        </div>
+                    );
+                })}
+            <InputError message={scheduleError} />
+            <div className="grid gap-1.5">
+                <Label htmlFor="holidays" className="font-normal">
+                    {t('Holidays (YYYY-MM-DD, comma separated)')}
+                </Label>
+                <Input
+                    id="holidays"
+                    placeholder="2027-01-01, 2027-03-21"
+                    value={holidayText}
+                    onChange={(e) => {
+                        setHolidayText(e.target.value);
+                        onHolidays(
+                            e.target.value.split(/[\s,]+/).filter(Boolean),
+                        );
+                    }}
+                />
+                <InputError
+                    message={
+                        Object.entries(errors).find(([k]) =>
+                            k.startsWith('holidays'),
+                        )?.[1]
+                    }
+                />
+            </div>
+        </div>
+    );
+}
 
 const settingLabels: Record<string, string> = {
     'drivers.commission_percent': 'Driver commission, %',
@@ -65,6 +212,8 @@ function BranchDialog({
         timezone: existing?.timezone ?? 'Asia/Tashkent',
         is_active: existing?.is_active ?? true,
         region_id: existing?.region_id ?? ('' as number | ''),
+        work_schedule: (existing?.work_schedule ?? null) as Schedule | null,
+        holidays: existing?.holidays ?? ([] as string[]),
         settings: Object.fromEntries(
             Object.keys(settingLabels).map((k) => [
                 k.replaceAll('.', '__'),
@@ -189,6 +338,13 @@ function BranchDialog({
                 />
                 {t('Active')}
             </label>
+            <ScheduleEditor
+                schedule={form.data.work_schedule}
+                holidays={form.data.holidays}
+                onChange={(v) => form.setData('work_schedule', v)}
+                onHolidays={(v) => form.setData('holidays', v)}
+                errors={errors}
+            />
             <div className="grid gap-2 border-t pt-3">
                 <p className="text-xs text-muted-foreground">
                     {t('Leave empty to use the company-wide value.')}

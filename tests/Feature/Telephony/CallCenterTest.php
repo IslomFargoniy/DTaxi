@@ -249,3 +249,15 @@ test('operator switches between ready and paused', function () {
     $this->actingAs($this->operator)->postJson(route('operator.phone.status'), ['status' => 'busy'])
         ->assertUnprocessable();
 });
+
+test('calls outside working hours hear a message and are not queued for callback', function () {
+    $this->branch->update(['holidays' => [now('Asia/Tashkent')->toDateString()]]);
+
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    expect($call->status)->toBe('rejected')
+        ->and($call->meta['reason'])->toBe('closed')
+        ->and(ariRequests('endpoint=PJSIP/op'))->toBeEmpty();
+    $this->actingAs($this->operator)->getJson(route('operator.phone.missed'))->assertJsonCount(0);
+});
