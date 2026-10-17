@@ -10,6 +10,7 @@ use App\Services\Sounds\SoundLibrary;
 use App\Services\Telephony\Extensions;
 use App\Services\Telephony\TrunkSync;
 use App\Support\Backup;
+use App\Support\HealthCheck;
 use App\Support\Settings;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -95,3 +96,10 @@ Artisan::command('orders:dispatch-scheduled', function (OrderService $orders) {
 })->purpose('Vaqti yaqinlashgan oldindan buyurtmalarni efirga chiqarish');
 
 Schedule::command('orders:dispatch-scheduled')->everyMinute()->withoutOverlapping();
+
+Artisan::command('ibtaxi:health', function (HealthCheck $health) {
+    $problems = $health->run();
+    $problems === [] ? $this->info('Hammasi joyida') : array_map(fn ($p) => $this->warn($p), $problems);
+})->purpose('Tizim holatini tekshirish (Asterisk, trunk, OSRM, navbatlar, disk, zaxira)');
+
+Schedule::command('ibtaxi:health')->everyFiveMinutes()->withoutOverlapping();

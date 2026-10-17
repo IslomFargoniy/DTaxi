@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Support\HealthCheck;
 use App\Support\Settings;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -48,6 +49,8 @@ class HandleInertiaRequests extends Middleware
             ],
             'locale' => app()->getLocale(),
             'translations' => fn () => $this->translations(app()->getLocale()),
+            // Tizim muammolari — faqat superadmin ko'radi (§10.9)
+            'health' => fn () => $request->user()?->isSuperadmin() ? array_values(HealthCheck::problems()) : [],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

@@ -20,6 +20,7 @@ export type DriverRow = {
     rating: number;
     is_approved: boolean;
     blocked_until: string | null;
+    mock_location_at: string | null;
     last_seen_at: string | null;
     vehicle: {
         brand: string;
@@ -132,6 +133,19 @@ export default function DriversIndex({
                                             {t('Not approved')}
                                         </Badge>
                                     )}
+                                    {d.mock_location_at &&
+                                        Date.now() -
+                                            new Date(
+                                                d.mock_location_at,
+                                            ).getTime() <
+                                            7 * 86400_000 && (
+                                            <Badge
+                                                variant="destructive"
+                                                title={d.mock_location_at}
+                                            >
+                                                {t('Fake GPS')}
+                                            </Badge>
+                                        )}
                                     {d.blocked_until &&
                                         new Date(d.blocked_until) >
                                             new Date() && (

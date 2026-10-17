@@ -272,6 +272,7 @@ class DriverController extends Controller
             'rating' => $d->rating,
             'is_approved' => $d->is_approved,
             'blocked_until' => $d->blocked_until?->toIso8601String(),
+            'mock_location_at' => $d->mock_location_at?->toIso8601String(),
             'last_seen_at' => $d->last_seen_at?->toIso8601String(),
             'vehicle' => $d->vehicle ? [
                 'brand' => $d->vehicle->brand,

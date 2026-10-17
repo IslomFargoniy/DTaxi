@@ -82,7 +82,10 @@ class DriverService : LifecycleService() {
     }
 
     private fun onLocation(location: Location) {
-        DriverState.setLocation(location.latitude, location.longitude)
+        // Soxta GPS ilovasi (mock location): server nuqtani hisobga olmaydi, taksometr ham
+        @Suppress("DEPRECATION")
+        val mock = if (android.os.Build.VERSION.SDK_INT >= 31) location.isMock else location.isFromMockProvider
+        if (!mock) DriverState.setLocation(location.latitude, location.longitude)
         buffer.addLast(
             LocationPoint(
                 location.latitude,
@@ -90,10 +93,12 @@ class DriverService : LifecycleService() {
                 (location.speed * 3.6).toInt(),
                 location.bearing.toInt(),
                 location.accuracy.toInt(),
+                mock,
             ),
         )
         // Internet yo'q paytda ham yig'iladi, lekin cheksiz emas
         while (buffer.size > 200) buffer.removeFirst()
+        if (mock) return
 
         val order = DriverState.order.value
         val meter = taximeter

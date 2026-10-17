@@ -28,6 +28,7 @@ use Illuminate\Support\Carbon;
  * @property bool $is_approved
  * @property Point|null $last_location
  * @property Carbon|null $last_seen_at
+ * @property Carbon|null $mock_location_at
  * @property-read User $user
  * @property-read Vehicle|null $vehicle
  */
@@ -55,6 +56,7 @@ class Driver extends Model
             'approved_at' => 'datetime',
             'last_location' => Point::class,
             'last_seen_at' => 'datetime',
+            'mock_location_at' => 'datetime',
         ];
     }
 

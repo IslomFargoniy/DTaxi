@@ -173,3 +173,15 @@ test('route for the driver app includes turn-by-turn steps', function () {
         ->assertJsonPath('steps.1.name', 'Mustaqillik')
         ->assertJsonPath('steps.1.lat', 40.385);
 });
+
+test('fake GPS points are ignored and flagged for the admin', function () {
+    $driver = driverNear($this->branch, 0);
+    actingDriver($driver);
+    $before = $driver->last_location;
+
+    $this->postJson('/api/driver/v1/location', ['points' => [['lat' => 40.50, 'lng' => 71.90, 'mock' => true]]])->assertOk();
+
+    $driver->refresh();
+    expect($driver->mock_location_at)->not->toBeNull()
+        ->and($driver->last_location->getLatitude())->toBe($before->getLatitude());
+});

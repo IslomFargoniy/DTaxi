@@ -104,7 +104,7 @@ data class Offer(
     @SerializedName("expires_in") val expiresIn: Int,
 )
 
-data class LocationPoint(val lat: Double, val lng: Double, val speed: Int?, val heading: Int?, val accuracy: Int?)
+data class LocationPoint(val lat: Double, val lng: Double, val speed: Int?, val heading: Int?, val accuracy: Int?, val mock: Boolean = false)
 
 data class LocationBatch(val points: List<LocationPoint>)
 

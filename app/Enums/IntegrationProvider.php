@@ -11,6 +11,7 @@ enum IntegrationProvider: string
     case Payme = 'payme';
     case SpeechKit = 'speechkit';
     case Firebase = 'firebase';
+    case Telegram = 'telegram';
 
     public function label(): string
     {
@@ -19,6 +20,7 @@ enum IntegrationProvider: string
             self::Payme => 'Payme',
             self::SpeechKit => 'Yandex SpeechKit',
             self::Firebase => 'Firebase (FCM)',
+            self::Telegram => 'Telegram (ogohlantirishlar)',
         };
     }
 
@@ -48,6 +50,11 @@ enum IntegrationProvider: string
             ],
             self::Firebase => [
                 ['key' => 'service_account', 'label' => 'Service account JSON', 'secret' => true, 'type' => 'textarea'],
+            ],
+            // Tizim muammolari (trunk uzildi, xizmat to'xtadi) — firmaning o'z boti va guruhiga
+            self::Telegram => [
+                ['key' => 'bot_token', 'label' => 'Bot token', 'secret' => true],
+                ['key' => 'chat_id', 'label' => 'Chat ID', 'secret' => false],
             ],
         };
     }

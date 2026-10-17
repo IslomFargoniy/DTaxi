@@ -19,6 +19,7 @@ use App\Services\Telephony\Extensions;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class DriverController extends Controller
 {
@@ -68,10 +69,19 @@ class DriverController extends Controller
             'points.*.speed' => ['nullable', 'integer', 'min:0'],
             'points.*.heading' => ['nullable', 'integer', 'between:0,360'],
             'points.*.accuracy' => ['nullable', 'integer', 'min:0'],
+            'points.*.mock' => ['boolean'],
         ]);
         $driver = $this->driver($request);
 
-        foreach ($data['points'] as $point) {
+        // Soxta GPS: nuqtalar hisobga olinmaydi (yaqin buyurtmalarni "tortib olish" mumkin bo'lmasin), admin ko'radi
+        $points = array_values(array_filter((array) $data['points'], 'is_array'));
+        $real = array_filter($points, fn (array $p) => empty($p['mock']));
+        if (count($real) < count($points)) {
+            $driver->forceFill(['mock_location_at' => now()])->save();
+            Log::warning('Soxta GPS', ['driver' => $driver->id]);
+        }
+
+        foreach ($real as $point) {
             $locator->update($driver, (float) $point['lat'], (float) $point['lng'], $point['speed'] ?? null, $point['heading'] ?? null, $point['accuracy'] ?? null);
         }
 

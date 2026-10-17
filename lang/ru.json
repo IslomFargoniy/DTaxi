@@ -465,5 +465,10 @@
     "Source": "Источник",
     "Trips": "Поездки",
     "Working hours (otherwise 24/7)": "Часы работы (иначе круглосуточно)",
-    "min": "мин"
+    "min": "мин",
+    "Routing service (OSRM) is not responding — distances are estimated": "Сервис маршрутов (OSRM) не отвечает — расстояния приблизительные",
+    "Queue workers (Horizon) are not running": "Обработчики очередей (Horizon) не работают",
+    "Low disk space: less than 5 GB free": "Мало места на диске: свободно меньше 5 ГБ",
+    "No database backup in the last 24 hours": "Нет резервной копии базы за последние 24 часа",
+    "Fake GPS": "Фейковый GPS"
 }

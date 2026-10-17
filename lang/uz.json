@@ -465,5 +465,10 @@
     "Source": "Manba",
     "Trips": "Safarlar",
     "Working hours (otherwise 24/7)": "Ish vaqti (aks holda kecha-kunduz)",
-    "min": "daq"
+    "min": "daq",
+    "Routing service (OSRM) is not responding — distances are estimated": "Marshrut xizmati (OSRM) javob bermayapti — masofalar taxminiy",
+    "Queue workers (Horizon) are not running": "Navbat ishchilari (Horizon) ishlamayapti",
+    "Low disk space: less than 5 GB free": "Diskda joy kam: 5 GB dan kam bo'sh",
+    "No database backup in the last 24 hours": "Oxirgi 24 soatda baza zaxirasi olinmagan",
+    "Fake GPS": "Soxta GPS"
 }
