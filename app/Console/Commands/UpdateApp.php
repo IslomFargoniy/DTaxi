@@ -76,12 +76,19 @@ class UpdateApp extends Command
         }
 
         $this->call('down', ['--retry' => 15]);
-        $this->step('Kod');
-        $this->git(['checkout', '--quiet', $state['commit']]);
-        $this->install();
-        $this->step('Baza');
-        $backup->restore($state['backup']);
-        $this->finish();
+        try {
+            $this->step('Kod');
+            $this->git(['checkout', '--quiet', $state['commit']]);
+            $this->install();
+            $this->step('Baza');
+            $backup->restore($state['backup']);
+            $this->finish();
+        } catch (\Throwable $e) {
+            $this->call('up');
+            $this->error('Qaytarish to\'xtadi: '.$e->getMessage());
+
+            return self::FAILURE;
+        }
         File::delete($this->stateFile());
 
         $this->info("Qaytarildi: {$this->version()} ({$state['commit']})");

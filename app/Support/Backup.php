@@ -22,7 +22,7 @@ class Backup
         $file = $this->directory().'/'.now()->format('Y-m-d_His')."_{$label}.dump";
 
         $result = Process::timeout(3600)->env($this->env())->run([
-            'pg_dump', '--format=custom', '--no-owner', '--file='.$file, ...$this->connectionArgs(),
+            'pg_dump', '--format=custom', '--no-owner', '--exclude-table-data=public.spatial_ref_sys', '--file='.$file, ...$this->connectionArgs(),
         ]);
         if ($result->failed()) {
             throw new RuntimeException('pg_dump: '.$result->errorOutput());
@@ -33,9 +33,21 @@ class Backup
 
     public function restore(string $file): void
     {
+        // Kengaytmalar (PostGIS, pg_trgm) va ularning jadvali (spatial_ref_sys) superuser'niki — ularni o'chirib-qayta yaratishga ruxsat yo'q, ro'yxatdan chiqariladi
+        $list = Process::run(['pg_restore', '--list', $file]);
+        if ($list->failed()) {
+            throw new RuntimeException('pg_restore --list: '.$list->errorOutput());
+        }
+        $listFile = $file.'.list';
+        File::put($listFile, collect(explode("\n", $list->output()))
+            ->reject(fn (string $line) => str_contains($line, ' EXTENSION ') || str_contains($line, 'spatial_ref_sys'))
+            ->implode("\n"));
+
         $result = Process::timeout(3600)->env($this->env())->run([
-            'pg_restore', '--clean', '--if-exists', '--no-owner', '--single-transaction', ...$this->connectionArgs(dbFlag: true), $file,
+            'pg_restore', '--clean', '--if-exists', '--no-owner', '--single-transaction', '--use-list='.$listFile,
+            ...$this->connectionArgs(dbFlag: true), $file,
         ]);
+        File::delete($listFile);
         if ($result->failed()) {
             throw new RuntimeException('pg_restore: '.$result->errorOutput());
         }
