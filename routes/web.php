@@ -22,6 +22,7 @@ use App\Http\Controllers\Operator\LookupController;
 use App\Http\Controllers\Operator\OperatorController;
 use App\Http\Controllers\Operator\OrderController;
 use App\Http\Controllers\Operator\PhoneController;
+use App\Http\Controllers\SetupController;
 use App\Models\ChatMessage;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -42,6 +43,12 @@ Route::get('chat/{message}/attachment', function (ChatMessage $message) {
 
     return Storage::response($message->attachment_path);
 })->middleware('signed')->name('chat.attachment');
+
+// Birinchi kirish ustasi — superadmin hali yo'q bo'lganda
+Route::middleware('guest')->group(function () {
+    Route::get('setup', [SetupController::class, 'show'])->name('setup.show');
+    Route::post('setup', [SetupController::class, 'store'])->name('setup.store');
+});
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');

@@ -30,11 +30,18 @@ class AriListen extends Command
         $this->recoverAfterRestart($trunks);
 
         $loop = Loop::get();
+        $started = time();
 
         // Navbatni taqsimlash va heartbeat (monitoring "daemon ishlayaptimi" ko'rsatadi)
-        $loop->addPeriodicTimer(2, function () use ($center) {
+        $loop->addPeriodicTimer(2, function () use ($center, $started) {
             $this->guard(fn () => $center->tick());
             Cache::put('ari:listen:heartbeat', time(), 30);
+
+            // `php artisan ari:restart` (yangilanishdan keyin): supervisor yangi kod bilan qayta ishga tushiradi
+            if ((int) Cache::get('ari:restart', 0) > $started) {
+                $this->info('Qayta ishga tushirish signali');
+                Loop::get()->stop();
+            }
         });
 
         $this->connect($center);

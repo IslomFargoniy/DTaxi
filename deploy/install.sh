@@ -1,18 +1,46 @@
 #!/usr/bin/env bash
 # ibTaxi o'rnatish skripti — toza Ubuntu 24.04 LTS uchun.
 #
-#   sudo ./install.sh --dev        lokal virtual mashina (Multipass): kod Mac'dan ulangan papkada
-#   sudo ./install.sh --prod       xaridor serveri (keyingi bosqichlarda kengaytiriladi)
+#   sudo ./install.sh --dev
+#       lokal virtual mashina (Multipass): kod Mac'dan ulangan papkada, bazaga Mac'dan ulanadi
 #
-# Skript qayta ishga tushirilsa ham xavfsiz (idempotent).
+#   sudo ./deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz
+#       xaridor serveri: kod shu repozitoriy papkasida (masalan /var/www/ibtaxi), Let's Encrypt,
+#       ufw, fail2ban, kunlik zaxira. Tugagach brauzerda https://<domen> — sozlash ustasi.
+#       Server IP'si domen DNS'ida ko'rsatilgan bo'lishi kerak (Let's Encrypt tekshiradi).
+#
+# Skript qayta ishga tushirilsa ham xavfsiz (idempotent): mavjud parollar va .env saqlanadi.
 set -euo pipefail
 
-MODE="${1:---dev}"
-APP_DIR="${APP_DIR:-/home/ubuntu/ibTaxi}"
-APP_USER="${APP_USER:-ubuntu}"
+MODE="--dev"
+DOMAIN=""
+EMAIL=""
+SKIP_SSL=0
+for arg in "$@"; do
+    case "$arg" in
+        --dev | --prod) MODE="$arg" ;;
+        --domain=*) DOMAIN="${arg#*=}" ;;
+        --email=*) EMAIL="${arg#*=}" ;;
+        # Faqat sinov serveri uchun (domen yo'q): sertifikatsiz — brauzer mikrofoni ishlamaydi
+        --skip-ssl) SKIP_SSL=1 ;;
+        *) echo "Noma'lum parametr: $arg" >&2; exit 1 ;;
+    esac
+done
+
+APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+if [[ "$MODE" == "--prod" ]]; then
+    [[ -n "$DOMAIN" && -n "$EMAIL" ]] || { echo "--prod uchun --domain= va --email= kerak" >&2; exit 1; }
+    APP_USER="${APP_USER:-ibtaxi}"
+else
+    APP_USER="${APP_USER:-ubuntu}"
+fi
 DB_NAME="${DB_NAME:-ibtaxi}"
 DB_USER="${DB_USER:-ibtaxi}"
-DB_PASS="${DB_PASS:-ibtaxi}"
+# Mavjud .env dagi parol saqlanadi; prod'da yangi tasodifiy parol
+DB_PASS="${DB_PASS:-$(grep -s '^DB_PASSWORD=' "${APP_DIR}/.env" | cut -d= -f2 || true)}"
+if [[ -z "$DB_PASS" ]]; then
+    if [[ "$MODE" == "--prod" ]]; then DB_PASS="$(openssl rand -hex 16)"; else DB_PASS="ibtaxi"; fi
+fi
 PHP_VERSION="8.3"
 PG_VERSION="16"
 
@@ -36,6 +64,10 @@ apt install -y -q ca-certificates curl gnupg unzip git acl \
     "php${PHP_VERSION}-gd" "php${PHP_VERSION}-zip" "php${PHP_VERSION}-mbstring" \
     "php${PHP_VERSION}-xml" "php${PHP_VERSION}-curl" "php${PHP_VERSION}-sqlite3" \
     "postgresql-${PG_VERSION}" "postgresql-${PG_VERSION}-postgis-3"
+if [[ "$MODE" == "--prod" ]]; then
+    apt install -y -q certbot python3-certbot-nginx ufw fail2ban
+    id -u "${APP_USER}" >/dev/null 2>&1 || useradd --system --create-home --shell /bin/bash "${APP_USER}"
+fi
 
 log "Composer"
 if ! command -v composer >/dev/null; then
@@ -51,6 +83,7 @@ fi
 log "PostgreSQL: baza va foydalanuvchi"
 sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1 ||
     sudo -u postgres psql -c "CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DB_PASS}' CREATEDB"
+sudo -u postgres psql -qc "ALTER ROLE ${DB_USER} PASSWORD '${DB_PASS}'"
 for db in "${DB_NAME}" "${DB_NAME}_test"; do
     sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${db}'" | grep -q 1 ||
         sudo -u postgres createdb -O "${DB_USER}" "${db}"
@@ -73,6 +106,41 @@ if [[ "$MODE" == "--dev" ]]; then
         "/etc/php/${PHP_VERSION}/fpm/pool.d/www.conf"
     # Nginx (www-data) /home/ubuntu ichiga kira olishi uchun
     usermod -aG "${APP_USER}" www-data
+fi
+
+if [[ "$MODE" == "--prod" ]]; then
+    # php-fpm ilova foydalanuvchisi nomidan; nginx (www-data) faqat public/ ni o'qiydi
+    sed -i "s/^user = .*/user = ${APP_USER}/; s/^group = .*/group = ${APP_USER}/" \
+        "/etc/php/${PHP_VERSION}/fpm/pool.d/www.conf"
+    usermod -aG "${APP_USER}" www-data
+    chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
+    chmod 750 "${APP_DIR}"
+
+    log "Prod: .env"
+    ENV_FILE="${APP_DIR}/.env"
+    [[ -f "$ENV_FILE" ]] || cp "${APP_DIR}/.env.example" "$ENV_FILE"
+    set_env() {
+        if grep -q "^$1=" "$ENV_FILE"; then sed -i "s|^$1=.*|$1=$2|" "$ENV_FILE"; else echo "$1=$2" >> "$ENV_FILE"; fi
+    }
+    set_env_once() { grep -q "^$1=.\+" "$ENV_FILE" || set_env "$1" "$2"; }
+    set_env APP_ENV production
+    set_env APP_DEBUG false
+    set_env APP_URL "https://${DOMAIN}"
+    set_env DB_HOST 127.0.0.1
+    set_env DB_DATABASE "${DB_NAME}"
+    set_env DB_USERNAME "${DB_USER}"
+    set_env DB_PASSWORD "${DB_PASS}"
+    set_env SESSION_SECURE_COOKIE true
+    set_env_once REVERB_APP_ID "$(shuf -i 100000-999999 -n 1)"
+    set_env_once REVERB_APP_KEY "$(openssl rand -hex 10)"
+    set_env_once REVERB_APP_SECRET "$(openssl rand -hex 10)"
+    # Server → Reverb ichki ulanish; brauzer va ilova esa https://<domen>/app orqali
+    set_env REVERB_HOST 127.0.0.1
+    set_env REVERB_PORT 8080
+    set_env REVERB_SCHEME http
+    chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
+    chmod 640 "$ENV_FILE"
+    PUBLIC_IP="${PUBLIC_IP:-$(curl -4 -fs --max-time 5 https://api.ipify.org || hostname -I | awk '{print $1}')}"
 fi
 
 systemctl restart postgresql redis-server "php${PHP_VERSION}-fpm"
@@ -189,6 +257,45 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
+if [[ "$MODE" == "--prod" ]]; then
+    log "Prod: ilova (composer, frontend, migratsiyalar)"
+    as_app() { sudo -u "${APP_USER}" -H bash -c "cd '${APP_DIR}' && $*"; }
+    as_app "composer install --no-dev --optimize-autoloader --no-interaction"
+    grep -q '^APP_KEY=base64' "${APP_DIR}/.env" || as_app "php artisan key:generate --force"
+    as_app "npm ci --no-audit --no-fund && npm run build"
+    as_app "php artisan migrate --force && php artisan db:seed --class=RolesSeeder --force"
+    as_app "php artisan storage:link >/dev/null 2>&1 || true; php artisan optimize; php artisan telephony:sync"
+
+    log "Prod: HTTPS (Let's Encrypt)"
+    sed -i "s/server_name _;/server_name ${DOMAIN};/" /etc/nginx/sites-available/ibtaxi
+    nginx -t && systemctl reload nginx
+    if [[ "$SKIP_SSL" == 1 ]]; then
+        echo "OGOHLANTIRISH: --skip-ssl — sertifikat o'rnatilmadi (faqat sinov uchun)"
+    else
+        certbot --nginx -d "${DOMAIN}" -m "${EMAIL}" --agree-tos -n --redirect --keep-until-expiring
+    fi
+
+    log "Prod: xavfsizlik devori (ufw) va fail2ban"
+    ufw allow OpenSSH
+    ufw allow 80,443/tcp
+    # SIP (trunk) va ovoz (RTP)
+    ufw allow 5060/udp
+    ufw allow 10000:20000/udp
+    ufw --force enable
+    cat > /etc/fail2ban/jail.d/ibtaxi.conf <<'JAIL'
+[sshd]
+enabled = true
+
+[asterisk]
+enabled = true
+logpath = /var/log/asterisk/messages
+maxretry = 5
+bantime = 3600
+JAIL
+    systemctl enable --now fail2ban
+    systemctl restart fail2ban
+fi
+
 log "Fon xizmatlari: Reverb, Horizon, scheduler"
 REVERB_HOST_BIND="127.0.0.1"
 [[ "$MODE" == "--dev" ]] && REVERB_HOST_BIND="0.0.0.0"
@@ -226,5 +333,11 @@ supervisorctl reread
 supervisorctl update
 
 log "Tayyor"
-echo "PostgreSQL: ${DB_NAME} / ${DB_USER}  (test bazasi: ${DB_NAME}_test)"
-echo "Panel: http://$(hostname -I | awk '{print $1}')"
+if [[ "$MODE" == "--prod" ]]; then
+    echo "Panel: https://${DOMAIN}  — birinchi kirishda sozlash ustasi ochiladi"
+    echo "Zaxira: har kuni 02:30 (storage/app/private/backups), yangilash: php artisan ibtaxi:update"
+    echo "SIP provayderga server IP: ${PUBLIC_IP}"
+else
+    echo "PostgreSQL: ${DB_NAME} / ${DB_USER}  (test bazasi: ${DB_NAME}_test)"
+    echo "Panel: http://$(hostname -I | awk '{print $1}')"
+fi

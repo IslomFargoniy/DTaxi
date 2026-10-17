@@ -15,6 +15,9 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    // ibTaxi versiyasi (VERSION fayli; o'zgarishlar CHANGELOG.md da)
+    'version' => trim((string) @file_get_contents(base_path('VERSION'))) ?: 'dev',
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

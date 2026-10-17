@@ -8,8 +8,10 @@ use App\Services\Regions\OsmRegionImporter;
 use App\Services\Sounds\SoundLibrary;
 use App\Services\Telephony\Extensions;
 use App\Services\Telephony\TrunkSync;
+use App\Support\Backup;
 use App\Support\Settings;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
 
@@ -70,3 +72,16 @@ Artisan::command('recordings:cleanup', function (Settings $settings) {
 })->purpose("Muddati o'tgan suhbat yozuvlarini o'chirish (qaror #34)");
 
 Schedule::command('recordings:cleanup')->dailyAt('03:30')->withoutOverlapping();
+
+Artisan::command('ibtaxi:backup {--keep=14 : Necha kunlik zaxira saqlanadi}', function (Backup $backup) {
+    $file = $backup->create();
+    $pruned = $backup->prune((int) $this->option('keep'));
+    $this->info("Zaxira: {$file} (o'chirildi: {$pruned} ta eski)");
+})->purpose('Bazaning zaxira nusxasi (pg_dump)');
+
+Artisan::command('ari:restart', function () {
+    Cache::forever('ari:restart', now()->getTimestamp());
+    $this->info('ari:listen qayta ishga tushadi (supervisor).');
+})->purpose('ARI daemonini yangi kod bilan qayta ishga tushirish');
+
+Schedule::command('ibtaxi:backup')->dailyAt('02:30')->withoutOverlapping();
