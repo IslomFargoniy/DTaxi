@@ -12,6 +12,8 @@ import { OrderForm } from './order-form';
 import type { PickTarget } from './order-form';
 import { OrdersList } from './orders-list';
 import type { PickedPlace } from './place-picker';
+import { Softphone } from './softphone';
+import type { CallCard } from './softphone';
 
 type Props = {
     branches: Branch[];
@@ -102,6 +104,7 @@ export default function OperatorIndex({
         lng: number;
         seq: number;
     } | null>(null);
+    const [incoming, setIncoming] = useState<CallCard | null>(null);
     const mapRef = useRef<MapLibreMap | null>(null);
     const placeMarkers = useRef<Marker[]>([]);
 
@@ -279,6 +282,9 @@ export default function OperatorIndex({
                 </section>
 
                 <section className="order-1 overflow-auto lg:order-3">
+                    <div className="mb-3">
+                        <Softphone userId={auth.user.id} onCard={setIncoming} />
+                    </div>
                     <h2 className="mb-2 text-sm font-semibold">
                         {t('New order')}{' '}
                         <span className="font-normal text-muted-foreground">
@@ -292,6 +298,7 @@ export default function OperatorIndex({
                         setPicking={setPicking}
                         mapClick={mapClick}
                         onPlacesChange={onPlacesChange}
+                        incoming={incoming}
                     />
                 </section>
             </div>

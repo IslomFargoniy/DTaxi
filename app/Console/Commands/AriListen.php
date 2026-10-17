@@ -20,7 +20,7 @@ use function Ratchet\Client\connect;
  */
 class AriListen extends Command
 {
-    protected $signature = 'ari:listen';
+    protected $signature = 'ari:listen {--debug : Har bir ARI hodisasini chiqarish}';
 
     protected $description = "Asterisk ARI hodisalarini tinglash va qo'ng'iroqlarni boshqarish";
 
@@ -57,6 +57,9 @@ class AriListen extends Command
             $conn->on('message', function ($message) use ($center) {
                 $event = json_decode((string) $message, true);
                 if (is_array($event)) {
+                    if ($this->option('debug')) {
+                        $this->line(sprintf('%s %s %s', $event['type'] ?? '?', data_get($event, 'channel.id', data_get($event, 'playback.id', '')), json_encode($event['args'] ?? '')));
+                    }
                     $this->guard(fn () => $center->handle($event));
                 }
             });

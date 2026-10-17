@@ -103,6 +103,7 @@ chown -R asterisk:asterisk /etc/asterisk
 usermod -aG "${APP_USER}" asterisk
 usermod -aG asterisk "${APP_USER}"
 mkdir -p "${APP_DIR}/storage/app/private/sounds/uz" /var/spool/asterisk/recording
+chown asterisk:asterisk /var/spool/asterisk/recording
 chmod 2775 /var/spool/asterisk/recording
 ln -sfn "${APP_DIR}/storage/app/private/sounds/uz" /usr/share/asterisk/sounds/ibtaxi
 # Asterisk ovozi uzilmasligi uchun yuqori ustuvorlik (reja §9)
@@ -146,6 +147,9 @@ server {
         fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
         include fastcgi_params;
         fastcgi_hide_header X-Powered-By;
+        # Vite preload "Link" sarlavhasi katta bo'lishi mumkin (aks holda 502 "too big header")
+        fastcgi_buffer_size 64k;
+        fastcgi_buffers 16 32k;
     }
 
     # Reverb (WebSocket): panel va haydovchi ilovasi bir xil domen orqali ulanadi

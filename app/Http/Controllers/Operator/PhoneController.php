@@ -26,7 +26,7 @@ class PhoneController extends Controller
 
         return response()->json([
             'sip' => $extensions->credentials($user, $request->getHost()),
-            'status' => $user->operator_status,
+            'status' => $user->operator_status ?? 'offline',
         ]);
     }
 

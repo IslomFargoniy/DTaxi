@@ -47,7 +47,8 @@ class Extensions
             PsAor::query()->updateOrCreate(['id' => $extension], [
                 'max_contacts' => 3,
                 'remove_existing' => 'yes',
-                'qualify_frequency' => 0,
+                // OPTIONS ping (JsSIP javob beradi): ARI endpoint holati "online" bo'ladi, yopilgan brauzer ~25 s da "offline"
+                'qualify_frequency' => 25,
             ]);
             PsAuth::query()->updateOrCreate(['id' => $extension], [
                 'auth_type' => 'userpass',

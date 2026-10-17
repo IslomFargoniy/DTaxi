@@ -38,6 +38,7 @@
         "clsx": "^2.1.1",
         "concurrently": "^10.0.3",
         "input-otp": "^1.4.2",
+        "jssip": "^3.10.1",
         "laravel-echo": "^2.6.1",
         "laravel-vite-plugin": "^3.0.0",
         "lucide-react": "^0.475.0",

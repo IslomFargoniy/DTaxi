@@ -54,7 +54,13 @@ class TrunkSync
             }
 
             PsAor::query()->updateOrCreate(['id' => "aor-{$id}"], ['contact' => $serverUri, 'qualify_frequency' => 60]);
-            PsEndpointIdIp::query()->updateOrCreate(['id' => "ip-{$id}"], ['endpoint' => $id, 'match' => $ip]);
+            // Loopback bilan tanib bo'lmaydi: nginx WebRTC (/ws) ulanishlarini ham 127.0.0.1 dan proksi qiladi —
+            // aks holda operator/haydovchi ro'yxatdan o'tishi shu trunkka tushib qoladi
+            if (filter_var($ip, FILTER_VALIDATE_IP) && ! str_starts_with($ip, '127.')) {
+                PsEndpointIdIp::query()->updateOrCreate(['id' => "ip-{$id}"], ['endpoint' => $id, 'match' => $ip]);
+            } else {
+                PsEndpointIdIp::query()->whereKey("ip-{$id}")->delete();
+            }
             PsEndpoint::query()->updateOrCreate(['id' => $id], [
                 'transport' => $trunk->transport,
                 'aors' => "aor-{$id}",

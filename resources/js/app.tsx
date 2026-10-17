@@ -7,8 +7,18 @@ import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { configureEcho } from '@laravel/echo-react';
 
+// Reverb panel bilan bir xil manzil orqali (nginx /app → Reverb): har firma domenida, http/https'da sozlamasiz ishlaydi
+const secure = window.location.protocol === 'https:';
+const port = Number(window.location.port) || (secure ? 443 : 80);
+
 configureEcho({
     broadcaster: 'reverb',
+    key: import.meta.env.VITE_REVERB_APP_KEY,
+    wsHost: window.location.hostname,
+    wsPort: port,
+    wssPort: port,
+    forceTLS: secure,
+    enabledTransports: ['ws', 'wss'],
 });
 
 const appName = import.meta.env.VITE_APP_NAME || 'ibTaxi';

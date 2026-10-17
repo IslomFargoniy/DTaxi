@@ -53,7 +53,9 @@ class CallCenter
         try {
             match (data_get($event, 'type')) {
                 'StasisStart' => $this->onStasisStart($event),
-                'ChannelDestroyed' => $this->onChannelDestroyed((string) data_get($event, 'channel.id'), (int) data_get($event, 'cause', 0)),
+                // Dialplan orqali kirgan kanal uchun faqat StasisEnd keladi, javob bermagan chiquvchi kanal uchun — ChannelDestroyed.
+                // Ikkalasi ham "kanal tugadi"; ikkinchisi idempotent tarzda e'tiborsiz qoladi.
+                'StasisEnd', 'ChannelDestroyed' => $this->onChannelDestroyed((string) data_get($event, 'channel.id'), (int) data_get($event, 'cause', 0)),
                 'PlaybackFinished' => $this->onPlaybackFinished((string) data_get($event, 'playback.id')),
                 'ChannelDtmfReceived' => $this->onDtmf((string) data_get($event, 'channel.id'), (string) data_get($event, 'digit', '')),
                 default => null,

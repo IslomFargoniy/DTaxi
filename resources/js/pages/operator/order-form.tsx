@@ -13,6 +13,7 @@ import { client as lookupClient } from '@/routes/operator/lookup';
 import type { Branch, ClientCard, TariffClass } from '@/types/operator';
 import { PlacePicker } from './place-picker';
 import type { PickedPlace } from './place-picker';
+import type { CallCard } from './softphone';
 
 const emptyPlace: PickedPlace = {
     text: '',
@@ -31,6 +32,8 @@ type Props = {
     /** Xaritada bosilgan nuqta — tanlash rejimidagi maydonga yoziladi */
     mapClick: { lat: number; lng: number; seq: number } | null;
     onPlacesChange: (pickup: PickedPlace, dropoff: PickedPlace) => void;
+    /** Kiruvchi qo'ng'iroq kartochkasi — telefon va filial avtomatik to'ldiriladi */
+    incoming?: CallCard | null;
 };
 
 /**
@@ -43,6 +46,7 @@ export function OrderForm({
     setPicking,
     mapClick,
     onPlacesChange,
+    incoming,
 }: Props) {
     const { t } = useTrans();
     const phoneRef = useRef<HTMLInputElement>(null);
@@ -53,6 +57,7 @@ export function OrderForm({
     const form = useForm({
         branch_id: branches[0]?.id ?? 0,
         phone: '',
+        call_id: null as number | null,
         client_name: '',
         tariff_class_id: 0,
         comment: '',
@@ -107,23 +112,47 @@ export function OrderForm({
         return () => window.removeEventListener('keydown', onKey);
     }, []);
 
-    const lookup = () => {
-        if (form.data.phone.replace(/\D/g, '').length < 9) {
+    const lookup = (phone: string = form.data.phone) => {
+        if (phone.replace(/\D/g, '').length < 9) {
             setCard(null);
 
             return;
         }
-        getJson<ClientCard>(
-            lookupClient.url({ query: { phone: form.data.phone } }),
-        )
+        getJson<ClientCard>(lookupClient.url({ query: { phone } }))
             .then((result) => {
                 setCard(result);
-                if (result.client?.name && !form.data.client_name) {
-                    form.setData('client_name', result.client.name);
+                if (result.client?.name) {
+                    form.setData((data) =>
+                        data.client_name
+                            ? data
+                            : { ...data, client_name: result.client!.name! },
+                    );
                 }
             })
             .catch(() => setCard(null));
     };
+
+    // Kiruvchi qo'ng'iroq: forma mijoz raqami va filial bilan ochiladi
+    useEffect(() => {
+        if (!incoming || incoming.kind !== 'client' || !incoming.phone) {
+            return;
+        }
+        const phone = incoming.phone;
+        const branchId = branches.some((b) => b.id === incoming.branch_id)
+            ? (incoming.branch_id as number)
+            : form.data.branch_id;
+        form.setData((data) => ({
+            ...data,
+            phone,
+            client_name: incoming.client?.name ?? '',
+            branch_id: branchId,
+            call_id: incoming.call_id,
+        }));
+        setPickup(emptyPlace);
+        setDropoff(emptyPlace);
+        lookup(phone);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [incoming?.call_id]);
 
     const reset = () => {
         form.reset();
@@ -188,7 +217,7 @@ export function OrderForm({
                         placeholder="90 123 45 67"
                         value={form.data.phone}
                         onChange={(e) => form.setData('phone', e.target.value)}
-                        onBlur={lookup}
+                        onBlur={() => lookup()}
                     />
                     <InputError message={errors.phone} />
                 </div>

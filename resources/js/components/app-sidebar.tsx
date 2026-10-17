@@ -8,8 +8,11 @@ import {
     Headset,
     LayoutGrid,
     MapPin,
+    AudioLines,
+    PhoneCall,
     PlugZap,
     Receipt,
+    Waypoints,
     Settings2,
     Users,
     UserRound,
@@ -30,6 +33,7 @@ import {
 import { useCan } from '@/hooks/use-can';
 import { dashboard } from '@/routes';
 import { index as branches } from '@/routes/admin/branches';
+import { index as calls } from '@/routes/admin/calls';
 import { index as clients } from '@/routes/admin/clients';
 import { edit as companySettings } from '@/routes/admin/company-settings';
 import { index as driverApp } from '@/routes/admin/driver-app';
@@ -37,8 +41,10 @@ import { index as drivers } from '@/routes/admin/drivers';
 import { index as integrations } from '@/routes/admin/integrations';
 import { index as landmarks } from '@/routes/admin/landmarks';
 import { index as orders } from '@/routes/admin/orders';
+import { index as sounds } from '@/routes/admin/sounds';
 import { index as staff } from '@/routes/admin/staff';
 import { index as tariffs } from '@/routes/admin/tariffs';
+import { index as telephony } from '@/routes/admin/telephony';
 import { index as cashier } from '@/routes/cashier';
 import { index as operator } from '@/routes/operator';
 import type { NavItem } from '@/types';
@@ -79,6 +85,9 @@ export function AppSidebar() {
         ...(can('users.manage')
             ? [{ title: 'Staff', href: staff(), icon: Users }]
             : []),
+        ...(can('calls.listen')
+            ? [{ title: 'Calls', href: calls(), icon: PhoneCall }]
+            : []),
     ];
     const system: NavItem[] = hasRole('superadmin')
         ? [
@@ -89,6 +98,8 @@ export function AppSidebar() {
                   icon: Settings2,
               },
               { title: 'Integrations', href: integrations(), icon: PlugZap },
+              { title: 'Telephony', href: telephony(), icon: Waypoints },
+              { title: 'Voice clips', href: sounds(), icon: AudioLines },
               { title: 'Driver app', href: driverApp(), icon: Smartphone },
               { title: 'Queues', href: '/horizon', icon: BarChart3 },
           ]

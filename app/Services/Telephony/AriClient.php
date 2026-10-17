@@ -127,15 +127,29 @@ class AriClient
      */
     public function onlineEndpoints(): array
     {
+        return array_keys(array_filter($this->endpointStates(), fn (string $state) => $state === 'online'));
+    }
+
+    /**
+     * PJSIP endpointlar holati: resource => online | offline | unknown (trunk holati paneli uchun ham).
+     *
+     * @return array<string, string>
+     */
+    public function endpointStates(): array
+    {
         $response = $this->http()->get('endpoints/PJSIP');
         if (! $response->successful()) {
             return [];
         }
 
-        return array_values(array_map(
-            fn (array $e) => (string) $e['resource'],
-            array_filter((array) $response->json(), fn ($e) => is_array($e) && ($e['state'] ?? null) === 'online'),
-        ));
+        $states = [];
+        foreach ((array) $response->json() as $endpoint) {
+            if (is_array($endpoint) && isset($endpoint['resource'])) {
+                $states[(string) $endpoint['resource']] = (string) ($endpoint['state'] ?? 'unknown');
+            }
+        }
+
+        return $states;
     }
 
     /**

@@ -1,14 +1,17 @@
 <?php
 
 use App\Http\Controllers\Admin\BranchController;
+use App\Http\Controllers\Admin\CallController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\CompanySettingsController;
 use App\Http\Controllers\Admin\DriverController;
 use App\Http\Controllers\Admin\IntegrationController;
 use App\Http\Controllers\Admin\LandmarkController;
 use App\Http\Controllers\Admin\OrderHistoryController;
+use App\Http\Controllers\Admin\SoundController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\TariffController;
+use App\Http\Controllers\Admin\TelephonyController;
 use App\Http\Controllers\Cashier\CashierController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DriverAppController;
@@ -56,6 +59,23 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('admin')->name('admin.')-
     Route::put('branches/{branch}', [BranchController::class, 'update'])->name('branches.update');
     Route::get('regions/{region}/children', [BranchController::class, 'children'])->name('regions.children');
 
+    // Telefoniya (§5.5)
+    Route::get('telephony', [TelephonyController::class, 'index'])->name('telephony.index');
+    Route::post('telephony/trunks', [TelephonyController::class, 'storeTrunk'])->name('telephony.trunks.store');
+    Route::put('telephony/trunks/{trunk}', [TelephonyController::class, 'updateTrunk'])->name('telephony.trunks.update');
+    Route::delete('telephony/trunks/{trunk}', [TelephonyController::class, 'destroyTrunk'])->name('telephony.trunks.destroy');
+    Route::post('telephony/numbers', [TelephonyController::class, 'storeNumber'])->name('telephony.numbers.store');
+    Route::put('telephony/numbers/{number}', [TelephonyController::class, 'updateNumber'])->name('telephony.numbers.update');
+    Route::delete('telephony/numbers/{number}', [TelephonyController::class, 'destroyNumber'])->name('telephony.numbers.destroy');
+    Route::put('telephony/limits', [TelephonyController::class, 'updateLimits'])->name('telephony.limits.update');
+    Route::put('telephony/settings', [TelephonyController::class, 'updateSettings'])->name('telephony.settings.update');
+
+    Route::get('sounds', [SoundController::class, 'index'])->name('sounds.index');
+    Route::post('sounds/generate', [SoundController::class, 'generate'])->name('sounds.generate');
+    Route::post('sounds/generate-missing', [SoundController::class, 'generateMissing'])->name('sounds.generate-missing');
+    Route::post('sounds/upload', [SoundController::class, 'upload'])->name('sounds.upload');
+    Route::get('sounds/{clip}/play', [SoundController::class, 'play'])->name('sounds.play');
+
     Route::get('driver-app', [DriverAppController::class, 'admin'])->name('driver-app.index');
     Route::post('driver-app', [DriverAppController::class, 'publish'])->name('driver-app.publish');
 });
@@ -94,6 +114,11 @@ Route::middleware(['auth', 'permission:orders.view'])->prefix('admin')->name('ad
     Route::get('landmarks', [LandmarkController::class, 'index'])->name('landmarks.index');
     Route::put('landmarks/{landmark}', [LandmarkController::class, 'update'])->name('landmarks.update');
     Route::delete('landmarks/{landmark}', [LandmarkController::class, 'destroy'])->name('landmarks.destroy');
+});
+
+Route::middleware(['auth', 'permission:calls.listen'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('calls', [CallController::class, 'index'])->name('calls.index');
+    Route::get('calls/{call}/recording', [CallController::class, 'recording'])->name('calls.recording');
 });
 
 Route::middleware(['auth', 'permission:balance.topup'])->prefix('cashier')->name('cashier.')->group(function () {
