@@ -40,6 +40,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $duration_s
  * @property int|null $waiting_s
  * @property int|null $commission
+ * @property int|null $phone_number_id
  * @property int $search_radius_m
  * @property Carbon|null $searching_at
  * @property Carbon|null $assigned_at
@@ -57,7 +58,7 @@ use Illuminate\Support\Carbon;
  * @property-read OrderDelivery|null $delivery
  */
 #[Fillable([
-    'branch_id', 'client_id', 'operator_id', 'driver_id', 'vehicle_id', 'tariff_class_id', 'status', 'source',
+    'branch_id', 'client_id', 'operator_id', 'driver_id', 'vehicle_id', 'tariff_class_id', 'status', 'source', 'phone_number_id',
     'pickup_text', 'pickup_location', 'pickup_landmark_id', 'dropoff_text', 'dropoff_location', 'comment',
     'tariff_snapshot', 'price_estimate', 'price_final', 'price_breakdown', 'distance_m', 'duration_s',
     'waiting_s', 'commission', 'search_radius_m', 'searching_at', 'assigned_at', 'arrived_at', 'started_at',

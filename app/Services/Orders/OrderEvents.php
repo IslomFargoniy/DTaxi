@@ -6,6 +6,7 @@ use App\Events\OrderUpdated;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\User;
+use App\Services\Telephony\ClientNotifier;
 
 /**
  * Buyurtma tarixiga yozish va panel/ilovaga xabar berish — har bir o'zgarishda birga.
@@ -28,5 +29,8 @@ class OrderEvents
         if ($broadcast) {
             OrderUpdated::dispatch($order);
         }
+
+        // Mijozga ovozli xabar (§5.4)
+        app(ClientNotifier::class)->onOrderEvent($order, $type);
     }
 }

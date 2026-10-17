@@ -40,6 +40,8 @@ class StoreOrderRequest extends FormRequest
             'delivery.recipient_name' => ['nullable', 'string', 'max:100'],
             'delivery.recipient_phone' => ['nullable', 'string', 'max:20'],
             'delivery.description' => ['nullable', 'string', 'max:500'],
+            // Buyurtma qaysi qo'ng'iroqdan yaratildi (pop-up orqali) — yozuv va raqam statistikasi uchun
+            'call_id' => ['nullable', 'integer', Rule::exists('calls', 'id')],
         ];
     }
 

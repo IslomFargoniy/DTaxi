@@ -26,6 +26,10 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $phone
  * @property string $locale
  * @property bool $is_active
+ * @property string|null $sip_extension
+ * @property string|null $sip_password
+ * @property string $operator_status
+ * @property Carbon|null $operator_status_at
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -36,7 +40,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property Carbon|null $updated_at
  */
 #[Fillable(['name', 'email', 'phone', 'password', 'branch_id', 'locale', 'is_active'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
+#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'sip_password'])]
 class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
@@ -54,6 +58,8 @@ class User extends Authenticatable implements PasskeyUser
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
             'is_active' => 'boolean',
+            'sip_password' => 'encrypted',
+            'operator_status_at' => 'datetime',
         ];
     }
 

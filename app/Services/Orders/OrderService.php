@@ -52,6 +52,7 @@ class OrderService
      *     comment?: string|null,
      *     delivery?: array<string, string|null>|null,
      *     source?: OrderSource|null,
+     *     phone_number_id?: int|null,
      * }  $data
      */
     public function create(array $data, ?User $operator = null, bool $dispatch = true): Order
@@ -86,6 +87,7 @@ class OrderService
                 'tariff_class_id' => $tariffClass->id,
                 'status' => OrderStatus::New,
                 'source' => $data['source'] ?? OrderSource::Phone,
+                'phone_number_id' => $data['phone_number_id'] ?? null,
                 'pickup_text' => $data['pickup_text'],
                 'pickup_location' => $pickup,
                 'pickup_landmark_id' => $data['pickup_landmark_id'] ?? null,

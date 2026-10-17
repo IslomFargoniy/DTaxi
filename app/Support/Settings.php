@@ -23,6 +23,15 @@ class Settings
         'drivers.min_balance' => 5000,
         'tariffs.rounding_step' => 500,
         'calls.recordings_retention_days' => 90,
+        // Qo'ng'iroq markazi (§5): kutish, operator jiringlashi
+        'calls.max_wait_seconds' => 180,
+        'calls.operator_ring_seconds' => 20,
+        'calls.pause_on_missed_ring' => true,
+        // Avto-qo'ng'iroqlar (§5.4)
+        'calls.auto_calls_enabled' => true,
+        'calls.auto_call_attempts' => 3,
+        'calls.auto_call_retry_seconds' => 30,
+        'calls.still_waiting_minutes' => 3,
         // Efir (qaror #28)
         'dispatch.radius_steps_m' => [3000, 5000, 8000],
         'dispatch.step_seconds' => 20,

@@ -18,6 +18,7 @@ use App\Http\Controllers\Operator\ChatController;
 use App\Http\Controllers\Operator\LookupController;
 use App\Http\Controllers\Operator\OperatorController;
 use App\Http\Controllers\Operator\OrderController;
+use App\Http\Controllers\Operator\PhoneController;
 use App\Models\ChatMessage;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -112,6 +113,10 @@ Route::middleware(['auth', 'permission:orders.manage'])->prefix('operator')->nam
     Route::get('lookup/client', [LookupController::class, 'client'])->name('lookup.client');
     Route::get('lookup/landmarks', [LookupController::class, 'landmarks'])->name('lookup.landmarks');
     Route::post('landmarks', [LookupController::class, 'storeLandmark'])->name('landmarks.store');
+
+    Route::get('phone', [PhoneController::class, 'show'])->name('phone.show');
+    Route::post('phone/status', [PhoneController::class, 'status'])->name('phone.status');
+    Route::get('phone/missed', [PhoneController::class, 'missed'])->name('phone.missed');
 
     Route::get('chat', [ChatController::class, 'threads'])->name('chat.threads');
     Route::get('chat/{driver}', [ChatController::class, 'messages'])->name('chat.messages');

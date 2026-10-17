@@ -195,7 +195,7 @@ return [
     'defaults' => [
         'supervisor-1' => [
             'connection' => 'redis',
-            'queue' => ['dispatch', 'push', 'default'],
+            'queue' => ['dispatch', 'calls', 'push', 'default'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 1,

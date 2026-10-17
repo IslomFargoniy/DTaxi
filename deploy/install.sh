@@ -77,10 +77,60 @@ fi
 
 systemctl restart postgresql redis-server "php${PHP_VERSION}-fpm"
 
+log "Telefoniya: Asterisk (PJSIP Realtime, ARI, WebRTC)"
+apt install -y -q asterisk asterisk-modules unixodbc odbc-postgresql ffmpeg openssl
+ARI_PASSWORD="$(grep -s '^ASTERISK_ARI_PASSWORD=' "${APP_DIR}/.env" | cut -d= -f2 || true)"
+[[ -z "$ARI_PASSWORD" ]] && ARI_PASSWORD="$(openssl rand -hex 16)"
+PUBLIC_IP="${PUBLIC_IP:-$(hostname -I | awk '{print $1}')}"
+for f in "${APP_DIR}"/deploy/asterisk/*.conf; do
+    name="$(basename "$f")"
+    sed -e "s|{{DB_NAME}}|${DB_NAME}|g" -e "s|{{DB_USER}}|${DB_USER}|g" -e "s|{{DB_PASS}}|${DB_PASS}|g" \
+        -e "s|{{ARI_PASSWORD}}|${ARI_PASSWORD}|g" -e "s|{{PUBLIC_IP}}|${PUBLIC_IP}|g" \
+        -e "s|{{LOCAL_NET}}|${LOCAL_NET:-192.168.0.0/16}|g" -e "s|{{STUN}}|${STUN:-stun.l.google.com:19302}|g" \
+        "$f" > "/etc/asterisk/${name}"
+done
+sed -e "s|{{DB_NAME}}|${DB_NAME}|g" -e "s|{{DB_USER}}|${DB_USER}|g" -e "s|{{DB_PASS}}|${DB_PASS}|g" \
+    "${APP_DIR}/deploy/asterisk/odbc.ini" > /etc/odbc.ini
+# WebRTC media shifrlash (DTLS) sertifikati — o'z-o'zidan imzolangan yetarli (barmoq izi orqali tekshiriladi)
+mkdir -p /etc/asterisk/keys
+if [[ ! -f /etc/asterisk/keys/asterisk.pem ]]; then
+    openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=ibtaxi" \
+        -keyout /etc/asterisk/keys/asterisk.key -out /etc/asterisk/keys/asterisk.crt 2>/dev/null
+    cat /etc/asterisk/keys/asterisk.key /etc/asterisk/keys/asterisk.crt > /etc/asterisk/keys/asterisk.pem
+fi
+chown -R asterisk:asterisk /etc/asterisk
+# Asterisk ovozli bo'laklarni o'qiydi, ilova esa yozuvlarni (recording) o'qiydi
+usermod -aG "${APP_USER}" asterisk
+usermod -aG asterisk "${APP_USER}"
+mkdir -p "${APP_DIR}/storage/app/private/sounds/uz" /var/spool/asterisk/recording
+chmod 2775 /var/spool/asterisk/recording
+ln -sfn "${APP_DIR}/storage/app/private/sounds/uz" /usr/share/asterisk/sounds/ibtaxi
+# Asterisk ovozi uzilmasligi uchun yuqori ustuvorlik (reja §9)
+mkdir -p /etc/systemd/system/asterisk.service.d
+printf '[Service]\nNice=-10\n' > /etc/systemd/system/asterisk.service.d/priority.conf
+systemctl daemon-reload
+systemctl enable asterisk
+systemctl restart asterisk
+if ! grep -q '^ASTERISK_ARI_PASSWORD=' "${APP_DIR}/.env" 2>/dev/null; then
+    printf '\nASTERISK_ARI_URL=http://127.0.0.1:8088\nASTERISK_ARI_USER=ibtaxi\nASTERISK_ARI_PASSWORD=%s\n' "$ARI_PASSWORD" >> "${APP_DIR}/.env"
+fi
+
+if [[ "$MODE" == "--dev" ]]; then
+    log "Dev: https (o'z-o'zidan imzolangan) — brauzer mikrofoni faqat https'da ishlaydi"
+    if [[ ! -f /etc/ssl/ibtaxi-dev.crt ]]; then
+        openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=${PUBLIC_IP}" \
+            -addext "subjectAltName=IP:${PUBLIC_IP}" \
+            -keyout /etc/ssl/ibtaxi-dev.key -out /etc/ssl/ibtaxi-dev.crt 2>/dev/null
+    fi
+fi
+
 log "Nginx"
+DEV_TLS=""
+[[ "$MODE" == "--dev" ]] && DEV_TLS="listen 443 ssl default_server; ssl_certificate /etc/ssl/ibtaxi-dev.crt; ssl_certificate_key /etc/ssl/ibtaxi-dev.key;"
 cat > /etc/nginx/sites-available/ibtaxi <<NGINX
 server {
     listen 80 default_server;
+    ${DEV_TLS}
     server_name _;
     root ${APP_DIR}/public;
     index index.php;
@@ -106,6 +156,16 @@ server {
         proxy_set_header Connection "Upgrade";
         proxy_read_timeout 120s;
         proxy_pass http://127.0.0.1:8080;
+    }
+
+    # WebRTC SIP (operator brauzeri, haydovchi ilovasi) → Asterisk WebSocket
+    location /ws {
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host \$host;
+        proxy_read_timeout 3600s;
+        proxy_pass http://127.0.0.1:8088/ws;
     }
 
     # Xarita tile'lari: katta fayl, Range so'rovlari bilan qismlab beriladi
@@ -146,6 +206,16 @@ autorestart=true
 stopwaitsecs=60
 redirect_stderr=true
 stdout_logfile=/var/log/ibtaxi-horizon.log
+
+[program:ibtaxi-ari]
+command=php ${APP_DIR}/artisan ari:listen
+user=${APP_USER}
+autostart=true
+autorestart=true
+startsecs=3
+stopwaitsecs=10
+redirect_stderr=true
+stdout_logfile=/var/log/ibtaxi-ari.log
 SUPERVISOR
 echo "* * * * * ${APP_USER} php ${APP_DIR}/artisan schedule:run >> /dev/null 2>&1" > /etc/cron.d/ibtaxi
 supervisorctl reread

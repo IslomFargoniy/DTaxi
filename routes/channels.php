@@ -13,3 +13,9 @@ Broadcast::channel('branch.{branchId}', function (User $user, int $branchId) {
 Broadcast::channel('driver.{driverId}', function (User $user, int $driverId) {
     return Driver::query()->withoutGlobalScopes()->whereKey($driverId)->where('user_id', $user->id)->exists();
 });
+
+// Operatorning shaxsiy kanali: kiruvchi qo'ng'iroq pop-up, holat
+Broadcast::channel('user.{userId}', fn (User $user, int $userId) => $user->id === $userId);
+
+// Filialsiz qo'ng'iroqlar (raqam hali filialga bog'lanmagan) — superadmin monitoringi
+Broadcast::channel('telephony', fn (User $user) => $user->isSuperadmin());

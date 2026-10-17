@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Operator;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Operator\StoreOrderRequest;
+use App\Models\Call;
 use App\Models\Driver;
 use App\Models\Order;
 use App\Models\User;
@@ -22,7 +23,9 @@ class OrderController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $order = $this->orders->create($request->orderData(), $user);
+        $call = $request->filled('call_id') ? Call::query()->find($request->integer('call_id')) : null;
+        $order = $this->orders->create([...$request->orderData(), 'phone_number_id' => $call?->phone_number_id], $user);
+        $call?->forceFill(['order_id' => $order->id])->save();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Order #:id created.', ['id' => $order->id])]);
 
