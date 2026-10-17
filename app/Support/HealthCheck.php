@@ -64,6 +64,10 @@ class HealthCheck
             $problems['backup'] = 'No database backup in the last 24 hours';
         }
 
+        if (Cache::get('backup.upload_error')) {
+            $problems['backup_upload'] = 'Backup was not copied to the backup server';
+        }
+
         $this->notifyChanges($problems);
         Cache::forever(self::CACHE_KEY, $problems);
 

@@ -479,5 +479,7 @@
     "Employee": "Xodim",
     "Action": "Amal",
     "Object": "Obyekt",
-    "Changes": "O'zgarishlar"
+    "Changes": "O'zgarishlar",
+    "Backup was not copied to the backup server": "Zaxira nusxasi zaxira serveriga yuborilmadi",
+    "Folder": "Papka"
 }

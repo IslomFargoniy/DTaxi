@@ -79,6 +79,19 @@ Artisan::command('ibtaxi:backup {--keep=14 : Necha kunlik zaxira saqlanadi}', fu
     $file = $backup->create();
     $pruned = $backup->prune((int) $this->option('keep'));
     $this->info("Zaxira: {$file} (o'chirildi: {$pruned} ta eski)");
+
+    try {
+        if ($backup->upload($file)) {
+            $this->info('Zaxira serveriga yuborildi.');
+        }
+    } catch (Throwable $e) {
+        // Mahalliy zaxira baribir bor; monitoring (ibtaxi:health) ogohlantiradi
+        Cache::forever('backup.upload_error', $e->getMessage());
+        $this->error('Zaxira serveriga yuborilmadi: '.$e->getMessage());
+
+        return;
+    }
+    Cache::forget('backup.upload_error');
 })->purpose('Bazaning zaxira nusxasi (pg_dump)');
 
 Artisan::command('ari:restart', function () {

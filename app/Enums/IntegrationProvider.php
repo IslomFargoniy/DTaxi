@@ -12,6 +12,7 @@ enum IntegrationProvider: string
     case SpeechKit = 'speechkit';
     case Firebase = 'firebase';
     case Telegram = 'telegram';
+    case BackupServer = 'backup_server';
 
     public function label(): string
     {
@@ -21,6 +22,7 @@ enum IntegrationProvider: string
             self::SpeechKit => 'Yandex SpeechKit',
             self::Firebase => 'Firebase (FCM)',
             self::Telegram => 'Telegram (ogohlantirishlar)',
+            self::BackupServer => 'Zaxira serveri (SFTP)',
         };
     }
 
@@ -55,6 +57,14 @@ enum IntegrationProvider: string
             self::Telegram => [
                 ['key' => 'bot_token', 'label' => 'Bot token', 'secret' => true],
                 ['key' => 'chat_id', 'label' => 'Chat ID', 'secret' => false],
+            ],
+            // Kunlik baza zaxirasi nusxasi boshqa serverga (server ishdan chiqsa ham ma'lumot saqlanadi)
+            self::BackupServer => [
+                ['key' => 'host', 'label' => 'Host', 'secret' => false],
+                ['key' => 'port', 'label' => 'Port', 'secret' => false],
+                ['key' => 'username', 'label' => 'Login', 'secret' => false],
+                ['key' => 'password', 'label' => 'Password', 'secret' => true],
+                ['key' => 'path', 'label' => 'Folder', 'secret' => false],
             ],
         };
     }

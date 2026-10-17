@@ -2,8 +2,11 @@
 
 namespace App\Support;
 
+use App\Enums\IntegrationProvider;
+use App\Models\Integration;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 /**
@@ -29,6 +32,40 @@ class Backup
         }
 
         return $file;
+    }
+
+    /**
+     * Zaxira nusxasini firmaning boshqa serveriga (SFTP) yuborish; sozlanmagan bo'lsa — false.
+     */
+    public function upload(string $file): bool
+    {
+        $host = Integration::credential(IntegrationProvider::BackupServer, 'host');
+        if (! $host) {
+            return false;
+        }
+
+        $disk = Storage::build([
+            'driver' => 'sftp',
+            'host' => $host,
+            'port' => (int) (Integration::credential(IntegrationProvider::BackupServer, 'port') ?: 22),
+            'username' => (string) Integration::credential(IntegrationProvider::BackupServer, 'username'),
+            'password' => (string) Integration::credential(IntegrationProvider::BackupServer, 'password'),
+            'root' => (string) (Integration::credential(IntegrationProvider::BackupServer, 'path') ?: '/'),
+            'timeout' => 30,
+            'throw' => true,
+        ]);
+
+        $stream = fopen($file, 'r');
+        if ($stream === false) {
+            throw new RuntimeException("Faylni o'qib bo'lmadi: {$file}");
+        }
+        try {
+            return $disk->writeStream(basename($file), $stream);
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
     }
 
     public function restore(string $file): void
