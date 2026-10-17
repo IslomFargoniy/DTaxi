@@ -52,7 +52,7 @@ test('superadmin links a number to branches with IVR digits', function () {
 
 test('superadmin changes call center settings and branch limits', function () {
     $this->actingAs($this->superadmin)->put(route('admin.telephony.settings.update'), [
-        'calls_max_wait_seconds' => 120, 'calls_operator_ring_seconds' => 15, 'calls_pause_on_missed_ring' => false,
+        'calls_max_wait_seconds' => 120, 'calls_operator_ring_seconds' => 15, 'calls_pause_on_missed_ring' => false, 'calls_ivr_auto_order' => true,
         'calls_auto_calls_enabled' => true, 'calls_auto_call_attempts' => 2, 'calls_auto_call_retry_seconds' => 60,
         'calls_still_waiting_minutes' => 0, 'calls_recordings_retention_days' => 30,
     ])->assertSessionHasNoErrors();
