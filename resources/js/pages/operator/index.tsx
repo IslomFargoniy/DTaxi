@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { useEcho } from '@laravel/echo-react';
 import { Marker } from 'maplibre-gl';
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
@@ -7,6 +7,7 @@ import { TaxiMap } from '@/components/map/taxi-map';
 import { useTrans } from '@/hooks/use-trans';
 import { index } from '@/routes/operator';
 import type { Branch, MapDriver, Order, TariffClass } from '@/types/operator';
+import { ChatPanel } from './chat-panel';
 import { OrderForm } from './order-form';
 import type { PickTarget } from './order-form';
 import { OrdersList } from './orders-list';
@@ -91,6 +92,7 @@ export default function OperatorIndex({
     map: mapConfig,
 }: Props) {
     const { t } = useTrans();
+    const { auth } = usePage<{ auth: { user: { id: number } } }>().props;
     const [orders, setOrders] = useState<Order[]>(initialOrders);
     const [drivers, setDrivers] = useState<MapDriver[]>(initialDrivers);
     const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -232,9 +234,15 @@ export default function OperatorIndex({
             ))}
             <div className="grid h-[calc(100svh-4rem)] grid-cols-1 gap-3 p-3 lg:grid-cols-[320px_1fr_380px]">
                 <section className="order-2 overflow-auto lg:order-1">
-                    <h2 className="mb-2 text-sm font-semibold">
-                        {t('Active orders')} ({orders.length})
-                    </h2>
+                    <div className="mb-2 flex items-center justify-between">
+                        <h2 className="text-sm font-semibold">
+                            {t('Active orders')} ({orders.length})
+                        </h2>
+                        <ChatPanel
+                            branchIds={branches.map((b) => b.id)}
+                            userId={auth.user.id}
+                        />
+                    </div>
                     <OrdersList
                         orders={orders}
                         drivers={drivers}

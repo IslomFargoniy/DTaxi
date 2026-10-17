@@ -5,34 +5,9 @@ import OrderController from '@/actions/App/Http/Controllers/Operator/OrderContro
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTrans } from '@/hooks/use-trans';
+import { orderStatusColor, orderStatusLabel } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
-import type { MapDriver, Order, OrderStatus } from '@/types/operator';
-
-const statusStyle: Record<OrderStatus, string> = {
-    new: 'bg-slate-500',
-    searching: 'bg-amber-500',
-    assigned: 'bg-blue-600',
-    arrived: 'bg-violet-600',
-    in_progress: 'bg-emerald-600',
-    completed: 'bg-emerald-800',
-    cancelled_by_client: 'bg-zinc-500',
-    cancelled_by_operator: 'bg-zinc-500',
-    cancelled_by_driver: 'bg-zinc-500',
-    no_driver_found: 'bg-red-600',
-};
-
-const statusLabel: Record<OrderStatus, string> = {
-    new: 'New',
-    searching: 'Searching',
-    assigned: 'Driver assigned',
-    arrived: 'Driver arrived',
-    in_progress: 'On the way',
-    completed: 'Completed',
-    cancelled_by_client: 'Cancelled by client',
-    cancelled_by_operator: 'Cancelled',
-    cancelled_by_driver: 'Cancelled by driver',
-    no_driver_found: 'No driver found',
-};
+import type { MapDriver, Order } from '@/types/operator';
 
 /** Buyurtma yaratilganidan beri o'tgan vaqt (mm:ss) — operator kutish vaqtini ko'radi */
 function useElapsed(since: string): string {
@@ -89,8 +64,10 @@ function OrderRow({
         >
             <div className="flex items-center justify-between gap-2">
                 <span className="font-medium">#{order.id}</span>
-                <Badge className={cn('text-white', statusStyle[order.status])}>
-                    {t(statusLabel[order.status])}
+                <Badge
+                    className={cn('text-white', orderStatusColor[order.status])}
+                >
+                    {t(orderStatusLabel[order.status])}
                 </Badge>
                 <span className="ml-auto font-mono text-xs text-muted-foreground">
                     {elapsed}

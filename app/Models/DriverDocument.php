@@ -7,6 +7,7 @@ use App\Enums\DocumentType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * Haydovchi hujjatlari: prava, tex-pasport, mashina rasmlari.
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property DocumentType $type
  * @property string $file_path
  * @property DocumentStatus $status
+ * @property Carbon|null $expires_at
  */
 #[Fillable(['driver_id', 'type', 'file_path', 'expires_at', 'status'])]
 class DriverDocument extends Model

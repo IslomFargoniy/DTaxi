@@ -34,4 +34,12 @@ class OrderEvent extends Model
     {
         return $this->belongsTo(Order::class);
     }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function actor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'actor_id');
+    }
 }
