@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\Role;
 use App\Models\Branch;
+use App\Models\Region;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -20,6 +21,13 @@ class DatabaseSeeder extends Seeder
         $this->call(RolesSeeder::class);
 
         $branch = Branch::query()->firstOrCreate(['name' => "Farg'ona"], ['service_name' => 'ibTaxi']);
+
+        // Hududlar import qilingan bo'lsa — filial hududi Farg'ona shahridan (qaror #31)
+        $city = Region::query()->where('name_uz', 'like', 'Farg%shahri')->first();
+        if ($city && ! $branch->region_id) {
+            $branch->fillAreaFromRegion($city);
+            $branch->save();
+        }
 
         $users = [
             ['Superadmin', 'admin@ibtaxi.test', Role::Superadmin],

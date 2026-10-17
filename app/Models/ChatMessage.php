@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $sender_id
  * @property string|null $body
  * @property string|null $attachment_path
+ * @property \Illuminate\Support\Carbon|null $read_at
+ * @property \Illuminate\Support\Carbon|null $created_at
  */
 #[Fillable(['driver_id', 'order_id', 'sender_id', 'body', 'attachment_path', 'read_at', 'created_at'])]
 class ChatMessage extends Model

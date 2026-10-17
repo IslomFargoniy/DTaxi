@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Building2, LayoutGrid, PlugZap } from 'lucide-react';
+import { Building2, Headset, LayoutGrid, PlugZap } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -16,6 +16,7 @@ import { useCan } from '@/hooks/use-can';
 import { dashboard } from '@/routes';
 import { edit as companySettings } from '@/routes/admin/company-settings';
 import { index as integrations } from '@/routes/admin/integrations';
+import { index as operator } from '@/routes/operator';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -40,7 +41,13 @@ const superadminNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
-    const { hasRole } = useCan();
+    const { can, hasRole } = useCan();
+    const items: NavItem[] = [
+        ...mainNavItems,
+        ...(can('orders.manage')
+            ? [{ title: 'Operator', href: operator(), icon: Headset }]
+            : []),
+    ];
 
     return (
         <Sidebar collapsible="icon" variant="inset">
@@ -57,7 +64,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={items} />
                 {hasRole('superadmin') && (
                     <NavMain
                         items={superadminNavItems}

@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $driver_id
  * @property string $reason
  * @property int $penalty_amount
+ * @property \Illuminate\Support\Carbon|null $created_at
  */
 #[Fillable(['order_id', 'driver_id', 'reason', 'penalty_amount', 'penalty_waived_by', 'created_at'])]
 class OrderCancellation extends Model

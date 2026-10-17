@@ -1,0 +1,114 @@
+<?php
+
+namespace App\Http\Controllers\Operator;
+
+use App\Http\Controllers\Controller;
+use App\Models\Client;
+use App\Models\ClientAddress;
+use App\Models\Landmark;
+use App\Models\Order;
+use App\Models\Region;
+use App\Models\User;
+use Clickbar\Magellan\Data\Geometries\Point;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+/**
+ * Operator formasi uchun tezkor so'rovlar: mijoz kartochkasi va mo'ljal qidiruvi.
+ */
+class LookupController extends Controller
+{
+    /**
+     * Qo'ng'iroq kelganda yoki raqam kiritilganda: mijoz, qora ro'yxat, oxirgi manzillar (reja §3, §10.1).
+     */
+    public function client(Request $request): JsonResponse
+    {
+        $phone = Client::normalizePhone($request->validate(['phone' => ['required', 'string', 'max:20']])['phone']);
+        $client = Client::query()->where('phone', $phone)->first();
+
+        if (! $client) {
+            return response()->json(['client' => null, 'addresses' => [], 'orders' => []]);
+        }
+
+        return response()->json([
+            'client' => [
+                'id' => $client->id,
+                'phone' => $client->phone,
+                'name' => $client->name,
+                'note' => $client->note,
+                'is_blacklisted' => $client->is_blacklisted,
+                'orders_count' => $client->orders_count,
+            ],
+            'addresses' => $client->addresses()->orderByDesc('last_used_at')->limit(5)->get()
+                ->map(fn (ClientAddress $a) => [
+                    'id' => $a->id,
+                    'label' => $a->label,
+                    'text' => $a->text,
+                    'landmark_id' => $a->landmark_id,
+                    'lat' => $a->location->getLatitude(),
+                    'lng' => $a->location->getLongitude(),
+                ]),
+            'orders' => $client->orders()->latest()->limit(5)->get()
+                ->map(fn (Order $o) => [
+                    'id' => $o->id,
+                    'status' => $o->status->value,
+                    'pickup_text' => $o->pickup_text,
+                    'dropoff_text' => $o->dropoff_text,
+                    'price_final' => $o->price_final,
+                    'created_at' => $o->created_at->toIso8601String(),
+                ]),
+        ]);
+    }
+
+    public function landmarks(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'q' => ['required', 'string', 'min:2', 'max:100'],
+            'lat' => ['nullable', 'numeric'],
+            'lng' => ['nullable', 'numeric'],
+        ]);
+
+        $landmarks = Landmark::query()->search($data['q'])->limit(10)->get();
+
+        return response()->json($landmarks->map(fn (Landmark $l) => [
+            'id' => $l->id,
+            'name' => $l->name,
+            'aliases' => $l->aliases,
+            'category' => $l->category,
+            'lat' => $l->location->getLatitude(),
+            'lng' => $l->location->getLongitude(),
+        ]));
+    }
+
+    /**
+     * Yangi mo'ljal: operator xaritada bir marta belgilaydi, keyingi safar qidiruvda chiqadi (reja §4).
+     */
+    public function storeLandmark(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'aliases' => ['nullable', 'array', 'max:10'],
+            'aliases.*' => ['string', 'max:150'],
+            'category' => ['nullable', 'string', 'max:32'],
+            'lat' => ['required', 'numeric', 'between:37,46'],
+            'lng' => ['required', 'numeric', 'between:55,74'],
+        ]);
+        /** @var User $user */
+        $user = $request->user();
+
+        $location = Point::makeGeodetic((float) $data['lat'], (float) $data['lng']);
+        $landmark = Landmark::query()->create([
+            'name' => $data['name'],
+            'aliases' => $data['aliases'] ?? [],
+            'category' => $data['category'] ?? null,
+            'location' => $location,
+            'region_id' => Region::query()
+                ->whereNotNull('parent_id')
+                ->whereRaw('ST_Covers(boundary, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography)', [$data['lng'], $data['lat']])
+                ->value('id'),
+            'created_by' => $user->id,
+        ]);
+
+        return response()->json(['id' => $landmark->id, 'name' => $landmark->name], 201);
+    }
+}

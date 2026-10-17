@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $amount
  * @property int $balance_after
  * @property string|null $comment
+ * @property \Illuminate\Support\Carbon|null $created_at
  */
 #[Fillable(['driver_id', 'order_id', 'cash_shift_id', 'type', 'source', 'amount', 'balance_after', 'created_by', 'comment', 'created_at'])]
 class DriverTransaction extends Model

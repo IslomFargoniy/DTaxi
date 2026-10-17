@@ -31,6 +31,9 @@ class DriverFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function (Driver $driver) {
+            // Haydovchining foydalanuvchisi ham o'z filialiga tegishli (filial chegarasi uchun)
+            $driver->user->forceFill(['branch_id' => $driver->branch_id])->save();
+
             if (class_exists(\Spatie\Permission\Models\Role::class) && \Spatie\Permission\Models\Role::query()->where('name', Role::Driver->value)->exists()) {
                 $driver->user->assignRole(Role::Driver);
             }

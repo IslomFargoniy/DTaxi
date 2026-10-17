@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $type
  * @property int|null $actor_id
  * @property array<string, mixed>|null $payload
+ * @property \Illuminate\Support\Carbon|null $created_at
  */
 #[Fillable(['order_id', 'type', 'actor_id', 'payload', 'created_at'])]
 class OrderEvent extends Model
