@@ -176,7 +176,7 @@ class CallCenter
         $this->ari->answer($channelId);
 
         // Ish vaqtidan tashqari (yoki bayram): xabar va yakun — "javobsiz" ro'yxatiga tushmaydi
-        if (! $this->anyOpen($ivr ? $branchIds : array_map('intval', (array) data_get($call->meta, 'branch_ids', [])))) {
+        if (! $this->anyOpen($ivr ? $branchIds : array_values(array_map('intval', (array) data_get($call->meta, 'branch_ids', []))))) {
             $call->forceFill(['status' => 'rejected'])->save();
             $this->updateMeta($call, ['reason' => 'closed']);
             $this->playFor($call, $channelId, $this->composer()->phrase('ivr', 'closed'), 'close');
