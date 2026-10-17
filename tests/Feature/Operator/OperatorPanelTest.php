@@ -11,6 +11,7 @@ use App\Models\Landmark;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Orders\OrderService;
+use Carbon\CarbonImmutable;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Support\Facades\Event;
@@ -111,4 +112,32 @@ test('operator cancels an order', function () {
         ->assertRedirect();
 
     expect($order->fresh()->status)->toBe(OrderStatus::CancelledByClient);
+});
+
+test('pre-order waits and goes on air shortly before its time', function () {
+    $driver = driverNear($this->branch, 400);
+    $local = now($this->branch->timezone)->addHours(2)->format('Y-m-d\TH:i');
+
+    $this->actingAs($this->operator)->post(route('operator.orders.store'), orderData($this->branch, ['scheduled_at' => $local]))
+        ->assertSessionHasNoErrors();
+
+    $order = Order::query()->sole();
+    expect($order->status)->toBe(OrderStatus::New)
+        ->and($order->scheduled_at->toDateTimeString())->toBe(CarbonImmutable::createFromFormat('Y-m-d\TH:i', $local, $this->branch->timezone)->utc()->toDateTimeString())
+        ->and($order->offers()->count())->toBe(0);
+
+    $this->travel(1)->hours();
+    expect(app(OrderService::class)->dispatchScheduled())->toBe(0);
+
+    $this->travel(50)->minutes();
+    $driver->forceFill(['last_seen_at' => now()])->save();
+    expect(app(OrderService::class)->dispatchScheduled())->toBe(1)
+        ->and($order->refresh()->status)->toBe(OrderStatus::Searching)
+        ->and($order->offers()->pluck('driver_id')->all())->toBe([$driver->id]);
+});
+
+test('pre-order time must be in the future', function () {
+    $this->actingAs($this->operator)->post(route('operator.orders.store'), orderData($this->branch, [
+        'scheduled_at' => now($this->branch->timezone)->subHour()->format('Y-m-d\TH:i'),
+    ]))->assertSessionHasErrors('scheduled_at');
 });

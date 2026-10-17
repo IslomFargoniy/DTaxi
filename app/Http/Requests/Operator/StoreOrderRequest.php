@@ -106,7 +106,7 @@ class StoreOrderRequest extends FormRequest
     }
 
     /**
-     * @return array<string, mixed>
+     * @return list<\Closure(Validator): void>
      */
     public function after(): array
     {

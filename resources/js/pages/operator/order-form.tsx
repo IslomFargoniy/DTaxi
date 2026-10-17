@@ -61,6 +61,7 @@ export function OrderForm({
         client_name: '',
         tariff_class_id: 0,
         comment: '',
+        scheduled_at: '',
         delivery: {
             sender_name: '',
             sender_phone: '',
@@ -363,6 +364,25 @@ export function OrderForm({
                 value={form.data.comment}
                 onChange={(e) => form.setData('comment', e.target.value)}
             />
+
+            {/* Oldindan buyurtma: bo'sh — hozir */}
+            <div className="grid gap-1">
+                <Label
+                    htmlFor="scheduled_at"
+                    className="text-xs font-normal text-muted-foreground"
+                >
+                    {t('Pre-order time (empty — now)')}
+                </Label>
+                <Input
+                    id="scheduled_at"
+                    type="datetime-local"
+                    value={form.data.scheduled_at}
+                    onChange={(e) =>
+                        form.setData('scheduled_at', e.target.value)
+                    }
+                />
+                <InputError message={errors.scheduled_at} />
+            </div>
 
             <div className="flex gap-2">
                 <Button

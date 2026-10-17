@@ -69,9 +69,24 @@ function OrderRow({
                 >
                     {t(orderStatusLabel[order.status])}
                 </Badge>
-                <span className="ml-auto font-mono text-xs text-muted-foreground">
-                    {elapsed}
-                </span>
+                {order.status === 'new' && order.scheduled_at ? (
+                    <span
+                        className="ml-auto text-xs font-medium text-amber-600"
+                        title={t('Pre-order')}
+                    >
+                        ⏰{' '}
+                        {new Date(order.scheduled_at).toLocaleString([], {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                        })}
+                    </span>
+                ) : (
+                    <span className="ml-auto font-mono text-xs text-muted-foreground">
+                        {elapsed}
+                    </span>
+                )}
             </div>
             <div className="mt-1 truncate">{order.pickup.text}</div>
             {order.dropoff?.text && (

@@ -199,7 +199,7 @@ class OrderService
             ->whereNotNull('scheduled_at')
             ->where('scheduled_at', '<=', now()->addMinutes(120))
             ->get()
-            ->filter(fn (Order $order) => $order->scheduled_at?->lte(now()->addMinutes($this->preorderLead($order))))
+            ->filter(fn (Order $order): bool => $order->scheduled_at !== null && $order->scheduled_at->lte(now()->addMinutes($this->preorderLead($order))))
             ->each(function (Order $order) use (&$count) {
                 $this->dispatcher->startSearch($order);
                 $count++;

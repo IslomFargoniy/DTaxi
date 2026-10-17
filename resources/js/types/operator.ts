@@ -36,6 +36,7 @@ export type Order = {
     price_final: number | null;
     search_radius_m: number;
     created_at: string;
+    scheduled_at?: string | null;
     assigned_at: string | null;
     arrived_at: string | null;
 };
