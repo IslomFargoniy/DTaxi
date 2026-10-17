@@ -6,13 +6,10 @@ use App\Enums\Role;
 use App\Models\Branch;
 use App\Models\Region;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Lokal ishlab chiqish uchun boshlang'ich ma'lumotlar. Production'da superadmin sozlash ustasida yaratiladi.
      */

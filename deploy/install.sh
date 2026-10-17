@@ -98,6 +98,22 @@ server {
         fastcgi_hide_header X-Powered-By;
     }
 
+    # Reverb (WebSocket): panel va haydovchi ilovasi bir xil domen orqali ulanadi
+    location /app {
+        proxy_http_version 1.1;
+        proxy_set_header Host \$http_host;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_read_timeout 120s;
+        proxy_pass http://127.0.0.1:8080;
+    }
+
+    # Xarita tile'lari: katta fayl, Range so'rovlari bilan qismlab beriladi
+    location /map/ {
+        add_header Cache-Control "public, max-age=86400";
+        try_files \$uri =404;
+    }
+
     location ~ /\.(?!well-known).* {
         deny all;
     }
@@ -107,6 +123,32 @@ ln -sf /etc/nginx/sites-available/ibtaxi /etc/nginx/sites-enabled/ibtaxi
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
+
+log "Fon xizmatlari: Reverb, Horizon, scheduler"
+REVERB_HOST_BIND="127.0.0.1"
+[[ "$MODE" == "--dev" ]] && REVERB_HOST_BIND="0.0.0.0"
+cat > /etc/supervisor/conf.d/ibtaxi.conf <<SUPERVISOR
+[program:ibtaxi-reverb]
+command=php ${APP_DIR}/artisan reverb:start --host=${REVERB_HOST_BIND} --port=8080
+user=${APP_USER}
+autostart=true
+autorestart=true
+stopwaitsecs=10
+redirect_stderr=true
+stdout_logfile=/var/log/ibtaxi-reverb.log
+
+[program:ibtaxi-horizon]
+command=php ${APP_DIR}/artisan horizon
+user=${APP_USER}
+autostart=true
+autorestart=true
+stopwaitsecs=60
+redirect_stderr=true
+stdout_logfile=/var/log/ibtaxi-horizon.log
+SUPERVISOR
+echo "* * * * * ${APP_USER} php ${APP_DIR}/artisan schedule:run >> /dev/null 2>&1" > /etc/cron.d/ibtaxi
+supervisorctl reread
+supervisorctl update
 
 log "Tayyor"
 echo "PostgreSQL: ${DB_NAME} / ${DB_USER}  (test bazasi: ${DB_NAME}_test)"
