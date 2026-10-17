@@ -37,3 +37,14 @@ osmium export --overwrite -f geojsonseq -a type,id \
 grep -E '"admin_level":"(4|6)"' "$WORK_DIR/boundaries.geojsonseq" | grep -E '"type":"MultiPolygon"' > "$OUT_DIR/boundaries.geojsonseq"
 
 echo "==> Tayyor: $OUT_DIR/boundaries.geojsonseq ($(wc -l < "$OUT_DIR/boundaries.geojsonseq") ta chegara)"
+
+echo "==> Mo'ljallar (POI): bozor, maktab, kasalxona, masjid, do'kon va h.k."
+osmium tags-filter --overwrite -o "$WORK_DIR/pois.osm.pbf" "$WORK_DIR/region.osm.pbf" \
+    nwr/amenity=marketplace,school,college,university,hospital,clinic,place_of_worship,bus_station,fuel,restaurant,cafe,bank,police,post_office,theatre,cinema,kindergarten,pharmacy \
+    nwr/shop=mall,supermarket,department_store \
+    nwr/tourism=hotel,museum nwr/leisure=park,stadium nwr/railway=station nwr/building=train_station \
+    n/place=neighbourhood,suburb,quarter,village,hamlet
+osmium export --overwrite -f geojsonseq -a type,id -o "$WORK_DIR/pois.geojsonseq" "$WORK_DIR/pois.osm.pbf"
+# Faqat nomi borlari
+grep '"name' "$WORK_DIR/pois.geojsonseq" > "$OUT_DIR/pois.geojsonseq"
+echo "==> Mo'ljallar: $(wc -l < "$OUT_DIR/pois.geojsonseq") ta"

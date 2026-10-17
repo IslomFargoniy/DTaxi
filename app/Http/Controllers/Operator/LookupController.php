@@ -68,7 +68,8 @@ class LookupController extends Controller
             'lng' => ['nullable', 'numeric'],
         ]);
 
-        $landmarks = Landmark::query()->search($data['q'])->limit(10)->get();
+        $near = isset($data['lat'], $data['lng']) ? Point::makeGeodetic((float) $data['lat'], (float) $data['lng']) : null;
+        $landmarks = Landmark::query()->search($data['q'], $near)->limit(10)->get();
 
         return response()->json($landmarks->map(fn (Landmark $l) => [
             'id' => $l->id,

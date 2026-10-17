@@ -23,6 +23,8 @@ type Props = {
     /** Xaritadan nuqta tanlash rejimini yoqish */
     onPickOnMap: () => void;
     picking: boolean;
+    /** Qidiruvda yaqin natijalar oldinda chiqishi uchun (filial markazi) */
+    near?: { lat: number; lng: number } | null;
 };
 
 /**
@@ -36,6 +38,7 @@ export function PlacePicker({
     onChange,
     onPickOnMap,
     picking,
+    near,
 }: Props) {
     const { t } = useTrans();
     const [results, setResults] = useState<Landmark[]>([]);
@@ -53,12 +56,17 @@ export function PlacePicker({
 
         timer.current = setTimeout(() => {
             getJson<Landmark[]>(
-                searchLandmarks.url({ query: { q: value.text } }),
+                searchLandmarks.url({
+                    query: {
+                        q: value.text,
+                        ...(near ? { lat: near.lat, lng: near.lng } : {}),
+                    },
+                }),
             )
                 .then(setResults)
                 .catch(() => setResults([]));
         }, 200);
-    }, [value.text, value.landmarkId, open]);
+    }, [value.text, value.landmarkId, open, near]);
 
     const canSaveLandmark =
         value.lat !== null &&

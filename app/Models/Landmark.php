@@ -55,14 +55,21 @@ class Landmark extends Model
      *
      * @param  Builder<Landmark>  $query
      */
-    public function scopeSearch(Builder $query, string $term): void
+    public function scopeSearch(Builder $query, string $term, ?Point $near = null): void
     {
         $needle = Transliterator::forSearch($term);
 
         $query->where(fn (Builder $q) => $q
             ->whereRaw('search ILIKE ?', ['%'.$needle.'%'])
             ->orWhereRaw('word_similarity(?, search) > 0.4', [$needle]))
-            ->orderByRaw('word_similarity(?, search) DESC', [$needle])
-            ->orderByDesc('usage_count');
+            // Avval: nom so'z bilan boshlanadi → so'z ichida bor → o'xshash; keyin operatorlar ko'p tanlaganlari
+            ->orderByRaw('CASE WHEN search ILIKE ? THEN 0 WHEN search ~* ? THEN 1 WHEN search ILIKE ? THEN 2 ELSE 3 END', [$needle.'%', '(^|[^0-9a-z])'.preg_quote($needle), '%'.$needle.'%'])
+            ->orderByDesc('usage_count')
+            // Bir xil nomlilar ("3-maktab") — filialga yaqinlari oldinda
+            ->when($near, fn (Builder $q) => $q->orderByRaw(
+                'ST_Distance(location, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography)',
+                [$near?->getLongitude(), $near?->getLatitude()],
+            ))
+            ->orderByRaw('word_similarity(?, search) DESC', [$needle]);
     }
 }

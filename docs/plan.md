@@ -790,13 +790,13 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [x] FCM yuborish (HTTP v1, firmaning service account'i), `device_tokens`
 - [x] Xarita: `deploy/map-prepare.sh` (Protomaps → hudud `.pmtiles`, shrift va belgilar o'z serverda)
 - [x] Operator paneli: faol buyurtmalar, MapLibre xarita, yangi buyurtma formasi, mijoz kartochkasi, mo'ljal qidiruvi va qo'shish, qo'lda tayinlash, bekor qilish
-- [ ] Reverb serverini ishga tushirish (Supervisor) va jonli yangilanishni brauzerda sinash
-- [ ] OSRM (Docker) — hozircha taxminiy masofa ishlaydi
-- [ ] Admin paneli: filiallar (hudud tanlash), foydalanuvchilar, haydovchilar va mashinalar (tasdiqlash, hujjatlar), tarif klasslari va narxlar, mo'ljallar, mijozlar (qora ro'yxat), buyurtmalar tarixi
-- [ ] Kassir paneli: haydovchini topish, naqd to'ldirish, kassa smenasi
-- [ ] Operator panelida haydovchilar chati
-- [ ] OSM'dan POI'larni `landmarks` jadvaliga boshlang'ich import
-- [ ] `simulate:drivers` buyrug'i (soxta haydovchilar harakati)
+- [x] Reverb va Horizon (Supervisor), scheduler (cron) — jonli yangilanish sinovdan o'tdi
+- [x] OSRM (Docker, `deploy/osrm-prepare.sh`) — yo'l bo'yicha masofa va ETA
+- [x] Admin paneli: filiallar (hudud tanlash, filial sozlamalari), xodimlar, haydovchilar va mashinalar (tasdiqlash, hujjatlar, bloklash, balans), tarif klasslari va narxlar, mo'ljallar, mijozlar (qora ro'yxat), buyurtmalar tarixi, bosh sahifa ko'rsatkichlari
+- [x] Kassir paneli: haydovchini topish, naqd to'ldirish, kassa smenasi
+- [x] Operator panelida haydovchilar chati
+- [x] OSM'dan POI'lar → `landmarks` (`php artisan landmarks:import`), qidiruv filialga yaqinlik bo'yicha
+- [x] `simulate:drivers` — soxta haydovchilar OSRM marshrutlari bo'yicha yuradi, buyurtma oladi va yakunlaydi (`--orders=N` yuklama sinovi)
 
 ### Bosqich 2 — Haydovchi ilovasi Android (3–4 hafta, Bosqich 1 dan keyin)
 

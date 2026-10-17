@@ -249,6 +249,9 @@ export function OrderForm({
                 label="Pickup"
                 value={pickup}
                 onChange={setPickup}
+                near={
+                    branches.find((b) => b.id === form.data.branch_id)?.center
+                }
                 picking={picking === 'pickup'}
                 onPickOnMap={() =>
                     setPicking(picking === 'pickup' ? null : 'pickup')
@@ -261,6 +264,9 @@ export function OrderForm({
                 label="Destination (optional)"
                 value={dropoff}
                 onChange={setDropoff}
+                near={
+                    branches.find((b) => b.id === form.data.branch_id)?.center
+                }
                 picking={picking === 'dropoff'}
                 onPickOnMap={() =>
                     setPicking(picking === 'dropoff' ? null : 'dropoff')
