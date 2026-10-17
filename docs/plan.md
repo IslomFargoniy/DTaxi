@@ -781,20 +781,22 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 
 ### Bosqich 1 — MVP Backend + Operator paneli (3–4 hafta)
 
-- [ ] Filiallar, foydalanuvchilar, haydovchilar, mashinalar CRUD
-- [ ] Tariflar
-- [ ] Mijozlar, mo'ljallar bazasi, qidiruv
-- [ ] Xarita infratuzilmasi: tanlangan hudud `.pmtiles` + Nginx, OSRM Docker (oylik OSM yangilanishi)
-- [ ] Operator paneli xaritasi (MapLibre GL JS)
+- [x] Ma'lumotlar modeli: filiallar, haydovchilar, mashinalar, hujjatlar, tarif klasslari va narxlar, mijozlar, mo'ljallar, buyurtmalar, balans, to'lovlar, kassa smenasi, chat
+- [x] Narx hisoblash (`FareCalculator`) — barcha qoidalar testlar bilan
+- [x] Efir dispetcheri: radius bosqichlari, atomik qabul qilish (parallel jarayonlar testi), operator tayinlashi, jarima/reyting/bloklash
+- [x] Buyurtma hayot sikli, `order_events`, GPS treki bo'yicha tekshiruv
+- [x] Haydovchi balansi: komissiya, minimal balans, to'ldirish, jarima
+- [x] Haydovchi API (Sanctum): login, liniya, GPS, takliflar, bosqichlar, marshrut, balans, chat, push token
+- [x] FCM yuborish (HTTP v1, firmaning service account'i), `device_tokens`
+- [x] Xarita: `deploy/map-prepare.sh` (Protomaps → hudud `.pmtiles`, shrift va belgilar o'z serverda)
+- [x] Operator paneli: faol buyurtmalar, MapLibre xarita, yangi buyurtma formasi, mijoz kartochkasi, mo'ljal qidiruvi va qo'shish, qo'lda tayinlash, bekor qilish
+- [ ] Reverb serverini ishga tushirish (Supervisor) va jonli yangilanishni brauzerda sinash
+- [ ] OSRM (Docker) — hozircha taxminiy masofa ishlaydi
+- [ ] Admin paneli: filiallar (hudud tanlash), foydalanuvchilar, haydovchilar va mashinalar (tasdiqlash, hujjatlar), tarif klasslari va narxlar, mo'ljallar, mijozlar (qora ro'yxat), buyurtmalar tarixi
+- [ ] Kassir paneli: haydovchini topish, naqd to'ldirish, kassa smenasi
+- [ ] Operator panelida haydovchilar chati
 - [ ] OSM'dan POI'larni `landmarks` jadvaliga boshlang'ich import
-- [ ] Buyurtma yaratish, statuslar, `order_events`
-- [ ] Dispatcher (Redis GEO + OSRM + taklif taymeri)
-- [ ] Reverb orqali real-time operator paneli
-- [ ] Haydovchi API (Sanctum)
-- [ ] FCM yuborish (`laravel-notification-channels/fcm`), `device_tokens`
-- [ ] Haydovchi balansi: komissiya yechish, minimal balans tekshiruvi
-- [ ] Kassir paneli: haydovchini topish, naqd to'ldirish, kassa smenasi (ochish/yopish, hisobot)
-- [ ] Haydovchi ↔ dispetcher chati (backend + operator paneli, Reverb — qaror #47)
+- [ ] `simulate:drivers` buyrug'i (soxta haydovchilar harakati)
 
 ### Bosqich 2 — Haydovchi ilovasi Android (3–4 hafta, Bosqich 1 dan keyin)
 
