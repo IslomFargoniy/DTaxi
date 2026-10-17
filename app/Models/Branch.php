@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Branches\BranchProvisioner;
 use Clickbar\Magellan\Data\Geometries\MultiPolygon;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Database\Factories\BranchFactory;
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -30,6 +32,11 @@ class Branch extends Model
 {
     /** @use HasFactory<BranchFactory> */
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::created(fn (Branch $branch) => app(BranchProvisioner::class)->provision($branch));
+    }
 
     protected function casts(): array
     {
@@ -54,6 +61,14 @@ class Branch extends Model
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class);
+    }
+
+    /**
+     * @return HasMany<TariffClass, $this>
+     */
+    public function tariffClasses(): HasMany
+    {
+        return $this->hasMany(TariffClass::class);
     }
 
     /**

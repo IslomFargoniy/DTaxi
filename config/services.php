@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    // O'z serverimizdagi xizmatlar (firmaga xos emas — har serverda bir xil manzil)
+    'osrm' => [
+        'url' => env('OSRM_URL', 'http://127.0.0.1:5000'),
+    ],
+
+    'tiles' => [
+        'url' => env('TILES_URL', '/tiles/region.pmtiles'),
+    ],
+
 ];

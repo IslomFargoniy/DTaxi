@@ -57,6 +57,7 @@ Holat: **v5.0 — tasdiqlangan reja** · Sana: 2026-10-17
 | 45  | **O'z taksi firmasi / 1call'dan ko'chirish yo'q.** Loyiha to'liq mahsulot sifatida sotiladi; har firma o'z raqamini oladi. Pilot — **birinchi xaridor firma** bilan                                                                                                 | 2026-10-17 |
 | 46  | **FastPanel'dan to'liq voz kechildi.** Test va xaridor serverlari — toza Ubuntu LTS + o'rnatish skripti (Nginx, PHP-FPM, PostgreSQL, Redis, Asterisk, OSRM, Supervisor, Certbot)                                                                                    | 2026-10-17 |
 | 47  | **Haydovchi ↔ dispetcher aloqasi: ilova ichida qo'ng'iroq (WebRTC, yoziladi) + chat**                                                                                                                                                                               | 2026-10-17 |
+| 48  | **Haydovchi joylashuvi PostGIS'da** (`drivers.last_location` + GIST indeks), Redis GEO o'rniga: ~18 yangilanish/soniya PostgreSQL uchun yengil, holat va joylashuv bitta tranzaksiyada — "kim birinchi" ishonchliroq                                                | 2026-10-18 |
 
 ---
 
@@ -121,22 +122,22 @@ Barcha firmalarga yangi versiyalar bepul — shuning uchun yangilash **oson va x
 
 ## 1. Texnologiyalar (stack)
 
-| Qatlam                      | Texnologiya                                                    | Izoh                                                                                                                                                                         |
-| --------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend                     | Laravel 13 (PHP 8.3+)                                          | Starter kit allaqachon o'rnatilgan (Inertia 3, Fortify, Wayfinder)                                                                                                           |
-| Admin/Operator panel        | React 19 + Inertia 3 + Tailwind 4 + shadcn/ui                  | Bitta SPA ichida rollarga qarab sahifalar                                                                                                                                    |
-| Ruxsatlar                   | spatie/laravel-permission                                      | Rollar + permissionlar                                                                                                                                                       |
-| Ma'lumotlar bazasi          | PostgreSQL 16+ + **PostGIS**                                   | Geo-so'rovlar (eng yaqin haydovchi) uchun PostGIS shart                                                                                                                      |
-| Real-time                   | **Laravel Reverb** (WebSocket)                                 | Operator paneli va haydovchi ilovasi uchun jonli yangilanish                                                                                                                 |
-| Navbat (queue)              | Redis + Laravel Horizon                                        | Buyurtma taklifi taymerlari, avtomatik qo'ng'iroqlar, push                                                                                                                   |
-| Kesh / haydovchi joylashuvi | Redis (GEO buyruqlari)                                         | Har 3–5 soniyada keladigan koordinatalar uchun tez qatlam                                                                                                                    |
-| Android                     | Kotlin + Jetpack Compose, **Android 10+** (`minSdk 29`)        | Foreground service (`foregroundServiceType=location`) — fonda GPS                                                                                                            |
-| Push                        | Firebase Cloud Messaging — **bepul**                           | MVP'dan boshlab. Reverb WebSocket asosiy kanal, FCM har bir buyurtma taklifida parallel yuboriladi (ilova fonda/yopiq bo'lsa uyg'otadi). Firebase'dan faqat push ishlatiladi |
-| PBX                         | Asterisk 20/22 LTS (PJSIP + WebRTC)                            | Operator brauzerdan qo'ng'iroq qabul qiladi (JsSIP / SIP.js)                                                                                                                 |
-| Xarita                      | MapLibre GL JS (web), MapLibre Native (Android)                | OSM ma'lumotlari, tiles o'z serverimizda (`.pmtiles`) — bepul                                                                                                                |
-| Marshrut / ETA              | OSRM (Docker, o'z serverimizda)                                | Dispatcher uchun `table`, ilova uchun `route` API — bepul                                                                                                                    |
-| Server                      | 1 ta VPS, toza Ubuntu LTS (FastPanel'siz)                      | O'rnatish skripti bilan; Asterisk ham shu serverda (§9)                                                                                                                      |
-| Tillar                      | Laravel lokalizatsiya + `react-i18next`; Android `strings.xml` | O'zbek (lotin) + rus (qaror #44)                                                                                                                                             |
+| Qatlam               | Texnologiya                                                    | Izoh                                                                                                                                                                         |
+| -------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend              | Laravel 13 (PHP 8.3+)                                          | Starter kit allaqachon o'rnatilgan (Inertia 3, Fortify, Wayfinder)                                                                                                           |
+| Admin/Operator panel | React 19 + Inertia 3 + Tailwind 4 + shadcn/ui                  | Bitta SPA ichida rollarga qarab sahifalar                                                                                                                                    |
+| Ruxsatlar            | spatie/laravel-permission                                      | Rollar + permissionlar                                                                                                                                                       |
+| Ma'lumotlar bazasi   | PostgreSQL 16+ + **PostGIS**                                   | Geo-so'rovlar (eng yaqin haydovchi) uchun PostGIS shart                                                                                                                      |
+| Real-time            | **Laravel Reverb** (WebSocket)                                 | Operator paneli va haydovchi ilovasi uchun jonli yangilanish                                                                                                                 |
+| Navbat (queue)       | Redis + Laravel Horizon                                        | Buyurtma taklifi taymerlari, avtomatik qo'ng'iroqlar, push                                                                                                                   |
+| Kesh / navbat        | Redis                                                          | Har 3–5 soniyada keladigan koordinatalar uchun tez qatlam                                                                                                                    |
+| Android              | Kotlin + Jetpack Compose, **Android 10+** (`minSdk 29`)        | Foreground service (`foregroundServiceType=location`) — fonda GPS                                                                                                            |
+| Push                 | Firebase Cloud Messaging — **bepul**                           | MVP'dan boshlab. Reverb WebSocket asosiy kanal, FCM har bir buyurtma taklifida parallel yuboriladi (ilova fonda/yopiq bo'lsa uyg'otadi). Firebase'dan faqat push ishlatiladi |
+| PBX                  | Asterisk 20/22 LTS (PJSIP + WebRTC)                            | Operator brauzerdan qo'ng'iroq qabul qiladi (JsSIP / SIP.js)                                                                                                                 |
+| Xarita               | MapLibre GL JS (web), MapLibre Native (Android)                | OSM ma'lumotlari, tiles o'z serverimizda (`.pmtiles`) — bepul                                                                                                                |
+| Marshrut / ETA       | OSRM (Docker, o'z serverimizda)                                | Dispatcher uchun `table`, ilova uchun `route` API — bepul                                                                                                                    |
+| Server               | 1 ta VPS, toza Ubuntu LTS (FastPanel'siz)                      | O'rnatish skripti bilan; Asterisk ham shu serverda (§9)                                                                                                                      |
+| Tillar               | Laravel lokalizatsiya + `react-i18next`; Android `strings.xml` | O'zbek (lotin) + rus (qaror #44)                                                                                                                                             |
 
 ---
 
@@ -177,7 +178,7 @@ Operator: mo'ljal / manzilni kiritadi (qidiruv + xaritada nuqta)
    │
    ▼
 Dispatcher (backend job):
-   1. Redis GEO: radius ichidagi mos bo'sh haydovchilar (boshlanishi 3 km)
+   1. PostGIS: radius ichidagi mos bo'sh haydovchilar (boshlanishi 3 km)
    2. EFIR: radius ichidagi barcha mos haydovchilarga bir vaqtda taklif
         ├─ Birinchi "Qabul qildim" bosgan → ASSIGNED, qolganlarda taklif darhol yo'qoladi
         ├─ 20 soniyada hech kim olmadi → radius kengayadi, yangi haydovchilarga ham efir
@@ -549,8 +550,8 @@ komissiya = yakuniy_narx × foiz      (masalan 20 000 so'm × 10% = 2 000 so'm)
 
 **Qadamlar:**
 
-1. Haydovchi ilovasi har **3–5 soniyada** (harakatda) yoki 30 soniyada (turganda) koordinata yuboradi → Redis `GEOADD drivers:{branch_id}:free`
-2. Buyurtma kelganda: `GEOSEARCH` radius R (boshlanishi 3 km — panelda sozlanadi) ichidagi bo'sh haydovchilar
+1. Haydovchi ilovasi har **3–5 soniyada** (harakatda) yoki 30 soniyada (turganda) koordinata yuboradi → `drivers.last_location` (PostGIS, qaror #48) + `driver_locations` tarixi
+2. Buyurtma kelganda: `ST_DWithin` radius R (boshlanishi 3 km — panelda sozlanadi) ichidagi bo'sh haydovchilar
 3. Filtrlash: mashina buyurtmadagi tarif klassiga ruxsatli (§5b), haydovchi bloklanmagan, balansi ≥ minimal balans (§5c), oxirgi joylashuvi 60 soniyadan eski emas
 4. **Efir:** barchasiga bir vaqtda taklif — Reverb + FCM (qaror #1). Taklifda: olib ketish manzili, haydovchidan **masofa** (har haydovchiga o'zinikini), klass, taxminiy narx (agar borish manzili bo'lsa)
 5. Birinchi "Qabul qildim" → buyurtma unga biriktiriladi → **qolgan haydovchilarda taklif darhol yo'qoladi** ("Buyurtmani boshqa haydovchi oldi")

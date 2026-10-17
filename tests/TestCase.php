@@ -7,6 +7,13 @@ use Laravel\Fortify\Features;
 
 abstract class TestCase extends BaseTestCase
 {
+    /**
+     * DatabaseTruncation PostGIS tizim jadvaliga tegmasin.
+     *
+     * @var list<string>
+     */
+    protected $exceptTables = ['spatial_ref_sys'];
+
     protected function setUp(): void
     {
         parent::setUp();

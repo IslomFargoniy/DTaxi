@@ -23,6 +23,17 @@ class Settings
         'drivers.min_balance' => 5000,
         'tariffs.rounding_step' => 500,
         'calls.recordings_retention_days' => 90,
+        // Efir (qaror #28)
+        'dispatch.radius_steps_m' => [3000, 5000, 8000],
+        'dispatch.step_seconds' => 20,
+        'dispatch.direct_offer_seconds' => 15,
+        'dispatch.location_ttl_seconds' => 60,
+        // Jarima va reyting (qaror #29)
+        'drivers.cancel_penalty' => 2000,
+        'drivers.rating_cancel_penalty' => 5,
+        'drivers.rating_complete_bonus' => 1,
+        'drivers.max_cancels_per_shift' => 3,
+        'drivers.block_minutes' => 30,
     ];
 
     /** @var array<string, mixed> */
