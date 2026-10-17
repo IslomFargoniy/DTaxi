@@ -38,6 +38,7 @@ type OperatorRow = {
     completed: number;
     calls: number;
     talk_seconds: number;
+    avg_wait: number | null;
 };
 type Filters = { from: string; to: string; branch_id: string };
 
