@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DriverController;
 use App\Http\Controllers\Admin\IntegrationController;
 use App\Http\Controllers\Admin\LandmarkController;
 use App\Http\Controllers\Admin\OrderHistoryController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SoundController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\TariffController;
@@ -123,6 +124,11 @@ Route::middleware(['auth', 'permission:orders.view'])->prefix('admin')->name('ad
     Route::get('landmarks', [LandmarkController::class, 'index'])->name('landmarks.index');
     Route::put('landmarks/{landmark}', [LandmarkController::class, 'update'])->name('landmarks.update');
     Route::delete('landmarks/{landmark}', [LandmarkController::class, 'destroy'])->name('landmarks.destroy');
+});
+
+Route::middleware(['auth', 'permission:reports.view'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('reports/{report}.csv', [ReportController::class, 'export'])->name('reports.export');
 });
 
 Route::middleware(['auth', 'permission:calls.listen'])->prefix('admin')->name('admin.')->group(function () {

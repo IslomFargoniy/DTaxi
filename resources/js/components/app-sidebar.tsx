@@ -3,6 +3,7 @@ import {
     Banknote,
     BarChart3,
     Building2,
+    FileBarChart,
     Car,
     ClipboardList,
     Headset,
@@ -41,6 +42,7 @@ import { index as drivers } from '@/routes/admin/drivers';
 import { index as integrations } from '@/routes/admin/integrations';
 import { index as landmarks } from '@/routes/admin/landmarks';
 import { index as orders } from '@/routes/admin/orders';
+import { index as reports } from '@/routes/admin/reports';
 import { index as sounds } from '@/routes/admin/sounds';
 import { index as staff } from '@/routes/admin/staff';
 import { index as tariffs } from '@/routes/admin/tariffs';
@@ -87,6 +89,9 @@ export function AppSidebar() {
             : []),
         ...(can('calls.listen')
             ? [{ title: 'Calls', href: calls(), icon: PhoneCall }]
+            : []),
+        ...(can('reports.view')
+            ? [{ title: 'Reports', href: reports(), icon: FileBarChart }]
             : []),
     ];
     const system: NavItem[] = hasRole('superadmin')
