@@ -408,6 +408,11 @@ export default function Reports({
                                     render: (r) =>
                                         `${Math.round(r.talk_seconds / 60)} ${t('min')}`,
                                 },
+                                {
+                                    key: 'wait',
+                                    title: 'Avg. answer time, s',
+                                    render: (r) => r.avg_wait ?? '—',
+                                },
                             ]}
                         />
                     </Section>

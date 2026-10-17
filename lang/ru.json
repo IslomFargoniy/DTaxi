@@ -481,5 +481,6 @@
     "Object": "Объект",
     "Changes": "Изменения",
     "Backup was not copied to the backup server": "Резервная копия не отправлена на резервный сервер",
-    "Folder": "Папка"
+    "Folder": "Папка",
+    "Avg. answer time, s": "Ср. время ответа, с"
 }

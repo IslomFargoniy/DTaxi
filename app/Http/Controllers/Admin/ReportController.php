@@ -191,7 +191,7 @@ class ReportController extends Controller
     {
         $calls = DB::table('calls')->whereIn('branch_id', $branchIds ?: [0])->whereBetween('started_at', [$from, $to])
             ->where('status', 'completed')->whereNotNull('operator_id')
-            ->selectRaw('operator_id, COUNT(*) AS calls, SUM(talk_seconds) AS talk')->groupBy('operator_id');
+            ->selectRaw('operator_id, COUNT(*) AS calls, SUM(talk_seconds) AS talk, ROUND(AVG(wait_seconds)) AS wait')->groupBy('operator_id');
 
         return array_values(DB::table('orders')
             ->join('users', 'users.id', '=', 'orders.operator_id')
@@ -199,7 +199,7 @@ class ReportController extends Controller
             ->whereIn('orders.branch_id', $branchIds ?: [0])
             ->whereBetween('orders.created_at', [$from, $to])
             ->selectRaw("users.name, COUNT(*) AS orders, COUNT(*) FILTER (WHERE orders.status = 'completed') AS completed,
-                MAX(COALESCE(c.calls, 0)) AS calls, MAX(COALESCE(c.talk, 0)) AS talk_seconds")
+                MAX(COALESCE(c.calls, 0)) AS calls, MAX(COALESCE(c.talk, 0)) AS talk_seconds, MAX(c.wait) AS avg_wait")
             ->groupBy('users.id', 'users.name')->orderByDesc('orders')->get()
             ->map(fn ($r) => [
                 'name' => (string) $r->name,
@@ -207,6 +207,8 @@ class ReportController extends Controller
                 'completed' => (int) $r->completed,
                 'calls' => (int) $r->calls,
                 'talk_seconds' => (int) $r->talk_seconds,
+                // Mijoz operator javob berguncha o'rtacha kutgan vaqt
+                'avg_wait' => $r->avg_wait === null ? null : (int) $r->avg_wait,
             ])->all());
     }
 
