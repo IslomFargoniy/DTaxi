@@ -291,5 +291,22 @@
     "offer.accepted": "Принял",
     "offer.too_late": "Опоздал",
     "offer.ignored": "Без ответа",
-    "offer.rejected": "Отказался"
+    "offer.rejected": "Отказался",
+    "Driver app": "Приложение водителя",
+    "The app has not been published yet.": "Приложение ещё не опубликовано.",
+    "Download (most phones)": "Скачать (большинство телефонов)",
+    "Download for older phones": "Для старых телефонов",
+    "Download the file and open it.": "Скачайте файл и откройте его.",
+    "Allow installing from this source when Android asks.": "Разрешите установку из этого источника, когда Android спросит.",
+    "Log in with the phone number and password given by the administrator.": "Войдите по номеру телефона и паролю от администратора.",
+    "Further updates are installed from inside the app.": "Дальнейшие обновления устанавливаются из приложения.",
+    "Distributed from this server without Google Play. Drivers install it by the QR code; updates arrive inside the app.": "Распространяется с этого сервера без Google Play. Водители устанавливают по QR-коду; обновления приходят в приложении.",
+    "Current version": "Текущая версия",
+    "Not published yet": "Ещё не опубликовано",
+    "Minimum version": "Минимальная версия",
+    "Publish a new version": "Опубликовать новую версию",
+    "Version code": "Код версии",
+    "Version name": "Название версии",
+    "Drivers below the minimum version must update before going on air.": "Водители ниже минимальной версии должны обновиться перед выходом на линию.",
+    "Publish": "Опубликовать"
 }

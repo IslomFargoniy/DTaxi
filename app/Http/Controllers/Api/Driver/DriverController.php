@@ -139,17 +139,6 @@ class DriverController extends Controller
         ]);
     }
 
-    /**
-     * Ilova ichida avto-yangilanish (qaror #37): APK firma serverida.
-     */
-    public function appVersion(): JsonResponse
-    {
-        $manifest = storage_path('app/public/driver-app/version.json');
-        $version = is_file($manifest) ? json_decode((string) file_get_contents($manifest), true) : null;
-
-        return response()->json($version ?? ['version_code' => 0, 'min_version_code' => 0, 'url' => null]);
-    }
-
     private function driver(Request $request): Driver
     {
         return Driver::query()->withoutGlobalScopes()->where('user_id', $request->user()?->id)->firstOrFail();

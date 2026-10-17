@@ -111,7 +111,8 @@ server {
     # Xarita tile'lari: katta fayl, Range so'rovlari bilan qismlab beriladi
     location /map/ {
         add_header Cache-Control "public, max-age=86400";
-        try_files \$uri =404;
+        # style.json — Laravel yig'adi (server manzili bilan)
+        try_files \$uri /index.php?\$query_string;
     }
 
     location ~ /\.(?!well-known).* {

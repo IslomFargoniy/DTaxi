@@ -11,7 +11,9 @@ use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\TariffController;
 use App\Http\Controllers\Cashier\CashierController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DriverAppController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\MapStyleController;
 use App\Http\Controllers\Operator\ChatController;
 use App\Http\Controllers\Operator\LookupController;
 use App\Http\Controllers\Operator\OperatorController;
@@ -23,6 +25,11 @@ use Illuminate\Support\Facades\Storage;
 Route::get('/', fn () => to_route('dashboard'))->name('home');
 
 Route::put('locale', [LocaleController::class, 'update'])->name('locale.update');
+Route::get('map/style.json', MapStyleController::class)->name('map.style');
+
+// Haydovchi ilovasi — Google Play'siz (qaror #37)
+Route::get('driver-app', [DriverAppController::class, 'page'])->name('driver-app.page');
+Route::get('driver-app/{abi}.apk', [DriverAppController::class, 'download'])->name('driver-app.download');
 
 Route::get('chat/{message}/attachment', function (ChatMessage $message) {
     abort_unless($message->attachment_path !== null, 404);
@@ -47,6 +54,9 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('admin')->name('admin.')-
     Route::post('branches', [BranchController::class, 'store'])->name('branches.store');
     Route::put('branches/{branch}', [BranchController::class, 'update'])->name('branches.update');
     Route::get('regions/{region}/children', [BranchController::class, 'children'])->name('regions.children');
+
+    Route::get('driver-app', [DriverAppController::class, 'admin'])->name('driver-app.index');
+    Route::post('driver-app', [DriverAppController::class, 'publish'])->name('driver-app.publish');
 });
 
 Route::middleware(['auth', 'permission:users.manage'])->prefix('admin')->name('admin.')->group(function () {

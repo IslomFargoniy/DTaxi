@@ -42,3 +42,10 @@ yarn-error.log
 /opencode.json
 /opencode.jsonc
 /public/map
+/android/.gradle
+/android/build
+/android/app/build
+/android/local.properties
+/android/firms/*/keystore.jks
+/android/firms/*/keystore.properties
+/android/.idea

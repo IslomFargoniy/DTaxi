@@ -798,16 +798,19 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [x] OSM'dan POI'lar → `landmarks` (`php artisan landmarks:import`), qidiruv filialga yaqinlik bo'yicha
 - [x] `simulate:drivers` — soxta haydovchilar OSRM marshrutlari bo'yicha yuradi, buyurtma oladi va yakunlaydi (`--orders=N` yuklama sinovi)
 
-### Bosqich 2 — Haydovchi ilovasi Android (3–4 hafta, Bosqich 1 dan keyin)
+### Bosqich 2 — Haydovchi ilovasi Android ✅
 
-- [ ] Firma konfiguratsiyasi bo'yicha build (`-Pfirm=...`: applicationId, nom, logo, server URL, google-services.json, keystore — qaror #35)
-- [ ] Ilova ichida avto-yangilanish (`app-version` API, APK yuklab o'rnatish, majburiy yangilanish — qaror #37)
-- [ ] Login, liniyaga chiqish, fonda GPS
-- [ ] Buyurtma taklifi, statuslar, taksometr
-- [ ] FCM push
-- [ ] Chat ekrani (tezkor javoblar, rasm) va "Mijozga qo'ng'iroq" (telefon dialer)
-- [ ] Ilova tili: o'zbek / rus
-- [ ] Ilova ichida xarita (MapLibre): A/B nuqtalar, marshrut chizig'i, masofa, ETA
+- [x] Firma konfiguratsiyasi bo'yicha build (`android/firms/<firma>/firm.properties`, `-Pfirm=...`: applicationId, nom, server URL, rang, Firebase; keystore — qaror #35)
+- [x] Ilova sozlamalari serverdan (`/me`: xarita uslubi, Reverb, xizmat hududi, tariflar) — ilovaga faqat server manzili yoziladi
+- [x] Login, liniyaga chiqish/chiqish (tasdiq, bloklash, balans tekshiruvi), foreground service — fonda GPS (internet uzilsa yig'iladi)
+- [x] Reverb (Pusher) — takliflar, buyurtma holati, chat; FCM — firma Firebase'i bilan (ixtiyoriy)
+- [x] Taklif oynasi: signal, taymer, masofa, narx; operator tayinlagan taklif ogohlantirishi
+- [x] Buyurtma bosqichlari, kutish taymeri, taksometr (GPS sakrashlari filtri, shahar ichi/tashqarisi), chek
+- [x] Ilova ichida xarita (MapLibre, o'z serverdagi tile'lar): joylashuv, A/B nuqtalar, OSRM marshrut chizig'i
+- [x] Chat (tezkor javoblar), balans tarixi, sozlamalar (til, batareya yo'riqnomasi)
+- [x] Avto-yangilanish: admin panelda APK joylash (ABI bo'yicha), yuklab olish sahifasi va QR, majburiy yangilanish
+- [x] Narx formulasi va taksometr unit testlari; emulyatorda to'liq oqim sinovi
+- [ ] "Dispetcherga qo'ng'iroq" (WebRTC) — Bosqich 3 da Asterisk bilan
 
 ### Bosqich 3 — Telefoniya + PBX panel (3–4 hafta)
 

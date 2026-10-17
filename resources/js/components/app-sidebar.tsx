@@ -13,6 +13,7 @@ import {
     Settings2,
     Users,
     UserRound,
+    Smartphone,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
@@ -31,6 +32,7 @@ import { dashboard } from '@/routes';
 import { index as branches } from '@/routes/admin/branches';
 import { index as clients } from '@/routes/admin/clients';
 import { edit as companySettings } from '@/routes/admin/company-settings';
+import { index as driverApp } from '@/routes/admin/driver-app';
 import { index as drivers } from '@/routes/admin/drivers';
 import { index as integrations } from '@/routes/admin/integrations';
 import { index as landmarks } from '@/routes/admin/landmarks';
@@ -87,6 +89,7 @@ export function AppSidebar() {
                   icon: Settings2,
               },
               { title: 'Integrations', href: integrations(), icon: PlugZap },
+              { title: 'Driver app', href: driverApp(), icon: Smartphone },
               { title: 'Queues', href: '/horizon', icon: BarChart3 },
           ]
         : [];

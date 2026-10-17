@@ -41,7 +41,7 @@ return [
     ],
 
     'tiles' => [
-        'url' => env('TILES_URL', '/tiles/region.pmtiles'),
+        'url' => env('TILES_URL', '/map/region.pmtiles'),
     ],
 
 ];

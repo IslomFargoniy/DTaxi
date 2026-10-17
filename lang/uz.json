@@ -291,5 +291,22 @@
     "offer.accepted": "Qabul qildi",
     "offer.too_late": "Kech qoldi",
     "offer.ignored": "Javob bermadi",
-    "offer.rejected": "Rad etdi"
+    "offer.rejected": "Rad etdi",
+    "Driver app": "Haydovchi ilovasi",
+    "The app has not been published yet.": "Ilova hali joylanmagan.",
+    "Download (most phones)": "Yuklab olish (ko'pchilik telefonlar)",
+    "Download for older phones": "Eski telefonlar uchun",
+    "Download the file and open it.": "Faylni yuklab oling va oching.",
+    "Allow installing from this source when Android asks.": "Android so'rasa, shu manbadan o'rnatishga ruxsat bering.",
+    "Log in with the phone number and password given by the administrator.": "Admin bergan telefon raqami va parol bilan kiring.",
+    "Further updates are installed from inside the app.": "Keyingi yangilanishlar ilova ichidan o'rnatiladi.",
+    "Distributed from this server without Google Play. Drivers install it by the QR code; updates arrive inside the app.": "Google Play'siz, shu serverdan tarqatiladi. Haydovchilar QR kod orqali o'rnatadi; yangilanishlar ilova ichida keladi.",
+    "Current version": "Joriy versiya",
+    "Not published yet": "Hali joylanmagan",
+    "Minimum version": "Minimal versiya",
+    "Publish a new version": "Yangi versiyani joylash",
+    "Version code": "Versiya kodi",
+    "Version name": "Versiya nomi",
+    "Drivers below the minimum version must update before going on air.": "Minimal versiyadan past haydovchilar efirga chiqishdan oldin yangilashi shart.",
+    "Publish": "Joylash"
 }
