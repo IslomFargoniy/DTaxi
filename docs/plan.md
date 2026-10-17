@@ -841,7 +841,7 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [x] Click SHOP API (prepare/complete) va Payme Merchant API (JSON-RPC, bekor qilishda qaytarish) — pozivnoy bo'yicha; ilovada "Balansni to'ldirish" (Click/Payme havolalari). Haqiqiy merchant kalitlari bilan sinov — firma shartnomasidan keyin
 - [ ] Firma serverini o'rnatish (o'rnatish skripti + sozlash ustasi)
 - [ ] Firma SIP trunki va raqam(lar)ini ulash va sinash (§5.2)
-- [ ] Yuklama sinovi: 100 soxta haydovchi + 200 buyurtma/soat (§9.3)
+- [x] Yuklama sinovi (lokal VM, 2 CPU / 4 GB): 100 soxta haydovchi + ~210 buyurtma/soat — hammasi tayinlandi, xatosiz, server yuklamasi ~0.4. Firma serverida (haqiqiy telefonlar bilan) takrorlanadi
 - [ ] Firmaning yuklamasiga qarab kanallar sonini tekshirish (1000+/kun → 8–10 kanal)
 - [ ] Firma filial(lar)ida (panelda tanlangan shahar/tuman — qaror #31) real sinov
 - [ ] Firma shahar(lar)i uchun mo'ljallar bazasini oldindan to'ldirish
