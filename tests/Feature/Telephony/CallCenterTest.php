@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\OrderSource;
 use App\Enums\OrderStatus;
 use App\Enums\Role;
 use App\Events\CallUpdated;
@@ -23,8 +24,10 @@ use App\Services\Telephony\AriClient;
 use App\Services\Telephony\CallCenter;
 use App\Services\Telephony\ChannelLimits;
 use App\Services\Telephony\ClientNotifier;
+use App\Support\Settings;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -264,7 +267,7 @@ test('calls outside working hours hear a message and are not queued for callback
 
 function regularClient(Branch $branch): Order
 {
-    app(App\Support\Settings::class)->set('calls.ivr_auto_order', true);
+    app(Settings::class)->set('calls.ivr_auto_order', true);
     SoundClip::query()->create(['category' => 'ivr', 'key' => 'auto-order-offer', 'text' => 'x', 'file_path' => 'ivr/auto-order-offer']);
     $client = Client::query()->create(['phone' => '+998901234567', 'orders_count' => 3]);
 
@@ -284,7 +287,7 @@ test('regular client presses 1 and gets a taxi to the last address without an op
 
     $order = Order::query()->withoutGlobalScopes()->latest('id')->first();
     expect($order->id)->not->toBe($last->id)
-        ->and($order->source)->toBe(App\Enums\OrderSource::Ivr)
+        ->and($order->source)->toBe(OrderSource::Ivr)
         ->and($order->pickup_text)->toBe('Uyim')
         ->and($order->status)->toBe(OrderStatus::Searching)
         ->and($call->refresh()->order_id)->toBe($order->id);
@@ -305,7 +308,7 @@ test('client who presses 2 or stays silent goes to the operator queue', function
     $second = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
     $second->forceFill(['sip_extension' => 'op'.$second->id, 'operator_status' => 'ready'])->save();
     $this->online[] = $second->sip_extension;
-    Illuminate\Support\Facades\Cache::forget('telephony:online-endpoints');
+    Cache::forget('telephony:online-endpoints');
     $this->center->tick();
 
     expect($call->refresh()->operator_id)->toBe($second->id);
