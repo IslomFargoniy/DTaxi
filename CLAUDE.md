@@ -15,7 +15,9 @@ Telefon orqali ishlaydigan taksi dispetcherlik tizimi. **Sotiladigan mahsulot**:
 
 - Lokal: Multipass virtual mashinasi `ibtaxi` (Ubuntu 24.04, IP `192.168.252.2`) — PostgreSQL+PostGIS, Redis, Nginx shu yerda. Loyiha papkasi VM ichida `/home/ubuntu/ibTaxi` ga ulangan.
 - Kod, `composer`, `npm`, `php artisan` va testlar — Mac'da (`.env` VM'dagi bazaga ulanadi).
-- Server o'rnatish: `deploy/install.sh` (toza Ubuntu; `--dev` lokal VM uchun). OSM ma'lumoti: `deploy/osm-prepare.sh` → `php artisan regions:import --region=Fargona`.
+- Server o'rnatish: `deploy/install.sh` (toza Ubuntu; `--dev` lokal VM, `--prod --domain= --email=` firma serveri). OSM ma'lumoti: `deploy/osm-prepare.sh` → `php artisan regions:import --region=Fargona`.
+- Telefoniya: Asterisk VM'da; qo'ng'iroq mantig'i `App\Services\Telephony\CallCenter` (ARI), daemon `php artisan ari:listen` (supervisor `ibtaxi-ari`; yangi kod uchun `ari:restart`). Panel brauzerda `https://192.168.252.2` (self-signed) — mikrofon faqat https'da.
+- Android: JDK 17 (`~/Library/Java/JavaVirtualMachines/jdk-17*`), Studio'ning JBR'i (25) Gradle 8.9 bilan ishlamaydi.
 
 ## Buyruqlar
 
@@ -26,6 +28,8 @@ npm run check                    # frontend format va lint
 npx tsc --noEmit                 # TypeScript
 php artisan wayfinder:generate --with-form   # route'lar o'zgarsa
 npm run build                    # panel VM orqali http://192.168.252.2 da ochiladi
+php artisan telephony:sync       # ichki raqamlar va trunklarni Asterisk'ga qayta yozish
+php artisan ibtaxi:backup        # baza zaxirasi; ibtaxi:update [--rollback] — firma serverida yangilash
 ```
 
 ## Kod uslubi
