@@ -29,5 +29,10 @@ class Session(context: Context) {
         get() = prefs.getBoolean("battery_hint", false)
         set(value) = prefs.edit().putBoolean("battery_hint", value).apply()
 
+    /** Navigatsiyada ovozli ko'rsatmalar */
+    var voiceGuidance: Boolean
+        get() = prefs.getBoolean("voice_guidance", true)
+        set(value) = prefs.edit().putBoolean("voice_guidance", value).apply()
+
     fun clear() = prefs.edit().remove("token").apply()
 }

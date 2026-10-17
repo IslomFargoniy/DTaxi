@@ -17,15 +17,17 @@ class Router
 
     private const FALLBACK_SPEED_MPS = 30 / 3.6;
 
-    public function route(Point $from, Point $to, bool $withGeometry = false): Route
+    public function route(Point $from, Point $to, bool $withGeometry = false, bool $withSteps = false): Route
     {
         $url = rtrim((string) config('services.osrm.url'), '/');
         $coordinates = sprintf('%F,%F;%F,%F', $from->getLongitude(), $from->getLatitude(), $to->getLongitude(), $to->getLatitude());
 
         try {
             $response = Http::timeout(3)->get("{$url}/route/v1/driving/{$coordinates}", [
-                'overview' => $withGeometry ? 'simplified' : 'false',
+                // Navigatsiyada chiziq yo'l bo'ylab aniq bo'lishi kerak
+                'overview' => $withGeometry ? ($withSteps ? 'full' : 'simplified') : 'false',
                 'geometries' => 'geojson',
+                'steps' => $withSteps ? 'true' : 'false',
             ]);
 
             if ($response->successful() && $response->json('code') === 'Ok') {
@@ -35,6 +37,7 @@ class Router
                     (int) round($route['distance']),
                     (int) round($route['duration']),
                     $withGeometry ? $route['geometry']['coordinates'] : null,
+                    steps: $withSteps ? $this->steps((array) data_get($route, 'legs.0.steps', [])) : null,
                 );
             }
         } catch (ConnectionException $e) {
@@ -42,6 +45,34 @@ class Router
         }
 
         return $this->estimate($from, $to);
+    }
+
+    /**
+     * OSRM qadamlari → ilova uchun ixcham manevrlar (tur, yo'nalish, ko'cha, manevrgacha masofa).
+     *
+     * @param  array<int, mixed>  $steps
+     * @return list<array{type: string, modifier: string|null, name: string, distance: int, lat: float, lng: float, exit: int|null}>
+     */
+    private function steps(array $steps): array
+    {
+        $result = [];
+        foreach ($steps as $step) {
+            if (! is_array($step)) {
+                continue;
+            }
+            $result[] = [
+                'type' => (string) data_get($step, 'maneuver.type'),
+                'modifier' => data_get($step, 'maneuver.modifier'),
+                'name' => (string) ($step['name'] ?? ''),
+                // Shu qadam yo'li uzunligi (keyingi manevrgacha)
+                'distance' => (int) round((float) ($step['distance'] ?? 0)),
+                'lng' => (float) data_get($step, 'maneuver.location.0'),
+                'lat' => (float) data_get($step, 'maneuver.location.1'),
+                'exit' => data_get($step, 'maneuver.exit'),
+            ];
+        }
+
+        return $result;
     }
 
     public function estimate(Point $from, Point $to): Route

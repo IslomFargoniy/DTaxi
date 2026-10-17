@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\Drivers\DriverBalance;
 use App\Services\Orders\OrderService;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -151,4 +152,24 @@ test('route falls back to an estimate when OSRM is down', function () {
 
     $this->getJson('/api/driver/v1/route?from_lat=40.38&from_lng=71.78&to_lat=40.40&to_lng=71.80')
         ->assertOk()->assertJsonPath('estimated', true);
+});
+
+test('route for the driver app includes turn-by-turn steps', function () {
+    // beforeEach'dagi umumiy soxta javob birinchi mos keladi — toza fabrika
+    Http::swap(new Factory);
+    Http::fake(['*/route/v1/driving/*' => Http::response(['code' => 'Ok', 'routes' => [[
+        'distance' => 700, 'duration' => 90,
+        'geometry' => ['coordinates' => [[71.78, 40.38], [71.79, 40.39]]],
+        'legs' => [['steps' => [
+            ['name' => '', 'distance' => 500, 'maneuver' => ['type' => 'depart', 'location' => [71.78, 40.38]]],
+            ['name' => 'Mustaqillik', 'distance' => 200, 'maneuver' => ['type' => 'turn', 'modifier' => 'left', 'location' => [71.785, 40.385]]],
+        ]]],
+    ]]])]);
+    actingDriver(driverNear($this->branch, 0));
+
+    $this->getJson('/api/driver/v1/route?from_lat=40.38&from_lng=71.78&to_lat=40.39&to_lng=71.79')->assertOk()
+        ->assertJsonPath('steps.1.type', 'turn')
+        ->assertJsonPath('steps.1.modifier', 'left')
+        ->assertJsonPath('steps.1.name', 'Mustaqillik')
+        ->assertJsonPath('steps.1.lat', 40.385);
 });

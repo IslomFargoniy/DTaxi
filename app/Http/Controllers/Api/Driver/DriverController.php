@@ -112,6 +112,7 @@ class DriverController extends Controller
             Point::makeGeodetic((float) $data['from_lat'], (float) $data['from_lng']),
             Point::makeGeodetic((float) $data['to_lat'], (float) $data['to_lng']),
             withGeometry: true,
+            withSteps: true,
         );
 
         return response()->json([
@@ -119,6 +120,7 @@ class DriverController extends Controller
             'duration_s' => $route->durationSeconds,
             'geometry' => $route->geometry,
             'estimated' => $route->estimated,
+            'steps' => $route->steps ?? [],
         ]);
     }
 

@@ -237,6 +237,14 @@ fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
 
     ScreenScaffold(stringResource(R.string.settings), onBack) { modifier ->
         Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            var voice by remember { mutableStateOf(app.session.voiceGuidance) }
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(stringResource(R.string.voice_guidance), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                androidx.compose.material3.Switch(checked = voice, onCheckedChange = {
+                    voice = it
+                    app.session.voiceGuidance = it
+                })
+            }
             Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("uz" to "O'zbekcha", "ru" to "Русский").forEach { (code, label) ->

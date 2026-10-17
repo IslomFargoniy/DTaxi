@@ -123,6 +123,18 @@ data class RouteResponse(
     @SerializedName("duration_s") val durationS: Int,
     val geometry: List<List<Double>>?,
     val estimated: Boolean,
+    val steps: List<NavStep> = emptyList(),
+)
+
+/** OSRM manevri (server ixchamlashtirgan) */
+data class NavStep(
+    val type: String,
+    val modifier: String?,
+    val name: String,
+    val distance: Int,
+    val lat: Double,
+    val lng: Double,
+    val exit: Int? = null,
 )
 
 data class Transaction(

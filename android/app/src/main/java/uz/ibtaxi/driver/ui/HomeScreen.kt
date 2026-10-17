@@ -57,6 +57,12 @@ import uz.ibtaxi.driver.data.Order
 import uz.ibtaxi.driver.data.Result
 import uz.ibtaxi.driver.service.DriverService
 import uz.ibtaxi.driver.taximeter.Fare
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.material3.CardDefaults
+import uz.ibtaxi.driver.data.NavStep
+import uz.ibtaxi.driver.navigation.Instructions
+import uz.ibtaxi.driver.navigation.Navigator
+import uz.ibtaxi.driver.navigation.VoiceGuide
 import java.time.Duration
 import java.time.LocalTime
 import java.time.OffsetDateTime
@@ -74,19 +80,45 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
     val location by DriverState.location.collectAsState()
     val unread by DriverState.unread.collectAsState()
     var route by remember { mutableStateOf<List<List<Double>>?>(null) }
+    var navigator by remember { mutableStateOf<Navigator?>(null) }
+    var banner by remember { mutableStateOf<Pair<NavStep, Int?>?>(null) }
+    var reroute by remember { mutableStateOf(0) }
+    val session = IbTaxiApp.instance.session
+    val voice = remember { VoiceGuide(context, session.locale) }
+    DisposableEffect(Unit) { onDispose { voice.shutdown() } }
     var info by remember { mutableStateOf<String?>(null) }
     val p = profile ?: return
 
     // Marshrut: mijozgacha yoki manzilgacha (OSRM orqali)
-    LaunchedEffect(order?.id, order?.status, location == null) {
+    LaunchedEffect(order?.id, order?.status, location == null, reroute) {
         val o = order
         val me = location
         route = null
-        if (o == null || me == null) return@LaunchedEffect
+        navigator = null
+        banner = null
+        if (o == null || me == null || o.status == "arrived") return@LaunchedEffect
         val target = if (o.status == "in_progress") o.dropoff else o.pickup
         val lat = target?.lat ?: return@LaunchedEffect
         val lng = target.lng ?: return@LaunchedEffect
-        (repository.route(me.first, me.second, lat, lng) as? Result.Ok)?.value?.let { route = it.geometry }
+        (repository.route(me.first, me.second, lat, lng) as? Result.Ok)?.value?.let {
+            route = it.geometry
+            val geometry = it.geometry
+            if (it.steps.size > 1 && !geometry.isNullOrEmpty()) navigator = Navigator(it.steps, geometry)
+        }
+    }
+
+    // Qadam-baqadam ko'rsatmalar: har GPS nuqtasida keyingi manevr, kerak bo'lsa ovoz
+    LaunchedEffect(location, navigator) {
+        val nav = navigator ?: return@LaunchedEffect
+        val me = location ?: return@LaunchedEffect
+        val (event, meters) = nav.update(me.first, me.second)
+        banner = nav.upcoming?.let { it to meters }
+        when (event) {
+            is Navigator.Event.OffRoute -> reroute++
+            is Navigator.Event.Prepare -> if (session.voiceGuidance) voice.say(Instructions.text(event.step, session.locale, event.meters))
+            is Navigator.Event.Now -> if (session.voiceGuidance) voice.say(Instructions.text(event.step, session.locale))
+            null -> Unit
+        }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -118,6 +150,22 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
                 BadgedBox(badge = { if (unread > 0) Badge { Text("$unread") } }) { Icon(Icons.Default.Chat, null) }
             }
             IconButton(onClick = { onOpen(Screen.Settings) }) { Icon(Icons.Default.Settings, null) }
+        }
+
+        // Navigatsiya banneri: keyingi manevr va unga qadar masofa
+        banner?.let { (step, meters) ->
+            Card(
+                Modifier.align(Alignment.TopCenter).padding(top = 76.dp, start = 12.dp, end = 12.dp).fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
+            ) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(arrow(step), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimary)
+                    Column(Modifier.padding(start = 12.dp)) {
+                        meters?.let { Text(formatDistance(it), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary) }
+                        Text(Instructions.text(step, session.locale), color = MaterialTheme.colorScheme.onPrimary, maxLines = 2)
+                    }
+                }
+            }
         }
 
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(12.dp)) {
@@ -281,3 +329,15 @@ private fun CancelDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
         dismissButton = { TextButton(onClick = onDismiss) { Text("✕") } },
     )
 }
+
+private fun arrow(step: NavStep): String = when {
+    step.type == "arrive" -> "🏁"
+    step.type == "roundabout" || step.type == "rotary" -> "⟳"
+    step.modifier == "uturn" -> "↶"
+    step.modifier?.contains("left") == true -> if (step.modifier.startsWith("slight")) "↖" else "←"
+    step.modifier?.contains("right") == true -> if (step.modifier.startsWith("slight")) "↗" else "→"
+    else -> "↑"
+}
+
+private fun formatDistance(meters: Int): String =
+    if (meters >= 1000) String.format(java.util.Locale.US, "%.1f km", meters / 1000.0) else "${(meters / 10) * 10} m"
