@@ -73,6 +73,13 @@ if [[ "$MODE" == "--prod" ]]; then
     id -u "${APP_USER}" >/dev/null 2>&1 || useradd --system --create-home --shell /bin/bash "${APP_USER}"
 fi
 
+# OSRM ma'lumotini tayyorlash va build vaqtida xotira yetishi uchun (4 GB serverda OOM bo'ladi)
+if [[ ! -f /swapfile ]] && (( $(free -m | awk '/^Mem:/{print $2}') + $(free -m | awk '/^Swap:/{print $2}') < 8000 )); then
+    log "Swap (4 GB)"
+    fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
+    grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
 log "Composer"
 if ! command -v composer >/dev/null; then
     curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
