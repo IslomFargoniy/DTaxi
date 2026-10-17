@@ -65,4 +65,6 @@
     <string name="quick_address">Не нашёл адрес</string>
     <string name="quick_on_way">Еду</string>
     <string name="quick_traffic">Пробка, опаздываю</string>
+    <string name="call_dispatcher">Позвонить диспетчеру</string>
+    <string name="mic_required">Разрешите доступ к микрофону для звонка</string>
 </resources>

@@ -23,3 +23,14 @@ Yangi keystore:
 ```bash
 keytool -genkeypair -v -keystore firms/<firma>/keystore.jks -alias driver -keyalg RSA -keysize 2048 -validity 36500
 ```
+
+## Lokal sinov serveri (self-signed HTTPS)
+
+"Dispetcherga qo'ng'iroq" (WebRTC) sahifasi https orqali ochiladi. Lokal VM'ning self-signed sertifikatiga
+faqat **debug** build ishonishi uchun uni firma papkasiga qo'ying (git'ga tushmaydi):
+
+```bash
+multipass exec ibtaxi -- cat /etc/ssl/ibtaxi-dev.crt > firms/dev/dev-ca.pem
+```
+
+Firma serverida haqiqiy (Let's Encrypt) sertifikat bo'ladi — bu fayl kerak emas.

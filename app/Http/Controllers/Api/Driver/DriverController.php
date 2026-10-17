@@ -11,9 +11,11 @@ use App\Models\DeviceToken;
 use App\Models\Driver;
 use App\Models\DriverTransaction;
 use App\Models\Order;
+use App\Models\User;
 use App\Services\Drivers\DriverBalance;
 use App\Services\Drivers\DriverLocator;
 use App\Services\Routing\Router;
+use App\Services\Telephony\Extensions;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -142,5 +144,22 @@ class DriverController extends Controller
     private function driver(Request $request): Driver
     {
         return Driver::query()->withoutGlobalScopes()->where('user_id', $request->user()?->id)->firstOrFail();
+    }
+
+    /**
+     * Ilova ichidagi qo'ng'iroq sahifasi uchun SIP ma'lumotlari (qaror #47).
+     */
+    public function phone(Request $request, Extensions $extensions): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        if (! $user->sip_extension) {
+            $extensions->syncFor($user);
+        }
+
+        $sip = $extensions->credentials($user, $request->getHost());
+        abort_unless($sip !== null, 404);
+
+        return response()->json(['sip' => $sip, 'target' => 'dispatcher']);
     }
 }

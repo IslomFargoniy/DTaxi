@@ -33,6 +33,8 @@ Route::get('map/style.json', MapStyleController::class)->name('map.style');
 
 // Haydovchi ilovasi — Google Play'siz (qaror #37)
 Route::get('driver-app', [DriverAppController::class, 'page'])->name('driver-app.page');
+// Haydovchi ilovasi ichidagi (WebView) dispetcherga qo'ng'iroq sahifasi; token JS ko'prik orqali beriladi
+Route::view('driver-app/call', 'driver-call')->name('driver-app.call');
 Route::get('driver-app/{abi}.apk', [DriverAppController::class, 'download'])->name('driver-app.download');
 
 Route::get('chat/{message}/attachment', function (ChatMessage $message) {

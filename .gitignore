@@ -49,3 +49,4 @@ yarn-error.log
 /android/firms/*/keystore.jks
 /android/firms/*/keystore.properties
 /android/.idea
+/android/firms/*/dev-ca.pem

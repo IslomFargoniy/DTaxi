@@ -36,5 +36,8 @@ Route::prefix('driver/v1')->group(function () {
 
         Route::get('chat', [ChatController::class, 'index']);
         Route::post('chat', [ChatController::class, 'store']);
+
+        // Dispetcherga qo'ng'iroq (qaror #47): WebRTC ichki raqam
+        Route::get('phone', [DriverController::class, 'phone']);
     });
 });

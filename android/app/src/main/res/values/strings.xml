@@ -65,4 +65,6 @@
     <string name="quick_address">Manzil topilmadi</string>
     <string name="quick_on_way">Yo\'ldaman</string>
     <string name="quick_traffic">Tirbandlik, kechikaman</string>
+    <string name="call_dispatcher">Dispetcherga qo\'ng\'iroq</string>
+    <string name="mic_required">Qo\'ng\'iroq uchun mikrofonga ruxsat bering</string>
 </resources>

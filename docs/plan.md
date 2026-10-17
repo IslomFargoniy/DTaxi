@@ -810,22 +810,23 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [x] Chat (tezkor javoblar), balans tarixi, sozlamalar (til, batareya yo'riqnomasi)
 - [x] Avto-yangilanish: admin panelda APK joylash (ABI bo'yicha), yuklab olish sahifasi va QR, majburiy yangilanish
 - [x] Narx formulasi va taksometr unit testlari; emulyatorda to'liq oqim sinovi
-- [ ] "Dispetcherga qo'ng'iroq" (WebRTC) — Bosqich 3 da Asterisk bilan
+- [x] "Dispetcherga qo'ng'iroq" (WebRTC) — Bosqich 3 da qo'shildi
 
-### Bosqich 3 — Telefoniya + PBX panel (3–4 hafta)
+### Bosqich 3 — Telefoniya + PBX panel ✅ (Sarkor ulanishidan tashqari)
 
-- [ ] Asterisk o'rnatish (noldan), PJSIP + WSS, coturn
-- [ ] Sarkor Telecom trunk: ma'lumot yig'ish, test akkaunt, ulash (§5.2)
-- [ ] Asterisk Realtime ↔ PostgreSQL (`ps_*`, `queues`, `queue_members` migratsiyalari)
-- [ ] PBX panel: SIP trunklar, telefon raqamlari ↔ filiallar + routing rejimlari (§5.2a), parallel liniyalar limiti (§5.3), ichki raqamlar (operator bilan avtomatik), navbatlar, IVR/ish vaqti, audio fayllar
-- [ ] WebRTC softphone panelda
-- [ ] Haydovchi ilovasida "Dispetcherga qo'ng'iroq" (WebRTC SIP klient Android'da), operator panelida haydovchi qo'ng'irog'i kartochkasi
-- [ ] AMI listener → Caller ID pop-up
-- [ ] Yozib olish, CDR, javobsiz qo'ng'iroqlar
-- [ ] PBX panel: jonli monitoring, qo'ng'iroqlar tarixi, statistika, qora ro'yxat
-- [ ] Avtomatik ovozli xabarlar (ARI outbound + TTS bo'laklari): "haydovchi tayinlandi", "yetib keldi", "topilmadi"
-- [ ] O'zbekcha audio bo'laklar kutubxonasi: ~140 bo'lak, ayol ovozi (§5.4 katalog), `sound_clips` jadvali, panelda tinglash/qayta yuklash
-- [ ] `PlateSpeaker` / `MessageComposer` servislari (davlat raqami, son, rang, model → bo'laklar ketma-ketligi) + testlar
+- [x] Asterisk 20 o'rnatish skriptda (Ubuntu paketi), PJSIP + WSS (nginx `/ws`), ICE/STUN, DTLS sertifikat
+- [ ] Sarkor Telecom trunk: test akkaunt bilan ulash va sinash (§5.2) — akkaunt olingach
+- [x] Asterisk Realtime ↔ PostgreSQL (`ps_*` jadvallar, ODBC); trunk va ichki raqamlar panelda saqlanganda darhol ishlaydi
+- [x] Qo'ng'iroq mantig'i ARI'da (Stasis `ibtaxi`, `php artisan ari:listen` supervisor ostida): navbat, eng uzoq bo'sh turgan operatorga taqsimlash, javob bermasa keyingisi (va tanaffusga), kutish limiti, salomlashuv + kutish musiqasi, IVR (raqam bir nechta filialda), mijoz tarixi bo'yicha yo'naltirish
+- [x] Telefoniya bo'limi: SIP trunklar (holati), raqamlar ↔ filiallar + routing rejimlari (§5.2a), liniyalar limiti (trunk/filial/avto-qo'ng'iroq ulushi, §5.3), qo'ng'iroq markazi sozlamalari; ichki raqamlar operator/haydovchi bilan avtomatik
+- [x] Operator softfoni brauzerda (JsSIP): holat (tayyor/tanaffus/oflayn), javob berish, mikrofon, qayta qo'ng'iroq, javobsizlar ro'yxati; kiruvchi qo'ng'iroq kartochkasi buyurtma formasini to'ldiradi va buyurtma qo'ng'iroqqa bog'lanadi
+- [x] Haydovchi ilovasida "Dispetcherga qo'ng'iroq" (WebView + JsSIP), operator panelida "Haydovchi #pozivnoy" kartochkasi. Operator → haydovchi: haydovchining mobil raqamiga (trunk orqali)
+- [x] Yozib olish (ko'prik → MP3, `storage/app/private/recordings`, faqat panel orqali), muddati o'tganlarni o'chirish (`recordings:cleanup`), CDR (`calls`), qora ro'yxat (rad etiladi)
+- [x] Qo'ng'iroqlar bo'limi: jonli monitoring (5 s), tarix + filtrlar + yozuv pleyeri, statistika (javob berilgan/javobsiz, liniya bandligi sababli yo'qotilgan, o'rtacha kutish/suhbat, soatlar, operatorlar)
+- [x] Avtomatik ovozli xabarlar: tayinlandi (ETA bilan, mijoz liniyadan tushgach), yetib keldi, hali kutmoqda, topilmadi, bekor qilindi; 2 marta takror, "1" — qayta eshitish; javobsiz bo'lsa qayta urinish, so'ng operatorga belgi
+- [x] Ovozli bo'laklar kutubxonasi (SpeechKit, ayol ovozi, 8 kHz): panelda tinglash / matnni tuzatib qayta generatsiya / o'z yozuvini yuklash; filial salomlashuvi bir butun audio
+- [x] `MessageComposer` (davlat raqami, son, rang, model → bo'laklar) + testlar; telefoniya testlari (ARI soxtalashtirilgan) va haqiqiy Asterisk + Chrome + Android emulyatorda uchma-uch sinov
+- [ ] Ish vaqti / bayram jadvali (ishdan tashqari xabar) — keyingi versiyada
 
 ### Bosqich 3b — Mahsulotlashtirish (1–2 hafta, §0)
 

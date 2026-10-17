@@ -3,6 +3,7 @@
 use App\Enums\Role;
 use App\Models\Branch;
 use App\Models\Call;
+use App\Models\Driver;
 use App\Models\PhoneNumber;
 use App\Models\Pjsip\PsEndpoint;
 use App\Models\SipTrunk;
@@ -12,6 +13,7 @@ use App\Support\Settings;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
     Http::fake(['*/ari/endpoints/PJSIP' => Http::response([['resource' => 'trunk-sarkor', 'state' => 'online']])]);
@@ -103,4 +105,14 @@ test('operator gets softphone credentials', function () {
     $this->actingAs($operator)->getJson(route('operator.phone.show'))->assertOk()
         ->assertJsonPath('sip.extension', 'op'.$operator->id)
         ->assertJsonPath('status', 'offline');
+});
+
+test('driver app gets WebRTC credentials to call the dispatcher', function () {
+    $driver = Driver::factory()->create(['branch_id' => $this->branch->id]);
+    Sanctum::actingAs($driver->user, ['driver']);
+
+    $this->getJson('/api/driver/v1/phone')->assertOk()
+        ->assertJsonPath('sip.extension', 'dr'.$driver->id)
+        ->assertJsonPath('target', 'dispatcher');
+    $this->get(route('driver-app.call'))->assertOk()->assertSee('Dispetcher');
 });

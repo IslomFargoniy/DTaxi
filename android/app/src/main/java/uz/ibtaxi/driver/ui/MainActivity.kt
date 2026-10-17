@@ -2,6 +2,7 @@ package uz.ibtaxi.driver.ui
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -34,7 +35,7 @@ import uz.ibtaxi.driver.service.OfferNotifier
 import uz.ibtaxi.driver.update.Updater
 import java.util.Locale
 
-enum class Screen { Home, Chat, Balance, Settings }
+enum class Screen { Home, Chat, Balance, Settings, Call }
 
 class MainActivity : ComponentActivity() {
     private var afterPermissions: (() -> Unit)? = null
@@ -42,6 +43,10 @@ class MainActivity : ComponentActivity() {
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result[Manifest.permission.ACCESS_FINE_LOCATION] == true) afterPermissions?.invoke()
         afterPermissions = null
+    }
+
+    private val micLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startActivity(Intent(this, CallActivity::class.java)) else DriverState.toast(getString(R.string.mic_required))
     }
 
     override fun attachBaseContext(base: Context) {
@@ -86,7 +91,9 @@ class MainActivity : ComponentActivity() {
                     LoginScreen()
                 } else if (profile != null) {
                     when (screen) {
-                        Screen.Home -> HomeScreen(onOpen = { screen = it }, requestPermissions = ::withPermissions)
+                        Screen.Home, Screen.Call -> HomeScreen(onOpen = { target ->
+                            if (target == Screen.Call) callDispatcher() else screen = target
+                        }, requestPermissions = ::withPermissions)
                         Screen.Chat -> ChatScreen { screen = Screen.Home }
                         Screen.Balance -> BalanceScreen { screen = Screen.Home }
                         Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Home }, onLocaleChange = { code ->
@@ -143,6 +150,14 @@ class MainActivity : ComponentActivity() {
         } else {
             afterPermissions = then
             permissionLauncher.launch(needed.toTypedArray())
+        }
+    }
+
+    private fun callDispatcher() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            startActivity(Intent(this, CallActivity::class.java))
+        } else {
+            micLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 

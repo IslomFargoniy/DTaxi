@@ -21,6 +21,42 @@ val keystoreProps = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
+// Tarmoq xavfsizligi: cleartext faqat http serverda (lokal sinov); firms/<firm>/dev-ca.pem bo'lsa —
+// lokal sinov serverining self-signed sertifikatiga faqat debug build ishonadi (WebRTC qo'ng'iroq WSS uchun)
+val devCa = File(firmDir, "dev-ca.pem")
+val securityResDir = layout.buildDirectory.dir("generated/firmSecurityRes")
+val generateNetworkSecurity by tasks.registering {
+    val cleartext = firmProp("serverUrl").startsWith("http://")
+    inputs.property("cleartext", cleartext)
+    inputs.property("devCa", if (devCa.exists()) devCa.readText() else "")
+    outputs.dir(securityResDir)
+    doLast {
+        val dir = securityResDir.get().asFile
+        dir.deleteRecursively()
+        File(dir, "xml").mkdirs()
+        val debugAnchor = if (devCa.exists()) {
+            File(dir, "raw").mkdirs()
+            devCa.copyTo(File(dir, "raw/dev_ca.pem"), overwrite = true)
+            "<certificates src=\"@raw/dev_ca\" />"
+        } else {
+            ""
+        }
+        File(dir, "xml/network_security_config.xml").writeText(
+            """
+            <?xml version="1.0" encoding="utf-8"?>
+            <network-security-config>
+                <base-config cleartextTrafficPermitted="$cleartext">
+                    <trust-anchors><certificates src="system" /></trust-anchors>
+                </base-config>
+                <debug-overrides>
+                    <trust-anchors>$debugAnchor<certificates src="system" /></trust-anchors>
+                </debug-overrides>
+            </network-security-config>
+            """.trimIndent(),
+        )
+    }
+}
+
 android {
     namespace = "uz.ibtaxi.driver"
     compileSdk = 35
@@ -39,8 +75,6 @@ android {
         buildConfigField("String", "FIREBASE_APPLICATION_ID", "\"${firmProp("firebaseApplicationId")}\"")
         buildConfigField("String", "FIREBASE_API_KEY", "\"${firmProp("firebaseApiKey")}\"")
         buildConfigField("String", "FIREBASE_SENDER_ID", "\"${firmProp("firebaseSenderId")}\"")
-        // Lokal sinovda http ruxsat etiladi; xaridor serveri doim https
-        manifestPlaceholders["usesCleartext"] = firmProp("serverUrl").startsWith("http://").toString()
     }
 
     signingConfigs {
@@ -70,6 +104,7 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    sourceSets["main"].res.srcDir(securityResDir)
     buildFeatures {
         compose = true
         buildConfig = true
@@ -117,3 +152,5 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     testImplementation(libs.junit)
 }
+
+tasks.named("preBuild") { dependsOn(generateNetworkSecurity) }

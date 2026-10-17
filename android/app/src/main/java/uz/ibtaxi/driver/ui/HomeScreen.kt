@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Phone
@@ -111,6 +112,7 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
                     color = if (p.balance < p.minBalance) MaterialTheme.colorScheme.error else Color.Unspecified,
                 )
             }
+            IconButton(onClick = { onOpen(Screen.Call) }) { Icon(Icons.Default.Call, stringResource(R.string.call_dispatcher)) }
             IconButton(onClick = { onOpen(Screen.Balance) }) { Icon(Icons.Default.AccountBalanceWallet, null) }
             IconButton(onClick = { onOpen(Screen.Chat) }) {
                 BadgedBox(badge = { if (unread > 0) Badge { Text("$unread") } }) { Icon(Icons.Default.Chat, null) }
