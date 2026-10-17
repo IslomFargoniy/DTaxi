@@ -58,7 +58,7 @@ Holat: **v5.0 — tasdiqlangan reja** · Sana: 2026-10-17
 | 46  | **FastPanel'dan to'liq voz kechildi.** Test va xaridor serverlari — toza Ubuntu LTS + o'rnatish skripti (Nginx, PHP-FPM, PostgreSQL, Redis, Asterisk, OSRM, Supervisor, Certbot)                                                                                    | 2026-10-17 |
 | 47  | **Haydovchi ↔ dispetcher aloqasi: ilova ichida qo'ng'iroq (WebRTC, yoziladi) + chat**                                                                                                                                                                               | 2026-10-17 |
 | 48  | **Haydovchi joylashuvi PostGIS'da** (`drivers.last_location` + GIST indeks), Redis GEO o'rniga: ~18 yangilanish/soniya PostgreSQL uchun yengil, holat va joylashuv bitta tranzaksiyada — "kim birinchi" ishonchliroq                                                | 2026-10-18 |
-| 49  | **Ilova ichida ovozli navigatsiya: OSRM manevrlari + telefonning TTS dvigateli** (Ferrostar + Valhalla o'rniga). Allaqachon ishlab turgan OSRM'dan foydalaniladi, qo'shimcha server yo'q; ko'rsatma banneri doim, ovoz — telefonda ilova tili (o'zbek/rus) bo'lsa | 2026-10-21 |
+| 49  | **Ilova ichida ovozli navigatsiya: OSRM manevrlari + telefonning TTS dvigateli** (Ferrostar + Valhalla o'rniga). Allaqachon ishlab turgan OSRM'dan foydalaniladi, qo'shimcha server yo'q; ko'rsatma banneri doim, ovoz — telefonda ilova tili (o'zbek/rus) bo'lsa   | 2026-10-21 |
 
 ---
 
