@@ -35,6 +35,8 @@ class SoundCatalog
         'call-later' => "Kechirasiz, operatorlar band. Biz sizga qayta qo'ng'iroq qilamiz.",
         'closed' => 'Hozir ish vaqti emas.',
         'choose-branch' => 'Kerakli filialni tanlang.',
+        'auto-order-offer' => 'Oxirgi manzilingizga taksi chaqirish uchun bir ni, operator bilan gaplashish uchun ikki ni bosing.',
+        'order-accepted' => "Buyurtmangiz qabul qilindi. Haydovchi topilgach sizga qo'ng'iroq qilamiz.",
     ];
 
     /** @var array<int, string> raqamlar: 0–9, o'nliklar, yuz, ming */

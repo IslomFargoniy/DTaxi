@@ -27,6 +27,8 @@ class Settings
         'calls.max_wait_seconds' => 180,
         'calls.operator_ring_seconds' => 20,
         'calls.pause_on_missed_ring' => true,
+        // IVR avto-buyurtma: doimiy mijoz "1" ni bosib oxirgi manziliga taksi chaqiradi (Bosqich 5)
+        'calls.ivr_auto_order' => false,
         // Avto-qo'ng'iroqlar (§5.4)
         'calls.auto_calls_enabled' => true,
         'calls.auto_call_attempts' => 3,

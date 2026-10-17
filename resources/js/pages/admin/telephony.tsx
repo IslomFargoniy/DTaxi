@@ -533,6 +533,11 @@ const SETTING_FIELDS: {
         kind: 'bool',
     },
     {
+        key: 'calls.ivr_auto_order',
+        label: 'IVR auto-order: regular client presses 1 to order a taxi to the last address',
+        kind: 'bool',
+    },
+    {
         key: 'calls.auto_calls_enabled',
         label: 'Voice notifications to clients',
         kind: 'bool',

@@ -25,6 +25,7 @@ class TelephonyController extends Controller
         'calls.max_wait_seconds' => ['integer', 'min:30', 'max:1800'],
         'calls.operator_ring_seconds' => ['integer', 'min:5', 'max:120'],
         'calls.pause_on_missed_ring' => ['boolean'],
+        'calls.ivr_auto_order' => ['boolean'],
         'calls.auto_calls_enabled' => ['boolean'],
         'calls.auto_call_attempts' => ['integer', 'min:1', 'max:5'],
         'calls.auto_call_retry_seconds' => ['integer', 'min:10', 'max:600'],

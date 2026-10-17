@@ -2,6 +2,7 @@
 
 namespace App\Services\Telephony;
 
+use App\Enums\OrderSource;
 use App\Events\CallUpdated;
 use App\Events\OperatorCallEvent;
 use App\Jobs\ProcessRecording;
@@ -12,6 +13,7 @@ use App\Models\Driver;
 use App\Models\Order;
 use App\Models\PhoneNumber;
 use App\Models\User;
+use App\Services\Orders\OrderService;
 use App\Services\Sounds\MessageComposer;
 use App\Support\Settings;
 use Illuminate\Support\Facades\Cache;
@@ -80,6 +82,15 @@ class CallCenter
 
         foreach ($waiting as $call) {
             if (data_get($call->meta, 'ivr') || data_get($call->meta, 'closing')) {
+                continue;
+            }
+            if (data_get($call->meta, 'auto_offer')) {
+                // Taklif eshittirildi, 5 soniya ichida tugma bosilmadi — operator navbatiga
+                $until = data_get($call->meta, 'auto_offer_until');
+                if ($until && now()->getTimestamp() >= (int) $until) {
+                    $this->leaveAutoOffer($call);
+                }
+
                 continue;
             }
 
@@ -186,12 +197,82 @@ class CallCenter
 
         if ($ivr) {
             $this->playIvrMenu($call);
+        } elseif ($lastOrder = $this->autoOrderCandidate($call, $client)) {
+            // Doimiy mijoz: "1" — oxirgi manzilga taksi, "2" yoki jim tursa — operator navbati
+            $this->updateMeta($call, ['auto_offer' => $lastOrder->id]);
+            $this->playFor($call, $channelId, [...$this->greeting($branchId), ...$this->composer()->phrase('ivr', 'auto-order-offer')], 'auto_offer');
         } else {
             $this->playFor($call, $channelId, $this->greeting($branchId), 'greeting');
             $this->offerToOperator($call);
         }
 
         CallUpdated::dispatch($call);
+    }
+
+    /**
+     * IVR avto-buyurtma uchun mijozning oxirgi yakunlangan buyurtmasi (faol buyurtmasi bo'lmasa).
+     */
+    private function autoOrderCandidate(Call $call, ?Client $client): ?Order
+    {
+        if (! $client || ! $call->branch_id || ! $this->settings->get('calls.ivr_auto_order', $call->branch_id)
+            || $this->composer()->phrase('ivr', 'auto-order-offer') === []) {
+            return null;
+        }
+
+        $orders = Order::query()->withoutGlobalScopes()->where('client_id', $client->id);
+        if ((clone $orders)->active()->exists()) {
+            return null;
+        }
+
+        return $orders->where('status', 'completed')
+            ->whereIn('branch_id', array_map('intval', (array) data_get($call->meta, 'branch_ids', [$call->branch_id])))
+            ->latest('id')->first();
+    }
+
+    /**
+     * Mijoz "1" ni bosdi: oxirgi buyurtmasi bo'yicha yangi buyurtma, tasdiq xabari va yakun.
+     */
+    private function placeAutoOrder(Call $call, int $templateId): void
+    {
+        $template = Order::query()->withoutGlobalScopes()->with('client')->find($templateId);
+        if (! $template) {
+            $this->leaveAutoOffer($call);
+
+            return;
+        }
+        if ($playback = data_get($call->meta, 'playback')) {
+            $this->ari->stopPlayback((string) $playback);
+        }
+
+        $order = app(OrderService::class)->create([
+            'branch_id' => $template->branch_id,
+            'phone' => $template->client->phone,
+            'tariff_class_id' => $template->tariff_class_id,
+            'pickup_text' => $template->pickup_text,
+            'pickup_lat' => $template->pickup_location->getLatitude(),
+            'pickup_lng' => $template->pickup_location->getLongitude(),
+            'pickup_landmark_id' => $template->pickup_landmark_id,
+            'source' => OrderSource::Ivr,
+            'phone_number_id' => $call->phone_number_id,
+        ]);
+
+        $call->forceFill(['status' => 'answered', 'answered_at' => now(), 'order_id' => $order->id])->save();
+        $this->updateMeta($call, ['auto_offer' => null, 'reason' => 'auto_order']);
+        $this->playFor($call, (string) $call->channel_id, $this->composer()->phrase('ivr', 'order-accepted'), 'close');
+        CallUpdated::dispatch($call);
+    }
+
+    /**
+     * Avto-buyurtma taklifidan voz kechildi (yoki javob yo'q) — oddiy navbat.
+     */
+    private function leaveAutoOffer(Call $call): void
+    {
+        if ($playback = data_get($call->meta, 'playback')) {
+            $this->ari->stopPlayback((string) $playback);
+        }
+        $this->updateMeta($call, ['auto_offer' => null, 'auto_offer_until' => null]);
+        $this->ari->startMoh((string) $call->channel_id);
+        $this->offerToOperator($call);
     }
 
     /**
@@ -515,6 +596,7 @@ class CallCenter
             'greeting' => $call->status === 'waiting' && $this->ari->startMoh($channelId),
             'close' => $this->ari->hangup($channelId),
             'ivr' => $this->ivrTimeout($call),
+            'auto_offer' => $this->updateMeta($call, ['auto_offer_until' => now()->addSeconds(5)->getTimestamp()]),
             'tts' => $this->ttsPlayed($call, $channelId),
             default => null,
         };
@@ -533,6 +615,16 @@ class CallCenter
             }
             $this->updateMeta($call, ['plays' => 0]);
             $this->playTts($call, $channelId);
+
+            return;
+        }
+
+        if (data_get($call->meta, 'auto_offer') && $call->status === 'waiting') {
+            if ($digit === '1') {
+                $this->placeAutoOrder($call, (int) data_get($call->meta, 'auto_offer'));
+            } elseif ($digit === '2') {
+                $this->leaveAutoOffer($call);
+            }
 
             return;
         }
@@ -652,6 +744,8 @@ class CallCenter
                 $this->ari->hangup($channelId);
             } elseif ($purpose === 'ivr') {
                 $this->ivrTimeout($call);
+            } elseif ($purpose === 'auto_offer') {
+                $this->leaveAutoOffer($call);
             }
 
             return;

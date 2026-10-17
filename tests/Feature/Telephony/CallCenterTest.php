@@ -261,3 +261,52 @@ test('calls outside working hours hear a message and are not queued for callback
         ->and(ariRequests('endpoint=PJSIP/op'))->toBeEmpty();
     $this->actingAs($this->operator)->getJson(route('operator.phone.missed'))->assertJsonCount(0);
 });
+
+function regularClient(Branch $branch): Order
+{
+    app(App\Support\Settings::class)->set('calls.ivr_auto_order', true);
+    SoundClip::query()->create(['category' => 'ivr', 'key' => 'auto-order-offer', 'text' => 'x', 'file_path' => 'ivr/auto-order-offer']);
+    $client = Client::query()->create(['phone' => '+998901234567', 'orders_count' => 3]);
+
+    return Order::factory()->create(['branch_id' => $branch->id, 'client_id' => $client->id, 'status' => OrderStatus::Completed, 'pickup_text' => 'Uyim']);
+}
+
+test('regular client presses 1 and gets a taxi to the last address without an operator', function () {
+    $last = regularClient($this->branch);
+    driverNear($this->branch, 300);
+
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    expect($call->meta['auto_offer'])->toBe($last->id)
+        ->and(ariRequests('endpoint=PJSIP/op'))->toBeEmpty();
+
+    $this->center->handle(['type' => 'ChannelDtmfReceived', 'channel' => ['id' => 'ch-1'], 'digit' => '1']);
+
+    $order = Order::query()->withoutGlobalScopes()->latest('id')->first();
+    expect($order->id)->not->toBe($last->id)
+        ->and($order->source)->toBe(App\Enums\OrderSource::Ivr)
+        ->and($order->pickup_text)->toBe('Uyim')
+        ->and($order->status)->toBe(OrderStatus::Searching)
+        ->and($call->refresh()->order_id)->toBe($order->id);
+});
+
+test('client who presses 2 or stays silent goes to the operator queue', function () {
+    regularClient($this->branch);
+
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $this->center->handle(['type' => 'ChannelDtmfReceived', 'channel' => ['id' => 'ch-1'], 'digit' => '2']);
+    expect(Call::query()->withoutGlobalScopes()->sole()->operator_id)->toBe($this->operator->id);
+
+    // Jim tursa: taklif tugagach 5 soniya
+    $this->center->handle(stasis('ch-2', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->where('channel_id', 'ch-2')->sole();
+    $this->center->handle(['type' => 'PlaybackFinished', 'playback' => ['id' => $call->meta['playback']]]);
+    $this->travel(6)->seconds();
+    $second = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+    $second->forceFill(['sip_extension' => 'op'.$second->id, 'operator_status' => 'ready'])->save();
+    $this->online[] = $second->sip_extension;
+    Illuminate\Support\Facades\Cache::forget('telephony:online-endpoints');
+    $this->center->tick();
+
+    expect($call->refresh()->operator_id)->toBe($second->id);
+});
