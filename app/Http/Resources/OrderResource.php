@@ -59,6 +59,7 @@ class OrderResource extends JsonResource
             'distance_m' => $this->distance_m,
             'search_radius_m' => $this->search_radius_m,
             'created_at' => $this->created_at->toIso8601String(),
+            'scheduled_at' => $this->scheduled_at?->toIso8601String(),
             'assigned_at' => $this->assigned_at?->toIso8601String(),
             'arrived_at' => $this->arrived_at?->toIso8601String(),
             'started_at' => $this->started_at?->toIso8601String(),

@@ -11,4 +11,6 @@ export type NavItem = {
     href: NonNullable<InertiaLinkProps['href']>;
     icon?: LucideIcon | null;
     isActive?: boolean;
+    /** Inertia sahifasi emas (masalan Horizon) — oddiy havola, yangi oynada */
+    external?: boolean;
 };

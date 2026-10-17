@@ -31,10 +31,25 @@ export function NavMain({
                             isActive={isCurrentUrl(item.href)}
                             tooltip={{ children: t(item.title) }}
                         >
-                            <Link href={item.href} prefetch>
-                                {item.icon && <item.icon />}
-                                <span>{t(item.title)}</span>
-                            </Link>
+                            {item.external ? (
+                                <a
+                                    href={
+                                        typeof item.href === 'string'
+                                            ? item.href
+                                            : item.href.url
+                                    }
+                                    target="_blank"
+                                    rel="noopener"
+                                >
+                                    {item.icon && <item.icon />}
+                                    <span>{t(item.title)}</span>
+                                </a>
+                            ) : (
+                                <Link href={item.href} prefetch>
+                                    {item.icon && <item.icon />}
+                                    <span>{t(item.title)}</span>
+                                </Link>
+                            )}
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 ))}

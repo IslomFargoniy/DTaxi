@@ -37,6 +37,8 @@ class Settings
         'dispatch.step_seconds' => 20,
         'dispatch.direct_offer_seconds' => 15,
         'dispatch.location_ttl_seconds' => 60,
+        // Oldindan buyurtma necha daqiqa oldin efirga chiqadi
+        'dispatch.preorder_lead_minutes' => 15,
         // Jarima va reyting (qaror #29)
         'drivers.cancel_penalty' => 2000,
         'drivers.rating_cancel_penalty' => 5,

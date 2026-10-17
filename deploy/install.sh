@@ -154,6 +154,11 @@ if [[ "$MODE" == "--prod" ]]; then
     PUBLIC_IP="${PUBLIC_IP:-$(curl -4 -fs --max-time 5 https://api.ipify.org || hostname -I | awk '{print $1}')}"
 fi
 
+# APK yuklash uchun PHP limitlari
+for ini in "/etc/php/${PHP_VERSION}/fpm/php.ini" "/etc/php/${PHP_VERSION}/cli/php.ini"; do
+    sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 200M/; s/^post_max_size = .*/post_max_size = 450M/' "$ini"
+done
+
 systemctl restart postgresql redis-server "php${PHP_VERSION}-fpm"
 
 log "Telefoniya: Asterisk (PJSIP Realtime, ARI, WebRTC)"
@@ -214,7 +219,8 @@ server {
     server_name _;
     root ${APP_DIR}/public;
     index index.php;
-    client_max_body_size 20M;
+    # Haydovchi ilovasi APK'si (har ABI ~80 MB) panel orqali yuklanadi
+    client_max_body_size 450M;
     charset utf-8;
 
     location / {

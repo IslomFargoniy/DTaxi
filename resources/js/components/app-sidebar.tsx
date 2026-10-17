@@ -101,7 +101,12 @@ export function AppSidebar() {
               { title: 'Telephony', href: telephony(), icon: Waypoints },
               { title: 'Voice clips', href: sounds(), icon: AudioLines },
               { title: 'Driver app', href: driverApp(), icon: Smartphone },
-              { title: 'Queues', href: '/horizon', icon: BarChart3 },
+              {
+                  title: 'Queues',
+                  href: '/horizon',
+                  icon: BarChart3,
+                  external: true,
+              },
           ]
         : [];
 

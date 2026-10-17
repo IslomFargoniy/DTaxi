@@ -2,9 +2,12 @@
 
 namespace App\Http\Requests\Operator;
 
+use App\Models\Branch;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreOrderRequest extends FormRequest
 {
@@ -42,6 +45,8 @@ class StoreOrderRequest extends FormRequest
             'delivery.description' => ['nullable', 'string', 'max:500'],
             // Buyurtma qaysi qo'ng'iroqdan yaratildi (pop-up orqali) — yozuv va raqam statistikasi uchun
             'call_id' => ['nullable', 'integer', Rule::exists('calls', 'id')],
+            // Oldindan buyurtma: filial vaqti bilan "2026-10-20T14:30", eng ko'pi 7 kun oldin
+            'scheduled_at' => ['nullable', 'date_format:Y-m-d\TH:i'],
         ];
     }
 
@@ -62,6 +67,7 @@ class StoreOrderRequest extends FormRequest
      *     dropoff_lng: float|null,
      *     comment: string|null,
      *     delivery: array<string, string|null>|null,
+     *     scheduled_at: \DateTimeInterface|null,
      * }
      */
     public function orderData(): array
@@ -82,6 +88,33 @@ class StoreOrderRequest extends FormRequest
             'dropoff_lng' => $this->filled('dropoff_lng') ? $this->float('dropoff_lng') : null,
             'comment' => $this->filled('comment') ? $this->string('comment')->toString() : null,
             'delivery' => is_array($delivery) ? array_map(fn ($v) => is_string($v) ? $v : null, $delivery) : null,
+            'scheduled_at' => $this->scheduledAt(),
         ];
+    }
+
+    /**
+     * Operator filial mahalliy vaqtini kiritadi; bazaga UTC.
+     */
+    private function scheduledAt(): ?\DateTimeInterface
+    {
+        if (! $this->filled('scheduled_at')) {
+            return null;
+        }
+        $timezone = Branch::query()->whereKey($this->integer('branch_id'))->value('timezone') ?? 'Asia/Tashkent';
+
+        return CarbonImmutable::createFromFormat('Y-m-d\TH:i', $this->string('scheduled_at')->toString(), $timezone)?->utc();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function after(): array
+    {
+        return [function (Validator $validator) {
+            $at = $this->filled('scheduled_at') && ! $validator->errors()->has('scheduled_at') ? $this->scheduledAt() : null;
+            if ($at && ($at < now()->addMinutes(5) || $at > now()->addDays(7))) {
+                $validator->errors()->add('scheduled_at', __('Pre-order time must be between 5 minutes and 7 days from now.'));
+            }
+        }];
     }
 }

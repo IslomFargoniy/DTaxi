@@ -42,6 +42,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $commission
  * @property int|null $phone_number_id
  * @property int $search_radius_m
+ * @property Carbon|null $scheduled_at
  * @property Carbon|null $searching_at
  * @property Carbon|null $assigned_at
  * @property Carbon|null $arrived_at
@@ -59,7 +60,7 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'branch_id', 'client_id', 'operator_id', 'driver_id', 'vehicle_id', 'tariff_class_id', 'status', 'source', 'phone_number_id',
-    'pickup_text', 'pickup_location', 'pickup_landmark_id', 'dropoff_text', 'dropoff_location', 'comment',
+    'pickup_text', 'pickup_location', 'pickup_landmark_id', 'dropoff_text', 'dropoff_location', 'comment', 'scheduled_at',
     'tariff_snapshot', 'price_estimate', 'price_final', 'price_breakdown', 'distance_m', 'duration_s',
     'waiting_s', 'commission', 'search_radius_m', 'searching_at', 'assigned_at', 'arrived_at', 'started_at',
     'completed_at', 'cancelled_at', 'cancel_reason',
@@ -80,6 +81,7 @@ class Order extends Model
             'dropoff_location' => Point::class,
             'tariff_snapshot' => 'array',
             'price_breakdown' => 'array',
+            'scheduled_at' => 'datetime',
             'searching_at' => 'datetime',
             'assigned_at' => 'datetime',
             'arrived_at' => 'datetime',

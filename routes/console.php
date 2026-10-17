@@ -4,6 +4,7 @@ use App\Models\Call;
 use App\Models\SipTrunk;
 use App\Models\User;
 use App\Services\Landmarks\OsmLandmarkImporter;
+use App\Services\Orders\OrderService;
 use App\Services\Regions\OsmRegionImporter;
 use App\Services\Sounds\SoundLibrary;
 use App\Services\Telephony\Extensions;
@@ -85,3 +86,12 @@ Artisan::command('ari:restart', function () {
 })->purpose('ARI daemonini yangi kod bilan qayta ishga tushirish');
 
 Schedule::command('ibtaxi:backup')->dailyAt('02:30')->withoutOverlapping();
+
+Artisan::command('orders:dispatch-scheduled', function (OrderService $orders) {
+    $count = $orders->dispatchScheduled();
+    if ($count > 0) {
+        $this->info("Efirga chiqarildi: {$count} ta oldindan buyurtma.");
+    }
+})->purpose('Vaqti yaqinlashgan oldindan buyurtmalarni efirga chiqarish');
+
+Schedule::command('orders:dispatch-scheduled')->everyMinute()->withoutOverlapping();

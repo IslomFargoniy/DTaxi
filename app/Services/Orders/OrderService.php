@@ -18,6 +18,7 @@ use App\Services\Dispatch\DriverDiscipline;
 use App\Services\Drivers\DriverBalance;
 use App\Services\Pricing\FareCalculator;
 use App\Services\Routing\Router;
+use App\Support\Settings;
 use Carbon\CarbonImmutable;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Support\Facades\DB;
@@ -53,6 +54,7 @@ class OrderService
      *     delivery?: array<string, string|null>|null,
      *     source?: OrderSource|null,
      *     phone_number_id?: int|null,
+     *     scheduled_at?: \DateTimeInterface|null,
      * }  $data
      */
     public function create(array $data, ?User $operator = null, bool $dispatch = true): Order
@@ -88,6 +90,7 @@ class OrderService
                 'status' => OrderStatus::New,
                 'source' => $data['source'] ?? OrderSource::Phone,
                 'phone_number_id' => $data['phone_number_id'] ?? null,
+                'scheduled_at' => $data['scheduled_at'] ?? null,
                 'pickup_text' => $data['pickup_text'],
                 'pickup_location' => $pickup,
                 'pickup_landmark_id' => $data['pickup_landmark_id'] ?? null,
@@ -113,7 +116,10 @@ class OrderService
             return $order;
         });
 
-        if ($dispatch) {
+        if ($order->scheduled_at && $order->scheduled_at->isAfter(now()->addMinutes($this->preorderLead($order)))) {
+            // Oldindan buyurtma: vaqti yaqinlashganda `orders:dispatch-scheduled` efirga chiqaradi
+            OrderEvents::record($order, 'scheduled', $operator, ['at' => $order->scheduled_at->toIso8601String()]);
+        } elseif ($dispatch) {
             $this->dispatcher->startSearch($order);
         }
 
@@ -180,6 +186,31 @@ class OrderService
         ]);
 
         return $order;
+    }
+
+    /**
+     * Vaqti yaqinlashgan oldindan buyurtmalarni efirga chiqarish (har daqiqa).
+     */
+    public function dispatchScheduled(): int
+    {
+        $count = 0;
+        Order::query()->withoutGlobalScopes()
+            ->where('status', OrderStatus::New)
+            ->whereNotNull('scheduled_at')
+            ->where('scheduled_at', '<=', now()->addMinutes(120))
+            ->get()
+            ->filter(fn (Order $order) => $order->scheduled_at?->lte(now()->addMinutes($this->preorderLead($order))))
+            ->each(function (Order $order) use (&$count) {
+                $this->dispatcher->startSearch($order);
+                $count++;
+            });
+
+        return $count;
+    }
+
+    private function preorderLead(Order $order): int
+    {
+        return (int) app(Settings::class)->get('dispatch.preorder_lead_minutes', $order->branch_id);
     }
 
     public function cancelByOperator(Order $order, User $operator, string $reason, bool $noDriverFound = false): void
