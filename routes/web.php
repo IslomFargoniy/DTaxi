@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\CallController;
 use App\Http\Controllers\Admin\ClientController;
@@ -85,6 +86,8 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('admin')->name('admin.')-
     Route::post('sounds/generate-missing', [SoundController::class, 'generateMissing'])->name('sounds.generate-missing');
     Route::post('sounds/upload', [SoundController::class, 'upload'])->name('sounds.upload');
     Route::get('sounds/{clip}/play', [SoundController::class, 'play'])->name('sounds.play');
+
+    Route::get('audit', [AuditController::class, 'index'])->name('audit.index');
 
     Route::get('driver-app', [DriverAppController::class, 'admin'])->name('driver-app.index');
     Route::post('driver-app', [DriverAppController::class, 'publish'])->name('driver-app.publish');

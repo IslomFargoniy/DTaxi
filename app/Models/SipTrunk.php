@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use App\Services\Telephony\TrunkSync;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -29,6 +30,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Hidden(['password'])]
 class SipTrunk extends Model
 {
+    use Auditable;
+
     protected static function booted(): void
     {
         // Panelda o'zgartirilsa — darhol Asterisk Realtime'ga (qayta ishga tushirmasdan)

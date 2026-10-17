@@ -470,5 +470,14 @@
     "Queue workers (Horizon) are not running": "Navbat ishchilari (Horizon) ishlamayapti",
     "Low disk space: less than 5 GB free": "Diskda joy kam: 5 GB dan kam bo'sh",
     "No database backup in the last 24 hours": "Oxirgi 24 soatda baza zaxirasi olinmagan",
-    "Fake GPS": "Soxta GPS"
+    "Fake GPS": "Soxta GPS",
+    "Audit log": "Audit jurnali",
+    "Who changed what in the panel: tariffs, settings, integrations, staff, branches, telephony.": "Panelda kim nimani o'zgartirgan: tariflar, sozlamalar, integratsiyalar, xodimlar, filiallar, telefoniya.",
+    "Created": "Yaratildi",
+    "Changed": "O'zgartirildi",
+    "Deleted": "O'chirildi",
+    "Employee": "Xodim",
+    "Action": "Amal",
+    "Object": "Obyekt",
+    "Changes": "O'zgarishlar"
 }

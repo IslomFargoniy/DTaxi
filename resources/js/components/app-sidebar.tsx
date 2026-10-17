@@ -3,6 +3,7 @@ import {
     Banknote,
     BarChart3,
     Building2,
+    History,
     FileBarChart,
     Car,
     ClipboardList,
@@ -33,6 +34,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useCan } from '@/hooks/use-can';
 import { dashboard } from '@/routes';
+import { index as audit } from '@/routes/admin/audit';
 import { index as branches } from '@/routes/admin/branches';
 import { index as calls } from '@/routes/admin/calls';
 import { index as clients } from '@/routes/admin/clients';
@@ -106,6 +108,7 @@ export function AppSidebar() {
               { title: 'Telephony', href: telephony(), icon: Waypoints },
               { title: 'Voice clips', href: sounds(), icon: AudioLines },
               { title: 'Driver app', href: driverApp(), icon: Smartphone },
+              { title: 'Audit log', href: audit(), icon: History },
               {
                   title: 'Queues',
                   href: '/horizon',

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\IntegrationProvider;
+use App\Models\Concerns\Auditable;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,8 @@ use Illuminate\Support\Carbon;
 #[Hidden(['credentials'])]
 class Integration extends Model
 {
+    use Auditable;
+
     protected function casts(): array
     {
         return [

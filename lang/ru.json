@@ -470,5 +470,14 @@
     "Queue workers (Horizon) are not running": "Обработчики очередей (Horizon) не работают",
     "Low disk space: less than 5 GB free": "Мало места на диске: свободно меньше 5 ГБ",
     "No database backup in the last 24 hours": "Нет резервной копии базы за последние 24 часа",
-    "Fake GPS": "Фейковый GPS"
+    "Fake GPS": "Фейковый GPS",
+    "Audit log": "Журнал аудита",
+    "Who changed what in the panel: tariffs, settings, integrations, staff, branches, telephony.": "Кто что изменил в панели: тарифы, настройки, интеграции, сотрудники, филиалы, телефония.",
+    "Created": "Создано",
+    "Changed": "Изменено",
+    "Deleted": "Удалено",
+    "Employee": "Сотрудник",
+    "Action": "Действие",
+    "Object": "Объект",
+    "Changes": "Изменения"
 }

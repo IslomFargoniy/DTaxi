@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\DriverStatus;
+use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToBranch;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Database\Factories\DriverFactory;
@@ -39,6 +40,7 @@ use Illuminate\Support\Carbon;
 ])]
 class Driver extends Model
 {
+    use Auditable;
     use BelongsToBranch;
 
     /** @use HasFactory<DriverFactory> */

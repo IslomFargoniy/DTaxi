@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToBranch;
 use Database\Factories\TariffClassFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -26,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[Fillable(['branch_id', 'name', 'icon', 'sort', 'is_delivery', 'is_default', 'is_active'])]
 class TariffClass extends Model
 {
+    use Auditable;
     use BelongsToBranch;
 
     /** @use HasFactory<TariffClassFactory> */

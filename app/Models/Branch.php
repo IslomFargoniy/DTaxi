@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use App\Services\Branches\BranchProvisioner;
 use Carbon\CarbonImmutable;
 use Clickbar\Magellan\Data\Geometries\MultiPolygon;
@@ -33,6 +34,8 @@ use Illuminate\Support\Carbon;
 #[Fillable(['name', 'region_id', 'service_name', 'greeting_text', 'center', 'service_area', 'timezone', 'is_active', 'work_schedule', 'holidays'])]
 class Branch extends Model
 {
+    use Auditable;
+
     /** @use HasFactory<BranchFactory> */
     use HasFactory;
 

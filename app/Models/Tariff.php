@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToBranch;
 use Database\Factories\TariffFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -35,6 +36,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class Tariff extends Model
 {
+    use Auditable;
     use BelongsToBranch;
 
     /** @use HasFactory<TariffFactory> */
