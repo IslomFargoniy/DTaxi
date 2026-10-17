@@ -828,16 +828,17 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [x] `MessageComposer` (davlat raqami, son, rang, model → bo'laklar) + testlar; telefoniya testlari (ARI soxtalashtirilgan) va haqiqiy Asterisk + Chrome + Android emulyatorda uchma-uch sinov
 - [ ] Ish vaqti / bayram jadvali (ishdan tashqari xabar) — keyingi versiyada
 
-### Bosqich 3b — Mahsulotlashtirish (1–2 hafta, §0)
+### Bosqich 3b — Mahsulotlashtirish ✅ (Daniya serverida sinovdan tashqari)
 
-- [ ] O'rnatish skripti: toza Ubuntu LTS → to'liq tizim bitta buyruqda (FastPanel'siz — qaror #46), Daniya test serverida sinab
-- [ ] Birinchi kirish ustasi (setup wizard): firma, superadmin, hudud, birinchi filial
-- [ ] `php artisan ibtaxi:update` (+ avtomatik zaxira, `--rollback`), versiyalash va `CHANGELOG.md`
-- [ ] Firma ilovasini build qilish yo'riqnomasi (keystore saqlash bilan)
+- [x] O'rnatish skripti: `sudo deploy/install.sh --prod --domain=… --email=…` — toza Ubuntu 24.04 → to'liq tizim (PHP, PostgreSQL+PostGIS, Redis, Asterisk, OSRM, xarita, hududlar va mo'ljallar, Reverb/Horizon/ARI supervisor, Let's Encrypt, ufw, fail2ban, kunlik zaxira); idempotent. Toza Multipass VM'da sinaldi
+- [ ] Daniya (webdock.io) test serverida haqiqiy domen bilan sinash
+- [x] Birinchi kirish ustasi: firma nomi, til, superadmin, birinchi filial (shahar/tuman)
+- [x] `php artisan ibtaxi:update` (zaxira → kod → bog'liqliklar → build → migratsiya → xizmatlarni qayta ishga tushirish), `--rollback`; `ibtaxi:backup` (kunlik 02:30, 14 kun); `VERSION` va `CHANGELOG.md`
+- [x] Firma ilovasini build qilish yo'riqnomasi (`android/firms/README.md`, keystore saqlash bilan)
 
 ### Bosqich 4 — Pilot birinchi xaridor firma bilan (2 hafta, qaror #45)
 
-- [ ] Click SHOP API va Payme Merchant API integratsiyasi (merchant shartnoma tayyor bo'lsa; aks holda pilot faqat kassa bilan)
+- [x] Click SHOP API (prepare/complete) va Payme Merchant API (JSON-RPC, bekor qilishda qaytarish) — pozivnoy bo'yicha; ilovada "Balansni to'ldirish" (Click/Payme havolalari). Haqiqiy merchant kalitlari bilan sinov — firma shartnomasidan keyin
 - [ ] Firma serverini o'rnatish (o'rnatish skripti + sozlash ustasi)
 - [ ] Firma SIP trunki va raqam(lar)ini ulash va sinash (§5.2)
 - [ ] Yuklama sinovi: 100 soxta haydovchi + 200 buyurtma/soat (§9.3)

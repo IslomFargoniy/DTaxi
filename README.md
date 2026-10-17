@@ -8,7 +8,8 @@ ibTaxi taksi firmalariga sotiladigan mahsulot. Har bir firma o'z serverida alohi
 
 ## Holat
 
-Loyiha rejalashtirish bosqichida, reja tasdiqlangan. Keyingi qadam Bosqich 0: PostgreSQL + PostGIS, rollar, filiallar va integratsiyalar.
+Versiya: `VERSION` fayli, o'zgarishlar — [CHANGELOG.md](CHANGELOG.md). Bosqich 0–3b va Bosqich 4'ning dasturiy qismi tayyor;
+pilot firma bilan sinov (Sarkor trunki, haqiqiy Click/Payme kalitlari, Daniya serveri) qoldi.
 
 To'liq reja, qabul qilingan qarorlar va bosqichlar [docs/plan.md](docs/plan.md) faylida.
 
@@ -46,18 +47,34 @@ To'liq reja, qabul qilingan qarorlar va bosqichlar [docs/plan.md](docs/plan.md) 
 | Haydovchi ilovasi  | Kotlin, Jetpack Compose                              |
 | Server             | 1 ta VPS, toza Ubuntu (o'rnatish skripti)            |
 
-## Lokal ishga tushirish
+## Firma serveriga o'rnatish
 
-Kerak bo'ladi: PHP 8.3+, Composer, Node.js.
+Toza Ubuntu 24.04 server, domen DNS'da server IP'siga yo'naltirilgan bo'lishi kerak:
 
 ```bash
-git clone git@github.com:IslomFargoniy/ibTaxi.git
-cd ibTaxi
-composer setup      # bog'liqliklar, .env, kalit, migratsiyalar, frontend build
-composer dev        # server + Vite
+sudo git clone <repo> /var/www/ibtaxi
+sudo /var/www/ibtaxi/deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz
 ```
 
-Hozir lokal ma'lumotlar bazasi sifatida SQLite ishlatiladi. Bosqich 0 da PostgreSQL + PostGIS va Docker Compose (Redis, OSRM, Asterisk) muhitiga o'tiladi.
+Skript hammasini o'rnatadi (PostgreSQL+PostGIS, Redis, Asterisk, OSRM, xarita, hududlar, HTTPS, ufw, fail2ban).
+Hudud standart — Farg'ona vodiysi; boshqasi uchun `BBOX=lon1,lat1,lon2,lat2`. Tugagach `https://<domen>` da
+sozlash ustasi ochiladi (firma nomi, superadmin, birinchi filial). So'ng panelda: Integratsiyalar (Click, Payme,
+SpeechKit, Firebase), Telefoniya (SIP trunk, raqamlar), Ovozli bo'laklar.
+
+Yangilash: `php artisan ibtaxi:update` (avval zaxira oladi), muammo bo'lsa `php artisan ibtaxi:update --rollback`.
+Haydovchi ilovasini firma uchun build qilish: [android/firms/README.md](android/firms/README.md).
+
+## Lokal ishlab chiqish
+
+Multipass virtual mashinasi (Ubuntu 24.04), kod Mac'dan ulanadi:
+
+```bash
+multipass launch 24.04 --name ibtaxi --cpus 2 --memory 4G --disk 30G
+multipass mount . ibtaxi:/home/ubuntu/ibTaxi
+multipass exec ibtaxi -- sudo /home/ubuntu/ibTaxi/deploy/install.sh --dev
+composer install && npm install && php artisan migrate --seed
+php artisan simulate:drivers    # soxta haydovchilar (sinov uchun)
+```
 
 ## Tekshiruvlar
 
