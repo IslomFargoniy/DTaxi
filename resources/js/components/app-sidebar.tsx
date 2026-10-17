@@ -1,7 +1,6 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
+import { Building2, LayoutGrid, PlugZap } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -13,7 +12,10 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { useCan } from '@/hooks/use-can';
 import { dashboard } from '@/routes';
+import { edit as companySettings } from '@/routes/admin/company-settings';
+import { index as integrations } from '@/routes/admin/integrations';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -24,20 +26,22 @@ const mainNavItems: NavItem[] = [
     },
 ];
 
-const footerNavItems: NavItem[] = [
+const superadminNavItems: NavItem[] = [
     {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: FolderGit2,
+        title: 'Company settings',
+        href: companySettings(),
+        icon: Building2,
     },
     {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
+        title: 'Integrations',
+        href: integrations(),
+        icon: PlugZap,
     },
 ];
 
 export function AppSidebar() {
+    const { hasRole } = useCan();
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -54,10 +58,15 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={mainNavItems} />
+                {hasRole('superadmin') && (
+                    <NavMain
+                        items={superadminNavItems}
+                        label="Administration"
+                    />
+                )}
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

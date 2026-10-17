@@ -2,8 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
+use App\Support\Settings;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Spatie\Permission\Models\Permission;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -37,11 +40,41 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
-            'name' => config('app.name'),
+            'name' => fn () => app(Settings::class)->get('company.name'),
             'auth' => [
                 'user' => $request->user(),
+                'roles' => fn () => $request->user()?->getRoleNames() ?? [],
+                'permissions' => fn () => $this->permissions($request->user()),
             ],
+            'locale' => app()->getLocale(),
+            'translations' => fn () => $this->translations(app()->getLocale()),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function permissions(?User $user): array
+    {
+        if (! $user) {
+            return [];
+        }
+
+        return $user->isSuperadmin()
+            ? ['*']
+            : array_values($user->getAllPermissions()->map(fn (Permission $permission): string => $permission->name)->all());
+    }
+
+    /**
+     * Frontend tarjimalari: lang/{locale}.json
+     *
+     * @return array<string, string>
+     */
+    private function translations(string $locale): array
+    {
+        $path = lang_path("{$locale}.json");
+
+        return is_file($path) ? json_decode((string) file_get_contents($path), true) : [];
     }
 }
