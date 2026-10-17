@@ -4,7 +4,7 @@
 >
 > **Mahsulot:** ibTaxi taksi firmalariga **sotiladi** — har bir firma o'z nusxasini (o'z serveri, o'z shartnomalari) oladi (qaror #24, §0).
 
-Holat: **v4.0 — tasdiqlangan reja** · Sana: 2026-10-11
+Holat: **v5.0 — tasdiqlangan reja** · Sana: 2026-10-17
 
 ### Qabul qilingan qarorlar
 
@@ -15,21 +15,21 @@ Holat: **v4.0 — tasdiqlangan reja** · Sana: 2026-10-11
 | 3   | Haydovchi ilovasida xarita **ilova ichida**, darajasi: **(a)** xarita + marshrut chizig'i + masofa + ETA. Ovozli navigatsiya MVP'ga kirmaydi                                                                                                                        | 2026-10-10 |
 | 4   | **SMS ishlatilmaydi.** Mijozga barcha xabarlar Asterisk orqali avtomatik qo'ng'iroq + TTS (ovozli xabar) bilan yetkaziladi                                                                                                                                          | 2026-10-10 |
 | 5   | Haydovchi ilovasi: **Android 10+** (`minSdk 29`)                                                                                                                                                                                                                    | 2026-10-10 |
-| 6   | **iOS ilovasi birinchi bosqichda yo'q** — MVP faqat Android. iOS keyingi bosqichda (Bosqich 5)                                                                                                                                                                      | 2026-10-10 |
+| 6 | ~~iOS ilovasi keyingi bosqichda~~ → **qaror #43 bilan bekor qilindi** | 2026-10-10 |
 | 7   | **Mijoz uchun ilova bo'lmaydi** (hech qachon). Buyurtma faqat telefon orqali: operator yoki IVR                                                                                                                                                                     | 2026-10-10 |
 | 8   | **Jamoa: 1 dasturchi + AI (Claude Code).** Bosqichlar ketma-ket bajariladi                                                                                                                                                                                          | 2026-10-10 |
-| 9   | **1 ta VPS** (FastPanel) — Laravel, PostgreSQL, Redis, OSRM va Asterisk birga                                                                                                                                                                                       | 2026-10-10 |
-| 10  | **Bitta loyiha — faqat ibTaxi.** PBX boshqaruv paneli (panel.1call.uz namunasida) ibTaxi ichida quriladi, alohida loyiha yo'q. Asterisk noldan o'rnatiladi                                                                                                          | 2026-10-10 |
-| 11  | **Barcha qo'ng'iroqlar yozib olinadi** (kiruvchi, operator suhbatlari, haydovchi ↔ mijoz)                                                                                                                                                                           | 2026-10-10 |
-| 12  | **SIP trunk: Sarkor Telecom** (hozir panel.1call.uz'da ulangan, ibTaxi Asterisk'iga ko'chiriladi)                                                                                                                                                                   | 2026-10-10 |
+| 9 | **1 ta VPS** — Laravel, PostgreSQL, Redis, OSRM va Asterisk birga (FastPanel'siz — qaror #46) | 2026-10-10 |
+| 10 | **Bitta loyiha — faqat ibTaxi.** PBX boshqaruv paneli ibTaxi ichida quriladi, alohida loyiha yo'q. Asterisk noldan o'rnatiladi. panel.1call.uz — faqat **andoza** (qo'ng'iroq boshqaruvi funksiyalari va dialplan mantig'i uchun namuna) | 2026-10-10 |
+| 11 | **Qo'ng'iroqlar yozib olinadi:** kiruvchi (operator suhbatlari), operator callback'lari, haydovchi ↔ dispetcher qo'ng'iroqlari | 2026-10-10 |
+| 12 | **SIP trunk: Sarkor Telecom** — asosiy sinovdan o'tgan provayder. Har firma o'z raqami va shartnomasini oladi (qaror #40, #45) | 2026-10-10 |
 | 13  | **Parallel liniyalar soni admin panelda sozlanadi** (panel.1call.uz kabi) — kodda qattiq yozilmaydi                                                                                                                                                                 | 2026-10-10 |
 | 14  | **Audio bo'laklar oldindan generatsiya qilinadi — faqat ayol ovozida** (SpeechKit'da erkak o'zbek ovozi yo'q)                                                                                                                                                       | 2026-10-10 |
 | 15  | **Raqamlar ↔ filiallar universal bog'lanadi** (panelda sozlanadi): bitta raqam hamma filialga, har filialga alohida raqam, yoki bitta raqam tanlangan filiallarga                                                                                                   | 2026-10-10 |
 | 16  | **Mijozga avto-qo'ng'iroq ikki marta:** haydovchi tayinlanganda va haydovchi yetib kelganda                                                                                                                                                                         | 2026-10-10 |
 | 17  | **TTS xizmati: Yandex SpeechKit** (o'zbek tili `uz-UZ`) — bo'laklarni bir marta generatsiya qilish uchun                                                                                                                                                            | 2026-10-10 |
-| 18  | **Test serveri: Webdock.io (Daniya).** Ishlab chiqish va sinov shu serverda                                                                                                                                                                                         | 2026-10-10 |
+| 18 | **Test serveri: Webdock.io (Daniya)** — toza Ubuntu, o'rnatish skripti bilan (qaror #46). Ishlab chiqish va sinov shu serverda | 2026-10-10 |
 | 19  | **Xizmat nomi (IVR salomlashuvi uchun) admin panelda kiritiladi** — har filial uchun; saqlanganda salomlashuv audiosi avtomatik generatsiya qilinadi                                                                                                                | 2026-10-10 |
-| 20  | **Production serveri: UzCloud (O'zbekiston)** — pilotdan boshlab                                                                                                                                                                                                    | 2026-10-10 |
+| 20 | **Production serveri — har firmaning o'z serveri** (qaror #36). O'zbekistondagi hosting tavsiya etiladi (masalan UzCloud) — shaxsiy ma'lumotlar qonuni | 2026-10-10 |
 | 21  | **Narx: boshlang'ich narx (ichida N km) + har keyingi km uchun narx.** Qiymatlar admin panelda sozlanadi                                                                                                                                                            | 2026-10-10 |
 | 22  | **To'lov faqat naqd** (mijoz haydovchiga). Mijoz uchun onlayn to'lov yo'q                                                                                                                                                                                           | 2026-10-10 |
 | 23  | **Daromad: har buyurtmadan foiz (komissiya), haydovchi balansidan yechiladi.** Balans oldindan to'ldiriladi: Click/Payme orqali (haydovchi ID'si bo'yicha) yoki firma kassasiga naqd. Balans tugaguncha buyurtma oladi                                              | 2026-10-10 |
@@ -39,8 +39,8 @@ Holat: **v4.0 — tasdiqlangan reja** · Sana: 2026-10-11
 | 27  | **Tarif klasslari: Standart / Komfort / Yuk / Dostavka** — o'rnatishda tayyor yaratiladi; admin panelda tahrirlash, o'chirish, yangi qo'shish mumkin. Har klassning o'z narxi; mashina bir nechta klassda ishlay oladi                                              | 2026-10-10 |
 | 28  | **Buyurtma "efir" usulida tarqatiladi:** radius ichidagi barcha mos bo'sh haydovchilarga bir vaqtda, **kim birinchi qabul qilsa** — o'sha oladi                                                                                                                     | 2026-10-11 |
 | 29  | **Rad etish uchun jarima va reyting pasayishi** — qabul qilib keyin bekor qilish va operator tayinlagan buyurtmani rad etish uchun. Qiymatlar panelda sozlanadi                                                                                                     | 2026-10-11 |
-| 30  | **Birinchi filiallar: Farg'ona, Andijon, Namangan** (Farg'ona vodiysi)                                                                                                                                                                                              | 2026-10-11 |
-| 31  | **Filial hududi admin panelda tanlanadi:** viloyat → shahar yoki tuman. Pilot qayerda boshlanishini firma o'zi panelda belgilaydi                                                                                                                                   | 2026-10-11 |
+| 30 | **Birinchi mijozlar uchun mo'ljal hudud: Farg'ona vodiysi** (Farg'ona, Andijon, Namangan) — xarita, mo'ljallar va sinovlar shu hudud bo'yicha tayyorlanadi | 2026-10-11 |
+| 31 | **Filial hududi admin panelda tanlanadi:** viloyat → shahar yoki tuman. Har firma o'z filiallarini o'zi belgilaydi | 2026-10-11 |
 | 32  | **Hajm: kuniga 1000+ buyurtma** — tizim shu yuklamaga mo'ljallanadi (§9.3)                                                                                                                                                                                          | 2026-10-11 |
 | 33  | **Kutish puli, tungi narx, shahar tashqarisi narxi** — har biri admin panelda **yoqiladi/o'chiriladi** va sozlanadi                                                                                                                                                 | 2026-10-11 |
 | 34  | **Boshlang'ich sozlamalar** (panelda o'zgartiriladi): komissiya **10%**, minimal balans **5 000 so'm**, yaxlitlash **500 so'm**, qo'ng'iroq yozuvlari **90 kun**                                                                                                    | 2026-10-11 |
@@ -51,6 +51,12 @@ Holat: **v4.0 — tasdiqlangan reja** · Sana: 2026-10-11
 | 39  | **Kod himoyasi hozircha yo'q** (litsenziya kaliti, domen bog'lash va h.k. — kerak bo'lsa keyin)                                                                                                                                                                     | 2026-10-11 |
 | 40  | **SIP trunk shartnomasini har firma o'zi tuzadi.** Test uchun alohida akkauntni loyiha muallifi o'zi oladi. Daniya test serveriga ruxsat bo'lmasa — test uchun O'zbekistonda server olinadi                                                                         | 2026-10-11 |
 | 41  | **Qisqa raqam** (masalan 1XXX) rejada bor — panelda oddiy raqam (DID) sifatida qo'shiladi                                                                                                                                                                           | 2026-10-11 |
+| 42 | **Masked call (yashirin qo'ng'iroq) yo'q.** Haydovchi mijozga o'z telefonidan to'g'ridan-to'g'ri qo'ng'iroq qiladi (mijoz raqami faqat faol buyurtma davomida ko'rinadi) | 2026-10-17 |
+| 43 | **iOS ilovasi yo'q** — faqat Android (App Store har firma uchun yillik 99$ va alohida akkaunt talab qiladi) | 2026-10-17 |
+| 44 | **Tillar: o'zbek (lotin) + rus.** Panel va haydovchi ilovasi ikki tilda; standart tilni firma tanlaydi, har foydalanuvchi o'zi almashtira oladi | 2026-10-17 |
+| 45 | **O'z taksi firmasi / 1call'dan ko'chirish yo'q.** Loyiha to'liq mahsulot sifatida sotiladi; har firma o'z raqamini oladi. Pilot — **birinchi xaridor firma** bilan | 2026-10-17 |
+| 46 | **FastPanel'dan to'liq voz kechildi.** Test va xaridor serverlari — toza Ubuntu LTS + o'rnatish skripti (Nginx, PHP-FPM, PostgreSQL, Redis, Asterisk, OSRM, Supervisor, Certbot) | 2026-10-17 |
+| 47 | **Haydovchi ↔ dispetcher aloqasi: ilova ichida qo'ng'iroq (WebRTC, yoziladi) + chat** | 2026-10-17 |
 
 ---
 
@@ -72,6 +78,7 @@ ibTaxi bitta firma uchun emas, **ko'plab taksi firmalariga sotiladigan mahsulot*
 | **Firebase (FCM)**                 | O'z Firebase loyihasi (bepul) — firma ilovasi uchun (qaror #35) | service account JSON                                       |
 | **Xarita**                         | — (bepul, OSM)                                                  | Hudud (viloyat) — o'rnatishda tanlanadi                    |
 | **Brending**                       | —                                                               | Firma nomi, logotip, ranglar, xizmat nomi (IVR)            |
+| **Til**                            | —                                                               | Standart til: o'zbek / rus (qaror #44)                     |
 
 - Maxfiy kalitlar bazada **shifrlangan** holda saqlanadi (Laravel `encrypted` cast); panelda faqat oxirgi 4 belgisi ko'rinadi
 - Har integratsiya yonida **"Ulanishni tekshirish"** tugmasi (masalan, SpeechKit'dan test audio, Click/Payme test rejimi, SIP trunk holati)
@@ -79,10 +86,10 @@ ibTaxi bitta firma uchun emas, **ko'plab taksi firmalariga sotiladigan mahsulot*
 
 **O'rnatish va yangilash:**
 
-- **O'rnatish skripti** (Ansible yoki bash): toza Ubuntu VPS → FastPanel'siz yoki FastPanel bilan to'liq tizim (Laravel, PostgreSQL, Redis, Asterisk, OSRM, tiles) bitta buyruqda. Yangi xaridorni ulash vaqti — soatlar, kunlar emas
+- **O'rnatish skripti** (bash/Ansible, qaror #46): toza Ubuntu LTS VPS → to'liq tizim (Nginx, PHP-FPM, Laravel, PostgreSQL+PostGIS, Redis, Asterisk, coturn, OSRM, tiles, Supervisor, Certbot SSL, firewall, fail2ban, zaxira cron) bitta buyruqda. Yangi xaridorni ulash vaqti — soatlar, kunlar emas
 - **Birinchi kirish ustasi (setup wizard):** firma nomi, superadmin, hudud, birinchi filial, integratsiyalar
 - **Yangilanishlar:** barcha nusxalar bitta asosiy kod bazasidan (git tag/release) yangilanadi — firmaga xos o'zgarishlar kodda emas, sozlamalarda bo'lgani uchun yangilash xavfsiz. `php artisan ibtaxi:update` (migratsiya + kesh + Asterisk reload)
-- **Sotish: bir martalik** (qaror #36) — har firma **o'z serveri**ni oladi (masalan UzCloud), siz o'rnatib berasiz. **Yangilanishlar bepul** (qaror #38). Kod himoyasi hozircha yo'q (qaror #39)
+- **Sotish: bir martalik** (qaror #36) — har firma **o'z serveri**ni oladi (O'zbekistondagi hosting tavsiya etiladi, masalan UzCloud), siz o'rnatib berasiz. Pilot — birinchi xaridor firma bilan (qaror #45). **Yangilanishlar bepul** (qaror #38). Kod himoyasi hozircha yo'q (qaror #39)
 
 ### 0.1 Haydovchi ilovasi — har firmaga alohida (qaror #35)
 
@@ -124,12 +131,12 @@ Barcha firmalarga yangi versiyalar bepul — shuning uchun yangilash **oson va x
 | Navbat (queue)              | Redis + Laravel Horizon                                                       | Buyurtma taklifi taymerlari, avtomatik qo'ng'iroqlar, push                                                                                                                   |
 | Kesh / haydovchi joylashuvi | Redis (GEO buyruqlari)                                                        | Har 3–5 soniyada keladigan koordinatalar uchun tez qatlam                                                                                                                    |
 | Android                     | Kotlin + Jetpack Compose, **Android 10+** (`minSdk 29`)                       | Foreground service (`foregroundServiceType=location`) — fonda GPS                                                                                                            |
-| iOS (keyingi bosqich)       | SwiftUI                                                                       | MVP'ga kirmaydi (qaror #6)                                                                                                                                                   |
-| Push                        | Firebase Cloud Messaging (MVP: Android; keyin iOS ham FCM orqali) — **bepul** | MVP'dan boshlab. Reverb WebSocket asosiy kanal, FCM har bir buyurtma taklifida parallel yuboriladi (ilova fonda/yopiq bo'lsa uyg'otadi). Firebase'dan faqat push ishlatiladi |
+| Push                        | Firebase Cloud Messaging — **bepul** | MVP'dan boshlab. Reverb WebSocket asosiy kanal, FCM har bir buyurtma taklifida parallel yuboriladi (ilova fonda/yopiq bo'lsa uyg'otadi). Firebase'dan faqat push ishlatiladi |
 | PBX                         | Asterisk 20/22 LTS (PJSIP + WebRTC)                                           | Operator brauzerdan qo'ng'iroq qabul qiladi (JsSIP / SIP.js)                                                                                                                 |
-| Xarita                      | MapLibre GL JS (web), MapLibre Native (Android; keyin iOS)                    | OSM ma'lumotlari, tiles o'z serverimizda (`.pmtiles`) — bepul                                                                                                                |
+| Xarita                      | MapLibre GL JS (web), MapLibre Native (Android)                    | OSM ma'lumotlari, tiles o'z serverimizda (`.pmtiles`) — bepul                                                                                                                |
 | Marshrut / ETA              | OSRM (Docker, o'z serverimizda)                                               | Dispatcher uchun `table`, ilova uchun `route` API — bepul                                                                                                                    |
-| Server                      | 1 ta VPS + FastPanel                                                          | Asterisk ham shu serverda (§9)                                                                                                                                               |
+| Server                      | 1 ta VPS, toza Ubuntu LTS (FastPanel'siz)                                     | O'rnatish skripti bilan; Asterisk ham shu serverda (§9)                                                                                                                      |
+| Tillar                      | Laravel lokalizatsiya + `react-i18next`; Android `strings.xml`                | O'zbek (lotin) + rus (qaror #44)                                                                                                                                             |
 
 ---
 
@@ -141,7 +148,7 @@ Barcha firmalarga yangi versiyalar bepul — shuning uchun yangilash **oson va x
 | **admin**      | Faqat o'z filiali | Operator/haydovchilarni boshqarish, tariflar (filial uchun), haydovchi balansi, hisobotlar, qora ro'yxat                                                                                                                                                                                                                                                |
 | **operator**   | O'z filiali       | Qo'ng'iroq qabul qilish, buyurtma yaratish/bekor qilish, haydovchini qo'lda tayinlash, xaritani kuzatish                                                                                                                                                                                                                                                |
 | **kassir**     | O'z filiali       | Haydovchini ID/pozivnoy/telefon bo'yicha topish, balansini **naqd to'ldirish** (chek chop etish ixtiyoriy), o'z kirimlari tarixi, **kassa smenasi**: smena ochish/yopish, smena yakunida jami naqd summa (admin bilan solishtirish uchun). Buyurtmalar, tariflar, sozlamalarni ko'rmaydi; balansdan pul yechish yoki tuzatish qila olmaydi (bu — admin) |
-| **driver**     | O'z filiali       | Faqat mobil ilova: liniyaga chiqish, buyurtma qabul qilish, statuslarni o'zgartirish                                                                                                                                                                                                                                                                    |
+| **driver**     | O'z filiali       | Faqat mobil ilova: liniyaga chiqish, buyurtma qabul qilish, statuslarni o'zgartirish, dispetcher bilan qo'ng'iroq/chat                                                                                                                                                                                                                                                                    |
 
 **Multi-filial (multi-tenant):** barcha asosiy jadvallarda `branch_id`. Laravel global scope orqali admin/operator faqat o'ziga biriktirilgan filial(lar) ma'lumotini ko'radi (operator bir nechta filialga biriktirilishi mumkin — §5.2a). Superadmin uchun scope o'chiriladi.
 
@@ -170,9 +177,8 @@ Operator: mo'ljal / manzilni kiritadi (qidiruv + xaritada nuqta)
    │
    ▼
 Dispatcher (backend job):
-   1. PostGIS/Redis GEO: radius ichidagi bo'sh haydovchilar (masalan 3 km)
-   2. Yo'l masofasi/ETA bo'yicha saralash (OSRM)
-   3. EFIR: radius ichidagi barcha mos haydovchilarga bir vaqtda taklif
+   1. Redis GEO: radius ichidagi mos bo'sh haydovchilar (boshlanishi 3 km)
+   2. EFIR: radius ichidagi barcha mos haydovchilarga bir vaqtda taklif
         ├─ Birinchi "Qabul qildim" bosgan → ASSIGNED, qolganlarda taklif darhol yo'qoladi
         ├─ 20 soniyada hech kim olmadi → radius kengayadi, yangi haydovchilarga ham efir
         └─ Baribir hech kim yo'q → operatorga ogohlantirish + qo'lda tayinlash
@@ -183,7 +189,7 @@ ASSIGNED → mijozga avtomatik qo'ng'iroq (TTS): "Sizga oq Cobalt, 01A123BC, 5 d
    │
    ▼
 Haydovchi yetib keldi → ARRIVED
-   → mijozga avtomatik qo'ng'iroq (TTS: "Taksingiz yetib keldi, oq Cobalt, 01A123BC")
+   → mijozga avtomatik qo'ng'iroq (TTS: "Sizni haydovchi kutmoqda. Oq Cobalt, 01A123BC")
    │
    ▼
 Mijoz chiqdi → IN_PROGRESS (taksometr ishlaydi)
@@ -207,16 +213,16 @@ Barcha status o'zgarishlari `order_events` jadvaliga yoziladi (kim, qachon, qaye
 
 1. **Xaritani ko'rsatish (tiles)** — OSM asosida:
     - Web panel: **MapLibre GL JS**
-    - Android: **MapLibre Native** (iOS keyingi bosqichda — xuddi shu kutubxona)
+    - Android: **MapLibre Native**
     - Tile manbai: o'z serverimizda — Protomaps/OpenMapTiles asosida bitta `.pmtiles` fayl, Nginx orqali beriladi. Oyiga bir marta OSM'dan yangilanadi (cron)
-    - **Hudud o'rnatishda tanlanadi** (§0): butun O'zbekiston (~300–500 MB) yoki faqat kerakli viloyatlar. Birinchi mijoz uchun — **Farg'ona vodiysi** (Farg'ona, Andijon, Namangan viloyatlari, qaror #30): fayl kichikroq, OSRM uchun RAM kamroq
+    - **Hudud o'rnatishda tanlanadi** (§0): butun O'zbekiston (~300–500 MB) yoki faqat kerakli viloyatlar. Birinchi mijozlar uchun — **Farg'ona vodiysi** (Farg'ona, Andijon, Namangan viloyatlari, qaror #30): fayl kichikroq, OSRM uchun RAM kamroq
 2. **Yo'l masofasi va ETA** — **OSRM** o'z serverimizda (Docker, tanlangan hudud OSM ma'lumoti bilan; butun O'zbekiston ~1–2 GB RAM, vodiy — kamroq). "Eng yaqin haydovchi"ni to'g'ri chiziq emas, yo'l bo'yicha topish uchun kerak. Bepul, cheksiz.
 3. **Manzil qidirish (geocoding) — eng muhim nuqta:**
     - Mijozlar odatda **mo'ljal** aytadi ("Chorsu bozori oldi", "3-maktab", "Korzinka Yunusobod"), uy raqami emas.
     - Shuning uchun **o'zimizning mo'ljallar bazasi** (`landmarks` jadvali) eng to'g'ri yechim: nomi, sinonimlari (lotin/kirill/ruscha), koordinatasi. PostgreSQL `pg_trgm` bilan noaniq qidiruv.
     - Operator har yangi mo'ljalni xaritada bir marta belgilaydi → bazaga qo'shiladi → keyingi safar avtomatik chiqadi. 2–3 oyda shahar to'liq qoplanadi.
     - Qo'shimcha: OSM'dan POI'larni (maktab, bozor, masjid, do'kon) boshlang'ich import qilish.
-    - ⚠️ Farg'ona, Andijon, Namangan'da OSM ma'lumoti Toshkentdagidan kamroq (uy raqamlari, mahalla nomlari, mo'ljallar). Shuning uchun pilotdan **oldin** har shahar uchun asosiy mo'ljallarni (bozorlar, maktablar, kasalxonalar, to'yxonalar, avtovokzal, mahallalar) bazaga kiritib qo'yish tavsiya etiladi — mahalliy operatorlar bilan 1–2 kunlik ish
+    - ⚠️ Farg'ona, Andijon, Namangan'da OSM ma'lumoti Toshkentdagidan kamroq (uy raqamlari, mahalla nomlari, mo'ljallar). Shuning uchun har yangi firmaga o'rnatishda (pilotdan **oldin**) uning shahar(lar)i uchun asosiy mo'ljallarni (bozorlar, maktablar, kasalxonalar, to'yxonalar, avtovokzal, mahallalar) bazaga kiritib qo'yish tavsiya etiladi — mahalliy operatorlar bilan 1–2 kunlik ish
 4. **Haydovchi ilovasida xarita — ilova ichida, (a) daraja:**
     - MapLibre Native xaritasi: haydovchining o'z joylashuvi, mijoz nuqtasi (A), borish manzili (B)
     - **Marshrut chizig'i** — OSRM `route` API orqali (backend proksi qiladi: `/api/driver/v1/route`)
@@ -249,7 +255,7 @@ Asterisk AMI/ARI ──► Laravel listener (daemon) ──► Reverb ──► 
 - **Operator softphone** React panel ichida: qabul qilish, ushlab turish (hold), o'tkazish (transfer), ovozni o'chirish, "Pauza/Tanaffus" holati
 - **Caller ID pop-up**: AMI `AgentConnect` hodisasi → Laravel → Reverb → shu operatorning brauzerida mijoz kartochkasi ochiladi
 - **Qo'ng'iroqlarni yozib olish — majburiy (qaror #11)**:
-    - Asterisk `MixMonitor` — operator suhbati, haydovchi ↔ mijoz (masked call) qo'ng'iroqlari; avtomatik TTS qo'ng'iroqlari yozilmaydi (faqat natijasi saqlanadi)
+    - Asterisk `MixMonitor` — operator suhbatlari, operator callback'lari, haydovchi ↔ dispetcher qo'ng'iroqlari; avtomatik TTS qo'ng'iroqlari yozilmaydi (faqat natijasi saqlanadi). Haydovchi mijozga o'z telefonidan qo'ng'iroq qiladi — bu tizimdan o'tmaydi va yozilmaydi (qaror #42)
     - Qo'ng'iroq tugagach queue job: WAV → **MP3/Opus mono** ga o'giriladi (~0.1–0.2 MB/daqiqa), `calls.recording_path` ga yoziladi, buyurtmaga bog'lanadi
     - Saqlash: `storage/app/recordings/{branch}/{Y}/{m}/{d}/` — fayllar faqat avtorizatsiyadan o'tgan admin uchun Laravel orqali beriladi (to'g'ridan-to'g'ri URL yo'q)
     - Disk hisobi (taxmin): kuniga 1000 qo'ng'iroq × 1.5 daq × 0.15 MB ≈ **~225 MB/kun, ~7 GB/oy**
@@ -257,7 +263,10 @@ Asterisk AMI/ARI ──► Laravel listener (daemon) ──► Reverb ──► 
     - Operator va admin uchun tinglash pleyeri (buyurtma kartochkasida va qo'ng'iroqlar tarixida)
 - **CDR** → PostgreSQL (qo'ng'iroqlar hisoboti: javobsiz, kutish vaqti, operator samaradorligi)
 - **Avtomatik qo'ng'iroq (outbound) + TTS** — mijozga barcha xabarlar shu orqali (SMS yo'q), batafsil §5.4
-- **Haydovchi ↔ mijoz bog'lash (masked call)**: haydovchi ilovadan "Mijozga qo'ng'iroq" bosadi → Asterisk ikkalasini bog'laydi, haydovchi mijoz raqamini ko'rmaydi (maxfiylik)
+- **Haydovchi → mijoz:** ilovada "Mijozga qo'ng'iroq" tugmasi telefonning oddiy qo'ng'iroq oynasini ochadi (qaror #42). Mijoz raqami faqat buyurtma faol bo'lgan paytda ko'rinadi, yakunlangach yashiriladi
+- **Haydovchi ↔ dispetcher (qaror #47):**
+    - **Qo'ng'iroq:** ilovada "Dispetcherga qo'ng'iroq" tugmasi → WebRTC (SIP over WSS, ilova ichida, internet orqali — bepul) → Asterisk'dagi filial navbatiga, operator panelida "Haydovchi #pozivnoy, buyurtma #123" bilan ochiladi; suhbat yoziladi
+    - **Chat:** ilovada buyurtmaga bog'langan chat + umumiy chat; operator panelida haydovchilar chatlari ro'yxati, o'qilmaganlar soni; Reverb orqali real vaqtda, ilova yopiq bo'lsa FCM; tayyor tezkor javoblar ("Mijoz chiqmayapti", "Manzil topilmadi", "Yo'ldaman"); rasm yuborish (masalan joy rasmi)
 - **Javobsiz qo'ng'iroqlar ro'yxati** → operator qayta qo'ng'iroq qiladi (callback)
 
 ### 5.1 Integratsiya usuli
@@ -267,17 +276,21 @@ Asterisk AMI/ARI ──► Laravel listener (daemon) ──► Reverb ──► 
 - WebRTC uchun: Asterisk'da `res_pjsip` + `transport-wss`, haqiqiy SSL sertifikat (Let's Encrypt), STUN/TURN (coturn) — NAT ortidagi operatorlar uchun
 - **Asterisk Realtime (PostgreSQL)** — PJSIP endpointlar, auth, AOR, navbatlar va navbat a'zolari to'g'ridan-to'g'ri ibTaxi bazasidagi `ps_*`, `queues`, `queue_members` jadvallaridan o'qiladi. Panelda operator qo'shilsa — Asterisk'ni qayta ishga tushirmasdan darhol ishlaydi. Dialplan (`extensions.conf`) asosan statik, faylda va git'da saqlanadi
 
-### 5.2 SIP trunk — Sarkor Telecom (qaror #12)
+### 5.2 SIP trunk — Sarkor Telecom (qaror #12, #40, #45)
 
-Hozir Sarkor trunki panel.1call.uz'ga ulangan. Uni o'z Asterisk'imizga ko'chirish rejasi:
+Har bir xaridor firma o'z raqami va SIP trunkini **o'zi** oladi (Sarkor yoki boshqa SIP provayder) va ma'lumotlarini panelga kiritadi. Biz faqat ulash va sinovni bajaramiz.
 
-1. **Ma'lumot yig'ish** — panel.1call.uz'dan yoki Sarkor'dan: SIP host/port, login/parol (yoki IP-autentifikatsiya), raqam(lar), DID formati (`998XXXXXXXXX` / `+998…`), kodeklar (odatda G.711 alaw), parallel liniyalar soni
-2. **Sarkor bilan kelishish** — shartnomani **firma o'zi** tuzadi (qaror #40). Server IP'sini Sarkor'ga berish (IP whitelist kerak bo'lsa). Test: loyiha muallifining alohida test akkaunti; Daniya IP'siga ruxsat bo'lmasa — test uchun O'zbekistonda server
-3. **Asterisk'da sozlash** — PJSIP trunk (Realtime orqali panelda "SIP trunklar" modulida), kiruvchi qo'ng'iroqlar → filial navbati, chiquvchi (TTS, callback) → Sarkor orqali, Caller ID to'g'ri ko'rinishini tekshirish
-4. **Sinov** — avval alohida test raqami bilan (agar Sarkor bersa) yoki tunda qisqa vaqtga ko'chirib sinash
-5. **Ko'chirish** — ibTaxi to'liq tayyor bo'lgach (Bosqich 4 pilotdan oldin) trunk 1call'dan uziladi va bizga ulanadi. Shu paytgacha 1call ishlashda davom etadi — xizmat to'xtamaydi
+**Ulash tartibi (har yangi firma uchun):**
+1. **Ma'lumot olish** — firma provayderdan: SIP host/port, login/parol (yoki IP-autentifikatsiya), raqam(lar), DID formati (`998XXXXXXXXX` / `+998…`), kodeklar (odatda G.711 alaw), kanallar soni
+2. **Provayderga server IP'sini berish** (IP whitelist kerak bo'lsa)
+3. **Panelda kiritish** — "SIP trunklar" va "Telefon raqamlari" modullari (§5.5); Asterisk Realtime orqali darhol ishlaydi
+4. **Sinov** — kiruvchi qo'ng'iroq → navbat → operator; chiquvchi TTS qo'ng'iroq; Caller ID to'g'ri ko'rinishi; qisqa raqam (agar bo'lsa)
 
-> ⚠️ Bitta SIP akkaunt odatda bir vaqtda faqat bitta serverda ro'yxatdan o'tadi — 1call va bizning Asterisk bir vaqtda bitta login bilan ulansa, qo'ng'iroqlar tasodifiy taqsimlanadi. Sinov uchun alohida akkaunt/raqam so'rash yaxshiroq.
+**Ishlab chiqish va sinov uchun:** loyiha muallifining alohida Sarkor test akkaunti (qaror #40). Sarkor Daniya test serveriga ruxsat bermasa — test uchun O'zbekistonda server olinadi.
+
+**panel.1call.uz — andoza (qaror #10, #45):** u yerdagi qo'ng'iroq boshqaruvi funksiyalari (trunklar, kanallar limiti, navbatlar, monitoring, yozuvlar) va dialplan mantig'i ibTaxi PBX paneli uchun namuna sifatida olinadi; 1call'dan hech narsa ko'chirilmaydi va unga ulanmaydi.
+
+> ⚠️ Bitta SIP akkaunt bir vaqtda faqat bitta serverda ro'yxatdan o'tishi kerak — bitta login ikki serverda ulansa, qo'ng'iroqlar tasodifiy taqsimlanadi. Test va production uchun alohida akkaunt.
 
 ### 5.2a Telefon raqamlari ↔ filiallar (qaror #15)
 
@@ -323,7 +336,7 @@ Raqamlar soni va bog'lanishi kodda qattiq yozilmaydi — superadmin panelda sozl
 | Filial | `max_channels` — shu filialga ajratilgan ulush           | 4 (bitta filial bo'lsa)                                |
 | Filial | `max_auto_calls` — TTS avto-qo'ng'iroqlar uchun maksimal | 1 (operator liniyalarini band qilib qo'ymasligi uchun) |
 
-> ⚠️ **1000+ buyurtma/kun uchun 4 kanal yetmaydi** — hisob §9.3 da. Tavsiya: pilotdan oldin Sarkor'dan **kamida 8–10 kanal** olish — qo'shimcha kanal narxi **60 000 so'm** (Sarkor). Panelda faqat raqam o'zgaradi. Monitoring va statistikada "kanal bandligi sababli yo'qotilgan qo'ng'iroqlar" kuzatiladi.
+> ⚠️ **1000+ buyurtma/kun uchun 4 kanal yetmaydi** — hisob §9.3 da. Tavsiya: firmaga 1000+ buyurtma/kun bo'lsa, ishga tushirishdan oldin provayderdan **kamida 8–10 kanal** olish — qo'shimcha kanal narxi **60 000 so'm** (Sarkor). Panelda faqat raqam o'zgaradi. Monitoring va statistikada "kanal bandligi sababli yo'qotilgan qo'ng'iroqlar" kuzatiladi.
 
 **Qisqa raqam (qaror #41):** Sarkor'dan olingan qisqa raqam (1XXX) Asterisk'ga oddiy kiruvchi raqam (DID) bo'lib keladi — panelda "Telefon raqamlari"ga qo'shiladi va filial(lar)ga biriktiriladi (§5.2a). Chiquvchi avto-qo'ng'iroqlarda Caller ID sifatida qisqa raqam ko'rinishi Sarkor bilan alohida tekshiriladi (ba'zi operatorlar qisqa raqamni chiquvchi uchun ko'rsatmaydi).
 
@@ -359,7 +372,7 @@ Raqamlar soni va bog'lanishi kodda qattiq yozilmaydi — superadmin panelda sozl
 - Barcha bo'laklar **bir marta**, **ayol ovozida** generatsiya qilinadi va serverda saqlanadi
 - Asterisk ularni ketma-ket ijro etadi: `sizni-haydovchi-kutmoqda` + `oq` + `cobalt` + `nol` + `bir` + `a` + `bir-yuz` + `yigirma` + `uch` + `be` + `se`
 - Real vaqtda TTS chaqirilmaydi → kechikish yo'q, internet/API'ga bog'liq emas, oylik to'lov yo'q
-- Butun tizimda **bitta ovoz** — barcha xabarlar bir xil ovozda (SpeechKit ovozi superadmin sozlamasida tanlanadi: zamira / yulduz / nigora)
+- Mijozga ovozli xabarlar **o'zbek tilida** (panel tili rus bo'lsa ham). Butun tizimda **bitta ovoz** — barcha xabarlar bir xil ovozda (SpeechKit ovozi superadmin sozlamasida tanlanadi: zamira / yulduz / nigora)
 
 **Fayl tuzilmasi va format:**
 
@@ -373,7 +386,7 @@ storage/app/sounds/uz/
 ```
 
 - Generatsiya: WAV → Asterisk uchun **8 kHz, mono, 16-bit** (`.wav` yoki `.sln`) ga o'giriladi; ovoz balandligi normalizatsiya qilinadi (bo'laklar bir xil balandlikda eshitilishi uchun)
-- Bazada `sound_clips` jadvali: `voice`, `category`, `key`, `text` (nima deyilishi), `file_path`, `duration_ms` — panelda tinglash va qayta yuklash mumkin
+- Bazada `sound_clips` jadvali: `category`, `key`, `text` (nima deyilishi), `file_path`, `duration_ms` — panelda tinglash va qayta yuklash mumkin
 - Yetishmayotgan bo'lak (masalan yangi mashina modeli uchun) panelda ⚠️ bilan ko'rsatiladi; ovozli xabar bu bo'lakni o'tkazib yuboradi (xabar baribir yetkaziladi)
 
 **Bo'laklar katalogi (birinchi versiya):**
@@ -404,7 +417,7 @@ Jami: **~140 fayl**.
 - Xarajat: ~140 bo'lak, qisqa matnlar — bir martalik va juda kichik summa (SpeechKit belgilar soni bo'yicha hisoblaydi)
 - Generatsiyadan keyin har bir bo'lakni **eshitib tekshirish** shart (urg'u, talaffuz) — panelda "tinglash / qayta generatsiya / o'z faylini yuklash" tugmalari
 
-### 5.5 PBX boshqaruv paneli (ibTaxi ichida, panel.1call.uz namunasida)
+### 5.5 PBX boshqaruv paneli (ibTaxi ichida, panel.1call.uz andozasida)
 
 Alohida PBX panel yo'q — hammasi ibTaxi admin panelining "Telefoniya" bo'limida.
 
@@ -413,7 +426,7 @@ Alohida PBX panel yo'q — hammasi ibTaxi admin panelining "Telefoniya" bo'limid
 | **SIP trunklar**                | Provayder qo'shish (host, login, parol, kodeklar), holati (ulangan/uzilgan), **parallel liniyalar limiti** (§5.3)                                                          | superadmin                                    |
 | **Telefon raqamlari**           | Raqam qo'shish, trunkka bog'lash, filial(lar)ga bog'lash (bitta / bir nechta / hammasi), routing rejimi (IVR / umumiy navbat / mijoz tarixi), asosiy raqam belgisi (§5.2a) | superadmin                                    |
 | **Liniyalar limiti (filial)**   | Filial uchun maksimal parallel qo'ng'iroqlar; avto-qo'ng'iroqlar (TTS) uchun alohida ulush                                                                                 | superadmin → filialga ajratadi, admin ko'radi |
-| **Ichki raqamlar (extensions)** | Har operatorga avtomatik WebRTC raqam (masalan 101), parol avtomatik; operator yaratilganda o'zi yaratiladi                                                                | admin                                         |
+| **Ichki raqamlar (extensions)** | Har operatorga va **har haydovchiga** (dispetcherga qo'ng'iroq uchun, qaror #47) avtomatik WebRTC raqam, parol avtomatik; foydalanuvchi yaratilganda o'zi yaratiladi                                                                | admin                                         |
 | **Navbatlar (queues)**          | Filial navbati, strategiya, kutish vaqti, kutish musiqasi, operatorlarni biriktirish                                                                                       | admin                                         |
 | **IVR / ish vaqti**             | Salomlashuv audio, ish vaqti jadvali, ishdan tashqari xabar, bayram kunlari                                                                                                | admin                                         |
 | **Audio fayllar**               | Salomlashuv, kutish musiqasi, TTS bo'laklarini yuklash/generatsiya qilish, tinglash                                                                                        | admin                                         |
@@ -582,18 +595,18 @@ Efirda taklifni olmaslik — oddiy holat (jarimasiz), aks holda efirni ko'rgan h
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `regions`              | id, parent_id, type (viloyat / shahar / tuman), name_uz, name_ru, center, boundary (geography polygon, OSM'dan) — O'zbekiston ma'muriy bo'linishi, o'rnatishda seed qilinadi                                                                                                                  |
 | `branches`             | id, name, service_name (IVR uchun xizmat nomi), greeting_text, region_id (shahar/tuman — qaror #31), center (geography point), service_area (geography polygon), timezone, settings (json)                                                                                                    |
-| `users`                | id, branch_id (asosiy filial), name, phone, password, is_active — rollar spatie orqali                                                                                                                                                                                                        |
+| `users`                | id, branch_id (asosiy filial), name, phone, password, locale (uz/ru — qaror #44), is_active — rollar spatie orqali                                                                                                                                                                                                        |
 | `branch_user`          | branch_id, user_id — operatorni bir nechta filialga biriktirish (umumiy navbat uchun)                                                                                                                                                                                                         |
 | `phone_numbers`        | id, trunk_id, number (E.164), name, routing_mode (ivr/shared_queue/client_history), fallback_mode, is_active                                                                                                                                                                                  |
 | `branch_phone_number`  | branch_id, phone_number_id, is_primary, ivr_digit                                                                                                                                                                                                                                             |
-| `drivers`              | id, user_id, branch_id, callsign (pozivnoy), status (offline/free/busy), balance, rating, blocked_until, license_no                                                                                                                                                                           |
+| `drivers`              | id, user_id, branch_id, callsign (pozivnoy — butun nusxada unique; Click/Payme to'lovida ID sifatida ishlatiladi), status (offline/free/busy), balance, rating, blocked_until, license_no                                                                                                                                                                           |
 | `order_cancellations`  | order_id, driver_id, reason, penalty_amount, penalty_waived_by, created_at                                                                                                                                                                                                                    |
 | `vehicles`             | id, driver_id (egasi — haydovchi), brand, model, color, plate_number (unique), year, tech_passport_no, photos, is_approved, approved_by — haydovchining o'z mashinasi (qaror #26)                                                                                                             |
 | `driver_documents`     | driver_id, type (prava / tex-pasport / pasport / mashina rasmi), file_path, expires_at, status (kutilmoqda/tasdiqlandi/rad etildi)                                                                                                                                                            |
 | `driver_locations`     | driver_id, location (geography), speed, heading, recorded_at — **tarix** (partitsiyalangan, 30–90 kun)                                                                                                                                                                                        |
-| `clients`              | id, branch_id, phone (unique per branch), name, note, is_blacklisted, orders_count                                                                                                                                                                                                            |
+| `clients`              | id, last_branch_id, phone (unique — butun nusxa bo'yicha, chunki 1 nusxa = 1 firma), name, note, is_blacklisted, orders_count                                                                                                                                                                                                            |
 | `client_addresses`     | client_id, label ("Uy"), landmark_id / location, text                                                                                                                                                                                                                                         |
-| `landmarks`            | id, branch_id, name, aliases (text[]), location, category, usage_count                                                                                                                                                                                                                        |
+| `landmarks`            | id, region_id (filiallar o'rtasida umumiy — qo'shni filiallar bir xil mo'ljallardan foydalanadi), name, aliases (text[]), location, category, usage_count                                                                                                                                                                                                                        |
 | `tariff_classes`       | id, branch_id, name (Standart/Komfort/Yuk/Dostavka/…), icon, sort, is_delivery (dostavka maydonlari kerakmi), is_default, is_active                                                                                                                                                           |
 | `tariffs`              | id, branch_id, tariff_class_id, base_fare, base_km (boshlang'ich narx ichidagi km), per_km, rounding_step (standart 500), waiting_enabled, waiting_free_min, waiting_per_min, night_enabled, night_from, night_to, night_coeff, outside_enabled, outside_per_km, is_active                    |
 | `vehicle_tariff_class` | vehicle_id, tariff_class_id — mashina qaysi klasslarda ishlaydi                                                                                                                                                                                                                               |
@@ -603,6 +616,7 @@ Efirda taklifni olmaslik — oddiy holat (jarimasiz), aks holda efirni ko'rgan h
 | `order_events`         | order_id, type, actor_id, payload (json), created_at                                                                                                                                                                                                                                          |
 | `driver_transactions`  | driver_id, order_id, type (commission/topup/penalty/bonus/adjustment), amount, balance_after, source (click/payme/cash/system), created_by, comment                                                                                                                                           |
 | `payment_transactions` | provider (click/payme), provider_transaction_id (unique), driver_id, amount, state, raw_request (json), timestamps — Click/Payme callback'lari uchun                                                                                                                                          |
+| `chat_messages`        | id, driver_id, order_id (ixtiyoriy), sender_id, body, attachment_path, read_at, created_at — haydovchi ↔ dispetcher chati (qaror #47) |
 | `calls`                | id, uniqueid (Asterisk), direction, caller, operator_id, order_id, duration, recording_path, status                                                                                                                                                                                           |
 | `sound_clips`          | id, category (phrase/number/letter/color/car/ivr), key, text, file_path, duration_ms                                                                                                                                                                                                          |
 | `cash_shifts`          | id, branch_id, cashier_id, opened_at, closed_at, total_cash, admin_confirmed_by — kassir smenasi                                                                                                                                                                                              |
@@ -618,6 +632,8 @@ Efirda taklifni olmaslik — oddiy holat (jarimasiz), aks holda efirni ko'rgan h
 - O'rta: **xarita** — bo'sh (yashil) / band (qizil) / oflayn haydovchilar, buyurtma nuqtalari
 - O'ng: **yangi buyurtma formasi** (qo'ng'iroq kelganda avtomatik ochiladi, telefon to'ldirilgan)
 - Pastda/tepada: **softphone** (holat: Tayyor / Suhbatda / Tanaffus)
+- **Haydovchilar chati** (qaror #47): ro'yxat, o'qilmaganlar soni, buyurtmaga bog'langan suhbatlar; haydovchidan kelgan qo'ng'iroq haydovchi va buyurtma ma'lumoti bilan ochiladi
+- Til: o'zbek / rus (qaror #44)
 - Klaviatura yorliqlari (tez ishlash uchun — operator sekundlarni hisoblaydi)
 - Mo'ljal qidiruvi: 2–3 harf yozilganda takliflar
 
@@ -637,7 +653,7 @@ Efirda taklifni olmaslik — oddiy holat (jarimasiz), aks holda efirni ko'rgan h
 
 - Filiallar, adminlar, global sozlamalar, barcha filiallar bo'yicha hisobot, audit log
 
-### 8.4 Haydovchi ilovasi (MVP: Android; iOS — Bosqich 5)
+### 8.4 Haydovchi ilovasi (faqat Android — qaror #43)
 
 - Login: telefon raqami + admin bergan parol (SMS kod yo'q)
 - "Liniyaga chiqish / chiqish" tugmasi
@@ -645,27 +661,29 @@ Efirda taklifni olmaslik — oddiy holat (jarimasiz), aks holda efirni ko'rgan h
 - Buyurtma bosqichlari: Yo'ldaman → Yetib keldim → Yo'lovchi o'tirdi → Yakunlash
 - **Taksometr**: GPS asosida km → narx (boshlang'ich narx + km, §5b), oflayn ham ishlaydi (internet uzilsa)
 - Ilova ichidagi xarita (MapLibre): joylashuv, A/B nuqtalar, marshrut chizig'i, masofa va ETA; qo'shimcha: "Navigatorda ochish" tugmasi
-- Mijozga qo'ng'iroq (masked call orqali)
+- Mijozga qo'ng'iroq — telefonning oddiy qo'ng'iroq oynasi orqali (qaror #42)
+- **Dispetcher bilan aloqa (qaror #47):** "Dispetcherga qo'ng'iroq" (ilova ichida WebRTC) + chat (tezkor javoblar, rasm)
+- Til: o'zbek / rus (qaror #44)
 - Balans, buyurtmalar tarixi, kunlik daromad
 - SOS tugmasi (ixtiyoriy)
-- Android 10+ (`minSdk 29`, `targetSdk` — Google Play talab qiladigan eng so'nggi versiya):
+- Android 10+ (`minSdk 29`, `targetSdk` — eng so'nggi barqaror versiya):
     - Foreground Service (`foregroundServiceType="location"`) — liniyada bo'lganda doimiy bildirishnoma bilan ishlaydi
-    - Ruxsatlar: `ACCESS_FINE_LOCATION`, Android 13+ da `POST_NOTIFICATIONS`. Service foreground'da bo'lgani uchun `ACCESS_BACKGROUND_LOCATION` odatda shart emas (Google Play tekshiruvi ham osonroq)
+    - Ruxsatlar: `ACCESS_FINE_LOCATION`, Android 13+ da `POST_NOTIFICATIONS`. Service foreground'da bo'lgani uchun `ACCESS_BACKGROUND_LOCATION` odatda shart emas
     - Buyurtma taklifi uchun to'liq ekranli bildirishnoma (`USE_FULL_SCREEN_INTENT`) + ovozli signal
     - Batareya optimizatsiyasidan chiqarish bo'yicha ilova ichida yo'riqnoma (Xiaomi/Tecno/Infinix "autostart" sozlamalari)
 
 ### 8.5 API
 
 - Haydovchi ilovasi uchun REST API (`/api/driver/v1/...`), Laravel Sanctum tokenlari
-- Real-time: Reverb (Pusher protokoli) — Android uchun Pusher client kutubxonasi ishlaydi (keyin iOS uchun ham)
+- Real-time: Reverb (Pusher protokoli) — Android uchun Pusher client kutubxonasi ishlaydi
 - Push (FCM, high-priority data message) — har bir taklif Reverb + FCM orqali parallel yuboriladi; ilova `offer_id` bo'yicha takrorni e'tiborsiz qoldiradi
 - `device_tokens` jadvali: user_id, platform, fcm_token, updated_at (login va token yangilanganda saqlanadi)
 
 ---
 
-## 9. Server infratuzilmasi — ✅ qaror: 1 ta VPS
+## 9. Server infratuzilmasi — ✅ qaror: 1 ta VPS, toza Ubuntu (FastPanel'siz)
 
-Hamma narsa bitta VPS'da (qaror #9).
+Hamma narsa bitta VPS'da (qaror #9), toza Ubuntu LTS, o'rnatish skripti bilan (qaror #46). Har xaridor firma o'z serverini oladi (qaror #36).
 
 | Resurs | Minimal                                 | Tavsiya                                       |
 | ------ | --------------------------------------- | --------------------------------------------- |
@@ -678,17 +696,18 @@ Hamma narsa bitta VPS'da (qaror #9).
 
 | Xizmat                        | Kim boshqaradi                                         |
 | ----------------------------- | ------------------------------------------------------ |
-| Nginx, PHP-FPM, Laravel, SSL  | FastPanel                                              |
-| PostgreSQL + PostGIS, Redis   | FastPanel / tizim paketi                               |
+| Nginx, PHP-FPM, Laravel       | O'rnatish skripti, systemd                             |
+| SSL (Let's Encrypt)           | Certbot (avto-yangilanish + Asterisk reload hook)      |
+| PostgreSQL + PostGIS, Redis   | Tizim paketlari (apt), systemd                         |
 | Reverb, Horizon, `pbx:listen` | Supervisor                                             |
 | OSRM, `.pmtiles` tile fayli   | Docker (OSRM), Nginx (tiles)                           |
-| **Asterisk, coturn**          | Tizim xizmati (systemd) — **FastPanel'dan tashqarida** |
+| **Asterisk, coturn**          | Tizim xizmati (systemd)                                |
 
 **Bitta serverda xavflarni kamaytirish:**
 
 - **Ovoz sifati:** Asterisk'ga yuqori CPU ustuvorligi (`Nice=-10` systemd'da); OSRM va Horizon'ga resurs cheklovi (Docker `--cpus`, Horizon `maxProcesses`). OSRM ma'lumotini qayta qurish (oylik) — tunda
-- **Portlar:** SIP (5060/5061), WSS (8089), RTP (10000–20000 UDP), TURN (3478) — firewall'da ochiladi; FastPanel bu portlarga tegmasligini tekshirish
-- **SSL:** FastPanel bergan Let's Encrypt sertifikati Asterisk WSS uchun ham ishlatiladi (yangilanganda Asterisk'ni reload qiluvchi hook)
+- **Portlar:** SIP (5060/5061), WSS (8089), RTP (10000–20000 UDP), TURN (3478) — `ufw` firewall'da ochiladi (skript o'zi sozlaydi)
+- **SSL:** Certbot sertifikati Nginx va Asterisk WSS uchun bir xil; yangilanganda Asterisk'ni reload qiluvchi hook
 - **SIP xavfsizligi:** fail2ban, kuchli parollar, SIP portini faqat trunk provayder IP'lariga ochish, operatorlar faqat WebRTC (WSS) orqali
 - **Yagona nuqta xavfi:** server tushsa hammasi to'xtaydi → **kundalik zaxira nusxa boshqa joyga** (PostgreSQL dump + yozuvlar, masalan S3-mos saqlash), serverni tezda qayta tiklash uchun yozma yo'riqnoma/skript
 - **Monitoring:** Uptime Kuma (tashqi bepul xizmatda yoki boshqa joyda), CPU/RAM/disk ogohlantirishlari Telegram'ga
@@ -715,18 +734,16 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 ### 9.1 Test serveri — Webdock.io, Daniya (qaror #18)
 
 - Ishlab chiqish va sinov bosqichlari (Bosqich 0–3) shu serverda
-- Ubuntu LTS + FastPanel (production bilan bir xil sozlama — keyin ko'chirish oson bo'lishi uchun)
+- Toza Ubuntu LTS + **o'sha o'rnatish skripti** (qaror #46) — skript har safar shu serverda sinaladi, xaridorga o'rnatish bir xil chiqadi
 - **Faqat test ma'lumotlari:** soxta mijozlar, `simulate:drivers` haydovchilari. Haqiqiy mijoz raqamlari va qo'ng'iroq yozuvlari bu serverda saqlanmaydi
 - **Sarkor trunk sinovi:** loyiha muallifining test akkaunti bilan; Sarkor Daniya IP'siga ruxsat bermasa — test uchun O'zbekistonda server olinadi (qaror #40)
 - Ovoz kechikishi Daniya ↔ O'zbekiston ~80–120 ms — sinov uchun yetarli
 
-### 9.2 Production serveri — UzCloud, O'zbekiston (qaror #20)
+### 9.2 Xaridor firmalar serverlari (qaror #20, #36)
 
-**Pilot (Bosqich 4) va undan keyin — UzCloud VPS** (resurslar §9 jadvalidagi tavsiya bo'yicha; UzCloud'dan statik IPv4 va SIP/RTP uchun UDP portlar ochiq bo'lishini tasdiqlash kerak):
-
-- Shaxsiy ma'lumotlar to'g'risidagi qonun: O'zbekiston fuqarolarining shaxsiy ma'lumotlari (telefon raqamlari, qo'ng'iroq yozuvlari, manzillar) mamlakat hududidagi serverlarda saqlanishi talab qilinadi
-- Sarkor trunk va ovoz uchun past kechikish
-- Ko'chirish: Daniya serveridan sozlama skriptlari (Ansible yoki bash) + toza bazaga migratsiya; test ma'lumotlari ko'chirilmaydi
+- Har firma **o'z serverini** oladi; tavsiya — **O'zbekistondagi hosting** (masalan UzCloud): shaxsiy ma'lumotlar to'g'risidagi qonun (fuqarolarning telefon raqamlari, qo'ng'iroq yozuvlari, manzillari mamlakat hududida saqlanishi talab qilinadi) va SIP/ovoz uchun past kechikish
+- Server talablari §9 jadvalida; hostingdan oldindan tasdiqlanadi: statik IPv4, UDP portlar (SIP/RTP/TURN) ochiq
+- O'rnatish: toza Ubuntu → o'rnatish skripti → sozlash ustasi (§0). Test ma'lumotlari ko'chirilmaydi
 
 ---
 
@@ -739,7 +756,7 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 5. **Firibgarlikka qarshi** — haydovchi buyurtmani "yakunladi" lekin GPS harakatlanmagan; soxta GPS (mock location) aniqlash
 6. **Operator KPI** — o'rtacha javob vaqti, buyurtma yaratish vaqti, javobsiz qo'ng'iroqlar
 7. **Audit log** — kim qaysi buyurtmani bekor qildi, narxni o'zgartirdi (spatie/laravel-activitylog)
-8. **Ko'p tillilik** — panel: o'zbek (lotin) + rus; mo'ljal qidiruvi lotin/kirill/rus yozuvlarini bir xil topishi (transliteratsiya)
+8. **Ko'p tillilik** — ✅ qaror #44 (o'zbek + rus); mo'ljal qidiruvi lotin/kirill/rus yozuvlarini bir xil topadi (transliteratsiya)
 9. **Monitoring** — Laravel Pulse / Sentry, server uchun Uptime Kuma; Asterisk trunk uzilsa Telegram'ga ogohlantirish
 10. **Zaxira nusxa** — PostgreSQL kunlik backup boshqa serverga + qo'ng'iroq yozuvlarini arxivlash
 
@@ -749,19 +766,22 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 
 ### Bosqich 0 — Tayyorgarlik (1 hafta)
 
-- [ ] Savollarga javoblar (§12)
+- [x] Savollarga javoblar (§12)
 - [ ] PostgreSQL + PostGIS'ga o'tish (hozir `.env.example` da sqlite)
 - [ ] spatie/permission, Reverb, Horizon, Sanctum o'rnatish
 - [ ] Rollar, filial scope, seederlar
+- [ ] Lokalizatsiya asosi: o'zbek + rus (backend, React, til almashtirish — qaror #44)
 - [ ] `regions` — O'zbekiston viloyat/shahar/tuman ro'yxati va chegaralari (OSM'dan seed)
 - [ ] CI (GitHub Actions allaqachon bor), kod standarti
+- [ ] `CLAUDE.md` (va `.gitignore` dan `/CLAUDE.md` qatorini olib tashlash), Docker Compose lokal muhit
+- [ ] **Integratsiyalar** sozlamalari moduli (shifrlangan kalitlar, "Ulanishni tekshirish") — keyingi bosqichlar shunga tayanadi (§0)
 
 ### Bosqich 1 — MVP Backend + Operator paneli (3–4 hafta)
 
 - [ ] Filiallar, foydalanuvchilar, haydovchilar, mashinalar CRUD
 - [ ] Tariflar
 - [ ] Mijozlar, mo'ljallar bazasi, qidiruv
-- [ ] Xarita infratuzilmasi: O'zbekiston `.pmtiles` + Nginx, OSRM Docker (oylik OSM yangilanishi)
+- [ ] Xarita infratuzilmasi: tanlangan hudud `.pmtiles` + Nginx, OSRM Docker (oylik OSM yangilanishi)
 - [ ] Operator paneli xaritasi (MapLibre GL JS)
 - [ ] OSM'dan POI'larni `landmarks` jadvaliga boshlang'ich import
 - [ ] Buyurtma yaratish, statuslar, `order_events`
@@ -771,6 +791,7 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [ ] FCM yuborish (`laravel-notification-channels/fcm`), `device_tokens`
 - [ ] Haydovchi balansi: komissiya yechish, minimal balans tekshiruvi
 - [ ] Kassir paneli: haydovchini topish, naqd to'ldirish, kassa smenasi (ochish/yopish, hisobot)
+- [ ] Haydovchi ↔ dispetcher chati (backend + operator paneli, Reverb — qaror #47)
 
 ### Bosqich 2 — Haydovchi ilovasi Android (3–4 hafta, Bosqich 1 dan keyin)
 
@@ -779,6 +800,8 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [ ] Login, liniyaga chiqish, fonda GPS
 - [ ] Buyurtma taklifi, statuslar, taksometr
 - [ ] FCM push
+- [ ] Chat ekrani (tezkor javoblar, rasm) va "Mijozga qo'ng'iroq" (telefon dialer)
+- [ ] Ilova tili: o'zbek / rus
 - [ ] Ilova ichida xarita (MapLibre): A/B nuqtalar, marshrut chizig'i, masofa, ETA
 
 ### Bosqich 3 — Telefoniya + PBX panel (3–4 hafta)
@@ -788,6 +811,7 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [ ] Asterisk Realtime ↔ PostgreSQL (`ps_*`, `queues`, `queue_members` migratsiyalari)
 - [ ] PBX panel: SIP trunklar, telefon raqamlari ↔ filiallar + routing rejimlari (§5.2a), parallel liniyalar limiti (§5.3), ichki raqamlar (operator bilan avtomatik), navbatlar, IVR/ish vaqti, audio fayllar
 - [ ] WebRTC softphone panelda
+- [ ] Haydovchi ilovasida "Dispetcherga qo'ng'iroq" (WebRTC SIP klient Android'da), operator panelida haydovchi qo'ng'irog'i kartochkasi
 - [ ] AMI listener → Caller ID pop-up
 - [ ] Yozib olish, CDR, javobsiz qo'ng'iroqlar
 - [ ] PBX panel: jonli monitoring, qo'ng'iroqlar tarixi, statistika, qora ro'yxat
@@ -795,25 +819,31 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [ ] O'zbekcha audio bo'laklar kutubxonasi: ~140 bo'lak, ayol ovozi (§5.4 katalog), `sound_clips` jadvali, panelda tinglash/qayta yuklash
 - [ ] `PlateSpeaker` / `MessageComposer` servislari (davlat raqami, son, rang, model → bo'laklar ketma-ketligi) + testlar
 
-### Bosqich 4 — Pilot (2 hafta)
+### Bosqich 3b — Mahsulotlashtirish (1–2 hafta, §0)
+
+- [ ] O'rnatish skripti: toza Ubuntu LTS → to'liq tizim bitta buyruqda (FastPanel'siz — qaror #46), Daniya test serverida sinab
+- [ ] Birinchi kirish ustasi (setup wizard): firma, superadmin, hudud, birinchi filial
+- [ ] `php artisan ibtaxi:update` (+ avtomatik zaxira, `--rollback`), versiyalash va `CHANGELOG.md`
+- [ ] Firma ilovasini build qilish yo'riqnomasi (keystore saqlash bilan)
+
+### Bosqich 4 — Pilot birinchi xaridor firma bilan (2 hafta, qaror #45)
 
 - [ ] Click SHOP API va Payme Merchant API integratsiyasi (merchant shartnoma tayyor bo'lsa; aks holda pilot faqat kassa bilan)
-- [ ] UzCloud production VPS'ni sozlash (Daniya test serveri skriptlari asosida)
-- [ ] Asosiy raqamni 1call'dan ibTaxi Asterisk'iga ko'chirish
+- [ ] Firma serverini o'rnatish (o'rnatish skripti + sozlash ustasi)
+- [ ] Firma SIP trunki va raqam(lar)ini ulash va sinash (§5.2)
 - [ ] Yuklama sinovi: 100 soxta haydovchi + 200 buyurtma/soat (§9.3)
-- [ ] Sarkor'dan kanallarni 8–10 taga oshirish
-- [ ] Pilot filial(lar)da (panelda tanlangan shahar/tuman — qaror #31) real sinov
-- [ ] Pilot shahar(lar) uchun mo'ljallar bazasini oldindan to'ldirish
+- [ ] Firmaning yuklamasiga qarab kanallar sonini tekshirish (1000+/kun → 8–10 kanal)
+- [ ] Firma filial(lar)ida (panelda tanlangan shahar/tuman — qaror #31) real sinov
+- [ ] Firma shahar(lar)i uchun mo'ljallar bazasini oldindan to'ldirish
 - [ ] Xatolarni tuzatish, operator fikr-mulohazasi
 
-### Bosqich 5 — iOS + kengaytmalar
+### Bosqich 5 — Kengaytmalar
 
-- [ ] iOS haydovchi ilovasi (SwiftUI)
 - [ ] Hisobotlar (kengaytirilgan)
-- [ ] IVR avto-buyurtma, pre-order, masked call
+- [ ] IVR avto-buyurtma, pre-order
 - [ ] (ixtiyoriy) Ilova ichida ovozli navigatsiya — Ferrostar + Valhalla
 
-**MVP taxminiy muddati:** 12–15 hafta (1 dasturchi + AI, bosqichlar ketma-ket). Taxmin qo'pol — Bosqich 1 tugagach qayta baholanadi.
+**MVP taxminiy muddati:** **16–20 hafta** (1 dasturchi + AI, bosqichlar ketma-ket). Dastlabki 12–15 haftalik baho reja kengaygani uchun oshirildi: PBX panel, mahsulotlashtirish (o'rnatish, yangilash, white-label ilova), Click/Payme, jarima/reyting, qo'shimcha narx qoidalari. Bosqich 1 tugagach qayta baholanadi.
 
 ### Ish uslubi (1 dasturchi + AI)
 
@@ -835,7 +865,7 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 
 - [ ] Sarkor qo'shimcha kanal narxi 60 000 so'm — oylikmi yoki bir martalik
 - [ ] Sarkor: avto-qo'ng'iroqlarda qisqa raqam Caller ID sifatida ko'rinadimi
-- [ ] UzCloud: statik IPv4 va SIP/RTP UDP portlari (5060, 10000–20000, 3478) ochiq
+- [ ] Har firma hostingi: statik IPv4 va SIP/RTP UDP portlari (5060, 10000–20000, 3478) ochiq
 - [ ] Yandex SpeechKit: o'zbekcha bo'laklar talaffuzini eshitib tekshirish
 
 ### Biznes
@@ -873,7 +903,12 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 17. ~~Xarita qaysi?~~ ✅ Javob: bepul OSM yondashuvi (qaror #2)
 18. ~~SMS provayderi?~~ ✅ SMS ishlatilmaydi (qaror #4)
 19. ~~Minimal Android versiyasi?~~ ✅ Android 10+ (qaror #5)
-20. ~~iOS birinchi bosqichda kerakmi?~~ ✅ Yo'q, keyingi bosqichda (qaror #6)
+20. ~~iOS kerakmi?~~ ✅ Yo'q, umuman (qaror #43)
 21. ~~Mijoz uchun ilova?~~ ✅ Hech qachon kerak emas (qaror #7)
 22. ~~Jamoa?~~ ✅ 1 dasturchi + AI (qaror #8)
 23. ~~Ilova ichidagi xarita darajasi?~~ ✅ Javob: (a) xarita + marshrut + masofa + ETA (qaror #3)
+24. ~~Masked call?~~ ✅ Kerak emas (qaror #42)
+25. ~~Tillar?~~ ✅ O'zbek + rus (qaror #44)
+26. ~~Pilot firma?~~ ✅ Birinchi xaridor firma; 1call faqat andoza (qaror #45)
+27. ~~FastPanel?~~ ✅ To'liq voz kechildi, toza Ubuntu (qaror #46)
+28. ~~Haydovchi ↔ dispetcher aloqasi?~~ ✅ Qo'ng'iroq (WebRTC) + chat (qaror #47)

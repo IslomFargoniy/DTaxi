@@ -19,7 +19,8 @@ To'liq reja, qabul qilingan qarorlar va bosqichlar [docs/plan.md](docs/plan.md) 
 - **Telefoniya**: Asterisk, qo'ng'iroqlar navbati, qo'ng'iroqlarni yozib olish va avtomatik TTS qo'ng'iroqlar. PBX boshqaruv paneli tizim ichida.
 - **Narx**: boshlang'ich narx (ichida N km) va har keyingi km. Kutish puli, tungi narx va shahar tashqarisi narxi panelda yoqiladi.
 - **Haydovchi balansi**: har buyurtmadan komissiya yechiladi. Balans Click, Payme yoki kassa orqali to'ldiriladi.
-- **Haydovchi ilovasi** (Android 10+): ilova ichida xarita va marshrut, taksometr, push xabarlar. APK firma serveridan tarqatiladi va avtomatik yangilanadi.
+- **Haydovchi ilovasi** (Android 10+): ilova ichida xarita va marshrut, taksometr, push xabarlar, dispetcher bilan qo'ng'iroq va chat. APK firma serveridan tarqatiladi va avtomatik yangilanadi.
+- **Tillar**: o'zbek (lotin) va rus.
 - **Ko'p filial**: telefon raqamlarini filiallarga panelda bog'lash mumkin. Filial hududi viloyat, shahar yoki tuman bo'yicha tanlanadi.
 
 ## Rollar
@@ -43,7 +44,7 @@ To'liq reja, qabul qilingan qarorlar va bosqichlar [docs/plan.md](docs/plan.md) 
 | Xarita             | MapLibre + OpenStreetMap (o'z serverida), OSRM       |
 | Telefoniya         | Asterisk (PJSIP, WebRTC), Yandex SpeechKit (TTS)     |
 | Haydovchi ilovasi  | Kotlin, Jetpack Compose                              |
-| Server             | 1 ta VPS + FastPanel                                 |
+| Server             | 1 ta VPS, toza Ubuntu (o'rnatish skripti)            |
 
 ## Lokal ishga tushirish
 
