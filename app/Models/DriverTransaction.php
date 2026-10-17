@@ -7,6 +7,7 @@ use App\Enums\TransactionType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * Haydovchi balansi harakati: komissiya, to'ldirish, jarima, bonus.
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $amount
  * @property int $balance_after
  * @property string|null $comment
- * @property \Illuminate\Support\Carbon|null $created_at
+ * @property Carbon|null $created_at
  */
 #[Fillable(['driver_id', 'order_id', 'cash_shift_id', 'type', 'source', 'amount', 'balance_after', 'created_by', 'comment', 'created_at'])]
 class DriverTransaction extends Model

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * Haydovchi ↔ dispetcher chati (qaror #47).
@@ -15,8 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $sender_id
  * @property string|null $body
  * @property string|null $attachment_path
- * @property \Illuminate\Support\Carbon|null $read_at
- * @property \Illuminate\Support\Carbon|null $created_at
+ * @property Carbon|null $read_at
+ * @property Carbon|null $created_at
  */
 #[Fillable(['driver_id', 'order_id', 'sender_id', 'body', 'attachment_path', 'read_at', 'created_at'])]
 class ChatMessage extends Model

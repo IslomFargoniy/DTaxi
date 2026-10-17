@@ -18,7 +18,7 @@ use Illuminate\Support\Carbon;
  * @property bool $is_direct
  * @property OfferResponse|null $response
  * @property Carbon $offered_at
- * @property \Illuminate\Support\Carbon|null $responded_at
+ * @property Carbon|null $responded_at
  */
 #[Fillable(['order_id', 'driver_id', 'distance_m', 'is_direct', 'response', 'offered_at', 'responded_at'])]
 class OrderOffer extends Model

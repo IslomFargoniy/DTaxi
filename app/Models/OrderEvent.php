@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * Buyurtma tarixidagi har bir o'zgarish — nizolarni hal qilish uchun.
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $type
  * @property int|null $actor_id
  * @property array<string, mixed>|null $payload
- * @property \Illuminate\Support\Carbon|null $created_at
+ * @property Carbon|null $created_at
  */
 #[Fillable(['order_id', 'type', 'actor_id', 'payload', 'created_at'])]
 class OrderEvent extends Model
