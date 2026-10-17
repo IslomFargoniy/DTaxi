@@ -32,7 +32,7 @@ test('detects a disconnected trunk and stopped call service, alerts Telegram onl
     // Superadmin panelda ko'radi
     $admin = User::factory()->create()->assignRole(Role::Superadmin);
     $this->actingAs($admin)->get(route('admin.telephony.index'))
-        ->assertInertia(fn ($page) => $page->has('health', 2));
+        ->assertInertia(fn ($page) => $page->where('health', fn ($health) => collect($health)->contains('SIP trunk is not connected: Sarkor')));
 });
 
 test('healthy system has no problems', function () {
