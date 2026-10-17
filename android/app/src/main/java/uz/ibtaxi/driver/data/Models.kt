@@ -34,7 +34,15 @@ data class AppConfig(
     @SerializedName("offer_seconds") val offerSeconds: Int,
     /** GeoJSON (Polygon / MultiPolygon) — taksometr shahar tashqarisini ajratishi uchun */
     @SerializedName("service_area") val serviceArea: JsonObject?,
+    val payments: PaymentsConfig? = null,
 )
+
+/** Firma Click/Payme bilan shartnoma qilgan bo'lsa — balansni to'ldirish havolalari uchun */
+data class PaymentsConfig(val click: ClickConfig?, val payme: PaymeConfig?)
+
+data class ClickConfig(@SerializedName("service_id") val serviceId: String, @SerializedName("merchant_id") val merchantId: String?)
+
+data class PaymeConfig(@SerializedName("merchant_id") val merchantId: String)
 
 data class ReverbConfig(val key: String, val host: String, val port: Int, val scheme: String)
 

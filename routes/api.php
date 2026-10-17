@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\Driver\AuthController;
 use App\Http\Controllers\Api\Driver\ChatController;
 use App\Http\Controllers\Api\Driver\DriverController;
 use App\Http\Controllers\Api\Driver\OrderController;
+use App\Http\Controllers\Api\Payments\ClickController;
+use App\Http\Controllers\Api\Payments\PaymeController;
 use App\Http\Controllers\DriverAppController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
@@ -12,6 +14,13 @@ use Illuminate\Support\Facades\Route;
  * Haydovchi ilovasi API (reja §8.5). Real vaqt: Reverb (`/api/broadcasting/auth`), ilova yopiq bo'lsa — FCM.
  */
 Broadcast::routes(['middleware' => ['auth:sanctum']]);
+
+// To'lov tizimlari callback'lari (qaror #23): haydovchi balansini pozivnoy bo'yicha to'ldirish
+Route::prefix('payments')->middleware('throttle:120,1')->group(function () {
+    Route::post('click/prepare', [ClickController::class, 'prepare']);
+    Route::post('click/complete', [ClickController::class, 'complete']);
+    Route::post('payme', PaymeController::class);
+});
 
 Route::prefix('driver/v1')->group(function () {
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');

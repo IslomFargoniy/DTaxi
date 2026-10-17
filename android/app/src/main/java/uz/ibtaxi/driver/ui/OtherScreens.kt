@@ -38,6 +38,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import uz.ibtaxi.driver.data.PaymentsConfig
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -153,10 +156,11 @@ fun BalanceScreen(onBack: () -> Unit) {
                     }
                 }
             }
+            profile?.let { p -> item { TopUpCard(p.callsign, p.config.payments) } }
             items(items) { t ->
                 Row(Modifier.fillMaxWidth()) {
                     Column(Modifier.weight(1f)) {
-                        Text(t.comment ?: t.type)
+                        Text(t.comment ?: transactionLabel(t.type))
                         Text(t.createdAt?.take(16)?.replace('T', ' ') ?: "", style = MaterialTheme.typography.bodySmall)
                     }
                     Text(
@@ -166,6 +170,57 @@ fun BalanceScreen(onBack: () -> Unit) {
                     )
                 }
                 HorizontalDivider()
+            }
+        }
+    }
+}
+
+@Composable
+private fun transactionLabel(type: String): String = when (type) {
+    "commission" -> stringResource(R.string.tx_commission)
+    "topup" -> stringResource(R.string.tx_topup)
+    "penalty" -> stringResource(R.string.tx_penalty)
+    "bonus" -> stringResource(R.string.tx_bonus)
+    else -> stringResource(R.string.tx_adjustment)
+}
+
+/**
+ * Balansni to'ldirish (qaror #23): summa tanlanadi, Click/Payme ilovasi (yoki sayti) ID bilan ochiladi.
+ */
+@Composable
+private fun TopUpCard(callsign: String, payments: PaymentsConfig?) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    var amount by remember { mutableStateOf(50_000L) }
+    val open = { url: String -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.top_up), style = MaterialTheme.typography.titleMedium)
+            OutlinedButton(onClick = { clipboard.setText(AnnotatedString(callsign)) }) { Text("${stringResource(R.string.copy_id)}: $callsign") }
+            if (payments?.click != null || payments?.payme != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(20_000L, 50_000L, 100_000L).forEach { value ->
+                        AssistChip(onClick = { amount = value }, label = { Text(formatMoney(value)) }, colors = if (amount == value) {
+                            androidx.compose.material3.AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                        } else {
+                            androidx.compose.material3.AssistChipDefaults.assistChipColors()
+                        })
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    payments.click?.let { click ->
+                        Button(onClick = {
+                            open("https://my.click.uz/services/pay?service_id=${click.serviceId}&merchant_id=${click.merchantId ?: ""}&amount=$amount&transaction_param=$callsign")
+                        }) { Text("Click") }
+                    }
+                    payments.payme?.let { payme ->
+                        Button(onClick = {
+                            val params = "m=${payme.merchantId};ac.driver_id=$callsign;a=${amount * 100}"
+                            open("https://checkout.paycom.uz/" + android.util.Base64.encodeToString(params.toByteArray(), android.util.Base64.NO_WRAP))
+                        }) { Text("Payme") }
+                    }
+                }
             }
         }
     }

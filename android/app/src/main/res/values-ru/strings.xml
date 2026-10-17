@@ -67,4 +67,11 @@
     <string name="quick_traffic">Пробка, опаздываю</string>
     <string name="call_dispatcher">Позвонить диспетчеру</string>
     <string name="mic_required">Разрешите доступ к микрофону для звонка</string>
+    <string name="top_up">Пополнить баланс</string>
+    <string name="copy_id">Скопировать ID</string>
+    <string name="tx_commission">Комиссия</string>
+    <string name="tx_topup">Пополнение</string>
+    <string name="tx_penalty">Штраф</string>
+    <string name="tx_bonus">Бонус</string>
+    <string name="tx_adjustment">Корректировка</string>
 </resources>

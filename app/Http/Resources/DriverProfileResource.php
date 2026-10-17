@@ -2,7 +2,9 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\IntegrationProvider;
 use App\Models\Driver;
+use App\Models\Integration;
 use App\Models\Tariff;
 use App\Support\Settings;
 use Illuminate\Http\Request;
@@ -56,6 +58,16 @@ class DriverProfileResource extends JsonResource
                 'location_interval_seconds' => 4,
                 'offer_seconds' => (int) $settings->get('dispatch.step_seconds', $this->branch_id),
                 'service_area' => $this->serviceArea(),
+                // Balansni to'ldirish havolalari uchun (maxfiy bo'lmagan) merchant ma'lumotlari; sozlanmagan bo'lsa null
+                'payments' => [
+                    'click' => ($service = Integration::credential(IntegrationProvider::Click, 'service_id')) ? [
+                        'service_id' => $service,
+                        'merchant_id' => Integration::credential(IntegrationProvider::Click, 'merchant_id'),
+                    ] : null,
+                    'payme' => ($merchant = Integration::credential(IntegrationProvider::Payme, 'merchant_id')) ? [
+                        'merchant_id' => $merchant,
+                    ] : null,
+                ],
             ],
             'tariffs' => Tariff::query()->withoutGlobalScopes()->where('branch_id', $this->branch_id)->with('tariffClass')->get()
                 ->map(fn (Tariff $tariff) => [

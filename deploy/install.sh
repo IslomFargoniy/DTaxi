@@ -8,6 +8,7 @@
 #       xaridor serveri: kod shu repozitoriy papkasida (masalan /var/www/ibtaxi), Let's Encrypt,
 #       ufw, fail2ban, kunlik zaxira. Tugagach brauzerda https://<domen> — sozlash ustasi.
 #       Server IP'si domen DNS'ida ko'rsatilgan bo'lishi kerak (Let's Encrypt tekshiradi).
+#       Xizmat hududi: BBOX=lon1,lat1,lon2,lat2 (standart — Farg'ona vodiysi), xarita va marshrutlar shu hudud uchun.
 #
 # Skript qayta ishga tushirilsa ham xavfsiz (idempotent): mavjud parollar va .env saqlanadi.
 set -euo pipefail
@@ -16,6 +17,7 @@ MODE="--dev"
 DOMAIN=""
 EMAIL=""
 SKIP_SSL=0
+SKIP_MAPS=0
 for arg in "$@"; do
     case "$arg" in
         --dev | --prod) MODE="$arg" ;;
@@ -23,6 +25,8 @@ for arg in "$@"; do
         --email=*) EMAIL="${arg#*=}" ;;
         # Faqat sinov serveri uchun (domen yo'q): sertifikatsiz — brauzer mikrofoni ishlamaydi
         --skip-ssl) SKIP_SSL=1 ;;
+        # Xarita/OSRM/hududlar keyinroq tayyorlanadi (deploy/osm-prepare.sh va boshqalar)
+        --skip-maps) SKIP_MAPS=1 ;;
         *) echo "Noma'lum parametr: $arg" >&2; exit 1 ;;
     esac
 done
@@ -125,12 +129,12 @@ if [[ "$MODE" == "--prod" ]]; then
     set_env_once() { grep -q "^$1=.\+" "$ENV_FILE" || set_env "$1" "$2"; }
     set_env APP_ENV production
     set_env APP_DEBUG false
-    set_env APP_URL "https://${DOMAIN}"
+    set_env APP_URL "$([[ "$SKIP_SSL" == 1 ]] && echo http || echo https)://${DOMAIN}"
     set_env DB_HOST 127.0.0.1
     set_env DB_DATABASE "${DB_NAME}"
     set_env DB_USERNAME "${DB_USER}"
     set_env DB_PASSWORD "${DB_PASS}"
-    set_env SESSION_SECURE_COOKIE true
+    set_env SESSION_SECURE_COOKIE "$([[ "$SKIP_SSL" == 1 ]] && echo false || echo true)"
     set_env_once REVERB_APP_ID "$(shuf -i 100000-999999 -n 1)"
     set_env_once REVERB_APP_KEY "$(openssl rand -hex 10)"
     set_env_once REVERB_APP_SECRET "$(openssl rand -hex 10)"
@@ -265,6 +269,15 @@ if [[ "$MODE" == "--prod" ]]; then
     as_app "npm ci --no-audit --no-fund && npm run build"
     as_app "php artisan migrate --force && php artisan db:seed --class=RolesSeeder --force"
     as_app "php artisan storage:link >/dev/null 2>&1 || true; php artisan optimize; php artisan telephony:sync"
+
+    if [[ "$SKIP_MAPS" == 0 ]]; then
+        log "Prod: xarita, marshrutlash (OSRM), hududlar va mo'ljallar (OSM)"
+        [[ -f "${APP_DIR}/storage/app/osm/boundaries.geojsonseq" ]] || bash "${APP_DIR}/deploy/osm-prepare.sh"
+        [[ -f "${APP_DIR}/public/map/region.pmtiles" ]] || bash "${APP_DIR}/deploy/map-prepare.sh"
+        systemctl is-active --quiet ibtaxi-osrm || bash "${APP_DIR}/deploy/osrm-prepare.sh"
+        chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/storage/app/osm" "${APP_DIR}/public/map"
+        as_app "php artisan regions:import && php artisan landmarks:import"
+    fi
 
     log "Prod: HTTPS (Let's Encrypt)"
     sed -i "s/server_name _;/server_name ${DOMAIN};/" /etc/nginx/sites-available/ibtaxi

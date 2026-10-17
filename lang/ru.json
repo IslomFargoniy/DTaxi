@@ -422,5 +422,13 @@
     "Wait": "Ожидание",
     "Which branches each number serves.": "Какие филиалы обслуживает каждый номер.",
     "phone offline": "телефон отключён",
-    ":count clips generated.": "Сгенерировано фрагментов: :count."
+    ":count clips generated.": "Сгенерировано фрагментов: :count.",
+    "Setup": "Настройка",
+    "Company": "Компания",
+    "Service name (e.g. Ibrat taksi)": "Название службы (например, Ibrat taksi)",
+    "First branch": "Первый филиал",
+    "Branch name": "Название филиала",
+    "Finish setup": "Завершить настройку",
+    "Welcome to ibTaxi": "Добро пожаловать в ibTaxi",
+    "Set up your company: a few details and you are ready to work.": "Настройте компанию: несколько данных — и можно работать."
 }

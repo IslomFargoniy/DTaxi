@@ -67,4 +67,11 @@
     <string name="quick_traffic">Tirbandlik, kechikaman</string>
     <string name="call_dispatcher">Dispetcherga qo\'ng\'iroq</string>
     <string name="mic_required">Qo\'ng\'iroq uchun mikrofonga ruxsat bering</string>
+    <string name="top_up">Balansni to\'ldirish</string>
+    <string name="copy_id">ID\'ni nusxalash</string>
+    <string name="tx_commission">Komissiya</string>
+    <string name="tx_topup">To\'ldirish</string>
+    <string name="tx_penalty">Jarima</string>
+    <string name="tx_bonus">Bonus</string>
+    <string name="tx_adjustment">Tuzatish</string>
 </resources>

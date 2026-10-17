@@ -422,5 +422,13 @@
     "Wait": "Kutish",
     "Which branches each number serves.": "Har bir raqam qaysi filiallarga xizmat qiladi.",
     "phone offline": "telefon uzilgan",
-    ":count clips generated.": ":count ta bo'lak generatsiya qilindi."
+    ":count clips generated.": ":count ta bo'lak generatsiya qilindi.",
+    "Setup": "Sozlash",
+    "Company": "Firma",
+    "Service name (e.g. Ibrat taksi)": "Xizmat nomi (masalan, Ibrat taksi)",
+    "First branch": "Birinchi filial",
+    "Branch name": "Filial nomi",
+    "Finish setup": "Sozlashni yakunlash",
+    "Welcome to ibTaxi": "ibTaxi'ga xush kelibsiz",
+    "Set up your company: a few details and you are ready to work.": "Firmangizni sozlang: bir nechta ma'lumot — va ishga tayyor."
 }
