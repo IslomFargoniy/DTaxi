@@ -50,3 +50,4 @@ yarn-error.log
 /android/firms/*/keystore.properties
 /android/.idea
 /android/firms/*/dev-ca.pem
+/public/android

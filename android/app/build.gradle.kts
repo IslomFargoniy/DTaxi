@@ -154,3 +154,15 @@ dependencies {
 }
 
 tasks.named("preBuild") { dependsOn(generateNetworkSecurity) }
+
+// Har build'dan keyin APK'lar Laravel'ning public/android papkasiga ko'chiriladi (lokal sinov: http://<server>/android/...)
+val publicApkDir = rootProject.file("../public/android")
+listOf("debug", "release").forEach { type ->
+    val name = type.replaceFirstChar { it.uppercase() }
+    val copy = tasks.register<Copy>("copy${name}ApkToPublic") {
+        from(layout.buildDirectory.dir("outputs/apk/$type")) { include("*.apk") }
+        into(publicApkDir)
+        rename { "ibtaxi-driver-$firm-" + it.removePrefix("app-") }
+    }
+    tasks.matching { it.name == "assemble$name" }.configureEach { finalizedBy(copy) }
+}
