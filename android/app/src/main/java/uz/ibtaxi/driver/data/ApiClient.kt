@@ -1,6 +1,7 @@
 package uz.ibtaxi.driver.data
 
 import com.google.gson.Gson
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Response
@@ -17,7 +18,11 @@ class ApiClient(private val session: Session) {
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .addInterceptor { chain ->
+            // Har so'rovda joriy server manzili (sinov ilovasida login ekranida o'zgarishi mumkin)
+            val server = session.serverUrl.toHttpUrl()
+            val url = chain.request().url.newBuilder().scheme(server.scheme).host(server.host).port(server.port).build()
             val request = chain.request().newBuilder()
+                .url(url)
                 .header("Accept", "application/json")
                 .header("Accept-Language", session.locale)
                 .apply { session.token?.let { header("Authorization", "Bearer $it") } }

@@ -70,6 +70,8 @@ android {
 
         resValue("string", "app_name", firmProp("appName", "ibTaxi Driver"))
         buildConfigField("String", "SERVER_URL", "\"${firmProp("serverUrl").trimEnd('/')}\"")
+        // Faqat lokal sinov ilovasi: server manzili login ekranida o'zgartiriladi (Mac IP'si har Wi-Fi'da boshqa)
+        buildConfigField("boolean", "SERVER_EDITABLE", firmProp("serverEditable", "false"))
         buildConfigField("String", "PRIMARY_COLOR", "\"${firmProp("primaryColor", "#F5B700")}\"")
         buildConfigField("String", "FIREBASE_PROJECT_ID", "\"${firmProp("firebaseProjectId")}\"")
         buildConfigField("String", "FIREBASE_APPLICATION_ID", "\"${firmProp("firebaseApplicationId")}\"")
@@ -155,14 +157,15 @@ dependencies {
 
 tasks.named("preBuild") { dependsOn(generateNetworkSecurity) }
 
-// Har build'dan keyin APK'lar Laravel'ning public/android papkasiga ko'chiriladi (lokal sinov: http://<server>/android/...)
+// Har build'dan keyin APK'lar Laravel'ning public/android papkasiga (lokal sinov: http://<server>/android/...).
+// Papkada faqat oxirgi build turadi — eskilari o'chiriladi
 val publicApkDir = rootProject.file("../public/android")
 listOf("debug", "release").forEach { type ->
     val name = type.replaceFirstChar { it.uppercase() }
-    val copy = tasks.register<Copy>("copy${name}ApkToPublic") {
+    val sync = tasks.register<Sync>("copy${name}ApkToPublic") {
         from(layout.buildDirectory.dir("outputs/apk/$type")) { include("*.apk") }
         into(publicApkDir)
         rename { "ibtaxi-driver-$firm-" + it.removePrefix("app-") }
     }
-    tasks.matching { it.name == "assemble$name" }.configureEach { finalizedBy(copy) }
+    tasks.matching { it.name == "assemble$name" }.configureEach { finalizedBy(sync) }
 }

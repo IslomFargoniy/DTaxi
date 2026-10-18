@@ -27,7 +27,7 @@ class Updater(private val context: Context, private val http: OkHttpClient) {
         val dir = File(context.cacheDir, "updates").apply { mkdirs() }
         val file = File(dir, "driver-${version.versionCode}.apk")
 
-        val absolute = if (url.startsWith("http")) url else BuildConfig.SERVER_URL + url
+        val absolute = if (url.startsWith("http")) url else uz.ibtaxi.driver.IbTaxiApp.instance.session.serverUrl + url
         http.newCall(Request.Builder().url(absolute).build()).execute().use { response ->
             if (!response.isSuccessful) return@withContext false
             response.body?.byteStream()?.use { input -> file.outputStream().use { input.copyTo(it) } } ?: return@withContext false

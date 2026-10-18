@@ -49,11 +49,13 @@ class DriverProfileResource extends JsonResource
             // Ilova uchun server sozlamalari: ilovaga faqat server manzili yoziladi, qolgani shu yerdan
             'config' => [
                 'map_style' => route('map.style', ['lang' => $this->user->locale]),
+                // Ilova Reverb'ga API bilan bir xil manzil orqali ulanadi (nginx /app → Reverb).
+                // Server sozlamasidagi REVERB_HOST ichki (127.0.0.1) — telefon uchun yaroqsiz
                 'reverb' => [
                     'key' => config('broadcasting.connections.reverb.key'),
-                    'host' => config('reverb.apps.apps.0.options.host') ?: $request->getHost(),
-                    'port' => (int) (config('reverb.apps.apps.0.options.port') ?: 443),
-                    'scheme' => config('reverb.apps.apps.0.options.scheme') ?: 'https',
+                    'host' => $request->getHost(),
+                    'port' => $request->getPort(),
+                    'scheme' => $request->getScheme(),
                 ],
                 'location_interval_seconds' => 4,
                 'offer_seconds' => (int) $settings->get('dispatch.step_seconds', $this->branch_id),

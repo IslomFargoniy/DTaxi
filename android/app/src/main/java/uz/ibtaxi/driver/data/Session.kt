@@ -1,5 +1,6 @@
 package uz.ibtaxi.driver.data
 
+import uz.ibtaxi.driver.BuildConfig
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
@@ -33,6 +34,11 @@ class Session(context: Context) {
     var voiceGuidance: Boolean
         get() = prefs.getBoolean("voice_guidance", true)
         set(value) = prefs.edit().putBoolean("voice_guidance", value).apply()
+
+    /** Server manzili: firma konfiguratsiyasidan; sinov ilovasida (SERVER_EDITABLE) login ekranida o'zgartiriladi */
+    var serverUrl: String
+        get() = prefs.getString("server_url", null)?.takeIf { BuildConfig.SERVER_EDITABLE && it.isNotBlank() } ?: BuildConfig.SERVER_URL
+        set(value) = prefs.edit().putString("server_url", value.trim().trimEnd('/')).apply()
 
     fun clear() = prefs.edit().remove("token").apply()
 }

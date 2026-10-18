@@ -26,7 +26,7 @@ class CallActivity : ComponentActivity() {
     private val audio by lazy { getSystemService(AUDIO_SERVICE) as AudioManager }
 
     // WebRTC uchun xavfsiz kontekst kerak: dev server http bo'lsa ham sahifa https orqali ochiladi
-    private val callUrl = BuildConfig.SERVER_URL.replaceFirst("http://", "https://") + "/driver-app/call"
+    private val callUrl = IbTaxiApp.instance.session.serverUrl.replaceFirst("http://", "https://") + "/driver-app/call"
     private val host = Uri.parse(callUrl).host
 
     @SuppressLint("SetJavaScriptEnabled")

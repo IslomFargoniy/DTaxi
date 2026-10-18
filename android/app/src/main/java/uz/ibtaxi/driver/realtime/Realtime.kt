@@ -11,7 +11,6 @@ import com.pusher.client.connection.ConnectionEventListener
 import com.pusher.client.connection.ConnectionState
 import com.pusher.client.connection.ConnectionStateChange
 import com.pusher.client.util.HttpChannelAuthorizer
-import uz.ibtaxi.driver.BuildConfig
 import uz.ibtaxi.driver.data.ReverbConfig
 
 /**
@@ -28,7 +27,7 @@ class Realtime(
     fun connect() {
         if (pusher != null) return
 
-        val authorizer = HttpChannelAuthorizer("${BuildConfig.SERVER_URL}/api/broadcasting/auth").apply {
+        val authorizer = HttpChannelAuthorizer("${uz.ibtaxi.driver.IbTaxiApp.instance.session.serverUrl}/api/broadcasting/auth").apply {
             setHeaders(mapOf("Authorization" to "Bearer $token", "Accept" to "application/json"))
         }
         val options = PusherOptions()
