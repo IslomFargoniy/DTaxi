@@ -24,6 +24,7 @@ class DriverProfileResource extends JsonResource
     public function toArray(Request $request): array
     {
         $settings = app(Settings::class);
+        $area = $this->serviceArea();
         $vehicle = $this->vehicle;
 
         return [
@@ -59,7 +60,8 @@ class DriverProfileResource extends JsonResource
                 ],
                 'location_interval_seconds' => 4,
                 'offer_seconds' => (int) $settings->get('dispatch.step_seconds', $this->branch_id),
-                'service_area' => $this->serviceArea(),
+                // Hudud chizilmagan bo'lsa maydon yuborilmaydi (eski ilova null'ni o'qiy olmas edi)
+                'service_area' => $this->when($area !== null, $area),
                 // Balansni to'ldirish havolalari uchun (maxfiy bo'lmagan) merchant ma'lumotlari; sozlanmagan bo'lsa null
                 'payments' => [
                     'click' => ($service = Integration::credential(IntegrationProvider::Click, 'service_id')) ? [

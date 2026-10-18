@@ -1,6 +1,7 @@
 package uz.ibtaxi.driver.taximeter
 
 import com.google.gson.JsonArray
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import kotlin.math.asin
 import kotlin.math.cos
@@ -24,9 +25,9 @@ object Geo {
  * Filial xizmat hududi (GeoJSON Polygon/MultiPolygon) — nuqta shahar ichidami (qaror #33).
  * Hudud kelmagan bo'lsa hamma joy "ichkari" hisoblanadi.
  */
-class ServiceArea(geoJson: JsonObject?) {
-    /** Har poligon: halqalar ro'yxati, halqa — [lng, lat] juftliklari */
-    private val polygons: List<List<List<DoubleArray>>> = parse(geoJson)
+class ServiceArea(geoJson: JsonElement?) {
+    /** Har poligon: halqalar ro'yxati, halqa — [lng, lat] juftliklari. Hudud yo'q (null/JsonNull) — hamma joy shahar ichi */
+    private val polygons: List<List<List<DoubleArray>>> = parse(geoJson?.takeIf { it.isJsonObject }?.asJsonObject)
 
     fun contains(lat: Double, lng: Double): Boolean {
         if (polygons.isEmpty()) return true

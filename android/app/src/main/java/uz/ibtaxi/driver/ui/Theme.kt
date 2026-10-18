@@ -1,7 +1,10 @@
 package uz.ibtaxi.driver.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -18,7 +21,10 @@ fun IbTaxiTheme(content: @Composable () -> Unit) {
     } else {
         lightColorScheme(primary = brand, onPrimary = Color.Black, secondary = brand)
     }
-    MaterialTheme(colorScheme = scheme, content = content)
+    // Fon mavzu rangidan: aks holda telefonning qorong'i rejimida oq oyna ustida och matn ko'rinmay qoladi
+    MaterialTheme(colorScheme = scheme) {
+        Surface(Modifier.fillMaxSize(), color = scheme.background, content = content)
+    }
 }
 
 fun formatMoney(value: Long?): String = value?.let { "%,d".format(it).replace(',', ' ') } ?: "—"

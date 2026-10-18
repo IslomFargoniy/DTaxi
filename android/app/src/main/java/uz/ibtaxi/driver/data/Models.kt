@@ -1,6 +1,6 @@
 package uz.ibtaxi.driver.data
 
-import com.google.gson.JsonObject
+import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 
 data class LoginRequest(val phone: String, val password: String, @SerializedName("device_name") val deviceName: String)
@@ -33,7 +33,7 @@ data class AppConfig(
     @SerializedName("location_interval_seconds") val locationIntervalSeconds: Int,
     @SerializedName("offer_seconds") val offerSeconds: Int,
     /** GeoJSON (Polygon / MultiPolygon) — taksometr shahar tashqarisini ajratishi uchun */
-    @SerializedName("service_area") val serviceArea: JsonObject?,
+    @SerializedName("service_area") val serviceArea: JsonElement?,
     val payments: PaymentsConfig? = null,
 )
 
