@@ -3,6 +3,9 @@ package uz.ibtaxi.driver.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
@@ -47,7 +50,8 @@ fun LoginScreen() {
     val network = stringResource(R.string.network_error)
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        // Klaviatura ochilganda maydonlar yopilib qolmasin: ekran klaviatura ustida qoladi va aylantiriladi
+        modifier = Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
