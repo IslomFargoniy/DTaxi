@@ -578,5 +578,6 @@
     "Client rating": "Оценка клиентов",
     "Photo": "Фото",
     "Select a chat to start messaging": "Выберите чат, чтобы начать переписку",
-    "No branch is assigned to you.": "Вам не назначен филиал."
+    "No branch is assigned to you.": "Вам не назначен филиал.",
+    "Loading…": "Загрузка…"
 }

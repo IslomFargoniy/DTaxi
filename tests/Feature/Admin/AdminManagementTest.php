@@ -343,3 +343,25 @@ test('superadmin without a branch can open a cash shift', function () {
     $this->actingAs($superadmin)->post(route('cashier.shift.open'))->assertRedirect();
     expect(CashShift::query()->where('cashier_id', $superadmin->id)->value('branch_id'))->not->toBeNull();
 });
+
+test('chat messages and threads are paginated for infinite scroll', function () {
+    Event::fake([ChatMessageSent::class]);
+    $operator = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+    $driver = driverNear($this->branch, 0);
+    foreach (range(1, 45) as $i) {
+        ChatMessage::query()->create(['driver_id' => $driver->id, 'sender_id' => $driver->user_id, 'body' => "xabar {$i}", 'created_at' => now()->addSeconds($i)]);
+    }
+
+    $first = $this->actingAs($operator)->getJson(route('operator.chat.messages', $driver))->assertOk()->json();
+    expect($first)->toHaveCount(30)->and($first[0]['body'])->toBe('xabar 16')->and($first[29]['body'])->toBe('xabar 45');
+
+    $older = $this->getJson(route('operator.chat.messages', [$driver, 'before_id' => $first[0]['id']]))->json();
+    expect($older)->toHaveCount(15)->and($older[0]['body'])->toBe('xabar 1');
+
+    foreach (range(1, 32) as $i) {
+        $other = driverNear($this->branch, $i * 10);
+        ChatMessage::query()->create(['driver_id' => $other->id, 'sender_id' => $other->user_id, 'body' => 'salom', 'created_at' => now()->subMinutes($i)]);
+    }
+    expect($this->getJson(route('operator.chat.threads'))->json())->toHaveCount(30)
+        ->and($this->getJson(route('operator.chat.threads', ['offset' => 30]))->json())->toHaveCount(3);
+});

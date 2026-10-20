@@ -20,8 +20,12 @@ class ChatController extends Controller
     /**
      * Suhbatlar ro'yxati: oxirgi xabar va o'qilmaganlar soni.
      */
-    public function threads(): JsonResponse
+    /** Bir so'rovda — ro'yxat va xabarlar aylantirilganda keyingisi yuklanadi */
+    private const PAGE = 30;
+
+    public function threads(Request $request): JsonResponse
     {
+        $offset = max(0, $request->integer('offset'));
         $driverIds = Driver::query()->pluck('id');
 
         // O'qilmagan — faqat haydovchi yozganlari (boshqa operatorning xabari "o'qilmagan" bo'lib qolib ketmasin)
@@ -32,7 +36,9 @@ class ChatController extends Controller
             ->selectRaw('COUNT(*) FILTER (WHERE chat_messages.read_at IS NULL AND chat_messages.sender_id = drivers.user_id) AS unread')
             ->groupBy('chat_messages.driver_id')
             ->orderByDesc('last_at')
-            ->limit(50)
+            ->orderBy('chat_messages.driver_id')
+            ->offset($offset)
+            ->limit(self::PAGE)
             ->get();
 
         $drivers = Driver::query()->with('user')->findMany($latest->pluck('driver_id'))->keyBy('id');
@@ -59,11 +65,18 @@ class ChatController extends Controller
 
     public function messages(Request $request, Driver $driver): JsonResponse
     {
-        ChatMessage::query()->where('driver_id', $driver->id)->where('sender_id', $driver->user_id)->whereNull('read_at')
-            ->update(['read_at' => now()]);
+        $before = $request->integer('before_id');
+
+        // Eskilarini yuklash (yuqoriga aylantirish) o'qilgan belgisiga tegmaydi
+        if ($before === 0) {
+            ChatMessage::query()->where('driver_id', $driver->id)->where('sender_id', $driver->user_id)->whereNull('read_at')
+                ->update(['read_at' => now()]);
+        }
 
         return response()->json(
-            ChatMessage::query()->with(['sender:id,name', 'driver:id,user_id'])->where('driver_id', $driver->id)->latest('created_at')->limit(100)->get()->reverse()->values()
+            ChatMessage::query()->with(['sender:id,name', 'driver:id,user_id'])->where('driver_id', $driver->id)
+                ->when($before > 0, fn ($q) => $q->where('id', '<', $before))
+                ->orderByDesc('id')->limit(self::PAGE)->get()->reverse()->values()
                 ->map(fn (ChatMessage $m) => ChatMessageSent::format($m, $request->user()?->id)),
         );
     }

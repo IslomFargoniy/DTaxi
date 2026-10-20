@@ -1,6 +1,12 @@
 import { useEcho } from '@laravel/echo-react';
 import { MessageSquare, Search, Send, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useRef,
+    useState,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTrans } from '@/hooks/use-trans';
@@ -35,6 +41,16 @@ type Message = {
 };
 
 const CHAT_WIDTH = 680;
+/** Serverdagi sahifa hajmi (ChatController::PAGE) — shuncha kelsa, yana bor */
+const PAGE = 30;
+
+/** Xabarlarni birlashtirish: takrorlarsiz, eskidan yangiga */
+function mergeMessages(list: Message[], incoming: Message[]): Message[] {
+    const byId = new Map(list.map((m) => [m.id, m]));
+    incoming.forEach((m) => byId.set(m.id, m));
+
+    return [...byId.values()].sort((a, b) => a.id - b.id);
+}
 
 /** Avatar rangi pozivnoy bo'yicha doim bir xil (Telegram kabi) */
 const AVATAR_COLORS = [
@@ -118,7 +134,6 @@ export function ChatPanel({
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState('');
     const [query, setQuery] = useState('');
-    const bottom = useRef<HTMLDivElement>(null);
     // Oyna joyi (sudrab ko'chiriladi, brauzerda eslab qolinadi); null — o'ng pastda
     const [position, setPosition] = useState<{ x: number; y: number } | null>(
         () => {
@@ -232,32 +247,105 @@ export function ChatPanel({
         }
     };
 
+    const scroller = useRef<HTMLDivElement>(null);
+    // Eskilari yuqoridan qo'shilganda ko'rinish sakramasin; yangi xabarda — pastga
+    const restore = useRef<{ height: number; top: number } | null>(null);
+    const stickBottom = useRef(true);
+    const [hasOlder, setHasOlder] = useState(false);
+    const loadingOlder = useRef(false);
+    const [hasMoreThreads, setHasMoreThreads] = useState(false);
+    const loadingThreads = useRef(false);
+
+    // Birinchi sahifa yangilanadi, pastga aylantirib yuklanganlari saqlanadi
     const loadThreads = useCallback(() => {
         getJson<Thread[]>(threadsRoute.url())
-            .then(setThreads)
+            .then((page) => {
+                setThreads((prev) => {
+                    const ids = new Set(page.map((th) => th.driver_id));
+                    const rest = prev
+                        .slice(PAGE)
+                        .filter((th) => !ids.has(th.driver_id));
+
+                    return [...page, ...rest];
+                });
+                setHasMoreThreads((more) => more || page.length === PAGE);
+            })
             .catch(() => undefined);
     }, []);
+
+    const loadMoreThreads = () => {
+        if (!hasMoreThreads || loadingThreads.current) {
+            return;
+        }
+        loadingThreads.current = true;
+        getJson<Thread[]>(
+            threadsRoute.url({ query: { offset: threads.length } }),
+        )
+            .then((page) => {
+                setThreads((prev) => [
+                    ...prev,
+                    ...page.filter(
+                        (th) => !prev.some((p) => p.driver_id === th.driver_id),
+                    ),
+                ]);
+                setHasMoreThreads(page.length === PAGE);
+            })
+            .catch(() => undefined)
+            .finally(() => {
+                loadingThreads.current = false;
+            });
+    };
 
     useEffect(() => {
         loadThreads();
     }, [loadThreads]);
 
-    // Suhbatni ochish xabarlarni o'qilgan qiladi — hisoblagich darhol yangilansin
+    // Suhbatni ochish xabarlarni o'qilgan qiladi — hisoblagich darhol yangilansin.
+    // initial — yangi suhbat: ro'yxat almashadi; aks holda — yuklanganlarga qo'shiladi
     const loadMessages = useCallback(
-        (driverId: number) => {
+        (driverId: number, initial = false) => {
             getJson<Message[]>(messagesRoute.url(driverId))
                 .then((list) => {
-                    setMessages(list);
+                    if (initial) {
+                        stickBottom.current = true;
+                        setMessages(list);
+                        setHasOlder(list.length === PAGE);
+                    } else {
+                        setMessages((prev) => mergeMessages(prev, list));
+                    }
                     loadThreads();
                 })
-                .catch(() => setMessages([]));
+                .catch(() => initial && setMessages([]));
         },
         [loadThreads],
     );
 
+    const loadOlder = () => {
+        const first = messages[0];
+        if (!active || !first || !hasOlder || loadingOlder.current) {
+            return;
+        }
+        loadingOlder.current = true;
+        getJson<Message[]>(
+            messagesRoute.url(active, { query: { before_id: first.id } }),
+        )
+            .then((list) => {
+                const el = scroller.current;
+                restore.current = el
+                    ? { height: el.scrollHeight, top: el.scrollTop }
+                    : null;
+                setMessages((prev) => mergeMessages(prev, list));
+                setHasOlder(list.length === PAGE);
+            })
+            .catch(() => undefined)
+            .finally(() => {
+                loadingOlder.current = false;
+            });
+    };
+
     useEffect(() => {
         if (active && open) {
-            loadMessages(active);
+            loadMessages(active, true);
         }
     }, [active, open, loadMessages]);
 
@@ -265,13 +353,22 @@ export function ChatPanel({
     useEffect(() => {
         if (active === null) {
             setMessages([]);
+            setHasOlder(false);
         }
     }, [active]);
 
-    // Effekt hech narsa qaytarmasin: yangi Chrome'da scrollIntoView() Promise qaytaradi va React uni
-    // tozalash funksiyasi deb chaqirib sahifani yiqitardi
-    useEffect(() => {
-        bottom.current?.scrollIntoView();
+    useLayoutEffect(() => {
+        const el = scroller.current;
+        if (!el) {
+            return;
+        }
+        if (restore.current) {
+            el.scrollTop =
+                el.scrollHeight - restore.current.height + restore.current.top;
+            restore.current = null;
+        } else if (stickBottom.current) {
+            el.scrollTop = el.scrollHeight;
+        }
     }, [messages]);
 
     const onMessage = useCallback(
@@ -298,6 +395,7 @@ export function ChatPanel({
         if (!active || !body.trim()) {
             return;
         }
+        stickBottom.current = true;
         postJson<Message>(sendRoute.url(active), { body })
             .then((m) =>
                 setMessages((list) =>
@@ -399,7 +497,20 @@ export function ChatPanel({
                                     />
                                 </div>
                             </div>
-                            <ul className="min-h-0 flex-1 overflow-auto px-1.5 pb-2">
+                            <ul
+                                className="min-h-0 flex-1 overflow-auto px-1.5 pb-2"
+                                onScroll={(e) => {
+                                    const el = e.currentTarget;
+                                    if (
+                                        el.scrollHeight -
+                                            el.scrollTop -
+                                            el.clientHeight <
+                                        80
+                                    ) {
+                                        loadMoreThreads();
+                                    }
+                                }}
+                            >
                                 {visibleThreads.map((th) => {
                                     const selected = active === th.driver_id;
                                     const preview =
@@ -510,7 +621,27 @@ export function ChatPanel({
                                         </span>
                                     </span>
                                 </div>
-                                <div className="flex-1 space-y-1.5 overflow-auto bg-muted/40 px-3 py-3">
+                                <div
+                                    ref={scroller}
+                                    className="flex-1 space-y-1.5 overflow-auto bg-muted/40 px-3 py-3"
+                                    onScroll={(e) => {
+                                        const el = e.currentTarget;
+                                        // Pastda turgan bo'lsa — yangi xabar kelganda pastga ergashadi
+                                        stickBottom.current =
+                                            el.scrollHeight -
+                                                el.scrollTop -
+                                                el.clientHeight <
+                                            120;
+                                        if (el.scrollTop < 80) {
+                                            loadOlder();
+                                        }
+                                    }}
+                                >
+                                    {hasOlder && (
+                                        <div className="py-1 text-center text-[11px] text-muted-foreground">
+                                            {t('Loading…')}
+                                        </div>
+                                    )}
                                     {messages.map((m) => (
                                         <div
                                             key={m.id}
@@ -572,7 +703,6 @@ export function ChatPanel({
                                             </div>
                                         </div>
                                     ))}
-                                    <div ref={bottom} />
                                 </div>
                                 <div className="grid gap-2 border-t p-2">
                                     <div className="flex gap-1 overflow-x-auto">
