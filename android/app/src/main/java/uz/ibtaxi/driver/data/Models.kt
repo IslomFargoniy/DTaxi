@@ -82,7 +82,18 @@ data class Order(
     @SerializedName("price_breakdown") val priceBreakdown: Map<String, Long>?,
     @SerializedName("arrived_at") val arrivedAt: String?,
     @SerializedName("started_at") val startedAt: String? = null,
+    /** Operator qo'shgan ustama — yakuniy narxga qo'shiladi */
+    @SerializedName("price_bonus") val priceBonus: Long? = null,
+    /** Buyurtma yaratilgandagi tig'iz soat koeffitsienti va mijoz chegirmasi — taksometr server bilan bir xil hisoblashi uchun */
+    @SerializedName("surge_coeff") val surgeCoeff: Double? = null,
+    @SerializedName("discount_percent") val discountPercent: Int? = null,
+    /** Korporativ mijoz: naqd olinmaydi, summa balansga o'tadi */
+    val company: String? = null,
+    /** Oraliq to'xtash joylari (qayerdan → to'xtashlar → qayerga) */
+    val stops: List<Stop>? = null,
 )
+
+data class Stop(val text: String, val lat: Double, val lng: Double)
 
 data class OrderClient(val id: Int, val phone: String, val name: String?)
 
@@ -105,6 +116,9 @@ data class Offer(
     @SerializedName("price_estimate") val priceEstimate: Long?,
     val comment: String?,
     @SerializedName("expires_in") val expiresIn: Int,
+    @SerializedName("price_bonus") val priceBonus: Long? = null,
+    @SerializedName("is_corporate") val isCorporate: Boolean = false,
+    @SerializedName("stops_text") val stopsText: String? = null,
 )
 
 /** [t] — nuqta olingan vaqt (epoch ms): internet qaytganda yuborilgan nuqtalar to'g'ri tartibda yoziladi */
@@ -123,6 +137,20 @@ data class LocationBatch(val points: List<LocationPoint>)
 data class ShiftRequest(val online: Boolean)
 
 data class ShiftResponse(val status: String)
+
+/** Joriy smena va navbat joyidagi o'rin (GET /shift) */
+data class ShiftSummaryResponse(val shift: ShiftSummary?, val stand: StandPosition?)
+
+data class ShiftSummary(
+    @SerializedName("started_at") val startedAt: String,
+    @SerializedName("ended_at") val endedAt: String?,
+    val minutes: Int,
+    val orders: Int,
+    val earnings: Long,
+    val commission: Long,
+)
+
+data class StandPosition(val stand: String, val position: Int, val total: Int)
 
 data class CompleteRequest(@SerializedName("inside_m") val insideM: Long, @SerializedName("outside_m") val outsideM: Long)
 

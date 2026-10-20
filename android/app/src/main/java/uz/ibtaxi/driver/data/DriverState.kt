@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import uz.ibtaxi.driver.service.OfferSound
 
 /**
  * Ilova holati — servis (fon) va ekranlar bitta manbadan o'qiydi.
@@ -68,7 +69,15 @@ object DriverState {
         return true
     }
 
-    fun clearOffer(orderId: Int? = null) = _offer.update { if (orderId == null || it?.orderId == orderId) null else it }
+    fun clearOffer(orderId: Int? = null) = _offer.update {
+        if (orderId == null || it?.orderId == orderId) {
+            // Qabul, rad, muddati o'tdi yoki boshqasi oldi — signal to'xtaydi
+            OfferSound.stop()
+            null
+        } else {
+            it
+        }
+    }
 
     fun setLocation(lat: Double, lng: Double) = _location.update { lat to lng }
 

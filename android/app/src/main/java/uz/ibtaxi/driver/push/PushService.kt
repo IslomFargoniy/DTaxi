@@ -27,7 +27,11 @@ class PushService : FirebaseMessagingService() {
         val data = message.data
         when (data["type"]) {
             "order.offered" -> {
-                val json = JsonObject().apply { data.forEach { (k, v) -> addProperty(k, v) } }
+                // Server push'da bool'ni "1"/"" qilib yuboradi (PHP strval) — Gson buni false deb o'qirdi
+                val booleans = setOf("is_direct", "is_delivery", "is_corporate")
+                val json = JsonObject().apply {
+                    data.forEach { (k, v) -> if (k in booleans) addProperty(k, v == "1" || v == "true") else addProperty(k, v) }
+                }
                 val offer = runCatching { gson.fromJson(json, Offer::class.java) }.getOrNull() ?: return
                 if (DriverState.offer(offer)) OfferNotifier.show(this, offer)
             }

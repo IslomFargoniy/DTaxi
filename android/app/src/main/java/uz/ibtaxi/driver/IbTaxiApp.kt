@@ -3,8 +3,6 @@ package uz.ibtaxi.driver
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.media.AudioAttributes
-import android.media.RingtoneManager
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import org.maplibre.android.MapLibre
@@ -50,10 +48,12 @@ class IbTaxiApp : Application() {
 
     private fun createChannels() {
         val manager = getSystemService(NotificationManager::class.java)
-        val alarm = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        // Kanal tovushini o'rnatilgandan keyin o'zgartirib bo'lmaydi — ovozli eski kanal o'chiriladi, yangisi jim
+        // (signalni OfferSound chaladi, aks holda ikki ovoz bir vaqtda), tebranish qoladi
+        manager.deleteNotificationChannel("offers")
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_OFFERS, getString(R.string.channel_offers), NotificationManager.IMPORTANCE_HIGH).apply {
-                setSound(alarm, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build())
+                setSound(null, null)
                 enableVibration(true)
             },
         )
@@ -66,7 +66,7 @@ class IbTaxiApp : Application() {
     }
 
     companion object {
-        const val CHANNEL_OFFERS = "offers"
+        const val CHANNEL_OFFERS = "offers_silent"
         const val CHANNEL_SERVICE = "service"
         const val CHANNEL_MESSAGES = "messages"
 

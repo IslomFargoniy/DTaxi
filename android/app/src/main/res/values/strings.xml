@@ -93,4 +93,14 @@
     <string name="problem_gps_off">GPS o\'chiq — joylashuvni yoqing</string>
     <string name="problem_realtime">Buyurtmalar kelmayapti — aloqa yo\'q</string>
     <string name="sending">Yuborilmoqda…</string>
+    <string name="stops">To\'xtashlar</string>
+    <string name="corporate_offer">Korporativ — naqd olinmaydi</string>
+    <string name="stop_passed">O\'tdim</string>
+    <string name="corporate_client">Korporativ mijoz</string>
+    <string name="corporate_no_cash">Pul olmang — summa balansingizga o\'tadi</string>
+    <string name="bonus">Ustama</string>
+    <string name="shift">Smena</string>
+    <string name="orders_short">buyurtma</string>
+    <string name="queue">Navbat</string>
+    <string name="tx_corporate">Korporativ safar</string>
 </resources>

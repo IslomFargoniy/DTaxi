@@ -23,6 +23,9 @@ interface Api {
     @POST("api/driver/v1/shift")
     suspend fun shift(@Body body: ShiftRequest): Response<ShiftResponse>
 
+    @GET("api/driver/v1/shift")
+    suspend fun shiftSummary(): Response<ShiftSummaryResponse>
+
     @POST("api/driver/v1/location")
     suspend fun location(@Body body: LocationBatch): Response<Unit>
 

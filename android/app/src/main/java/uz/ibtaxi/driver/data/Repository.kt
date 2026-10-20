@@ -101,6 +101,8 @@ class Repository(val client: ApiClient, val session: Session) {
 
     suspend fun route(fromLat: Double, fromLng: Double, toLat: Double, toLng: Double) = call { api.route(fromLat, fromLng, toLat, toLng) }
 
+    suspend fun shiftSummary() = call { api.shiftSummary() }
+
     suspend fun balance() = call { api.balance() }.also { if (it is Result.Ok) DriverState.setBalance(it.value.balance) }
 
     suspend fun chat() = call { api.chat() }

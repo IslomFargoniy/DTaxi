@@ -49,6 +49,25 @@ class FareTest {
         assertEquals(18000, Fare.calculate(tariff(outside = true), 4000, 2000).total)
     }
 
+    // Server: tests/Feature/Orders/PricingRulesTest.php
+    @Test fun surgeCoefficient() {
+        val fare = Fare.calculate(tariff(), 2000, surgeCoeff = 1.5)
+        assertEquals(15000, fare.total)
+        assertEquals(5000, fare.surge)
+    }
+
+    @Test fun clientDiscount() {
+        val fare = Fare.calculate(tariff(), 2000, discountPercent = 10)
+        assertEquals(9000, fare.total)
+        assertEquals(-1000, fare.discount)
+        assertEquals(8000, Fare.calculate(tariff(), 2000, discountPercent = 20).total)
+    }
+
+    @Test fun bonusIsAddedOnTop() {
+        // Ustama formula ichida emas — yakuniy narxga qo'shiladi (OrderService::complete)
+        assertEquals(15000, Fare.calculate(tariff(), 2000).total + 5000)
+    }
+
     @Test fun allRulesTogether() {
         val fare = Fare.calculate(tariff(waiting = true, night = true, outside = true), 5000, 1000, 4 * 60, LocalTime.parse("23:15"))
         assertEquals(21000, fare.total)

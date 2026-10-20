@@ -11,13 +11,14 @@ import uz.ibtaxi.driver.data.Offer
 import uz.ibtaxi.driver.ui.MainActivity
 
 /**
- * Taklif kelganda: to'liq ekranli bildirishnoma + signal (ekran qulflangan bo'lsa ham ochiladi).
+ * Taklif kelganda: to'liq ekranli bildirishnoma (ekran qulflangan bo'lsa ham ochiladi) va signal (OfferSound).
  */
 object OfferNotifier {
     private const val OFFER_ID = 2001
     private const val MESSAGE_ID = 2002
 
     fun show(context: Context, offer: Offer) {
+        OfferSound.start(context, offer.offerId, offer.expiresIn)
         val intent = PendingIntent.getActivity(
             context,
             0,
@@ -38,7 +39,10 @@ object OfferNotifier {
         context.getSystemService(NotificationManager::class.java).notify(OFFER_ID, notification)
     }
 
-    fun cancel(context: Context) = context.getSystemService(NotificationManager::class.java).cancel(OFFER_ID)
+    fun cancel(context: Context) {
+        OfferSound.stop()
+        context.getSystemService(NotificationManager::class.java).cancel(OFFER_ID)
+    }
 
     fun message(context: Context, body: String) {
         val intent = PendingIntent.getActivity(

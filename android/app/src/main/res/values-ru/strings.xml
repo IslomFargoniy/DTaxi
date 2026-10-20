@@ -93,4 +93,14 @@
     <string name="problem_gps_off">GPS выключен — включите геолокацию</string>
     <string name="problem_realtime">Заказы не поступают — нет связи</string>
     <string name="sending">Отправляется…</string>
+    <string name="stops">Остановки</string>
+    <string name="corporate_offer">Корпоратив — без наличных</string>
+    <string name="stop_passed">Проехал</string>
+    <string name="corporate_client">Корпоративный клиент</string>
+    <string name="corporate_no_cash">Деньги не берите — сумма поступит на ваш баланс</string>
+    <string name="bonus">Надбавка</string>
+    <string name="shift">Смена</string>
+    <string name="orders_short">зак.</string>
+    <string name="queue">Очередь</string>
+    <string name="tx_corporate">Корпоративная поездка</string>
 </resources>

@@ -45,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -64,6 +66,7 @@ import uz.ibtaxi.driver.R
 import uz.ibtaxi.driver.data.DriverState
 import uz.ibtaxi.driver.data.Order
 import uz.ibtaxi.driver.data.Result
+import uz.ibtaxi.driver.data.ShiftSummaryResponse
 import uz.ibtaxi.driver.service.DriverService
 import uz.ibtaxi.driver.taximeter.Fare
 import androidx.compose.runtime.DisposableEffect
@@ -99,7 +102,22 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
     var info by remember { mutableStateOf<String?>(null) }
     val realtimeConnected by DriverState.realtimeConnected.collectAsState()
     var problem by remember { mutableStateOf<Int?>(null) }
+    var shift by remember { mutableStateOf<ShiftSummaryResponse?>(null) }
+    // Safarda o'tilgan oraliq to'xtashlar — marshrut keyingi nuqtaga
+    var passedStops by remember(order?.id) { mutableIntStateOf(order?.let { session.passedStops(it.id) } ?: 0) }
     val p = profile ?: return
+
+    // Smena va navbat joyidagi o'rin: liniyada har 30 soniyada, buyurtma tugashi bilan darhol
+    LaunchedEffect(p.status, order == null) {
+        if (p.status == "offline") {
+            shift = null
+            return@LaunchedEffect
+        }
+        while (true) {
+            (repository.shiftSummary() as? Result.Ok)?.value?.let { shift = it }
+            delay(30_000)
+        }
+    }
 
     // Liniyadagi haydovchi buyurtma olmay qolishi sabablari: internet, GPS, Reverb ulanishi
     LaunchedEffect(p.status, realtimeConnected) {
@@ -110,16 +128,14 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
     }
 
     // Marshrut: mijozgacha yoki manzilgacha (OSRM orqali)
-    LaunchedEffect(order?.id, order?.status, location == null, reroute) {
+    LaunchedEffect(order?.id, order?.status, location == null, reroute, passedStops) {
         val o = order
         val me = location
         route = null
         navigator = null
         banner = null
         if (o == null || me == null || o.status == "arrived") return@LaunchedEffect
-        val target = if (o.status == "in_progress") o.dropoff else o.pickup
-        val lat = target?.lat ?: return@LaunchedEffect
-        val lng = target.lng ?: return@LaunchedEffect
+        val (lat, lng) = navigationTarget(o, passedStops) ?: return@LaunchedEffect
         (repository.route(me.first, me.second, lat, lng) as? Result.Ok)?.value?.let {
             route = it.geometry
             val geometry = it.geometry
@@ -149,6 +165,7 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
             dropoff = order?.dropoff?.let { pl -> pl.lat?.let { MapPoint(it, pl.lng ?: 0.0) } },
             route = route,
             modifier = Modifier.fillMaxSize(),
+            stops = order?.stops.orEmpty().drop(passedStops).map { MapPoint(it.lat, it.lng) },
         )
 
         // Yuqori panel: holat, balans, chat, sozlamalar
@@ -205,9 +222,13 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(12.dp)) {
             val current = order
             if (current != null) {
-                OrderCard(current)
+                OrderCard(current, passedStops) { count ->
+                    passedStops = count
+                    session.setPassedStops(current.id, count)
+                }
             } else {
                 val online = p.status != "offline"
+                if (online) shift?.let { ShiftCard(it) }
                 Card(Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -250,7 +271,7 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
  * Buyurtma bosqichlari: Yetib keldim → Yo'lovchi o'tirdi → Yakunlash; safar davomida taksometr.
  */
 @Composable
-private fun OrderCard(order: Order) {
+private fun OrderCard(order: Order, passedStops: Int, onPassedStops: (Int) -> Unit) {
     val context = LocalContext.current
     val repository = IbTaxiApp.instance.repository
     val scope = rememberCoroutineScope()
@@ -285,7 +306,35 @@ private fun OrderCard(order: Order) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("#${order.id} · ${order.tariffClass?.name ?: ""}", style = MaterialTheme.typography.labelLarge)
             Text("${stringResource(R.string.pickup)}: ${order.pickup.text ?: ""}", style = MaterialTheme.typography.titleMedium)
+            // Oraliq to'xtashlar: o'tilganlari chizilgan, safarda keyingisini bosib "o'tdim" deyiladi
+            order.stops.orEmpty().forEachIndexed { index, stop ->
+                val passed = index < passedStops
+                val next = order.status == "in_progress" && index == passedStops
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "${if (passed) "✓" else "${index + 1}."} ${stop.text}",
+                        Modifier.weight(1f),
+                        textDecoration = if (passed) TextDecoration.LineThrough else null,
+                        fontWeight = if (next) FontWeight.Bold else null,
+                        color = if (passed) MaterialTheme.colorScheme.outline else Color.Unspecified,
+                    )
+                    if (next) TextButton(onClick = { onPassedStops(index + 1) }) { Text(stringResource(R.string.stop_passed)) }
+                }
+            }
             order.dropoff?.text?.let { Text("${stringResource(R.string.dropoff)}: $it") }
+            order.company?.let {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                    Text(
+                        "${stringResource(R.string.corporate_client)}: $it\n${stringResource(R.string.corporate_no_cash)}",
+                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+            }
+            order.priceBonus?.takeIf { it > 0 }?.let {
+                Text("${stringResource(R.string.bonus)}: +${formatMoney(it)} ${stringResource(R.string.som)}", color = Color(0xFF16A34A), fontWeight = FontWeight.Medium)
+            }
             order.comment?.let { Text("${stringResource(R.string.comment)}: $it", style = MaterialTheme.typography.bodySmall) }
 
             if (order.status == "arrived" && waitingSeconds > 0) {
@@ -300,9 +349,8 @@ private fun OrderCard(order: Order) {
                     order.client?.phone?.let { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$it"))) }
                 }) { Icon(Icons.Default.Phone, null) }
                 OutlinedButton(onClick = {
-                    val target = if (order.status == "in_progress") order.dropoff else order.pickup
-                    if (target?.lat != null) {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:${target.lat},${target.lng}?q=${target.lat},${target.lng}")))
+                    navigationTarget(order, passedStops)?.let { (lat, lng) ->
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng")))
                     }
                 }) { Icon(Icons.Default.Navigation, null) }
                 if (order.status in setOf("assigned", "arrived")) {
@@ -322,7 +370,7 @@ private fun OrderCard(order: Order) {
                         busy = true
                         IbTaxiApp.instance.scope.launch {
                             when (val result = repository.complete(order.id, meters.first, meters.second)) {
-                                is Result.Ok -> DriverState.receipt(result.value?.priceFinal)
+                                is Result.Ok -> if (order.company == null) DriverState.receipt(result.value?.priceFinal)
                                 // Internet yo'q — natija saqlangan, servis o'zi qayta yuboradi
                                 is Result.Error -> if (result.code != -1) {
                                     DriverState.toast(result.message ?: context.getString(R.string.network_error))
@@ -439,7 +487,11 @@ private fun TaximeterPanel(order: Order, tariff: Tariff, meters: Pair<Long, Long
         meters.second,
         waitingSeconds = waitingSeconds,
         startedAt = started?.atZoneSameInstant(zone)?.toLocalTime() ?: LocalTime.now(zone),
+        surgeCoeff = order.surgeCoeff ?: 1.0,
+        discountPercent = order.discountPercent ?: 0,
     )
+    // Operator ustamasi formulaga kirmaydi — yakuniy narxga qo'shiladi (server ham shunday)
+    val total = fare.total + (order.priceBonus ?: 0)
 
     Card(
         Modifier.fillMaxWidth(),
@@ -447,7 +499,7 @@ private fun TaximeterPanel(order: Order, tariff: Tariff, meters: Pair<Long, Long
     ) {
         Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                "${formatMoney(fare.total)} ${stringResource(R.string.som)}",
+                "${formatMoney(total)} ${stringResource(R.string.som)}",
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimary,
@@ -457,6 +509,40 @@ private fun TaximeterPanel(order: Order, tariff: Tariff, meters: Pair<Long, Long
                 MeterValue("${rideSeconds / 60}:${"%02d".format(rideSeconds % 60)}", stringResource(R.string.ride_time))
                 if (waitingSeconds > 0) MeterValue("${waitingSeconds / 60}:${"%02d".format(waitingSeconds % 60)}", stringResource(R.string.waiting))
                 if (meters.second > 0) MeterValue("%.1f".format(meters.second / 1000.0), stringResource(R.string.outside_km))
+            }
+        }
+    }
+}
+
+/** Safar maqsadi: yo'lda — keyingi o'tilmagan to'xtash yoki "qayerga", undan oldin — mijoz */
+private fun navigationTarget(order: Order, passedStops: Int): Pair<Double, Double>? {
+    if (order.status != "in_progress") return order.pickup.lat?.let { lat -> order.pickup.lng?.let { lat to it } }
+    order.stops.orEmpty().getOrNull(passedStops)?.let { return it.lat to it.lng }
+    return order.dropoff?.lat?.let { lat -> order.dropoff.lng?.let { lat to it } }
+}
+
+/** Liniyada: joriy smena hisoboti va navbat joyidagi o'rin */
+@Composable
+private fun ShiftCard(summary: ShiftSummaryResponse) {
+    val shift = summary.shift
+    val stand = summary.stand
+    if (shift == null && stand == null) return
+    Card(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+            shift?.let {
+                Text(
+                    "${stringResource(R.string.shift)}: ${it.minutes / 60}:${"%02d".format(it.minutes % 60)} · " +
+                        "${it.orders} ${stringResource(R.string.orders_short)} · ${formatMoney(it.earnings)} ${stringResource(R.string.som)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            stand?.let {
+                Text(
+                    "${stringResource(R.string.queue)}: ${it.stand} — ${it.position}/${it.total}",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
         }
     }

@@ -6,14 +6,34 @@ import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToLong
 
-data class FareResult(val total: Long, val base: Long, val distance: Long, val outside: Long, val waiting: Long, val night: Long)
+data class FareResult(
+    val total: Long,
+    val base: Long,
+    val distance: Long,
+    val outside: Long,
+    val waiting: Long,
+    val night: Long,
+    val surge: Long = 0,
+    val discount: Long = 0,
+)
 
 /**
  * Narx formulasi — serverdagi App\Services\Pricing\FareCalculator bilan aynan bir xil (reja §5b).
  * Ilova taksometrda jonli narxni ko'rsatadi; yakuniy narxni server hisoblaydi.
  */
 object Fare {
-    fun calculate(tariff: Tariff, insideMeters: Long, outsideMeters: Long = 0, waitingSeconds: Long = 0, startedAt: LocalTime? = null): FareResult {
+    /**
+     * [surgeCoeff] va [discountPercent] — buyurtma yaratilganda belgilangan (tig'iz soat, mijoz chegirmasi).
+     */
+    fun calculate(
+        tariff: Tariff,
+        insideMeters: Long,
+        outsideMeters: Long = 0,
+        waitingSeconds: Long = 0,
+        startedAt: LocalTime? = null,
+        surgeCoeff: Double = 1.0,
+        discountPercent: Int = 0,
+    ): FareResult {
         val includedKm = tariff.baseKm.toDouble()
         val insideKm = insideMeters / 1000.0
 
@@ -38,10 +58,15 @@ object Fare {
             night = (subtotal * (tariff.nightCoeff.toDouble() - 1)).roundToLong()
         }
 
-        val step = max(1L, tariff.roundingStep)
-        val total = ceil((subtotal + night).toDouble() / step).toLong() * step
+        // PHP round() — yarmi noldan uzoqqa; musbat sonlar uchun Math.round bilan bir xil
+        val surge = ((subtotal + night) * max(0.0, surgeCoeff - 1)).roundToLong()
+        val discount = -((subtotal + night + surge) * discountPercent.coerceIn(0, 100) / 100.0).roundToLong()
 
-        return FareResult(total, tariff.baseFare, distance, outside, waiting, night)
+        val step = max(1L, tariff.roundingStep)
+        val raw = subtotal + night + surge + discount
+        val total = ceil(raw.toDouble() / step).toLong() * step
+
+        return FareResult(total, tariff.baseFare, distance, outside, waiting, night, surge, discount)
     }
 
     private fun isNight(at: LocalTime, from: String, to: String): Boolean {

@@ -58,6 +58,7 @@ fun TaxiMap(
     dropoff: MapPoint?,
     route: List<List<Double>>?,
     modifier: Modifier = Modifier,
+    stops: List<MapPoint> = emptyList(),
 ) {
     val context = LocalContext.current
     val mapView = remember { MapView(context).apply { onCreate(Bundle()) } }
@@ -118,10 +119,10 @@ fun TaxiMap(
     }
     }
 
-    LaunchedEffect(me, pickup, dropoff, route, recenter) {
+    LaunchedEffect(me, pickup, dropoff, route, recenter, stops) {
         val map = holder[0] ?: return@LaunchedEffect
         val style = map.style ?: return@LaunchedEffect
-        update(style, me, pickup, dropoff, route)
+        update(style, me, pickup, dropoff, route, stops)
         if (!follow) return@LaunchedEffect
 
         // Tugma bosilganda — haydovchining o'ziga, uy raqamlari ko'rinadigan zoom'gacha
@@ -130,7 +131,7 @@ fun TaxiMap(
             return@LaunchedEffect
         }
 
-        val points = listOfNotNull(me, pickup, dropoff)
+        val points = listOfNotNull(me, pickup, dropoff) + stops
         if (points.size >= 2) {
             val bounds = LatLngBounds.Builder().apply { points.forEach { include(LatLng(it.lat, it.lng)) } }.build()
             map.easeCamera(CameraUpdateFactory.newLatLngBounds(bounds, 120))
@@ -156,18 +157,19 @@ private fun addLayers(style: Style) {
                     Expression.stop("me", "#16a34a"),
                     Expression.stop("pickup", "#2563eb"),
                     Expression.stop("dropoff", "#9333ea"),
+                    Expression.stop("stop", "#f59e0b"),
                 ),
             ),
         ),
     )
 }
 
-private fun update(style: Style, me: MapPoint?, pickup: MapPoint?, dropoff: MapPoint?, route: List<List<Double>>?) {
+private fun update(style: Style, me: MapPoint?, pickup: MapPoint?, dropoff: MapPoint?, route: List<List<Double>>?, stops: List<MapPoint>) {
     val features = listOfNotNull(
         me?.let { feature(it, "me") },
         pickup?.let { feature(it, "pickup") },
         dropoff?.let { feature(it, "dropoff") },
-    )
+    ) + stops.map { feature(it, "stop") }
     style.getSourceAs<GeoJsonSource>("points")?.setGeoJson(FeatureCollection.fromFeatures(features))
     val line = route?.takeIf { it.size >= 2 }?.map { Point.fromLngLat(it[0], it[1]) }
     style.getSourceAs<GeoJsonSource>("route")?.setGeoJson(
