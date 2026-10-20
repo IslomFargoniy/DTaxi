@@ -381,8 +381,9 @@ class OrderService
             }
 
             if ($locked->driver_id) {
-                Driver::query()->withoutGlobalScopes()->whereKey($locked->driver_id)
-                    ->update(['status' => DriverStatus::Free->value]);
+                // Model orqali — holat hodisasi operator xaritasiga "bo'sh" deb yuboradi
+                Driver::query()->withoutGlobalScopes()->find($locked->driver_id)
+                    ?->forceFill(['status' => DriverStatus::Free])->save();
             }
 
             $locked->forceFill(['status' => $status, 'cancelled_at' => now(), 'cancel_reason' => $reason])->save();

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\DriverStatus;
+use App\Events\DriverLocationUpdated;
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\BelongsToBranch;
 use Clickbar\Magellan\Data\Geometries\Point;
@@ -45,6 +46,16 @@ class Driver extends Model
 
     /** @use HasFactory<DriverFactory> */
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        // Liniyaga chiqdi/chiqdi, band/bo'sh — operator xaritasi keyingi GPS nuqtani kutmasdan yangilanadi
+        static::updated(function (Driver $driver) {
+            if ($driver->wasChanged('status')) {
+                DriverLocationUpdated::dispatch($driver);
+            }
+        });
+    }
 
     protected function casts(): array
     {

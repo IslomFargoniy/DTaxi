@@ -1,5 +1,8 @@
 package uz.ibtaxi.driver.service
 
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.PendingIntent
@@ -80,6 +83,12 @@ class DriverService : LifecycleService() {
             connectRealtime()
             flushJob = launch { flushLoop() }
             launch { syncLoop() }
+            // Liniyaga chiqqanda operator xaritasida darhol ko'rinsin (keyingi siyrak GPS'ni kutmasdan)
+            launch {
+                DriverState.profile.map { it?.status }.distinctUntilChanged().drop(1).collect { status ->
+                    if (status == "free") wentOnline()
+                }
+            }
             DriverState.order.collectLatest(::onOrderChanged)
         }
     }
@@ -194,16 +203,38 @@ class DriverService : LifecycleService() {
         }
     }
 
+    @SuppressLint("MissingPermission")
+    private fun wentOnline() {
+        lastMovedAt = System.currentTimeMillis()
+        lastBufferedAt = 0L
+        if (slowGps) {
+            slowGps = false
+            startLocation()
+        }
+        runCatching {
+            LocationServices.getFusedLocationProviderClient(this)
+                .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener { location ->
+                    location?.let(::onLocation)
+                    lifecycleScope.launch { sendBuffered() }
+                }
+        }
+    }
+
+    /** Eskisidan boshlab, bir so'rovda 200 tadan */
+    private suspend fun sendBuffered() {
+        while (!buffer.isEmpty()) {
+            val batch = buffer.batch(200)
+            if (!app.repository.sendLocations(batch)) break
+            buffer.drop(batch.size)
+        }
+    }
+
     private suspend fun flushLoop() {
         var unsaved = 0
         while (lifecycleScope.isActive) {
             delay((DriverState.profile.value?.config?.locationIntervalSeconds ?: 4) * 1000L)
-            // Eskisidan boshlab, bir so'rovda 200 tadan
-            while (!buffer.isEmpty()) {
-                val batch = buffer.batch(200)
-                if (!app.repository.sendLocations(batch)) break
-                buffer.drop(batch.size)
-            }
+            sendBuffered()
             // Internet yo'q — nuqtalar vaqti-vaqti bilan diskka (servis o'ldirilsa ham trek yo'qolmasin)
             if (++unsaved >= 8 || buffer.isEmpty()) {
                 saveBuffer()

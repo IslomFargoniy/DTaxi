@@ -185,3 +185,13 @@ test('fake GPS points are ignored and flagged for the admin', function () {
     expect($driver->mock_location_at)->not->toBeNull()
         ->and($driver->last_location->getLatitude())->toBe($before->getLatitude());
 });
+
+test('going online or offline updates the operator map right away', function () {
+    $driver = actingDriver(driverNear($this->branch, 0, ['status' => DriverStatus::Offline, 'balance' => 50000]));
+
+    $this->postJson('/api/driver/v1/shift', ['online' => true])->assertOk();
+    Event::assertDispatched(DriverLocationUpdated::class, fn ($e) => $e->driver->id === $driver->id && $e->broadcastWith()['status'] === 'free');
+
+    $this->postJson('/api/driver/v1/shift', ['online' => false])->assertOk();
+    Event::assertDispatched(DriverLocationUpdated::class, fn ($e) => $e->driver->id === $driver->id && $e->broadcastWith()['status'] === 'offline');
+});

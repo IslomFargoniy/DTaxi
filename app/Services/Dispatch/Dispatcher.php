@@ -5,6 +5,7 @@ namespace App\Services\Dispatch;
 use App\Enums\DriverStatus;
 use App\Enums\OfferResponse;
 use App\Enums\OrderStatus;
+use App\Events\DriverLocationUpdated;
 use App\Events\OfferWithdrawn;
 use App\Events\OrderOffered;
 use App\Jobs\ExpandOrderSearch;
@@ -210,6 +211,8 @@ class Dispatcher
         $order->refresh();
         $driver->refresh();
         $this->standQueue->leave($driver);
+        // Holat so'rov bilan o'zgardi (model hodisasi yo'q) — xaritaga "band"
+        DriverLocationUpdated::dispatch($driver);
 
         $this->withdrawOtherOffers($order, $driver->id, 'taken');
         OrderEvents::record($order, 'assigned', $driver->user, ['driver_id' => $driver->id]);
