@@ -123,4 +123,5 @@
     <string name="no_messages">Ҳали хабар йўқ</string>
     <string name="photo">Расм</string>
     <string name="scroll_down">Пастга</string>
+    <string name="call_failed">Қўнғироқ очилмади. Интернет ва сервер манзилини текширинг.</string>
 </resources>

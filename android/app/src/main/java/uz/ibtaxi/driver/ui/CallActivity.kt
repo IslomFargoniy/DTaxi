@@ -1,5 +1,8 @@
 package uz.ibtaxi.driver.ui
 
+import uz.ibtaxi.driver.R
+import uz.ibtaxi.driver.data.DriverState
+import android.webkit.WebResourceError
 import android.annotation.SuppressLint
 import android.media.AudioManager
 import android.net.Uri
@@ -62,13 +65,29 @@ class CallActivity : ComponentActivity() {
 
                 @SuppressLint("WebViewClientOnReceivedSslError")
                 override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
-                    // Faqat lokal sinov serveri (self-signed sertifikat); firma serverida haqiqiy sertifikat
-                    if (BuildConfig.DEBUG) handler.proceed() else handler.cancel()
+                    // Lokal sinov serveri (self-signed): debug yoki LAN build (server manzili qo'lda kiritiladi).
+                    // Firma ilovasida faqat haqiqiy sertifikat — aks holda qora ekran o'rniga xabar
+                    if (BuildConfig.DEBUG || BuildConfig.SERVER_EDITABLE) {
+                        handler.proceed()
+                    } else {
+                        handler.cancel()
+                        failed()
+                    }
+                }
+
+                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                    if (request.isForMainFrame) failed()
                 }
             }
         }
         setContentView(web)
         web.loadUrl(callUrl)
+    }
+
+    /** Qo'ng'iroq sahifasi ochilmadi — qora ekranda qolib ketmasin */
+    private fun failed() = runOnUiThread {
+        DriverState.toast(getString(R.string.call_failed))
+        finish()
     }
 
     override fun onDestroy() {

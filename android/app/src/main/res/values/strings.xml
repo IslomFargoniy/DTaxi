@@ -122,4 +122,5 @@
     <string name="no_messages">Hali xabar yo\'q</string>
     <string name="photo">Rasm</string>
     <string name="scroll_down">Pastga</string>
+    <string name="call_failed">Qo\'ng\'iroq ochilmadi. Internet va server manzilini tekshiring.</string>
 </resources>
