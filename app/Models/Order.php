@@ -36,6 +36,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $price_estimate
  * @property int|null $price_bonus
  * @property int|null $company_id
+ * @property list<array{text: string, lat: float, lng: float}>|null $stops
  * @property int|null $price_final
  * @property array<string, int>|null $price_breakdown
  * @property int|null $distance_m
@@ -65,7 +66,7 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'branch_id', 'client_id', 'company_id', 'operator_id', 'driver_id', 'vehicle_id', 'tariff_class_id', 'status', 'source', 'phone_number_id',
-    'pickup_text', 'pickup_location', 'pickup_landmark_id', 'dropoff_text', 'dropoff_location', 'comment', 'scheduled_at',
+    'pickup_text', 'pickup_location', 'pickup_landmark_id', 'dropoff_text', 'dropoff_location', 'stops', 'comment', 'scheduled_at',
     'tariff_snapshot', 'price_estimate', 'price_final', 'price_breakdown', 'distance_m', 'duration_s',
     'waiting_s', 'commission', 'search_radius_m', 'searching_at', 'assigned_at', 'arrived_at', 'started_at',
     'completed_at', 'cancelled_at', 'cancel_reason',
@@ -86,6 +87,7 @@ class Order extends Model
             'dropoff_location' => Point::class,
             'tariff_snapshot' => 'array',
             'price_breakdown' => 'array',
+            'stops' => 'array',
             'scheduled_at' => 'datetime',
             'searching_at' => 'datetime',
             'assigned_at' => 'datetime',

@@ -54,6 +54,7 @@ class OrderService
      *     dropoff_lat?: float|null,
      *     dropoff_lng?: float|null,
      *     comment?: string|null,
+     *     stops?: list<array{text: string, lat: float, lng: float}>,
      *     delivery?: array<string, string|null>|null,
      *     source?: OrderSource|null,
      *     phone_number_id?: int|null,
@@ -79,13 +80,9 @@ class OrderService
             $pickup = Point::makeGeodetic($data['pickup_lat'], $data['pickup_lng']);
             $dropoff = isset($data['dropoff_lat'], $data['dropoff_lng']) ? Point::makeGeodetic($data['dropoff_lat'], $data['dropoff_lng']) : null;
 
-            $estimate = null;
-            $distance = null;
-            if ($dropoff) {
-                $route = $this->router->route($pickup, $dropoff);
-                $distance = $route->distanceMeters;
-                $estimate = $this->fares->calculate($snapshot, $distance, startedAt: CarbonImmutable::now($branch->timezone))->total;
-            }
+            $stops = $data['stops'] ?? [];
+            $distance = $this->routeDistance($pickup, $stops, $dropoff);
+            $estimate = $distance === null ? null : $this->fares->calculate($snapshot, $distance, startedAt: CarbonImmutable::now($branch->timezone))->total;
 
             $order = Order::query()->create([
                 'branch_id' => $branch->id,
@@ -102,6 +99,7 @@ class OrderService
                 'pickup_landmark_id' => $data['pickup_landmark_id'] ?? null,
                 'dropoff_text' => $data['dropoff_text'] ?? null,
                 'dropoff_location' => $dropoff,
+                'stops' => $stops === [] ? null : $stops,
                 'comment' => $data['comment'] ?? null,
                 'tariff_snapshot' => $snapshot,
                 'price_estimate' => $estimate,
@@ -214,7 +212,7 @@ class OrderService
      * Operator buyurtmani tuzatadi (mijoz qayta qo'ng'iroq qildi). Manzil va tarif faqat haydovchi topilmaguncha;
      * izoh, qayerga va ustama — haydovchi yo'lga chiqquncha ham. Haydovchiga OrderUpdated orqali boradi.
      *
-     * @param  array{comment?: string|null, dropoff_text?: string|null, dropoff_lat?: float|null, dropoff_lng?: float|null, tariff_class_id?: int|null, price_bonus?: int|null, pickup_text?: string|null, pickup_lat?: float|null, pickup_lng?: float|null}  $data
+     * @param  array{comment?: string|null, dropoff_text?: string|null, dropoff_lat?: float|null, dropoff_lng?: float|null, tariff_class_id?: int|null, price_bonus?: int|null, pickup_text?: string|null, pickup_lat?: float|null, pickup_lng?: float|null, stops?: list<array{text: string, lat: float, lng: float}>}  $data
      */
     public function update(Order $order, array $data, User $operator): Order
     {
@@ -238,6 +236,9 @@ class OrderService
                 ? Point::makeGeodetic($data['dropoff_lat'], $data['dropoff_lng'])
                 : null;
         }
+        if (array_key_exists('stops', $data)) {
+            $changes['stops'] = $data['stops'] === [] ? null : $data['stops'];
+        }
         if ($waiting && ! empty($data['pickup_text']) && isset($data['pickup_lat'], $data['pickup_lng'])) {
             $changes['pickup_text'] = $data['pickup_text'];
             $changes['pickup_location'] = Point::makeGeodetic($data['pickup_lat'], $data['pickup_lng']);
@@ -254,15 +255,11 @@ class OrderService
         $order->forceFill($changes);
 
         // Taxminiy narx qayta hisoblanadi (manzil yoki tarif o'zgargan bo'lsa)
-        if ($order->isDirty(['dropoff_location', 'pickup_location', 'tariff_snapshot'])) {
-            $order->distance_m = null;
-            $order->price_estimate = null;
-            if ($order->dropoff_location) {
-                $branch ??= $order->branch()->firstOrFail();
-                $route = $this->router->route($order->pickup_location, $order->dropoff_location);
-                $order->distance_m = $route->distanceMeters;
-                $order->price_estimate = $this->fares->calculate($order->tariff_snapshot, $route->distanceMeters, startedAt: CarbonImmutable::now($branch->timezone))->total;
-            }
+        if ($order->isDirty(['dropoff_location', 'pickup_location', 'tariff_snapshot', 'stops'])) {
+            $branch ??= $order->branch()->firstOrFail();
+            $order->distance_m = $this->routeDistance($order->pickup_location, $order->stops ?? [], $order->dropoff_location);
+            $order->price_estimate = $order->distance_m === null ? null
+                : $this->fares->calculate($order->tariff_snapshot, $order->distance_m, startedAt: CarbonImmutable::now($branch->timezone))->total;
         }
 
         $dirty = array_keys($order->getDirty());
@@ -398,6 +395,29 @@ class OrderService
         }
 
         $order->refresh();
+    }
+
+    /**
+     * Qayerdan → to'xtashlar → qayerga, oraliqlar yig'indisi (metr). Hech qayer ko'rsatilmagan bo'lsa — null.
+     *
+     * @param  list<array{text: string, lat: float, lng: float}>  $stops
+     */
+    private function routeDistance(Point $pickup, array $stops, ?Point $dropoff): ?int
+    {
+        $points = [$pickup, ...array_map(fn (array $s) => Point::makeGeodetic($s['lat'], $s['lng']), $stops)];
+        if ($dropoff) {
+            $points[] = $dropoff;
+        }
+        if (count($points) < 2) {
+            return null;
+        }
+
+        $total = 0;
+        for ($i = 1; $i < count($points); $i++) {
+            $total += $this->router->route($points[$i - 1], $points[$i])->distanceMeters;
+        }
+
+        return $total;
     }
 
     /**

@@ -202,3 +202,18 @@ test('client card warns about an active order and offers recent destinations', f
         ->assertJsonPath('orders.0.status', OrderStatus::Searching->value)
         ->assertJsonPath('dropoffs.0.text', 'Vokzal');
 });
+
+test('order with stops: distance and estimate include every leg, driver sees the stops', function () {
+    $direct = app(OrderService::class)->create(orderData($this->branch, ['dropoff_text' => 'Vokzal', 'dropoff_lat' => 40.40, 'dropoff_lng' => 71.7864]), dispatch: false);
+
+    $this->actingAs($this->operator)->post(route('operator.orders.store'), [
+        ...orderData($this->branch, ['dropoff_text' => 'Vokzal', 'dropoff_lat' => 40.40, 'dropoff_lng' => 71.7864]),
+        'stops' => [['text' => 'Dorixona', 'lat' => 40.3864, 'lng' => 71.80]],
+    ])->assertRedirect();
+
+    $order = Order::query()->latest('id')->firstOrFail();
+    expect($order->stops)->toEqual([['text' => 'Dorixona', 'lat' => 40.3864, 'lng' => 71.8]])
+        ->and($order->distance_m)->toBeGreaterThan($direct->distance_m)
+        ->and($order->price_estimate)->toBeGreaterThanOrEqual($direct->price_estimate);
+    expect(OrderOffered::payload($order->load('tariffClass'), $order->offers()->firstOrNew([], ['offered_at' => now()]), 20)['stops_text'])->toBe('Dorixona');
+});

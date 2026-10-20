@@ -37,6 +37,11 @@ class StoreOrderRequest extends FormRequest
             'dropoff_lat' => ['nullable', 'required_with:dropoff_lng', 'numeric', 'between:37,46'],
             'dropoff_lng' => ['nullable', 'required_with:dropoff_lat', 'numeric', 'between:55,74'],
             'comment' => ['nullable', 'string', 'max:500'],
+            // Oraliq to'xtash joylari (borib-kelish ham shu bilan: oxirgi nuqta — qayerdan)
+            'stops' => ['nullable', 'array', 'max:5'],
+            'stops.*.text' => ['required', 'string', 'max:255'],
+            'stops.*.lat' => ['required', 'numeric', 'between:37,46'],
+            'stops.*.lng' => ['required', 'numeric', 'between:55,74'],
             'delivery' => ['nullable', 'array'],
             'delivery.sender_name' => ['nullable', 'string', 'max:100'],
             'delivery.sender_phone' => ['nullable', 'string', 'max:20'],
@@ -66,6 +71,7 @@ class StoreOrderRequest extends FormRequest
      *     dropoff_lat: float|null,
      *     dropoff_lng: float|null,
      *     comment: string|null,
+     *     stops: list<array{text: string, lat: float, lng: float}>,
      *     delivery: array<string, string|null>|null,
      *     scheduled_at: \DateTimeInterface|null,
      * }
@@ -87,9 +93,22 @@ class StoreOrderRequest extends FormRequest
             'dropoff_lat' => $this->filled('dropoff_lat') ? $this->float('dropoff_lat') : null,
             'dropoff_lng' => $this->filled('dropoff_lng') ? $this->float('dropoff_lng') : null,
             'comment' => $this->filled('comment') ? $this->string('comment')->toString() : null,
+            'stops' => self::stops($this->input('stops')),
             'delivery' => is_array($delivery) ? array_map(fn ($v) => is_string($v) ? $v : null, $delivery) : null,
             'scheduled_at' => $this->scheduledAt(),
         ];
+    }
+
+    /**
+     * @return list<array{text: string, lat: float, lng: float}>
+     */
+    public static function stops(mixed $input): array
+    {
+        return array_values(array_map(fn (array $stop) => [
+            'text' => (string) $stop['text'],
+            'lat' => (float) $stop['lat'],
+            'lng' => (float) $stop['lng'],
+        ], array_filter(is_array($input) ? $input : [], fn ($stop) => is_array($stop) && isset($stop['text'], $stop['lat'], $stop['lng']))));
     }
 
     /**

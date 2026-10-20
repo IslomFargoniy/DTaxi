@@ -557,5 +557,9 @@
     "Recorded by": "Kim yozdi",
     "Saved.": "Saqlandi.",
     "event.edited": "Tahrirlandi",
-    "event.redispatched": "Qayta efirga chiqarildi"
+    "event.redispatched": "Qayta efirga chiqarildi",
+    "Stop": "To'xtash",
+    "Remove stop": "To'xtashni olib tashlash",
+    "Add stop": "To'xtash joyi",
+    "Round trip": "Borib-kelish"
 }

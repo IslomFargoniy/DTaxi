@@ -557,5 +557,9 @@
     "Recorded by": "Кто записал",
     "Saved.": "Сохранено.",
     "event.edited": "Изменён",
-    "event.redispatched": "Повторный эфир"
+    "event.redispatched": "Повторный эфир",
+    "Stop": "Остановка",
+    "Remove stop": "Убрать остановку",
+    "Add stop": "Остановка",
+    "Round trip": "Туда и обратно"
 }

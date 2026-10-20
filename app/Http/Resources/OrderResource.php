@@ -52,6 +52,7 @@ class OrderResource extends JsonResource
                 'lat' => $this->dropoff_location->getLatitude(),
                 'lng' => $this->dropoff_location->getLongitude(),
             ] : ($this->dropoff_text ? ['text' => $this->dropoff_text, 'lat' => null, 'lng' => null] : null),
+            'stops' => $this->stops ?? [],
             'comment' => $this->comment,
             'price_estimate' => $this->price_estimate,
             'price_bonus' => $this->price_bonus,

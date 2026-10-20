@@ -31,6 +31,7 @@ export type Order = {
     tariff_class?: { id: number; name: string; is_delivery: boolean };
     pickup: Place;
     dropoff: Place | null;
+    stops?: { text: string; lat: number; lng: number }[];
     comment: string | null;
     price_estimate: number | null;
     price_bonus: number | null;

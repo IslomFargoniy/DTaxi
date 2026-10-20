@@ -1,5 +1,12 @@
 import { useForm } from '@inertiajs/react';
-import { AlertTriangle, CarFront, History } from 'lucide-react';
+import {
+    AlertTriangle,
+    ArrowLeftRight,
+    CarFront,
+    History,
+    Plus,
+    X,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import OrderController from '@/actions/App/Http/Controllers/Operator/OrderController';
 import InputError from '@/components/input-error';
@@ -23,7 +30,7 @@ const emptyPlace: PickedPlace = {
     landmarkId: null,
 };
 
-export type PickTarget = 'pickup' | 'dropoff' | null;
+export type PickTarget = 'pickup' | 'dropoff' | `stop-${number}` | null;
 
 type Props = {
     branches: Branch[];
@@ -71,6 +78,7 @@ export function OrderForm({
     const [card, setCard] = useState<ClientCard | null>(null);
     const [pickup, setPickup] = useState<PickedPlace>(emptyPlace);
     const [dropoff, setDropoff] = useState<PickedPlace>(emptyPlace);
+    const [stops, setStops] = useState<PickedPlace[]>([]);
 
     const form = useForm({
         branch_id: branches[0]?.id ?? 0,
@@ -111,15 +119,22 @@ export function OrderForm({
         if (!mapClick || !target) {
             return;
         }
-        const setter = target === 'pickup' ? setPickup : setDropoff;
-        setter((place) => ({
-            ...place,
-            // Matn majburiy (haydovchi ko'radi): operator yozmagan bo'lsa — keyin aniqlashtiradi
-            text: place.text.trim() || t('Point on the map'),
+        // Matn majburiy (haydovchi ko'radi): operator yozmagan bo'lsa — keyin aniqlashtiradi
+        const place = (prev: PickedPlace): PickedPlace => ({
+            ...prev,
+            text: prev.text.trim() || t('Point on the map'),
             lat: mapClick.lat,
             lng: mapClick.lng,
             landmarkId: null,
-        }));
+        });
+        if (target.startsWith('stop-')) {
+            const index = Number(target.slice(5));
+            setStops((list) =>
+                list.map((stop, i) => (i === index ? place(stop) : stop)),
+            );
+        } else {
+            (target === 'pickup' ? setPickup : setDropoff)(place);
+        }
         setPicking(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mapClick?.seq]);
@@ -219,7 +234,19 @@ export function OrderForm({
         setCard(null);
         setPickup(emptyPlace);
         setDropoff(emptyPlace);
+        setStops([]);
         phoneRef.current?.focus();
+    };
+
+    // Borib-kelish: hozirgi "qayerga" oraliq to'xtashga o'tadi, oxirgi nuqta — qayerdan
+    const roundTrip = () => {
+        if (pickup.lat === null) {
+            return;
+        }
+        if (dropoff.lat !== null) {
+            setStops((list) => [...list, dropoff]);
+        }
+        setDropoff({ ...pickup, landmarkId: null });
     };
 
     const submit = (e: React.FormEvent) => {
@@ -234,6 +261,9 @@ export function OrderForm({
             dropoff_text: dropoff.text || null,
             dropoff_lat: dropoff.lat,
             dropoff_lng: dropoff.lng,
+            stops: stops
+                .filter((stop) => stop.lat !== null && stop.text.trim())
+                .map(({ text, lat, lng }) => ({ text, lat, lng })),
             delivery: selectedClass?.is_delivery ? data.delivery : null,
         }));
         form.post(OrderController.store.url(), {
@@ -383,6 +413,77 @@ export function OrderForm({
                 }
             />
             <InputError message={errors.pickup_text ?? errors.pickup_lat} />
+
+            {stops.map((stop, index) => (
+                <div key={index} className="flex items-end gap-1.5">
+                    <div className="flex-1">
+                        <PlacePicker
+                            id={`stop-${index}`}
+                            label={`${t('Stop')} ${index + 1}`}
+                            value={stop}
+                            onChange={(value) =>
+                                setStops((list) =>
+                                    list.map((s, i) =>
+                                        i === index ? value : s,
+                                    ),
+                                )
+                            }
+                            near={
+                                branches.find(
+                                    (b) => b.id === form.data.branch_id,
+                                )?.center
+                            }
+                            picking={picking === `stop-${index}`}
+                            onPickOnMap={() =>
+                                setPicking(
+                                    picking === `stop-${index}`
+                                        ? null
+                                        : `stop-${index}`,
+                                )
+                            }
+                        />
+                    </div>
+                    <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        title={t('Remove stop')}
+                        onClick={() =>
+                            setStops((list) =>
+                                list.filter((_, i) => i !== index),
+                            )
+                        }
+                    >
+                        <X />
+                    </Button>
+                </div>
+            ))}
+
+            <div className="-mt-1 flex flex-wrap gap-1.5">
+                {stops.length < 5 && (
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs"
+                        onClick={() =>
+                            setStops((list) => [...list, emptyPlace])
+                        }
+                    >
+                        <Plus className="size-3" /> {t('Add stop')}
+                    </Button>
+                )}
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs"
+                    disabled={pickup.lat === null}
+                    onClick={roundTrip}
+                >
+                    <ArrowLeftRight className="size-3" /> {t('Round trip')}
+                </Button>
+            </div>
 
             <PlacePicker
                 id="dropoff"

@@ -66,7 +66,14 @@ class OrderController extends Controller
             'dropoff_lng' => ['nullable', 'numeric', 'between:-180,180', 'required_with:dropoff_lat'],
             'tariff_class_id' => ['sometimes', 'nullable', 'integer', Rule::exists('tariff_classes', 'id')->where('branch_id', $order->branch_id)],
             'price_bonus' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000000'],
+            'stops' => ['sometimes', 'nullable', 'array', 'max:5'],
+            'stops.*.text' => ['required', 'string', 'max:255'],
+            'stops.*.lat' => ['required', 'numeric', 'between:-90,90'],
+            'stops.*.lng' => ['required', 'numeric', 'between:-180,180'],
         ]);
+        if ($request->has('stops')) {
+            $data['stops'] = StoreOrderRequest::stops($request->input('stops'));
+        }
         /** @var User $user */
         $user = $request->user();
 

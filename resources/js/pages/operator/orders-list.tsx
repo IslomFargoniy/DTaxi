@@ -166,6 +166,11 @@ function OrderRow({
                 </div>
             )}
             <div className="mt-1 truncate">{order.pickup.text}</div>
+            {order.stops?.map((stop, i) => (
+                <div key={i} className="truncate text-xs text-muted-foreground">
+                    ⋯ {stop.text}
+                </div>
+            ))}
             {order.dropoff?.text && (
                 <div className="truncate text-xs text-muted-foreground">
                     → {order.dropoff.text}

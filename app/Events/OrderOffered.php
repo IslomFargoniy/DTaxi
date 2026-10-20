@@ -51,6 +51,8 @@ class OrderOffered implements ShouldBroadcastNow
             'pickup_lat' => $order->pickup_location->getLatitude(),
             'pickup_lng' => $order->pickup_location->getLongitude(),
             'dropoff_text' => $order->dropoff_text,
+            // Push (FCM) faqat oddiy qiymatlarni oladi — to'xtashlar matn sifatida
+            'stops_text' => $order->stops ? implode(' → ', array_column($order->stops, 'text')) : null,
             'tariff_class' => $order->tariffClass->name,
             'is_delivery' => $order->tariffClass->is_delivery,
             'price_estimate' => $order->price_estimate,
