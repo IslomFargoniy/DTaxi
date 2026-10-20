@@ -519,5 +519,19 @@
     "Nobody took the order — assign a driver, add an extra or call the client.": "Заказ никто не взял — назначьте водителя, добавьте надбавку или позвоните клиенту.",
     "Send to all drivers again from the smallest radius": "Отправить всем водителям заново с малого радиуса",
     "Re-dispatch": "Повторный эфир",
-    "Edit": "Изменить"
+    "Edit": "Изменить",
+    "corporate": "Корпоративная поездка",
+    "Rating below which the nearest radius is skipped": "Рейтинг, ниже которого ближний радиус пропускается",
+    "Peak-hour price coefficient (1 — off)": "Коэффициент часа пик (1 — выкл.)",
+    "Peak hours from (hour)": "Час пик с (час)",
+    "Peak hours to (hour; same as from — all day)": "Час пик до (час; равно началу — весь день)",
+    "New company": "Новая компания",
+    "Discount, %": "Скидка, %",
+    "Employees are linked in Clients. Their trips are not paid in cash: the price goes to the driver balance and the company gets a monthly invoice.": "Сотрудники привязываются в разделе Клиенты. Их поездки не оплачиваются наличными: цена идёт на баланс водителя, компании выставляется ежемесячный счёт.",
+    "Companies": "Компании",
+    "Corporate clients and monthly invoices": "Корпоративные клиенты и ежемесячные счета",
+    "Employees": "Сотрудники",
+    "This month": "Этот месяц",
+    "Inactive": "Неактивна",
+    "Invoice": "Счёт"
 }

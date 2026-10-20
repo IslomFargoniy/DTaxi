@@ -9,6 +9,7 @@ use App\Enums\OrderStatus;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\ClientAddress;
+use App\Models\Company;
 use App\Models\Driver;
 use App\Models\Landmark;
 use App\Models\Order;
@@ -64,7 +65,6 @@ class OrderService
         $order = DB::transaction(function () use ($data, $operator) {
             $branch = Branch::query()->findOrFail($data['branch_id']);
             $tariffClass = $this->tariffClass($branch, $data['tariff_class_id'] ?? null);
-            $tariff = $tariffClass->tariff()->withoutGlobalScopes()->firstOrFail();
 
             $client = Client::query()->firstOrCreate(['phone' => Client::normalizePhone($data['phone'])]);
             if (! empty($data['client_name']) && ! $client->name) {
@@ -72,6 +72,9 @@ class OrderService
             }
             $client->last_branch_id = $branch->id;
             $client->save();
+
+            $company = $client->company_id ? Company::query()->withoutGlobalScopes()->whereKey($client->company_id)->where('is_active', true)->first() : null;
+            $snapshot = $this->snapshot($tariffClass, $branch, $client, $company);
 
             $pickup = Point::makeGeodetic($data['pickup_lat'], $data['pickup_lng']);
             $dropoff = isset($data['dropoff_lat'], $data['dropoff_lng']) ? Point::makeGeodetic($data['dropoff_lat'], $data['dropoff_lng']) : null;
@@ -81,12 +84,13 @@ class OrderService
             if ($dropoff) {
                 $route = $this->router->route($pickup, $dropoff);
                 $distance = $route->distanceMeters;
-                $estimate = $this->fares->calculate($tariff->snapshot(), $distance, startedAt: CarbonImmutable::now($branch->timezone))->total;
+                $estimate = $this->fares->calculate($snapshot, $distance, startedAt: CarbonImmutable::now($branch->timezone))->total;
             }
 
             $order = Order::query()->create([
                 'branch_id' => $branch->id,
                 'client_id' => $client->id,
+                'company_id' => $company?->id,
                 'operator_id' => $operator?->id,
                 'tariff_class_id' => $tariffClass->id,
                 'status' => OrderStatus::New,
@@ -99,7 +103,7 @@ class OrderService
                 'dropoff_text' => $data['dropoff_text'] ?? null,
                 'dropoff_location' => $dropoff,
                 'comment' => $data['comment'] ?? null,
-                'tariff_snapshot' => $tariff->snapshot(),
+                'tariff_snapshot' => $snapshot,
                 'price_estimate' => $estimate,
                 'distance_m' => $distance,
             ]);
@@ -184,6 +188,10 @@ class OrderService
             ]);
 
             $this->balance->chargeCommission($order, $commissionBase);
+            // Korporativ: mijoz naqd to'lamaydi — firma haydovchiga balans orqali to'laydi, kompaniyaga hisob-faktura
+            if ($order->company_id) {
+                $this->balance->corporatePayout($order);
+            }
             $driver->forceFill(['status' => DriverStatus::Free])->save();
             $order->client()->increment('orders_count');
         });
@@ -239,7 +247,8 @@ class OrderService
             $branch = $order->branch()->firstOrFail();
             $tariffClass = $this->tariffClass($branch, $data['tariff_class_id']);
             $changes['tariff_class_id'] = $tariffClass->id;
-            $changes['tariff_snapshot'] = $tariffClass->tariff()->withoutGlobalScopes()->firstOrFail()->snapshot();
+            $client = $order->client()->firstOrFail();
+            $changes['tariff_snapshot'] = $this->snapshot($tariffClass, $branch, $client, $order->company()->withoutGlobalScopes()->first());
         }
 
         $order->forceFill($changes);
@@ -389,6 +398,36 @@ class OrderService
         }
 
         $order->refresh();
+    }
+
+    /**
+     * Buyurtma narx sharti: tarif + yaratilgan paytdagi tig'iz soat koeffitsienti va mijoz chegirmasi.
+     * Keyin tarif yoki sozlama o'zgarsa ham buyurtma o'z shartida qoladi (haydovchi ilovasi ham shuni oladi).
+     *
+     * @return array<string, mixed>
+     */
+    private function snapshot(TariffClass $tariffClass, Branch $branch, Client $client, ?Company $company): array
+    {
+        $snapshot = $tariffClass->tariff()->withoutGlobalScopes()->firstOrFail()->snapshot();
+
+        $settings = app(Settings::class);
+        $coeff = (float) $settings->get('pricing.surge_coeff', $branch->id);
+        if ($coeff > 1) {
+            $from = (int) $settings->get('pricing.surge_from_hour', $branch->id);
+            $to = (int) $settings->get('pricing.surge_to_hour', $branch->id);
+            $hour = CarbonImmutable::now($branch->timezone)->hour;
+            $active = $from === $to || ($from < $to ? $hour >= $from && $hour < $to : $hour >= $from || $hour < $to);
+            if ($active) {
+                $snapshot['surge_coeff'] = $coeff;
+            }
+        }
+
+        $discount = max((int) $client->discount_percent, (int) $company?->discount_percent);
+        if ($discount > 0) {
+            $snapshot['discount_percent'] = $discount;
+        }
+
+        return $snapshot;
     }
 
     private function tariffClass(Branch $branch, ?int $tariffClassId): TariffClass

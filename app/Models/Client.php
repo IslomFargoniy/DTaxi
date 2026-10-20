@@ -6,6 +6,7 @@ use Database\Factories\ClientFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -16,8 +17,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $is_blacklisted
  * @property int $orders_count
  * @property int|null $last_branch_id
+ * @property int|null $company_id
+ * @property int|null $discount_percent
+ * @property-read Company|null $company
  */
-#[Fillable(['phone', 'name', 'note', 'is_blacklisted', 'orders_count', 'last_branch_id'])]
+#[Fillable(['phone', 'name', 'note', 'is_blacklisted', 'orders_count', 'last_branch_id', 'company_id', 'discount_percent'])]
 class Client extends Model
 {
     /** @use HasFactory<ClientFactory> */
@@ -26,6 +30,14 @@ class Client extends Model
     protected function casts(): array
     {
         return ['is_blacklisted' => 'boolean', 'orders_count' => 'integer'];
+    }
+
+    /**
+     * @return BelongsTo<Company, $this>
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     /**

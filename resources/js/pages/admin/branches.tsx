@@ -184,6 +184,11 @@ const settingLabels: Record<string, string> = {
     'drivers.block_minutes': 'Block duration, minutes',
     'dispatch.step_seconds': 'Seconds before widening the search',
     'dispatch.direct_offer_seconds': 'Seconds to answer an assigned order',
+    'dispatch.low_rating_threshold':
+        'Rating below which the nearest radius is skipped',
+    'pricing.surge_coeff': 'Peak-hour price coefficient (1 — off)',
+    'pricing.surge_from_hour': 'Peak hours from (hour)',
+    'pricing.surge_to_hour': 'Peak hours to (hour; same as from — all day)',
 };
 
 function BranchDialog({

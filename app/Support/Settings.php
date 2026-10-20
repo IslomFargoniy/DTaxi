@@ -41,6 +41,12 @@ class Settings
         'dispatch.location_ttl_seconds' => 60,
         // Oldindan buyurtma necha daqiqa oldin efirga chiqadi
         'dispatch.preorder_lead_minutes' => 15,
+        // Reytingi shundan past haydovchi eng yaqin radiusda taklif olmaydi (keyingi bosqichda oladi; 0 — o'chiq)
+        'dispatch.low_rating_threshold' => 60,
+        // Tig'iz soat: koeffitsient (1 — o'chiq) va filial vaqti bo'yicha soatlar (boshi = oxiri — kun bo'yi)
+        'pricing.surge_coeff' => 1,
+        'pricing.surge_from_hour' => 0,
+        'pricing.surge_to_hour' => 0,
         // GPS treki necha kun saqlanadi (masofa bahslari uchun)
         'drivers.locations_retention_days' => 30,
         // Jarima va reyting (qaror #29)

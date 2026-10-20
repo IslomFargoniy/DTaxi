@@ -66,6 +66,24 @@ class DriverBalance
         );
     }
 
+    /**
+     * Korporativ safar: haydovchi mijozdan pul olmagan — narx balansiga qo'shiladi.
+     */
+    public function corporatePayout(Order $order): ?DriverTransaction
+    {
+        if (! $order->driver_id || ! $order->price_final) {
+            return null;
+        }
+
+        return $this->apply(
+            Driver::query()->withoutGlobalScopes()->findOrFail($order->driver_id),
+            $order->price_final,
+            TransactionType::Corporate,
+            TransactionSource::System,
+            order: $order,
+        );
+    }
+
     public function penalty(Driver $driver, int $amount, string $reason, ?Order $order = null): ?DriverTransaction
     {
         if ($amount <= 0) {

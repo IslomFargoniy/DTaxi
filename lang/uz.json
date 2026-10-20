@@ -519,5 +519,19 @@
     "Nobody took the order — assign a driver, add an extra or call the client.": "Buyurtmani hech kim olmadi — haydovchi tayinlang, narxga qo'shing yoki mijozga qo'ng'iroq qiling.",
     "Send to all drivers again from the smallest radius": "Eng kichik radiusdan barcha haydovchilarga qayta yuborish",
     "Re-dispatch": "Qayta efir",
-    "Edit": "Tahrirlash"
+    "Edit": "Tahrirlash",
+    "corporate": "Korporativ safar",
+    "Rating below which the nearest radius is skipped": "Shundan past reytingda eng yaqin radius o'tkazib yuboriladi",
+    "Peak-hour price coefficient (1 — off)": "Tig'iz soat narx koeffitsienti (1 — o'chiq)",
+    "Peak hours from (hour)": "Tig'iz soat boshlanishi (soat)",
+    "Peak hours to (hour; same as from — all day)": "Tig'iz soat tugashi (soat; boshlanish bilan bir xil — kun bo'yi)",
+    "New company": "Yangi kompaniya",
+    "Discount, %": "Chegirma, %",
+    "Employees are linked in Clients. Their trips are not paid in cash: the price goes to the driver balance and the company gets a monthly invoice.": "Xodimlar Mijozlar bo'limida biriktiriladi. Ularning safari naqd to'lanmaydi: narx haydovchi balansiga o'tadi, kompaniyaga oylik hisob-faktura beriladi.",
+    "Companies": "Kompaniyalar",
+    "Corporate clients and monthly invoices": "Korporativ mijozlar va oylik hisob-fakturalar",
+    "Employees": "Xodimlar",
+    "This month": "Shu oy",
+    "Inactive": "Faol emas",
+    "Invoice": "Hisob-faktura"
 }

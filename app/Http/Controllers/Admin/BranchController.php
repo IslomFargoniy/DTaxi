@@ -28,6 +28,10 @@ class BranchController extends Controller
         'drivers.block_minutes' => ['integer', 'min:0', 'max:1440'],
         'dispatch.step_seconds' => ['integer', 'min:5', 'max:120'],
         'dispatch.direct_offer_seconds' => ['integer', 'min:5', 'max:120'],
+        'dispatch.low_rating_threshold' => ['integer', 'min:0', 'max:100'],
+        'pricing.surge_coeff' => ['numeric', 'min:1', 'max:5'],
+        'pricing.surge_from_hour' => ['integer', 'min:0', 'max:23'],
+        'pricing.surge_to_hour' => ['integer', 'min:0', 'max:24'],
     ];
 
     public function index(Settings $settings): Response

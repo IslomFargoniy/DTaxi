@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\CallController;
 use App\Http\Controllers\Admin\ClientController;
+use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\CompanySettingsController;
 use App\Http\Controllers\Admin\DriverController;
 use App\Http\Controllers\Admin\IntegrationController;
@@ -114,6 +115,10 @@ Route::middleware(['auth', 'permission:drivers.manage'])->prefix('admin')->name(
 });
 
 Route::middleware(['auth', 'permission:tariffs.manage'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('companies', [CompanyController::class, 'index'])->name('companies.index');
+    Route::post('companies', [CompanyController::class, 'store'])->name('companies.store');
+    Route::put('companies/{company}', [CompanyController::class, 'update'])->name('companies.update');
+    Route::get('companies/{company}/invoice.csv', [CompanyController::class, 'invoice'])->name('companies.invoice');
     Route::get('tariffs', [TariffController::class, 'index'])->name('tariffs.index');
     Route::post('tariffs', [TariffController::class, 'store'])->name('tariffs.store');
     Route::put('tariffs/{tariffClass}', [TariffController::class, 'update'])->name('tariffs.update');

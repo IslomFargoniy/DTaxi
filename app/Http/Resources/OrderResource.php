@@ -55,6 +55,10 @@ class OrderResource extends JsonResource
             'comment' => $this->comment,
             'price_estimate' => $this->price_estimate,
             'price_bonus' => $this->price_bonus,
+            // Haydovchi ilovasi taksometri buyurtma shartini (tig'iz soat, chegirma) shu yerdan oladi
+            'surge_coeff' => (float) ($this->tariff_snapshot['surge_coeff'] ?? 1),
+            'discount_percent' => (int) ($this->tariff_snapshot['discount_percent'] ?? 0),
+            'company' => $this->company_id ? $this->company()->withoutGlobalScopes()->value('name') : null,
             'price_final' => $this->price_final,
             'price_breakdown' => $this->price_breakdown,
             'distance_m' => $this->distance_m,

@@ -12,6 +12,8 @@ use DateTimeInterface;
  *        + shahar_tashqarisidagi_km × tashqi_km_narxi            (yoqilgan bo'lsa)
  *        + max(0, kutish_daqiqasi − bepul_daqiqa) × daqiqa_narxi (yoqilgan bo'lsa)
  *   narx = narx × tungi_koeffitsient                              (yoqilgan va tungi vaqt bo'lsa)
+ *   narx = narx × tig'iz_soat_koeffitsienti                       (buyurtma yaratilganda tig'iz soat bo'lsa)
+ *   narx = narx − chegirma%                                       (doimiy yoki korporativ mijoz)
  *   narx = yuqoriga yaxlitlash(narx, qadam)
  *
  * Toza funksiya: haydovchi ilovasi ham aynan shu formulani ishlatadi, sozlamalar API orqali keladi.
@@ -56,17 +58,24 @@ class FareCalculator
             $night = (int) round($subtotal * ((float) $tariff['night_coeff'] - 1));
         }
 
-        $step = max(1, (int) $tariff['rounding_step']);
-        $total = (int) (ceil(($subtotal + $night) / $step) * $step);
+        // Buyurtmaga xos qiymatlar (snapshot'ga yaratilganda yoziladi) — tarif jadvalida yo'q
+        $surge = (int) round(($subtotal + $night) * max(0, (float) ($tariff['surge_coeff'] ?? 1) - 1));
+        $discount = -(int) round(($subtotal + $night + $surge) * min(100, max(0, (int) ($tariff['discount_percent'] ?? 0))) / 100);
 
-        return new Fare($total, [
+        $step = max(1, (int) $tariff['rounding_step']);
+        $raw = $subtotal + $night + $surge + $discount;
+        $total = (int) (ceil($raw / $step) * $step);
+
+        return new Fare($total, array_filter([
             'base' => $baseFare,
             'distance' => $distance,
             'outside' => $outside,
             'waiting' => $waiting,
             'night' => $night,
-            'rounding' => $total - ($subtotal + $night),
-        ]);
+            'surge' => $surge,
+            'discount' => $discount,
+            'rounding' => $total - $raw,
+        ], fn (int $value, string $key) => $value !== 0 || ! in_array($key, ['surge', 'discount'], true), ARRAY_FILTER_USE_BOTH));
     }
 
     /**

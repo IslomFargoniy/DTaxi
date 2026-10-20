@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import {
     Banknote,
     BarChart3,
+    Briefcase,
     Building2,
     History,
     FileBarChart,
@@ -38,6 +39,7 @@ import { index as audit } from '@/routes/admin/audit';
 import { index as branches } from '@/routes/admin/branches';
 import { index as calls } from '@/routes/admin/calls';
 import { index as clients } from '@/routes/admin/clients';
+import { index as companies } from '@/routes/admin/companies';
 import { edit as companySettings } from '@/routes/admin/company-settings';
 import { index as driverApp } from '@/routes/admin/driver-app';
 import { index as drivers } from '@/routes/admin/drivers';
@@ -85,6 +87,9 @@ export function AppSidebar() {
             : []),
         ...(can('tariffs.manage')
             ? [{ title: 'Tariffs', href: tariffs(), icon: Receipt }]
+            : []),
+        ...(can('tariffs.manage')
+            ? [{ title: 'Companies', href: companies(), icon: Briefcase }]
             : []),
         ...(can('users.manage')
             ? [{ title: 'Staff', href: staff(), icon: Users }]

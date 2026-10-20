@@ -68,6 +68,12 @@ class Dispatcher
         $candidates = $this->locator->candidatesFor($order, $radius, $excluded);
         $expiresIn = (int) $this->settings->get('dispatch.step_seconds', $order->branch_id);
 
+        // Reytingi past haydovchi eng yaqin radiusda ko'rmaydi — keyingi bosqichda (reja §6, qaror #29)
+        $threshold = (int) $this->settings->get('dispatch.low_rating_threshold', $order->branch_id);
+        if ($threshold > 0 && $radius === $this->radiusSteps($order)[0] && $order->search_exhausted_at === null) {
+            $candidates = $candidates->filter(fn (array $c) => $c['driver']->rating >= $threshold)->values();
+        }
+
         foreach ($candidates as ['driver' => $driver, 'distance_m' => $distance]) {
             $offer = OrderOffer::query()->updateOrCreate(
                 ['order_id' => $order->id, 'driver_id' => $driver->id],

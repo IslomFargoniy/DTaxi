@@ -21,13 +21,21 @@ type Client = {
     note: string | null;
     is_blacklisted: boolean;
     orders_count: number;
+    company_id: number | null;
+    discount_percent: number | null;
 };
+
+type CompanyOption = { id: number; name: string };
 
 function ClientDialog({
     client,
+    companies,
+    canPrice,
     onClose,
 }: {
     client: Client;
+    companies: CompanyOption[];
+    canPrice: boolean;
     onClose: () => void;
 }) {
     const { t } = useTrans();
@@ -35,6 +43,8 @@ function ClientDialog({
         name: client.name ?? '',
         note: client.note ?? '',
         is_blacklisted: client.is_blacklisted,
+        company_id: client.company_id,
+        discount_percent: client.discount_percent,
     });
 
     return (
@@ -75,6 +85,53 @@ function ClientDialog({
                 />
                 {t('Blacklist')}
             </label>
+            {canPrice && (
+                <div className="grid grid-cols-2 items-start gap-2">
+                    <div className="grid gap-1.5">
+                        <Label htmlFor="company_id">{t('Company')}</Label>
+                        <select
+                            id="company_id"
+                            className="h-9 rounded-md border bg-background px-2 text-sm"
+                            value={form.data.company_id ?? ''}
+                            onChange={(e) =>
+                                form.setData(
+                                    'company_id',
+                                    e.target.value
+                                        ? Number(e.target.value)
+                                        : null,
+                                )
+                            }
+                        >
+                            <option value="">—</option>
+                            {companies.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                    {c.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="grid gap-1.5">
+                        <Label htmlFor="discount_percent">
+                            {t('Discount, %')}
+                        </Label>
+                        <Input
+                            id="discount_percent"
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={form.data.discount_percent ?? ''}
+                            onChange={(e) =>
+                                form.setData(
+                                    'discount_percent',
+                                    e.target.value === ''
+                                        ? null
+                                        : Number(e.target.value),
+                                )
+                            }
+                        />
+                    </div>
+                </div>
+            )}
         </EditDialog>
     );
 }
@@ -82,9 +139,13 @@ function ClientDialog({
 export default function Clients({
     clients,
     filters,
+    companies,
+    canPrice,
 }: {
     clients: Paginated<Client>;
     filters: { q: string; blacklisted: boolean };
+    companies: CompanyOption[];
+    canPrice: boolean;
 }) {
     const { t } = useTrans();
     const [editing, setEditing] = useState<Client | null>(null);
@@ -142,12 +203,27 @@ export default function Clients({
                         {
                             key: 'flag',
                             title: '',
-                            render: (c) =>
-                                c.is_blacklisted ? (
-                                    <Badge variant="destructive">
-                                        {t('Blacklist')}
-                                    </Badge>
-                                ) : null,
+                            render: (c) => (
+                                <span className="flex gap-1">
+                                    {c.is_blacklisted && (
+                                        <Badge variant="destructive">
+                                            {t('Blacklist')}
+                                        </Badge>
+                                    )}
+                                    {c.company_id && (
+                                        <Badge variant="secondary">
+                                            {companies.find(
+                                                (x) => x.id === c.company_id,
+                                            )?.name ?? t('Company')}
+                                        </Badge>
+                                    )}
+                                    {c.discount_percent ? (
+                                        <Badge variant="outline">
+                                            −{c.discount_percent}%
+                                        </Badge>
+                                    ) : null}
+                                </span>
+                            ),
                         },
                         {
                             key: 'note',
@@ -165,6 +241,8 @@ export default function Clients({
             {editing && (
                 <ClientDialog
                     client={editing}
+                    companies={companies}
+                    canPrice={canPrice}
                     onClose={() => setEditing(null)}
                 />
             )}

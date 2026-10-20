@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\Company;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,18 +31,28 @@ class ClientController extends Controller
             ->withQueryString();
 
         return Inertia::render('admin/clients', [
-            'clients' => $clients->through(fn (Client $c) => $c->only(['id', 'phone', 'name', 'note', 'is_blacklisted', 'orders_count'])),
+            'clients' => $clients->through(fn (Client $c) => $c->only(['id', 'phone', 'name', 'note', 'is_blacklisted', 'orders_count', 'company_id', 'discount_percent'])),
+            // Chegirma va kompaniyani faqat narxlarni boshqaruvchi (admin) o'zgartiradi
+            'canPrice' => $request->user()?->can('tariffs.manage') ?? false,
+            'companies' => Company::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'filters' => ['q' => $q, 'blacklisted' => $request->boolean('blacklisted')],
         ]);
     }
 
     public function update(Request $request, Client $client): RedirectResponse
     {
-        $client->update($request->validate([
+        $data = $request->validate([
             'name' => ['nullable', 'string', 'max:100'],
             'note' => ['nullable', 'string', 'max:500'],
             'is_blacklisted' => ['boolean'],
-        ]));
+            'company_id' => ['nullable', 'integer', Rule::exists('companies', 'id')],
+            'discount_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
+        ]);
+        if (! $request->user()?->can('tariffs.manage')) {
+            unset($data['company_id'], $data['discount_percent']);
+        }
+
+        $client->update($data);
 
         return back();
     }

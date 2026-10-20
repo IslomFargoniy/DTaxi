@@ -9,4 +9,6 @@ enum TransactionType: string
     case Penalty = 'penalty';
     case Bonus = 'bonus';
     case Adjustment = 'adjustment';
+    // Korporativ safar narxi — haydovchi naqd olmagan
+    case Corporate = 'corporate';
 }

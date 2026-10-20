@@ -35,6 +35,7 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed> $tariff_snapshot
  * @property int|null $price_estimate
  * @property int|null $price_bonus
+ * @property int|null $company_id
  * @property int|null $price_final
  * @property array<string, int>|null $price_breakdown
  * @property int|null $distance_m
@@ -60,9 +61,10 @@ use Illuminate\Support\Carbon;
  * @property-read TariffClass $tariffClass
  * @property-read Branch $branch
  * @property-read OrderDelivery|null $delivery
+ * @property-read Company|null $company
  */
 #[Fillable([
-    'branch_id', 'client_id', 'operator_id', 'driver_id', 'vehicle_id', 'tariff_class_id', 'status', 'source', 'phone_number_id',
+    'branch_id', 'client_id', 'company_id', 'operator_id', 'driver_id', 'vehicle_id', 'tariff_class_id', 'status', 'source', 'phone_number_id',
     'pickup_text', 'pickup_location', 'pickup_landmark_id', 'dropoff_text', 'dropoff_location', 'comment', 'scheduled_at',
     'tariff_snapshot', 'price_estimate', 'price_final', 'price_breakdown', 'distance_m', 'duration_s',
     'waiting_s', 'commission', 'search_radius_m', 'searching_at', 'assigned_at', 'arrived_at', 'started_at',
@@ -93,6 +95,14 @@ class Order extends Model
             'cancelled_at' => 'datetime',
             'search_exhausted_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @return BelongsTo<Company, $this>
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     /**
