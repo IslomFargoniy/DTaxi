@@ -43,6 +43,11 @@ class UzbekCyrillic
     private static function word(string $word): string
     {
         $bare = rtrim($word, "'");
+        // "Payme'da", "SIP'ni" — brend/qisqartma + qo'shimcha: so'z butunligicha lotinda
+        $stem = explode("'", $bare)[0];
+        if ($stem !== $bare && (in_array($stem, self::KEEP, true) || (strlen($stem) > 1 && strtoupper($stem) === $stem))) {
+            return $word;
+        }
         if (in_array($bare, self::KEEP, true) || preg_match('/[cC](?![hH])|[wW]/', $bare) || (strlen($bare) > 1 && strtoupper($bare) === $bare && strlen($bare) <= 5)) {
             return $word;
         }

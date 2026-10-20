@@ -27,7 +27,8 @@ test('Cyrillic translations cover every Latin key and keep placeholders', functi
 
     expect(array_keys($oz))->toBe(array_keys($uz))
         ->and($oz['Order #:id created.'])->toContain(':id')
-        ->and(UzbekCyrillic::convert("Qo'ng'iroq Click orqali, ma'lumot"))->toBe('Қўнғироқ Click орқали, маълумот');
+        ->and(UzbekCyrillic::convert("Qo'ng'iroq Click orqali, ma'lumot"))->toBe('Қўнғироқ Click орқали, маълумот')
+        ->and(UzbekCyrillic::convert("Payme'da to'lov, SIP'ni ulash"))->toBe("Payme'da тўлов, SIP'ni улаш");
 });
 
 test('driver app changes its language and gets messages and map names in it', function () {
