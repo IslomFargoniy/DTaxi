@@ -159,16 +159,27 @@ class ReportController extends Controller
             ->join('drivers', 'drivers.user_id', '=', 'order_events.actor_id')
             ->selectRaw('drivers.id AS driver_id, COUNT(*) AS total')->groupBy('drivers.id');
 
+        // Efir statistikasi (reja §6): nechta taklif ko'rdi, nechtasini oldi, qancha tez
+        $offers = DB::table('order_offers')
+            ->whereBetween('offered_at', [$from, $to])
+            ->selectRaw("driver_id, COUNT(*) AS offered,
+                COUNT(*) FILTER (WHERE response = 'accepted') AS accepted,
+                AVG(EXTRACT(EPOCH FROM responded_at - offered_at)) FILTER (WHERE response = 'accepted') AS accept_seconds")
+            ->groupBy('driver_id');
+
         return array_values(DB::table('orders')
             ->join('drivers', 'drivers.id', '=', 'orders.driver_id')
             ->join('users', 'users.id', '=', 'drivers.user_id')
             ->leftJoinSub($cancels, 'c', 'c.driver_id', '=', 'drivers.id')
+            ->leftJoinSub($offers, 'o', 'o.driver_id', '=', 'drivers.id')
             ->whereIn('orders.branch_id', $branchIds ?: [0])
             ->whereBetween('orders.created_at', [$from, $to])
             ->where('orders.status', 'completed')
             ->selectRaw('drivers.callsign, users.name, drivers.rating, COUNT(*) AS trips,
                 SUM(orders.price_final) AS revenue, SUM(orders.commission) AS commission,
-                SUM(orders.distance_m) AS distance_m, MAX(COALESCE(c.total, 0)) AS cancels')
+                SUM(orders.distance_m) AS distance_m, MAX(COALESCE(c.total, 0)) AS cancels,
+                MAX(COALESCE(o.offered, 0)) AS offered, MAX(COALESCE(o.accepted, 0)) AS accepted, MAX(o.accept_seconds) AS accept_seconds,
+                AVG(orders.client_rating) AS client_rating')
             ->groupBy('drivers.id', 'drivers.callsign', 'users.name', 'drivers.rating')
             ->orderByDesc('trips')->limit($limit)->get()
             ->map(fn ($r) => [
@@ -180,6 +191,10 @@ class ReportController extends Controller
                 'km' => round(((int) $r->distance_m) / 1000, 1),
                 'cancels' => (int) $r->cancels,
                 'rating' => (int) $r->rating,
+                // Taklif qilinganlardan qabul qilingani, % va o'rtacha qabul vaqti (soniya)
+                'acceptance' => (int) $r->offered > 0 ? (int) round((int) $r->accepted * 100 / (int) $r->offered) : null,
+                'accept_seconds' => $r->accept_seconds !== null ? (int) round((float) $r->accept_seconds) : null,
+                'client_rating' => $r->client_rating !== null ? round((float) $r->client_rating, 1) : null,
             ])->all());
     }
 

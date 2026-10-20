@@ -31,6 +31,9 @@ type DriverRow = {
     km: number;
     cancels: number;
     rating: number;
+    acceptance: number | null;
+    accept_seconds: number | null;
+    client_rating: number | null;
 };
 type OperatorRow = {
     name: string;
@@ -362,6 +365,22 @@ export default function Reports({
                                 key: 'rating',
                                 title: 'Rating',
                                 render: (r) => r.rating,
+                            },
+                            {
+                                key: 'acceptance',
+                                title: 'Took offers, %',
+                                render: (r) =>
+                                    r.acceptance === null
+                                        ? '—'
+                                        : `${r.acceptance}%${r.accept_seconds !== null ? ` · ${r.accept_seconds} s` : ''}`,
+                            },
+                            {
+                                key: 'client_rating',
+                                title: 'Client rating',
+                                render: (r) =>
+                                    r.client_rating === null
+                                        ? '—'
+                                        : `★ ${r.client_rating}`,
                             },
                         ]}
                     />

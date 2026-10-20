@@ -573,5 +573,7 @@
     "No stands yet": "Стоянок пока нет",
     "After the trip call the client to rate it (1–5)": "После поездки звонить клиенту для оценки (1–5)",
     "Rating call after, minutes": "Звонок с оценкой через, минут",
-    "event.rated": "Клиент оценил"
+    "event.rated": "Клиент оценил",
+    "Took offers, %": "Принял предложений, %",
+    "Client rating": "Оценка клиентов"
 }

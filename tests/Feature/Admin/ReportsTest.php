@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Call;
 use App\Models\Driver;
 use App\Models\Order;
+use App\Models\OrderOffer;
 use App\Models\SipTrunk;
 use App\Models\User;
 use App\Services\Drivers\DriverBalance;
@@ -22,7 +23,14 @@ beforeEach(function () {
 
 test('report shows orders, revenue, drivers, top-ups and channel peaks for own branch only', function () {
     $driver = Driver::factory()->create(['branch_id' => $this->branch->id]);
-    Order::factory()->count(2)->create(['branch_id' => $this->branch->id, 'driver_id' => $driver->id, 'status' => OrderStatus::Completed, 'price_final' => 15000, 'commission' => 1500]);
+    $trips = Order::factory()->count(2)->create(['branch_id' => $this->branch->id, 'driver_id' => $driver->id, 'status' => OrderStatus::Completed, 'price_final' => 15000, 'commission' => 1500, 'client_rating' => 4]);
+    // 4 ta taklifdan 2 tasini 6 soniyada oldi
+    foreach ($trips as $trip) {
+        OrderOffer::query()->create(['order_id' => $trip->id, 'driver_id' => $driver->id, 'offered_at' => now()->subSeconds(6), 'responded_at' => now(), 'response' => 'accepted']);
+    }
+    foreach (Order::factory()->count(2)->create(['branch_id' => Branch::factory()->create()->id]) as $missed) {
+        OrderOffer::query()->create(['order_id' => $missed->id, 'driver_id' => $driver->id, 'offered_at' => now()]);
+    }
     Order::factory()->create(['branch_id' => $this->branch->id, 'status' => OrderStatus::CancelledByClient, 'cancel_reason' => 'Mijoz kutmadi']);
     Order::factory()->create(['branch_id' => Branch::factory()->create()->id, 'status' => OrderStatus::Completed, 'price_final' => 99999]);
     app(DriverBalance::class)->topUp($driver, 50000, TransactionSource::Click);
@@ -42,6 +50,9 @@ test('report shows orders, revenue, drivers, top-ups and channel peaks for own b
             ->where('daily.0.commission', 3000)
             ->where('cancellations.0.reason', 'Mijoz kutmadi')
             ->where('drivers.0.trips', 2)
+            ->where('drivers.0.acceptance', 50)
+            ->where('drivers.0.accept_seconds', 6)
+            ->where('drivers.0.client_rating', 4)
             ->where('topups.0.source', 'click')
             ->where('topups.0.total', 50000)
             ->where('channels.days.0.peak', 3)
