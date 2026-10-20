@@ -48,3 +48,15 @@ osmium export --overwrite -f geojsonseq -a type,id -o "$WORK_DIR/pois.geojsonseq
 # Faqat nomi borlari
 grep '"name' "$WORK_DIR/pois.geojsonseq" > "$OUT_DIR/pois.geojsonseq"
 echo "==> Mo'ljallar: $(wc -l < "$OUT_DIR/pois.geojsonseq") ta"
+
+echo "==> Uy manzillari (ko'cha + uy raqami) va ko'chalar"
+osmium tags-filter --overwrite -o "$WORK_DIR/addresses.osm.pbf" "$WORK_DIR/region.osm.pbf" nwr/addr:housenumber
+osmium export --overwrite -f geojsonseq -a type,id -o "$WORK_DIR/addresses.geojsonseq" "$WORK_DIR/addresses.osm.pbf"
+grep -E '"addr:(street|place)"' "$WORK_DIR/addresses.geojsonseq" > "$OUT_DIR/addresses.geojsonseq" || true
+osmium tags-filter --overwrite -o "$WORK_DIR/streets.osm.pbf" "$WORK_DIR/region.osm.pbf" \
+    w/highway=primary,secondary,tertiary,residential,unclassified,living_street
+osmium export --overwrite -f geojsonseq -a type,id -o "$WORK_DIR/streets.geojsonseq" "$WORK_DIR/streets.osm.pbf"
+# Bitta ko'cha ko'p bo'lakdan iborat — nomi bo'yicha birinchi bo'lagi yetarli (mo'ljal sifatida)
+grep '"name' "$WORK_DIR/streets.geojsonseq" | awk -F'"name":"' '{ split($2, a, "\""); if (!seen[a[1]]++) print }' > "$OUT_DIR/streets.geojsonseq"
+echo "==> Manzillar: $(wc -l < "$OUT_DIR/addresses.geojsonseq") ta, ko'chalar: $(wc -l < "$OUT_DIR/streets.geojsonseq") ta"
+echo "    Import: php artisan landmarks:import --file=$OUT_DIR/addresses.geojsonseq va --file=$OUT_DIR/streets.geojsonseq"

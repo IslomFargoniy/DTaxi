@@ -797,6 +797,7 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [x] Kassir paneli: haydovchini topish, naqd to'ldirish, kassa smenasi
 - [x] Operator panelida haydovchilar chati
 - [x] OSM'dan POI'lar → `landmarks` (`php artisan landmarks:import`), qidiruv filialga yaqinlik bo'yicha
+- [x] OSM'dan uy manzillari (ko'cha + uy raqami) va ko'chalar → `landmarks` (category `address`/`street`); qidiruv so'zlar bo'yicha ("Mustaqillik 12")
 - [x] `simulate:drivers` — soxta haydovchilar OSRM marshrutlari bo'yicha yuradi, buyurtma oladi va yakunlaydi (`--orders=N` yuklama sinovi)
 
 ### Bosqich 2 — Haydovchi ilovasi Android ✅

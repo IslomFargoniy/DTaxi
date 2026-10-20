@@ -296,7 +296,7 @@ if [[ "$MODE" == "--prod" ]]; then
         [[ -f "${APP_DIR}/public/map/region.pmtiles" ]] || bash "${APP_DIR}/deploy/map-prepare.sh"
         systemctl is-active --quiet ibtaxi-osrm || bash "${APP_DIR}/deploy/osrm-prepare.sh"
         chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/storage/app/osm" "${APP_DIR}/public/map"
-        as_app "php artisan regions:import && php artisan landmarks:import"
+        as_app "php artisan regions:import && php artisan landmarks:import && php artisan landmarks:import --file=storage/app/osm/streets.geojsonseq && php artisan landmarks:import --file=storage/app/osm/addresses.geojsonseq"
     fi
 
     log "Prod: HTTPS (Let's Encrypt)"

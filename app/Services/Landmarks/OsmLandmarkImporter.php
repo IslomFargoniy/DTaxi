@@ -58,21 +58,36 @@ class OsmLandmarkImporter
         $tags = $feature['properties'];
         $name = $tags['name:uz'] ?? $tags['name'] ?? null;
         $point = $this->point($feature['geometry']);
+        $category = null;
+        $aliasSources = [$tags['name'] ?? null, $tags['name:ru'] ?? null, $tags['name:en'] ?? null, $tags['alt_name'] ?? null, $tags['old_name'] ?? null];
+
+        // Uy manzili: "Mustaqillik ko'chasi, 12" — operator ko'cha va uy raqami bilan qidiradi
+        $house = $tags['addr:housenumber'] ?? null;
+        $street = $tags['addr:street'] ?? $tags['addr:place'] ?? null;
+        if (is_string($house) && is_string($street) && $house !== '' && $street !== '') {
+            $address = "{$street}, {$house}";
+            $aliasSources[] = is_string($name) ? $address : null;
+            $name = is_string($name) && trim($name) !== '' ? $name : $address;
+            $category = 'address';
+        } elseif (isset($tags['highway']) && is_string($name)) {
+            $category = 'street';
+        }
 
         if (! is_string($name) || trim($name) === '' || ! $point) {
             return null;
         }
 
         $aliases = array_values(array_unique(array_filter(
-            [$tags['name'] ?? null, $tags['name:ru'] ?? null, $tags['name:en'] ?? null, $tags['alt_name'] ?? null, $tags['old_name'] ?? null],
+            $aliasSources,
             fn ($alias) => is_string($alias) && $alias !== '' && $alias !== $name,
         )));
 
-        $category = null;
-        foreach (self::CATEGORY_TAGS as $tag) {
-            if (isset($tags[$tag]) && is_string($tags[$tag])) {
-                $category = "{$tag}:{$tags[$tag]}";
-                break;
+        if ($category === null) {
+            foreach (self::CATEGORY_TAGS as $tag) {
+                if (isset($tags[$tag]) && is_string($tags[$tag])) {
+                    $category = "{$tag}:{$tags[$tag]}";
+                    break;
+                }
             }
         }
 
@@ -126,6 +141,9 @@ class OsmLandmarkImporter
         if ($rows === []) {
             return 0;
         }
+
+        // Eksportda bitta obyekt ikki marta kelishi mumkin — bitta INSERT ... ON CONFLICT ichida bu xato
+        $rows = array_values(array_column($rows, null, 'osm_id'));
 
         $values = [];
         $bindings = [];
