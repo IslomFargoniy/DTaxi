@@ -15,7 +15,7 @@ class TariffClassFactory extends Factory
     {
         return [
             'branch_id' => Branch::factory(),
-            'name' => fake()->unique()->word(),
+            'name' => fake()->randomElement(['Ekonom', 'Standart', 'Komfort', 'Biznes', 'Minivan', 'Yuk', 'Dostavka']),
             'sort' => 10,
         ];
     }

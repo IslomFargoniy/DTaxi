@@ -14,7 +14,7 @@ class ClientFactory extends Factory
     {
         return [
             'phone' => '+99890'.fake()->unique()->numerify('#######'),
-            'name' => fake()->optional()->firstName(),
+            'name' => fake()->boolean() ? UzbekNames::firstName() : null,
         ];
     }
 }

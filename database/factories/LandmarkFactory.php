@@ -14,7 +14,7 @@ class LandmarkFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->unique()->company(),
+            'name' => UzbekNames::landmark(),
             'aliases' => [],
             // Farg'ona shahri atrofi
             'location' => Point::makeGeodetic(40.38 + fake()->randomFloat(4, -0.02, 0.02), 71.78 + fake()->randomFloat(4, -0.02, 0.02)),

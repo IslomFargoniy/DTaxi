@@ -13,7 +13,7 @@ class BranchFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->unique()->city(),
+            'name' => UzbekNames::city(),
             'service_name' => 'ibTaxi',
             'timezone' => 'Asia/Tashkent',
             'is_active' => true,
