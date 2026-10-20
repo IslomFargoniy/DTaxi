@@ -106,6 +106,7 @@ class PlaceAutoCall implements ShouldQueue
             'arrived', 'still_waiting' => $order->status === OrderStatus::Arrived,
             'cancelled' => $order->status === OrderStatus::CancelledByOperator,
             'no_driver' => $order->status === OrderStatus::NoDriverFound,
+            'rate' => $order->status === OrderStatus::Completed && $order->client_rating === null,
             default => false,
         };
     }
@@ -121,6 +122,7 @@ class PlaceAutoCall implements ShouldQueue
             'still_waiting' => [...$composer->phrase('phrase', 'still-waiting'), ...$composer->media($composer->car($order->vehicle))],
             'cancelled' => $composer->phrase('phrase', 'cancelled'),
             'no_driver' => $composer->phrase('phrase', 'no-driver'),
+            'rate' => $composer->phrase('phrase', 'rate-trip'),
             default => [],
         };
     }

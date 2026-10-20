@@ -558,6 +558,16 @@ const SETTING_FIELDS: {
         kind: 'number',
     },
     {
+        key: 'calls.rating_call_enabled',
+        label: 'After the trip call the client to rate it (1–5)',
+        kind: 'bool',
+    },
+    {
+        key: 'calls.rating_call_delay_minutes',
+        label: 'Rating call after, minutes',
+        kind: 'number',
+    },
+    {
         key: 'calls.recordings_retention_days',
         label: 'Keep recordings, days',
         kind: 'number',

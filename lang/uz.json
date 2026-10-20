@@ -570,5 +570,8 @@
     "Radius, m": "Radius, m",
     "Click the map to set the place": "Joyni belgilash uchun xaritani bosing",
     "Delete": "O'chirish",
-    "No stands yet": "Hali navbat joyi yo'q"
+    "No stands yet": "Hali navbat joyi yo'q",
+    "After the trip call the client to rate it (1–5)": "Safardan keyin mijozga qo'ng'iroq qilib baho so'rash (1–5)",
+    "Rating call after, minutes": "Baho qo'ng'irog'i, necha daqiqadan keyin",
+    "event.rated": "Mijoz baholadi"
 }

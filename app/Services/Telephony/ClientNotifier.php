@@ -25,6 +25,13 @@ class ClientNotifier
 
     public function onOrderEvent(Order $order, string $type): void
     {
+        if ($type === 'completed' && $this->settings->get('calls.rating_call_enabled', $order->branch_id)) {
+            PlaceAutoCall::dispatch($order->id, 'rate')
+                ->delay(now()->addMinutes((int) $this->settings->get('calls.rating_call_delay_minutes', $order->branch_id)));
+
+            return;
+        }
+
         $message = self::EVENTS[$type] ?? null;
         if (! $message || ! $this->settings->get('calls.auto_calls_enabled', $order->branch_id)) {
             return;
@@ -46,7 +53,8 @@ class ClientNotifier
     public function retry(Call $call): void
     {
         $message = data_get($call->meta, 'message');
-        if (! $call->order_id || ! is_string($message)) {
+        // Baho so'rovi muhim emas — qayta urinilmaydi
+        if (! $call->order_id || ! is_string($message) || $message === 'rate') {
             return;
         }
 

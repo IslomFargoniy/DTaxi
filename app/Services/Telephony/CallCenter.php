@@ -609,6 +609,24 @@ class CallCenter
             return;
         }
 
+        // Safardan keyingi baho: 1–5
+        if ($call->kind === 'tts' && data_get($call->meta, 'message') === 'rate') {
+            if (! in_array($digit, ['1', '2', '3', '4', '5'], true) || data_get($call->meta, 'rated')) {
+                return;
+            }
+            if ($playback = data_get($call->meta, 'playback')) {
+                $this->ari->stopPlayback((string) $playback);
+            }
+            $order = $call->order_id ? Order::query()->withoutGlobalScopes()->find($call->order_id) : null;
+            if ($order) {
+                app(OrderService::class)->rateByClient($order, (int) $digit);
+            }
+            $this->updateMeta($call, ['rated' => (int) $digit]);
+            $this->playFor($call, $channelId, $this->composer()->phrase('phrase', 'rate-thanks'), 'close');
+
+            return;
+        }
+
         if ($call->kind === 'tts' && $digit === '1') {
             if ($playback = data_get($call->meta, 'playback')) {
                 $this->ari->stopPlayback((string) $playback);

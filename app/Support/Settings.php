@@ -34,6 +34,9 @@ class Settings
         'calls.auto_call_attempts' => 3,
         'calls.auto_call_retry_seconds' => 30,
         'calls.still_waiting_minutes' => 3,
+        // Safardan keyin mijozga qo'ng'iroq: 1–5 tugmasi bilan baho (qo'ng'iroq pulli — standart o'chiq)
+        'calls.rating_call_enabled' => false,
+        'calls.rating_call_delay_minutes' => 2,
         // Efir (qaror #28)
         'dispatch.radius_steps_m' => [3000, 5000, 8000],
         'dispatch.step_seconds' => 20,

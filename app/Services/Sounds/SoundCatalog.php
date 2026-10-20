@@ -24,6 +24,8 @@ class SoundCatalog
         'for' => 'uchun',
         'press' => 'ni bosing',
         'repeat' => 'Xabarni takrorlash uchun bir ni bosing.',
+        'rate-trip' => "Safaringizni baholang: birdan beshgacha raqamni bosing. Besh — a'lo.",
+        'rate-thanks' => 'Bahoyingiz uchun rahmat!',
     ];
 
     /** @var array<string, string> */

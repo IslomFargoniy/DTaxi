@@ -313,3 +313,25 @@ test('client who presses 2 or stays silent goes to the operator queue', function
 
     expect($call->refresh()->operator_id)->toBe($second->id);
 });
+
+test('after the trip the client is called and rates it by pressing a digit', function () {
+    app(Settings::class)->set('calls.rating_call_enabled', true);
+    $driver = driverNear($this->branch, 300, ['rating' => 90]);
+    $order = Order::factory()->create(['branch_id' => $this->branch->id, 'status' => OrderStatus::Completed, 'driver_id' => $driver->id]);
+
+    OrderEvents::record($order, 'completed');
+    Queue::assertPushed(PlaceAutoCall::class, fn ($job) => $job->message === 'rate');
+
+    $call = Call::query()->create([
+        'channel_id' => 'ch-rate', 'branch_id' => $this->branch->id, 'direction' => 'outbound', 'kind' => 'tts',
+        'order_id' => $order->id, 'status' => 'ringing', 'started_at' => now(), 'meta' => ['message' => 'rate', 'media' => ['sound:ibtaxi/phrase/rate-trip']],
+    ]);
+    $this->center->remember('ch-rate', $call, 'client');
+    $this->center->handle(stasis('ch-rate', ['tts', (string) $call->id]));
+
+    $this->center->handle(['type' => 'ChannelDtmfReceived', 'channel' => ['id' => 'ch-rate'], 'digit' => '2']);
+    $this->center->handle(['type' => 'ChannelDtmfReceived', 'channel' => ['id' => 'ch-rate'], 'digit' => '5']);
+
+    expect($order->fresh()->client_rating)->toBe(2)
+        ->and($driver->fresh()->rating)->toBe(85);
+});

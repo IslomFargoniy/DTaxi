@@ -275,6 +275,25 @@ class OrderService
     }
 
     /**
+     * Mijoz bahosi (1–5): operator kiritadi yoki mijoz safardan keyingi qo'ng'iroqda tugma bosadi.
+     * Birinchi baho haydovchi reytingiga ta'sir qiladi: 5 → +1, 4 → 0, 3 → −2, 2 → −5, 1 → −10.
+     */
+    public function rateByClient(Order $order, int $rating): void
+    {
+        $rating = max(1, min(5, $rating));
+        $first = $order->client_rating === null;
+        $order->forceFill(['client_rating' => $rating])->save();
+
+        if ($first && $order->driver_id) {
+            $delta = [1 => -10, 2 => -5, 3 => -2, 4 => 0, 5 => 1][$rating];
+            Driver::query()->withoutGlobalScopes()->whereKey($order->driver_id)
+                ->update(['rating' => DB::raw('LEAST(100, GREATEST(0, rating + '.$delta.'))')]);
+        }
+
+        OrderEvents::record($order, 'rated', payload: ['rating' => $rating], broadcast: false);
+    }
+
+    /**
      * Qayta efir: eng kichik radiusdan, yangi raund bilan — oldin javob bermaganlar ham yana ko'radi.
      */
     public function redispatch(Order $order, User $operator): void

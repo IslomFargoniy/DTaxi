@@ -7,12 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
 use App\Models\Call;
 use App\Models\Complaint;
-use App\Models\Driver;
 use App\Models\Order;
 use App\Models\OrderEvent;
+use App\Services\Orders\OrderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -97,20 +96,11 @@ class OrderHistoryController extends Controller
     }
 
     /**
-     * Mijoz bahosi (1–5) — operator qo'ng'iroqdan keyin kiritadi. Past baho haydovchi reytingini tushiradi.
+     * Mijoz bahosi (1–5) — operator qo'ng'iroqdan keyin kiritadi.
      */
-    public function rate(Request $request, Order $order): RedirectResponse
+    public function rate(Request $request, Order $order, OrderService $orders): RedirectResponse
     {
-        $rating = (int) $request->validate(['rating' => ['required', 'integer', 'between:1,5']])['rating'];
-        $previous = $order->client_rating;
-        $order->forceFill(['client_rating' => $rating])->save();
-
-        if ($order->driver_id && $previous === null) {
-            // 5 → +1, 4 → 0, 3 → −2, 2 → −5, 1 → −10
-            $delta = [1 => -10, 2 => -5, 3 => -2, 4 => 0, 5 => 1][$rating];
-            Driver::query()->withoutGlobalScopes()->whereKey($order->driver_id)
-                ->update(['rating' => DB::raw('LEAST(100, GREATEST(0, rating + '.$delta.'))')]);
-        }
+        $orders->rateByClient($order, (int) $request->validate(['rating' => ['required', 'integer', 'between:1,5']])['rating']);
 
         return back();
     }
