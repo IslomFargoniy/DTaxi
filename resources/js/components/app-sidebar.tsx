@@ -11,6 +11,7 @@ import {
     Headset,
     LayoutGrid,
     MapPin,
+    MessageSquareWarning,
     AudioLines,
     PhoneCall,
     PlugZap,
@@ -40,6 +41,7 @@ import { index as branches } from '@/routes/admin/branches';
 import { index as calls } from '@/routes/admin/calls';
 import { index as clients } from '@/routes/admin/clients';
 import { index as companies } from '@/routes/admin/companies';
+import { index as complaints } from '@/routes/admin/complaints';
 import { edit as companySettings } from '@/routes/admin/company-settings';
 import { index as driverApp } from '@/routes/admin/driver-app';
 import { index as drivers } from '@/routes/admin/drivers';
@@ -84,6 +86,15 @@ export function AppSidebar() {
             : []),
         ...(can('orders.view')
             ? [{ title: 'Landmarks', href: landmarks(), icon: MapPin }]
+            : []),
+        ...(can('orders.view')
+            ? [
+                  {
+                      title: 'Complaints',
+                      href: complaints(),
+                      icon: MessageSquareWarning,
+                  },
+              ]
             : []),
         ...(can('tariffs.manage')
             ? [{ title: 'Tariffs', href: tariffs(), icon: Receipt }]

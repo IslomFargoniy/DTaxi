@@ -37,6 +37,7 @@ type Driver = DriverRow & {
         balance_after: number;
         comment: string | null;
         created_at: string | null;
+        excused_at: string | null;
     }[];
 };
 
@@ -513,6 +514,45 @@ export default function DriverForm({
                                                     )}
                                                 </span>
                                             ),
+                                        },
+                                        {
+                                            key: 'excuse',
+                                            title: '',
+                                            render: (r) =>
+                                                r.type !==
+                                                'penalty' ? null : r.excused_at ? (
+                                                    <Badge variant="outline">
+                                                        {t('Returned')}
+                                                    </Badge>
+                                                ) : can('balance.adjust') ? (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        title={r.comment ?? ''}
+                                                        onClick={() =>
+                                                            window.confirm(
+                                                                t(
+                                                                    'Return this penalty to the driver?',
+                                                                ),
+                                                            ) &&
+                                                            router.post(
+                                                                DriverController.excusePenalty.url(
+                                                                    {
+                                                                        driver: driver.id,
+                                                                        transaction:
+                                                                            r.id,
+                                                                    },
+                                                                ),
+                                                                {},
+                                                                {
+                                                                    preserveScroll: true,
+                                                                },
+                                                            )
+                                                        }
+                                                    >
+                                                        {t('Excuse')}
+                                                    </Button>
+                                                ) : null,
                                         },
                                     ]}
                                 />

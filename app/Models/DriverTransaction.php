@@ -21,15 +21,17 @@ use Illuminate\Support\Carbon;
  * @property int $balance_after
  * @property string|null $comment
  * @property Carbon|null $created_at
+ * @property Carbon|null $excused_at
+ * @property int|null $excused_by
  */
-#[Fillable(['driver_id', 'order_id', 'cash_shift_id', 'type', 'source', 'amount', 'balance_after', 'created_by', 'comment', 'created_at'])]
+#[Fillable(['driver_id', 'order_id', 'cash_shift_id', 'type', 'source', 'amount', 'balance_after', 'created_by', 'comment', 'created_at', 'excused_at', 'excused_by'])]
 class DriverTransaction extends Model
 {
     public $timestamps = false;
 
     protected function casts(): array
     {
-        return ['type' => TransactionType::class, 'source' => TransactionSource::class, 'amount' => 'integer', 'balance_after' => 'integer', 'created_at' => 'datetime'];
+        return ['type' => TransactionType::class, 'source' => TransactionSource::class, 'amount' => 'integer', 'balance_after' => 'integer', 'created_at' => 'datetime', 'excused_at' => 'datetime'];
     }
 
     /**

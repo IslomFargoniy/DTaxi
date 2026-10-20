@@ -4,20 +4,27 @@ use App\Enums\DriverStatus;
 use App\Enums\Role;
 use App\Enums\TransactionSource;
 use App\Events\ChatMessageSent;
+use App\Events\OfferWithdrawn;
+use App\Events\OrderOffered;
+use App\Events\OrderUpdated;
 use App\Models\Branch;
 use App\Models\CashShift;
 use App\Models\Client;
+use App\Models\Complaint;
 use App\Models\Driver;
 use App\Models\Landmark;
+use App\Models\OrderCancellation;
 use App\Models\Region;
 use App\Models\TariffClass;
 use App\Models\User;
+use App\Services\Dispatch\Dispatcher;
 use App\Services\Orders\OrderService;
 use App\Services\Regions\OsmRegionImporter;
 use App\Support\Settings;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
@@ -247,4 +254,69 @@ test('operator chats with a driver', function () {
     $this->actingAs($operator)->postJson(route('operator.chat.send', $driver), ['body' => 'Mijoz 2 daqiqada chiqadi'])->assertCreated();
     $this->getJson(route('operator.chat.threads'))->assertJsonPath('0.driver_id', $driver->id);
     $this->getJson(route('operator.chat.messages', $driver))->assertJsonPath('0.body', 'Mijoz 2 daqiqada chiqadi');
+});
+
+test('operator logs a lost item for an order and admin resolves it', function () {
+    $this->seed(RolesSeeder::class);
+    $branch = Branch::factory()->create();
+    $operator = User::factory()->create(['branch_id' => $branch->id])->assignRole(Role::Operator);
+    Queue::fake();
+    Http::fake();
+    require_once __DIR__.'/../Orders/helpers.php';
+    $order = app(OrderService::class)->create(orderData($branch), dispatch: false);
+
+    $this->actingAs($operator)->post(route('admin.complaints.store'), ['order_id' => $order->id, 'type' => 'lost_item', 'text' => 'Sumka qolib ketdi'])->assertRedirect();
+    $complaint = Complaint::query()->firstOrFail();
+    expect($complaint->client_id)->toBe($order->client_id)->and($complaint->branch_id)->toBe($branch->id);
+
+    $this->actingAs($operator)->put(route('admin.complaints.update', $complaint), ['status' => 'resolved', 'resolution' => 'Haydovchi olib keldi'])->assertRedirect();
+    expect($complaint->fresh()->status)->toBe('resolved')->and($complaint->fresh()->resolved_by)->toBe($operator->id);
+
+    $this->actingAs($operator)->get(route('admin.orders.show', $order))->assertOk()
+        ->assertInertia(fn ($page) => $page->has('complaints', 1)->has('calls', 0));
+});
+
+test('admin returns an unfair penalty: money, rating and the cancel count come back', function () {
+    $this->seed(RolesSeeder::class);
+    $branch = Branch::factory()->create();
+    $admin = User::factory()->create(['branch_id' => $branch->id])->assignRole(Role::Admin);
+    Queue::fake();
+    Http::fake();
+    Event::fake([OrderOffered::class, OrderUpdated::class, OfferWithdrawn::class]);
+    require_once __DIR__.'/../Orders/helpers.php';
+    $driver = driverNear($branch, 300, ['balance' => 50000]);
+    $order = app(OrderService::class)->create(orderData($branch));
+    app(Dispatcher::class)->accept($order, $driver);
+    app(OrderService::class)->cancelByDriver($order->fresh(), $driver->fresh(), 'Mijoz chiqmadi');
+    $penalty = $driver->transactions()->where('type', 'penalty')->firstOrFail();
+
+    $this->actingAs($admin)->post(route('admin.drivers.transactions.excuse', [$driver, $penalty]))->assertRedirect();
+    $this->actingAs($admin)->post(route('admin.drivers.transactions.excuse', [$driver, $penalty]))->assertRedirect();
+
+    expect($driver->fresh()->balance)->toBe(50000)
+        ->and($driver->fresh()->rating)->toBe(100)
+        ->and($penalty->fresh()->excused_at)->not->toBeNull()
+        ->and(OrderCancellation::query()->where('driver_id', $driver->id)->value('penalty_amount'))->toBe(0);
+});
+
+test('client rating on a completed order lowers the driver rating once', function () {
+    $this->seed(RolesSeeder::class);
+    $branch = Branch::factory()->create();
+    $admin = User::factory()->create(['branch_id' => $branch->id])->assignRole(Role::Admin);
+    Queue::fake();
+    Http::fake();
+    Event::fake([OrderOffered::class, OrderUpdated::class, OfferWithdrawn::class]);
+    require_once __DIR__.'/../Orders/helpers.php';
+    $driver = driverNear($branch, 300, ['balance' => 50000, 'rating' => 90]);
+    $orders = app(OrderService::class);
+    $order = $orders->create(orderData($branch));
+    app(Dispatcher::class)->accept($order, $driver);
+    $orders->start($order->fresh(), $driver->fresh());
+    $orders->complete($order->fresh(), $driver->fresh(), 2000);
+    $rating = $driver->fresh()->rating;
+
+    $this->actingAs($admin)->post(route('admin.orders.rate', $order), ['rating' => 2])->assertRedirect();
+    $this->actingAs($admin)->post(route('admin.orders.rate', $order), ['rating' => 1])->assertRedirect();
+
+    expect($order->fresh()->client_rating)->toBe(1)->and($driver->fresh()->rating)->toBe($rating - 5);
 });

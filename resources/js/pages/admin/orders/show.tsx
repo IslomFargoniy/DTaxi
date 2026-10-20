@@ -1,4 +1,8 @@
-import { Head } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
+import ComplaintController from '@/actions/App/Http/Controllers/Admin/ComplaintController';
+import OrderHistoryController from '@/actions/App/Http/Controllers/Admin/OrderHistoryController';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
     DataTable,
     formatDateTime,
@@ -19,6 +23,21 @@ type Event = {
     payload: Record<string, unknown> | null;
     created_at: string | null;
 };
+type CallRow = {
+    id: number;
+    direction: string;
+    started_at: string;
+    duration_s: number | null;
+    recording_url: string | null;
+};
+type ComplaintRow = {
+    id: number;
+    type: string;
+    text: string;
+    status: string;
+    author: string | null;
+    created_at: string;
+};
 type Offer = {
     callsign: string;
     distance_m: number | null;
@@ -32,6 +51,9 @@ export default function OrderShow({
     order,
     events,
     offers,
+    calls,
+    complaints,
+    clientRating,
 }: {
     order: Order & {
         price_breakdown: Record<string, number> | null;
@@ -39,8 +61,16 @@ export default function OrderShow({
     };
     events: Event[];
     offers: Offer[];
+    calls: CallRow[];
+    complaints: ComplaintRow[];
+    clientRating: number | null;
 }) {
     const { t } = useTrans();
+    const complaint = useForm({
+        order_id: order.id,
+        type: 'complaint',
+        text: '',
+    });
     const rows: [string, React.ReactNode][] = [
         ['Client', `${order.client?.phone ?? ''} ${order.client?.name ?? ''}`],
         ['Pickup', order.pickup.text],
@@ -142,6 +172,134 @@ export default function OrderShow({
                                 </li>
                             ))}
                         </ol>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>{t('Client feedback')}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid gap-3 text-sm">
+                        {order.status === 'completed' && (
+                            <div className="flex items-center gap-1">
+                                <span className="mr-2 text-muted-foreground">
+                                    {t('Rating')}:
+                                </span>
+                                {[1, 2, 3, 4, 5].map((n) => (
+                                    <button
+                                        key={n}
+                                        type="button"
+                                        className={cn(
+                                            'text-xl',
+                                            clientRating !== null &&
+                                                n <= clientRating
+                                                ? 'text-amber-500'
+                                                : 'text-muted-foreground/40',
+                                        )}
+                                        onClick={() =>
+                                            router.post(
+                                                OrderHistoryController.rate.url(
+                                                    order.id,
+                                                ),
+                                                { rating: n },
+                                                { preserveScroll: true },
+                                            )
+                                        }
+                                    >
+                                        ★
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {complaints.map((c) => (
+                            <div key={c.id} className="rounded-md border p-2">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Badge variant="outline">
+                                        {t(`complaint.${c.type}`)}
+                                    </Badge>
+                                    {formatDateTime(c.created_at)} · {c.author}
+                                    {c.status === 'resolved' && (
+                                        <Badge variant="secondary">
+                                            {t('Resolved')}
+                                        </Badge>
+                                    )}
+                                </div>
+                                <p className="mt-1">{c.text}</p>
+                            </div>
+                        ))}
+                        <form
+                            className="flex flex-wrap gap-1.5"
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                complaint.post(
+                                    ComplaintController.store.url(),
+                                    {
+                                        preserveScroll: true,
+                                        onSuccess: () =>
+                                            complaint.reset('text'),
+                                    },
+                                );
+                            }}
+                        >
+                            <select
+                                className="h-9 rounded-md border bg-background px-2 text-sm"
+                                value={complaint.data.type}
+                                onChange={(e) =>
+                                    complaint.setData('type', e.target.value)
+                                }
+                            >
+                                {['complaint', 'lost_item', 'praise'].map(
+                                    (type) => (
+                                        <option key={type} value={type}>
+                                            {t(`complaint.${type}`)}
+                                        </option>
+                                    ),
+                                )}
+                            </select>
+                            <Input
+                                className="min-w-48 flex-1"
+                                placeholder={t('What did the client say?')}
+                                value={complaint.data.text}
+                                onChange={(e) =>
+                                    complaint.setData('text', e.target.value)
+                                }
+                            />
+                            <Button
+                                disabled={
+                                    complaint.processing ||
+                                    complaint.data.text.trim() === ''
+                                }
+                            >
+                                {t('Add')}
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>{t('Calls')}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid gap-2 text-sm">
+                        {calls.length === 0 && (
+                            <p className="text-muted-foreground">—</p>
+                        )}
+                        {calls.map((call) => (
+                            <div key={call.id} className="grid gap-1">
+                                <span className="text-xs text-muted-foreground">
+                                    {formatDateTime(call.started_at)} ·{' '}
+                                    {t(call.direction)}
+                                    {call.duration_s !== null &&
+                                        ` · ${Math.floor(call.duration_s / 60)}:${String(call.duration_s % 60).padStart(2, '0')}`}
+                                </span>
+                                {call.recording_url && (
+                                    <audio
+                                        controls
+                                        preload="none"
+                                        src={call.recording_url}
+                                        className="h-8 w-full"
+                                    />
+                                )}
+                            </div>
+                        ))}
                     </CardContent>
                 </Card>
                 <div className="lg:col-span-2">

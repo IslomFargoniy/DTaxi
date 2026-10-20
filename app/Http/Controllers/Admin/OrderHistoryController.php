@@ -5,9 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
+use App\Models\Call;
+use App\Models\Complaint;
+use App\Models\Driver;
 use App\Models\Order;
 use App\Models\OrderEvent;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -48,7 +53,7 @@ class OrderHistoryController extends Controller
         ]);
     }
 
-    public function show(Order $order): Response
+    public function show(Request $request, Order $order): Response
     {
         $order->load(['client', 'driver.user', 'vehicle', 'tariffClass', 'delivery', 'offers.driver']);
 
@@ -60,6 +65,26 @@ class OrderHistoryController extends Controller
                 'payload' => $e->payload,
                 'created_at' => $e->created_at?->toIso8601String(),
             ]),
+            // Shu buyurtma bo'yicha qo'ng'iroqlar (yozuvni tinglash huquqi bo'lsa — havola)
+            'calls' => Call::query()->where('order_id', $order->id)->orderBy('started_at')->get()
+                ->map(fn (Call $call) => [
+                    'id' => $call->id,
+                    'direction' => $call->direction,
+                    'started_at' => $call->started_at->toIso8601String(),
+                    'duration_s' => $call->talk_seconds,
+                    'recording_url' => $call->recording_path && $request->user()?->can('calls.listen')
+                        ? route('admin.calls.recording', $call) : null,
+                ]),
+            'complaints' => Complaint::query()->where('order_id', $order->id)->with('author:id,name')->latest()->get()
+                ->map(fn (Complaint $c) => [
+                    'id' => $c->id,
+                    'type' => $c->type->value,
+                    'text' => $c->text,
+                    'status' => $c->status,
+                    'author' => $c->author?->name,
+                    'created_at' => $c->created_at->toIso8601String(),
+                ]),
+            'clientRating' => $order->client_rating,
             'offers' => $order->offers->map(fn ($offer) => [
                 'callsign' => $offer->driver->callsign,
                 'distance_m' => $offer->distance_m,
@@ -69,5 +94,24 @@ class OrderHistoryController extends Controller
                 'responded_at' => $offer->responded_at?->toIso8601String(),
             ]),
         ]);
+    }
+
+    /**
+     * Mijoz bahosi (1–5) — operator qo'ng'iroqdan keyin kiritadi. Past baho haydovchi reytingini tushiradi.
+     */
+    public function rate(Request $request, Order $order): RedirectResponse
+    {
+        $rating = (int) $request->validate(['rating' => ['required', 'integer', 'between:1,5']])['rating'];
+        $previous = $order->client_rating;
+        $order->forceFill(['client_rating' => $rating])->save();
+
+        if ($order->driver_id && $previous === null) {
+            // 5 → +1, 4 → 0, 3 → −2, 2 → −5, 1 → −10
+            $delta = [1 => -10, 2 => -5, 3 => -2, 4 => 0, 5 => 1][$rating];
+            Driver::query()->withoutGlobalScopes()->whereKey($order->driver_id)
+                ->update(['rating' => DB::raw('LEAST(100, GREATEST(0, rating + '.$delta.'))')]);
+        }
+
+        return back();
     }
 }

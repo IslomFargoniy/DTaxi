@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CallController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\CompanySettingsController;
+use App\Http\Controllers\Admin\ComplaintController;
 use App\Http\Controllers\Admin\DriverController;
 use App\Http\Controllers\Admin\IntegrationController;
 use App\Http\Controllers\Admin\LandmarkController;
@@ -109,6 +110,7 @@ Route::middleware(['auth', 'permission:drivers.manage'])->prefix('admin')->name(
     Route::post('drivers/{driver}/approve', [DriverController::class, 'approve'])->name('drivers.approve');
     Route::post('drivers/{driver}/block', [DriverController::class, 'block'])->name('drivers.block');
     Route::post('drivers/{driver}/balance', [DriverController::class, 'adjustBalance'])->name('drivers.balance');
+    Route::post('drivers/{driver}/transactions/{transaction}/excuse', [DriverController::class, 'excusePenalty'])->name('drivers.transactions.excuse');
     Route::post('drivers/{driver}/documents', [DriverController::class, 'uploadDocument'])->name('drivers.documents.store');
     Route::get('drivers/{driver}/documents/{document}', [DriverController::class, 'showDocument'])->name('drivers.documents.show');
     Route::put('drivers/{driver}/documents/{document}', [DriverController::class, 'reviewDocument'])->name('drivers.documents.review');
@@ -128,6 +130,10 @@ Route::middleware(['auth', 'permission:orders.view'])->prefix('admin')->name('ad
     Route::get('orders', [OrderHistoryController::class, 'index'])->name('orders.index');
     Route::get('orders/{order}', [OrderHistoryController::class, 'show'])->name('orders.show');
     Route::get('clients', [ClientController::class, 'index'])->name('clients.index');
+    Route::get('complaints', [ComplaintController::class, 'index'])->name('complaints.index');
+    Route::post('complaints', [ComplaintController::class, 'store'])->name('complaints.store');
+    Route::put('complaints/{complaint}', [ComplaintController::class, 'update'])->name('complaints.update');
+    Route::post('orders/{order}/rating', [OrderHistoryController::class, 'rate'])->name('orders.rate');
     Route::put('clients/{client}', [ClientController::class, 'update'])->name('clients.update');
     Route::get('landmarks', [LandmarkController::class, 'index'])->name('landmarks.index');
     Route::put('landmarks/{landmark}', [LandmarkController::class, 'update'])->name('landmarks.update');

@@ -15,6 +15,7 @@ use App\Models\DriverTransaction;
 use App\Models\TariffClass;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Services\Dispatch\DriverDiscipline;
 use App\Services\Drivers\DriverBalance;
 use App\Services\Telephony\Extensions;
 use Illuminate\Http\RedirectResponse;
@@ -25,6 +26,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -89,6 +91,7 @@ class DriverController extends Controller
                     'balance_after' => $t->balance_after,
                     'comment' => $t->comment,
                     'created_at' => $t->created_at?->toIso8601String(),
+                    'excused_at' => $t->excused_at?->toIso8601String(),
                 ]),
             ],
             ...$this->formOptions($request),
@@ -311,5 +314,25 @@ class DriverController extends Controller
         return $actor->isSuperadmin()
             ? array_values(Branch::query()->pluck('id')->map(fn ($id): int => (int) $id)->all())
             : $actor->branchIds();
+    }
+
+    /**
+     * Jarimani uzrli deb bekor qilish (masalan mijoz chiqmagani tasdiqlandi).
+     */
+    public function excusePenalty(Request $request, Driver $driver, DriverTransaction $transaction, DriverDiscipline $discipline): RedirectResponse
+    {
+        abort_unless($transaction->driver_id === $driver->id, 404);
+        abort_unless($request->user()?->can('balance.adjust'), 403);
+        /** @var User $user */
+        $user = $request->user();
+
+        try {
+            $discipline->excuse($transaction, $user);
+            Inertia::flash('toast', ['type' => 'success', 'message' => __('Penalty returned to the driver.')]);
+        } catch (InvalidArgumentException $e) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $e->getMessage()]);
+        }
+
+        return back();
     }
 }

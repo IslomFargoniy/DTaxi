@@ -2,11 +2,16 @@
 
 namespace App\Services\Dispatch;
 
+use App\Enums\TransactionType;
 use App\Models\Driver;
+use App\Models\DriverTransaction;
 use App\Models\Order;
 use App\Models\OrderCancellation;
+use App\Models\User;
 use App\Services\Drivers\DriverBalance;
 use App\Support\Settings;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 /**
  * Jarima, reyting va vaqtincha bloklash (qaror #29). Efirda taklifni olmaslik — jarimasiz.
@@ -48,6 +53,31 @@ class DriverDiscipline
     public function directOfferMissed(Driver $driver, Order $order, string $kind): void
     {
         $this->cancelled($driver, $order, $kind === 'rejected' ? 'Tayinlangan buyurtmani rad etdi' : 'Tayinlangan buyurtmaga javob bermadi');
+    }
+
+    /**
+     * Admin jarimani uzrli deb topdi: pul va reyting qaytadi, bekor qilish bloklash hisobiga kirmaydi.
+     */
+    public function excuse(DriverTransaction $penalty, User $by): void
+    {
+        if ($penalty->type !== TransactionType::Penalty || $penalty->excused_at !== null) {
+            throw new InvalidArgumentException(__('This penalty cannot be excused.'));
+        }
+
+        DB::transaction(function () use ($penalty, $by) {
+            $driver = Driver::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($penalty->driver_id);
+            $penalty->forceFill(['excused_at' => now(), 'excused_by' => $by->id])->save();
+
+            $this->balance->adjust($driver, abs($penalty->amount), $by, "Jarima qaytarildi (#{$penalty->id})");
+
+            $rating = (int) $this->settings->get('drivers.rating_cancel_penalty', $driver->branch_id);
+            $driver->forceFill(['rating' => min(100, $driver->rating + $rating)])->save();
+
+            if ($penalty->order_id) {
+                OrderCancellation::query()->where('driver_id', $driver->id)->where('order_id', $penalty->order_id)
+                    ->update(['penalty_amount' => 0]);
+            }
+        });
     }
 
     public function completed(Driver $driver): void
