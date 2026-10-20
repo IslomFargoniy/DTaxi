@@ -93,6 +93,16 @@ class LookupController extends Controller
     }
 
     /**
+     * Xaritada bosilgan nuqtaning nomi (yaqin uy, mo'ljal yoki ko'cha).
+     */
+    public function reverse(Request $request): JsonResponse
+    {
+        $data = $request->validate(['lat' => ['required', 'numeric', 'between:-90,90'], 'lng' => ['required', 'numeric', 'between:-180,180']]);
+
+        return response()->json(['name' => Landmark::nameAt(Point::makeGeodetic((float) $data['lat'], (float) $data['lng']))]);
+    }
+
+    /**
      * Yangi mo'ljal: operator xaritada bir marta belgilaydi, keyingi safar qidiruvda chiqadi (reja §4).
      */
     public function storeLandmark(Request $request): JsonResponse

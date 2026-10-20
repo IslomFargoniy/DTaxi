@@ -17,7 +17,10 @@ import { useTrans } from '@/hooks/use-trans';
 import { getJson } from '@/lib/http';
 import { orderStatusLabel } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
-import { client as lookupClient } from '@/routes/operator/lookup';
+import {
+    client as lookupClient,
+    reverse as lookupReverse,
+} from '@/routes/operator/lookup';
 import type { Branch, ClientCard, TariffClass } from '@/types/operator';
 import { PlacePicker } from './place-picker';
 import type { PickedPlace } from './place-picker';
@@ -119,22 +122,41 @@ export function OrderForm({
         if (!mapClick || !target) {
             return;
         }
-        // Matn majburiy (haydovchi ko'radi): operator yozmagan bo'lsa — keyin aniqlashtiradi
+        const { lat, lng } = mapClick;
+        // Operator yozgan matn saqlanadi; aks holda — yaqin manzil nomi ("Mustaqillik ko'chasi, 22")
+        const keepsText = (prev: PickedPlace) =>
+            prev.text.trim() !== '' && !prev.auto;
         const place = (prev: PickedPlace): PickedPlace => ({
             ...prev,
-            text: prev.text.trim() || t('Point on the map'),
-            lat: mapClick.lat,
-            lng: mapClick.lng,
+            text: keepsText(prev) ? prev.text : t('Point on the map'),
+            auto: !keepsText(prev),
+            lat,
+            lng,
             landmarkId: null,
         });
-        if (target.startsWith('stop-')) {
-            const index = Number(target.slice(5));
-            setStops((list) =>
-                list.map((stop, i) => (i === index ? place(stop) : stop)),
-            );
-        } else {
-            (target === 'pickup' ? setPickup : setDropoff)(place);
-        }
+        // Javob kelguncha nuqta yana surilgan bo'lsa — eski nom yozilmaydi
+        const named =
+            (name: string) =>
+            (prev: PickedPlace): PickedPlace =>
+                prev.auto && prev.lat === lat && prev.lng === lng
+                    ? { ...prev, text: name }
+                    : prev;
+        const apply = (update: (prev: PickedPlace) => PickedPlace) => {
+            if (target.startsWith('stop-')) {
+                const index = Number(target.slice(5));
+                setStops((list) =>
+                    list.map((stop, i) => (i === index ? update(stop) : stop)),
+                );
+            } else {
+                (target === 'pickup' ? setPickup : setDropoff)(update);
+            }
+        };
+        apply(place);
+        getJson<{ name: string | null }>(
+            lookupReverse.url({ query: { lat, lng } }),
+        )
+            .then(({ name }) => name && apply(named(name)))
+            .catch(() => undefined);
         setPicking(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mapClick?.seq]);

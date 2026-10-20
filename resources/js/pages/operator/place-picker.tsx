@@ -13,6 +13,8 @@ export type PickedPlace = {
     lat: number | null;
     lng: number | null;
     landmarkId: number | null;
+    /** Matn xaritadan avtomatik qo'yilgan (operator yozmagan) — nuqta surilsa yangilanadi */
+    auto?: boolean;
 };
 
 type Props = {

@@ -80,6 +80,12 @@ class OrderService
             $pickup = Point::makeGeodetic($data['pickup_lat'], $data['pickup_lng']);
             $dropoff = isset($data['dropoff_lat'], $data['dropoff_lng']) ? Point::makeGeodetic($data['dropoff_lat'], $data['dropoff_lng']) : null;
 
+            // Operator nomsiz nuqta qo'ygan bo'lsa — yaqin manzil nomi (haydovchi "Xaritadagi nuqta" ko'rmasin)
+            $data['pickup_text'] = $this->placeName($data['pickup_text'], $pickup);
+            if ($dropoff) {
+                $data['dropoff_text'] = $this->placeName((string) ($data['dropoff_text'] ?? ''), $dropoff);
+            }
+
             $stops = $data['stops'] ?? [];
             $distance = $this->routeDistance($pickup, $stops, $dropoff);
             $estimate = $distance === null ? null : $this->fares->calculate($snapshot, $distance, startedAt: CarbonImmutable::now($branch->timezone))->total;
@@ -414,6 +420,13 @@ class OrderService
         }
 
         $order->refresh();
+    }
+
+    private function placeName(string $text, Point $point): string
+    {
+        $generic = trim($text) === '' || in_array(trim($text), ['Point on the map', 'Xaritadagi nuqta', 'Точка на карте'], true);
+
+        return $generic ? (Landmark::nameAt($point) ?? (trim($text) ?: __('Point on the map'))) : $text;
     }
 
     /**

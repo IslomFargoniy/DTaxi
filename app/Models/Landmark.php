@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Mo'ljal: mijozlar aytadigan joy nomi ("Chorsu bozori", "3-maktab") va uning nuqtasi (reja §4).
@@ -88,5 +89,28 @@ class Landmark extends Model
                 [$near?->getLongitude(), $near?->getLatitude()],
             ))
             ->orderByRaw('word_similarity(?, search) DESC', [$needle]);
+    }
+
+    /**
+     * Xaritadagi nuqtaning nomi (teskari geokodlash, o'z bazamizdan): yaqin uy manzili → mo'ljal → ko'cha.
+     * "Mustaqillik ko'chasi, 22" — haydovchi "Xaritadagi nuqta" o'rniga tushunarli manzil ko'radi.
+     */
+    public static function nameAt(Point $point): ?string
+    {
+        $row = DB::selectOne(<<<'SQL'
+            WITH p AS (SELECT ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography AS g)
+            SELECT name FROM (
+                SELECT name, ST_Distance(location, p.g) AS d,
+                       CASE WHEN category = 'address' THEN 100 WHEN category = 'street' THEN 250 ELSE 120 END AS max_d,
+                       CASE WHEN category = 'address' THEN 0 WHEN category = 'street' THEN 2 ELSE 1 END AS rank
+                FROM landmarks, p
+                WHERE ST_DWithin(location, p.g, 250)
+            ) AS near
+            WHERE d <= max_d
+            ORDER BY rank, d
+            LIMIT 1
+            SQL, [$point->getLongitude(), $point->getLatitude()]);
+
+        return $row ? (string) $row->name : null;
     }
 }

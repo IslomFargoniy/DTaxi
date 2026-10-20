@@ -173,6 +173,7 @@ Route::middleware(['auth', 'permission:orders.manage'])->prefix('operator')->nam
 
     Route::get('lookup/client', [LookupController::class, 'client'])->name('lookup.client');
     Route::get('lookup/landmarks', [LookupController::class, 'landmarks'])->name('lookup.landmarks');
+    Route::get('lookup/reverse', [LookupController::class, 'reverse'])->name('lookup.reverse');
     Route::post('landmarks', [LookupController::class, 'storeLandmark'])->name('landmarks.store');
 
     Route::get('phone', [PhoneController::class, 'show'])->name('phone.show');

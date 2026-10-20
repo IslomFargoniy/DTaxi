@@ -217,3 +217,17 @@ test('order with stops: distance and estimate include every leg, driver sees the
         ->and($order->price_estimate)->toBeGreaterThanOrEqual($direct->price_estimate);
     expect(OrderOffered::payload($order->load('tariffClass'), $order->offers()->firstOrNew([], ['offered_at' => now()]), 20)['stops_text'])->toBe('Dorixona');
 });
+
+test('a point on the map gets the nearest house address as its name', function () {
+    $house = Landmark::query()->create(['name' => "Mustaqillik ko'chasi, 22", 'category' => 'address', 'location' => Point::makeGeodetic(40.3866, 71.7864)]);
+    Landmark::query()->create(['name' => 'Uzoq bozor', 'location' => Point::makeGeodetic(40.40, 71.80)]);
+
+    $this->actingAs($this->operator)
+        ->getJson(route('operator.lookup.reverse', ['lat' => 40.3864, 'lng' => 71.7864]))
+        ->assertOk()->assertJsonPath('name', $house->name);
+    $this->getJson(route('operator.lookup.reverse', ['lat' => 41.0, 'lng' => 70.0]))->assertJsonPath('name', null);
+
+    // Operator matn yozmay yuborsa ham haydovchi manzil nomini ko'radi
+    $order = app(OrderService::class)->create(orderData($this->branch, ['pickup_text' => 'Xaritadagi nuqta']), dispatch: false);
+    expect($order->pickup_text)->toBe("Mustaqillik ko'chasi, 22");
+});
