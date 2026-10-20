@@ -26,7 +26,7 @@ object OfferNotifier {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notification = NotificationCompat.Builder(context, IbTaxiApp.CHANNEL_OFFERS)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.new_order))
             .setContentText(offer.pickupText)
             .setCategory(NotificationCompat.CATEGORY_CALL)
@@ -52,7 +52,7 @@ object OfferNotifier {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notification = NotificationCompat.Builder(context, IbTaxiApp.CHANNEL_MESSAGES)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.chat))
             .setContentText(body)
             .setContentIntent(intent)

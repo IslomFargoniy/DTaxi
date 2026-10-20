@@ -1,5 +1,14 @@
 package uz.ibtaxi.driver.ui
 
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.draw.scale
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.border
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -158,9 +167,10 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
         }
     }
 
+    val appColors = LocalAppColors.current
     Box(Modifier.fillMaxSize()) {
         TaxiMap(
-            styleUrl = p.config.mapStyle,
+            styleUrl = mapStyleFor(p.config.mapStyle, appColors.dark),
             me = location?.let { MapPoint(it.first, it.second) },
             pickup = order?.pickup?.let { pl -> pl.lat?.let { MapPoint(it, pl.lng ?: 0.0) } },
             dropoff = order?.dropoff?.let { pl -> pl.lat?.let { MapPoint(it, pl.lng ?: 0.0) } },
@@ -172,74 +182,78 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
             speedKmh = motion.speedKmh,
         )
 
-        // Yuqori panel: holat, balans, chat, sozlamalar
-        Row(
-            Modifier.fillMaxWidth().padding(12.dp).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f), RoundedCornerShape(16.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("${p.callsign} · ${p.vehicle?.plateNumber ?: ""}", fontWeight = FontWeight.Bold)
-                Text(
-                    "${stringResource(R.string.balance)}: ${formatMoney(p.balance)} · ${stringResource(R.string.rating)}: ${p.rating}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (p.balance < p.minBalance) MaterialTheme.colorScheme.error else Color.Unspecified,
-                )
-            }
-            IconButton(onClick = { onOpen(Screen.Call) }) { Icon(Icons.Default.Call, stringResource(R.string.call_dispatcher)) }
-            IconButton(onClick = { onOpen(Screen.Balance) }) { Icon(Icons.Default.AccountBalanceWallet, null) }
-            IconButton(onClick = { onOpen(Screen.Chat) }) {
-                BadgedBox(badge = { if (unread > 0) Badge { Text("$unread") } }) { Icon(Icons.Default.Chat, null) }
-            }
-            IconButton(onClick = { onOpen(Screen.Settings) }) { Icon(Icons.Default.Settings, null) }
-        }
+        // Yuqori panel (maket A/B): pozivnoy, davlat raqami, balans, chat
+        Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TopBar(p, unread, onOpen)
 
-        problem?.let { text ->
-            Card(
-                Modifier.align(Alignment.TopCenter).padding(top = 76.dp, start = 12.dp, end = 12.dp).fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-            ) {
-                Text(
-                    stringResource(text),
-                    Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    fontWeight = FontWeight.Medium,
-                )
+            problem?.let { text ->
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.errorContainer) {
+                    Text(
+                        stringResource(text),
+                        Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
-        }
 
-        // Navigatsiya banneri: keyingi manevr va unga qadar masofa
-        banner?.let { (step, meters) ->
-            Card(
-                Modifier.align(Alignment.TopCenter).padding(top = if (problem != null) 128.dp else 76.dp, start = 12.dp, end = 12.dp).fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
-            ) {
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(arrow(step), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimary)
-                    Column(Modifier.padding(start = 12.dp)) {
-                        meters?.let { Text(formatDistance(it), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary) }
-                        Text(Instructions.text(step, session.locale), color = MaterialTheme.colorScheme.onPrimary, maxLines = 2)
+            // Navigatsiya banneri: ikkala rejimda qora, strelka sariq (maket A-Trip)
+            banner?.let { (step, meters) ->
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = NavBannerColor, shadowElevation = 8.dp) {
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(arrow(step), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                        Column(Modifier.padding(start = 14.dp)) {
+                            meters?.let { Text(formatDistance(it), style = MaterialTheme.typography.headlineSmall, color = Color.White) }
+                            Text(Instructions.text(step, session.locale), color = Color(0xFFCFCFCF), maxLines = 2)
+                        }
                     }
+                }
+            }
+
+            // Navbat joyidagi o'rin — qora "chip" (maket A-Home)
+            if (order == null) shift?.stand?.let { stand ->
+                Surface(shape = RoundedCornerShape(999.dp), color = NavBannerColor) {
+                    Text(
+                        "${stringResource(R.string.queue)}: ${stand.stand} — ${stand.position} / ${stand.total}",
+                        Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             }
         }
 
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(12.dp)) {
+        // Pastki panel: buyurtma bo'lsa — uning bosqichlari, aks holda liniya holati va smena
+        BottomSheet(Modifier.align(Alignment.BottomCenter)) {
             val current = order
             if (current != null) {
-                OrderCard(current, passedStops) { count ->
+                OrderCard(current, passedStops, onChat = { onOpen(Screen.Chat) }) { count ->
                     passedStops = count
                     session.setPassedStops(current.id, count)
                 }
             } else {
                 val online = p.status != "offline"
-                if (online) shift?.let { ShiftCard(it) }
-                Card(Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(if (online) R.string.online else R.string.offline), style = MaterialTheme.typography.titleMedium)
-                            if (online) Text(stringResource(R.string.no_orders), style = MaterialTheme.typography.bodySmall)
-                        }
-                        Switch(checked = online, onCheckedChange = { goOnline ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.size(12.dp).background(
+                            if (online) appColors.success else MaterialTheme.colorScheme.outline,
+                            CircleShape,
+                        ),
+                    )
+                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                        Text(stringResource(if (online) R.string.online else R.string.offline), style = MaterialTheme.typography.titleLarge)
+                        if (online) Text(stringResource(R.string.waiting_for_orders), style = MaterialTheme.typography.bodyMedium, color = appColors.muted)
+                    }
+                    Switch(
+                        checked = online,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedThumbColor = Color(0xFF111111),
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                        modifier = Modifier.scale(1.25f).padding(end = 6.dp),
+                        onCheckedChange = { goOnline ->
                             val toggle: () -> Unit = {
                                 scope.launch {
                                     when (val result = repository.setOnline(goOnline)) {
@@ -249,8 +263,20 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
                                 }
                             }
                             if (goOnline) requestPermissions(toggle) else toggle()
-                        })
+                        },
+                    )
+                }
+                if (online) shift?.shift?.let { s ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StatTile("${s.minutes / 60}:${"%02d".format(s.minutes % 60)}", stringResource(R.string.shift), Modifier.weight(1f))
+                        StatTile("${s.orders}", stringResource(R.string.orders_label), Modifier.weight(1f))
+                        StatTile(shortMoney(s.earnings), stringResource(R.string.earnings), Modifier.weight(1f))
                     }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SheetButton(stringResource(R.string.dispatcher), Modifier.weight(1f), strong = true) { onOpen(Screen.Call) }
+                    SheetButton(stringResource(R.string.balance), Modifier.weight(1f)) { onOpen(Screen.Balance) }
+                    SheetButton(stringResource(R.string.settings), Modifier.weight(1f)) { onOpen(Screen.Settings) }
                 }
             }
         }
@@ -275,7 +301,7 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
  * Buyurtma bosqichlari: Yetib keldim → Yo'lovchi o'tirdi → Yakunlash; safar davomida taksometr.
  */
 @Composable
-private fun OrderCard(order: Order, passedStops: Int, onPassedStops: (Int) -> Unit) {
+private fun OrderCard(order: Order, passedStops: Int, onChat: () -> Unit, onPassedStops: (Int) -> Unit) {
     val context = LocalContext.current
     val repository = IbTaxiApp.instance.repository
     val scope = rememberCoroutineScope()
@@ -306,88 +332,101 @@ private fun OrderCard(order: Order, passedStops: Int, onPassedStops: (Int) -> Un
         }
     }
 
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("#${order.id} · ${order.tariffClass?.name ?: ""}", style = MaterialTheme.typography.labelLarge)
-            Text("${stringResource(R.string.pickup)}: ${order.pickup.text ?: ""}", style = MaterialTheme.typography.titleMedium)
-            // Oraliq to'xtashlar: o'tilganlari chizilgan, safarda keyingisini bosib "o'tdim" deyiladi
+    val appColors = LocalAppColors.current
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("#${order.id} · ${order.tariffClass?.name ?: ""}", style = MaterialTheme.typography.labelLarge, color = appColors.muted)
+
+        // Manzillar: sariq halqa — qayerdan, kulrang — to'xtashlar, qora — qayerga (maket A-Offer)
+        Column(
+            Modifier.fillMaxWidth().background(appColors.tile, RoundedCornerShape(18.dp)).padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            PlaceRow(PlaceDot.Pickup, order.pickup.text ?: "", bold = order.status != "in_progress")
             order.stops.orEmpty().forEachIndexed { index, stop ->
                 val passed = index < passedStops
                 val next = order.status == "in_progress" && index == passedStops
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "${if (passed) "✓" else "${index + 1}."} ${stop.text}",
-                        Modifier.weight(1f),
-                        textDecoration = if (passed) TextDecoration.LineThrough else null,
-                        fontWeight = if (next) FontWeight.Bold else null,
-                        color = if (passed) MaterialTheme.colorScheme.outline else Color.Unspecified,
-                    )
+                    Box(Modifier.weight(1f)) {
+                        PlaceRow(
+                            PlaceDot.Stop,
+                            "${if (passed) "✓ " else ""}${stop.text}",
+                            bold = next,
+                            passed = passed,
+                        )
+                    }
                     if (next) TextButton(onClick = { onPassedStops(index + 1) }) { Text(stringResource(R.string.stop_passed)) }
                 }
             }
-            order.dropoff?.text?.let { Text("${stringResource(R.string.dropoff)}: $it") }
-            order.company?.let {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
-                    Text(
-                        "${stringResource(R.string.corporate_client)}: $it\n${stringResource(R.string.corporate_no_cash)}",
-                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-            }
-            order.priceBonus?.takeIf { it > 0 }?.let {
-                Text("${stringResource(R.string.bonus)}: +${formatMoney(it)} ${stringResource(R.string.som)}", color = Color(0xFF16A34A), fontWeight = FontWeight.Medium)
-            }
-            order.comment?.let { Text("${stringResource(R.string.comment)}: $it", style = MaterialTheme.typography.bodySmall) }
+            order.dropoff?.text?.let { PlaceRow(PlaceDot.Dropoff, it, bold = order.status == "in_progress") }
+        }
 
-            if (order.status == "arrived") {
-                WaitingPanel(order, tariff, waitingSeconds)
+        order.company?.let {
+            Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
+                Text(
+                    "${stringResource(R.string.corporate_client)}: $it\n${stringResource(R.string.corporate_no_cash)}",
+                    Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
-            if (order.status == "in_progress" && tariff != null) {
-                TaximeterPanel(order, tariff, meters, profile?.config?.timezone)
-            }
+        }
+        order.priceBonus?.takeIf { it > 0 }?.let {
+            Text("${stringResource(R.string.bonus)}: +${formatMoney(it)} ${stringResource(R.string.som)}", color = appColors.success, fontWeight = FontWeight.Bold)
+        }
+        order.comment?.let { Text("${stringResource(R.string.comment)}: $it", style = MaterialTheme.typography.bodyMedium, color = appColors.muted) }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
-                    order.client?.phone?.let { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$it"))) }
-                }) { Icon(Icons.Default.Phone, null) }
-                OutlinedButton(onClick = {
-                    navigationTarget(order, passedStops)?.let { (lat, lng) ->
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng")))
-                    }
-                }) { Icon(Icons.Default.Navigation, null) }
-                if (order.status in setOf("assigned", "arrived")) {
-                    OutlinedButton(onClick = { cancelling = true }) { Text(stringResource(R.string.cancel_order)) }
+        if (order.status == "arrived") {
+            WaitingPanel(order, tariff, waitingSeconds)
+        }
+        if (order.status == "in_progress" && tariff != null) {
+            TaximeterPanel(order, tariff, meters, profile?.config?.timezone)
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            TileIconButton(Icons.Default.Phone, stringResource(R.string.call_client)) {
+                order.client?.phone?.let { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$it"))) }
+            }
+            TileIconButton(Icons.Default.Chat, stringResource(R.string.chat), onClick = onChat)
+            TileIconButton(Icons.Default.Navigation, stringResource(R.string.open_navigator)) {
+                navigationTarget(order, passedStops)?.let { (lat, lng) ->
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng")))
                 }
             }
+            if (order.status in setOf("assigned", "arrived")) {
+                TextButton(onClick = { cancelling = true }, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.cancel_order), color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
 
-            when (order.status) {
-                "assigned" -> Button(onClick = { act { repository.arrive(order.id) } }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.arrived))
-                }
-                "arrived" -> Button(onClick = { act { repository.start(order.id) } }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.passenger_in))
-                }
-                "in_progress" -> Button(
-                    onClick = {
-                        busy = true
-                        IbTaxiApp.instance.scope.launch {
-                            when (val result = repository.complete(order.id, meters.first, meters.second)) {
-                                is Result.Ok -> if (order.company == null) DriverState.receipt(result.value?.priceFinal)
-                                // Internet yo'q — natija saqlangan, servis o'zi qayta yuboradi
-                                is Result.Error -> if (result.code != -1) {
-                                    DriverState.toast(result.message ?: context.getString(R.string.network_error))
-                                }
+        val mainButton = Modifier.fillMaxWidth().height(60.dp)
+        when (order.status) {
+            "assigned" -> Button(onClick = { act { repository.arrive(order.id) } }, enabled = !busy, modifier = mainButton, shape = RoundedCornerShape(18.dp)) {
+                Text(stringResource(R.string.arrived), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            }
+            "arrived" -> Button(onClick = { act { repository.start(order.id) } }, enabled = !busy, modifier = mainButton, shape = RoundedCornerShape(18.dp)) {
+                Text(stringResource(R.string.passenger_in), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            }
+            "in_progress" -> Button(
+                onClick = {
+                    busy = true
+                    IbTaxiApp.instance.scope.launch {
+                        when (val result = repository.complete(order.id, meters.first, meters.second)) {
+                            is Result.Ok -> if (order.company == null) DriverState.receipt(result.value?.priceFinal)
+                            // Internet yo'q — natija saqlangan, servis o'zi qayta yuboradi
+                            is Result.Error -> if (result.code != -1) {
+                                DriverState.toast(result.message ?: context.getString(R.string.network_error))
                             }
-                            busy = false
                         }
-                    },
-                    enabled = !busy && !sending,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(stringResource(if (sending) R.string.sending else R.string.finish)) }
-            }
+                        busy = false
+                    }
+                },
+                enabled = !busy && !sending,
+                shape = RoundedCornerShape(18.dp),
+                // "Yakunlash" — qora (yorug'da) / oq (qorong'ida), sariq taksometrdan ajralib turadi
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary),
+                modifier = mainButton,
+            ) { Text(stringResource(if (sending) R.string.sending else R.string.finish), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold) }
         }
     }
 
@@ -482,14 +521,15 @@ private fun WaitingPanel(order: Order, tariff: Tariff?, waitingSeconds: Long) {
     val fare = tariff?.let {
         Fare.calculate(it, 0, waitingSeconds = waitingSeconds, surgeCoeff = order.surgeCoeff ?: 1.0, discountPercent = order.discountPercent ?: 0)
     }
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+    val ink = MaterialTheme.colorScheme.onSurface
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = LocalAppColors.current.tile)) {
         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            MeterValue("${waitingSeconds / 60}:${"%02d".format(waitingSeconds % 60)}", stringResource(R.string.waiting))
+            MeterValue("${waitingSeconds / 60}:${"%02d".format(waitingSeconds % 60)}", stringResource(R.string.waiting), ink)
             if (charged && freeLeft > 0) {
-                MeterValue("${freeLeft / 60}:${"%02d".format(freeLeft % 60)}", stringResource(R.string.waiting_free_left))
+                MeterValue("${freeLeft / 60}:${"%02d".format(freeLeft % 60)}", stringResource(R.string.waiting_free_left), ink)
             }
             if (fare != null) {
-                MeterValue("${formatMoney(fare.total + (order.priceBonus ?: 0))}", stringResource(R.string.som))
+                MeterValue("${formatMoney(fare.total + (order.priceBonus ?: 0))}", stringResource(R.string.som), ink)
             }
         }
         if (!charged) {
@@ -528,22 +568,22 @@ private fun TaximeterPanel(order: Order, tariff: Tariff, meters: Pair<Long, Long
     // Operator ustamasi formulaga kirmaydi — yakuniy narxga qo'shiladi (server ham shunday)
     val total = fare.total + (order.priceBonus ?: 0)
 
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
-    ) {
-        Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                "${formatMoney(total)} ${stringResource(R.string.som)}",
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimary,
-            )
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                MeterValue("%.2f".format((meters.first + meters.second) / 1000.0), stringResource(R.string.km))
-                MeterValue("${rideSeconds / 60}:${"%02d".format(rideSeconds % 60)}", stringResource(R.string.ride_time))
-                if (waitingSeconds > 0) MeterValue("${waitingSeconds / 60}:${"%02d".format(waitingSeconds % 60)}", stringResource(R.string.waiting))
-                if (meters.second > 0) MeterValue("%.1f".format(meters.second / 1000.0), stringResource(R.string.outside_km))
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.primary) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.taximeter), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimary)
+                Text(
+                    "${formatMoney(total)} ${stringResource(R.string.som)}",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    maxLines = 1,
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("%.1f ${stringResource(R.string.km)}".format((meters.first + meters.second) / 1000.0), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                Text("${rideSeconds / 60}:${"%02d".format(rideSeconds % 60)}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                if (waitingSeconds > 0) Text("${stringResource(R.string.waiting)} ${waitingSeconds / 60}:${"%02d".format(waitingSeconds % 60)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
+                if (meters.second > 0) Text("${stringResource(R.string.outside_km)}: %.1f".format(meters.second / 1000.0), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
             }
         }
     }
@@ -556,37 +596,125 @@ private fun navigationTarget(order: Order, passedStops: Int): Pair<Double, Doubl
     return order.dropoff?.lat?.let { lat -> order.dropoff.lng?.let { lat to it } }
 }
 
-/** Liniyada: joriy smena hisoboti va navbat joyidagi o'rin */
 @Composable
-private fun ShiftCard(summary: ShiftSummaryResponse) {
-    val shift = summary.shift
-    val stand = summary.stand
-    if (shift == null && stand == null) return
-    Card(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-            shift?.let {
+private fun MeterValue(value: String, label: String, color: Color = MaterialTheme.colorScheme.onPrimary) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = color)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = 0.75f))
+    }
+}
+
+/** Yuqori panel: pozivnoy plitkasi, davlat raqami, mashina va reyting, balans, chat */
+@Composable
+private fun TopBar(p: uz.ibtaxi.driver.data.DriverProfile, unread: Int, onOpen: (Screen) -> Unit) {
+    val appColors = LocalAppColors.current
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 6.dp) {
+        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(46.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(p.callsign, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimary, maxLines = 1)
+            }
+            Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                Text(p.vehicle?.plateNumber ?: p.name, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                 Text(
-                    "${stringResource(R.string.shift)}: ${it.minutes / 60}:${"%02d".format(it.minutes % 60)} · " +
-                        "${it.orders} ${stringResource(R.string.orders_short)} · ${formatMoney(it.earnings)} ${stringResource(R.string.som)}",
-                    style = MaterialTheme.typography.bodyMedium,
+                    listOfNotNull(p.vehicle?.model, p.vehicle?.color, "★ ${p.rating}").joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = appColors.muted,
+                    maxLines = 1,
                 )
             }
-            stand?.let {
+            Surface(
+                onClick = { onOpen(Screen.Balance) },
+                shape = RoundedCornerShape(14.dp),
+                color = appColors.tile,
+            ) {
                 Text(
-                    "${stringResource(R.string.queue)}: ${it.stand} — ${it.position}/${it.total}",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    formatMoney(p.balance),
+                    Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (p.balance < p.minBalance) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                 )
+            }
+            Box(Modifier.padding(start = 6.dp)) {
+                TileIconButton(Icons.Default.Chat, stringResource(R.string.chat), size = 44) { onOpen(Screen.Chat) }
+                if (unread > 0) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(9.dp).background(Color(0xFFE5484D), CircleShape))
             }
         }
     }
 }
 
+/** Pastki panel: yuqori burchaklari yumaloq, tortish belgisi bilan (maket A) */
 @Composable
-private fun MeterValue(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
+private fun BottomSheet(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Surface(
+        modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 12.dp,
+    ) {
+        Column(Modifier.navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Box(Modifier.align(Alignment.CenterHorizontally).size(width = 40.dp, height = 5.dp).background(MaterialTheme.colorScheme.outline, RoundedCornerShape(3.dp)))
+            content()
+        }
     }
 }
+
+@Composable
+private fun StatTile(value: String, label: String, modifier: Modifier = Modifier) {
+    val appColors = LocalAppColors.current
+    Column(modifier.background(appColors.tile, RoundedCornerShape(16.dp)).padding(12.dp)) {
+        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = appColors.muted)
+    }
+}
+
+@Composable
+private fun SheetButton(text: String, modifier: Modifier = Modifier, strong: Boolean = false, onClick: () -> Unit) {
+    val appColors = LocalAppColors.current
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(52.dp),
+        shape = RoundedCornerShape(16.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp),
+        colors = if (strong) {
+            ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary)
+        } else {
+            ButtonDefaults.buttonColors(containerColor = appColors.tile, contentColor = MaterialTheme.colorScheme.onSurface)
+        },
+    ) { Text(text, fontWeight = FontWeight.Bold, maxLines = 1) }
+}
+
+@Composable
+private fun TileIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, size: Int = 56, onClick: () -> Unit) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(16.dp), color = LocalAppColors.current.tile, modifier = Modifier.size(size.dp)) {
+        Box(contentAlignment = Alignment.Center) { Icon(icon, contentDescription = label) }
+    }
+}
+
+enum class PlaceDot { Pickup, Stop, Dropoff }
+
+/** Manzil qatori: nuqta belgisi + matn (taklif va buyurtma kartasida bir xil) */
+@Composable
+fun PlaceRow(dot: PlaceDot, text: String, bold: Boolean = true, passed: Boolean = false) {
+    val ink = MaterialTheme.colorScheme.onSurface
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        when (dot) {
+            PlaceDot.Pickup -> Box(Modifier.size(14.dp).background(MaterialTheme.colorScheme.primary, CircleShape).border(3.dp, ink, CircleShape))
+            PlaceDot.Stop -> Box(Modifier.padding(horizontal = 2.dp).size(10.dp).background(LocalAppColors.current.muted, RoundedCornerShape(3.dp)))
+            PlaceDot.Dropoff -> Box(Modifier.size(14.dp).background(ink, CircleShape))
+        }
+        Text(
+            text,
+            Modifier.padding(start = 10.dp),
+            style = if (bold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+            fontWeight = if (bold) FontWeight.Bold else null,
+            textDecoration = if (passed) TextDecoration.LineThrough else null,
+            color = if (passed) MaterialTheme.colorScheme.outline else ink,
+        )
+    }
+}
+
+/** 145 000 → 145k (kichik plitkaga sig'sin) */
+private fun shortMoney(value: Long): String = if (value >= 100_000) "${value / 1000}k" else formatMoney(value)

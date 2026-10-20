@@ -106,4 +106,10 @@
     <string name="kmh">km/soat</string>
     <string name="waiting_free_left">Bepul qoldi</string>
     <string name="waiting_not_charged">Bu tarifda kutish narxga qo\'shilmaydi</string>
+    <string name="taximeter">TAKSOMETR</string>
+    <string name="earnings">Tushum</string>
+    <string name="orders_label">Buyurtma</string>
+    <string name="skip">O\'tkazib yuborish</string>
+    <string name="minutes_short">daq</string>
+    <string name="waiting_for_orders">Buyurtma kutilmoqda…</string>
 </resources>

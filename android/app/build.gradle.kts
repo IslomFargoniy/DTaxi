@@ -74,11 +74,11 @@ android {
         versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: autoBuildNumber
         versionName = (project.findProperty("versionName") as String?) ?: "1.0.$autoBuildNumber"
 
-        resValue("string", "app_name", firmProp("appName", "ibTaxi Driver"))
+        resValue("string", "app_name", firmProp("appName", "D taxi"))
         buildConfigField("String", "SERVER_URL", "\"${firmProp("serverUrl").trimEnd('/')}\"")
         // Faqat lokal sinov ilovasi: server manzili login ekranida o'zgartiriladi (Mac IP'si har Wi-Fi'da boshqa)
         buildConfigField("boolean", "SERVER_EDITABLE", firmProp("serverEditable", "false"))
-        buildConfigField("String", "PRIMARY_COLOR", "\"${firmProp("primaryColor", "#F5B700")}\"")
+        buildConfigField("String", "PRIMARY_COLOR", "\"${firmProp("primaryColor", "#FFC800")}\"")
         buildConfigField("String", "FIREBASE_PROJECT_ID", "\"${firmProp("firebaseProjectId")}\"")
         buildConfigField("String", "FIREBASE_APPLICATION_ID", "\"${firmProp("firebaseApplicationId")}\"")
         buildConfigField("String", "FIREBASE_API_KEY", "\"${firmProp("firebaseApiKey")}\"")

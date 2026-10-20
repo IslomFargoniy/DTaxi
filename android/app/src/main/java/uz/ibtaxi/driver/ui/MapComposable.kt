@@ -1,5 +1,6 @@
 package uz.ibtaxi.driver.ui
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.Text
 import androidx.compose.material3.Surface
@@ -118,10 +119,15 @@ fun TaxiMap(
 
     if (navigating && me != null) {
         Surface(
-            modifier = Modifier.align(Alignment.CenterStart).padding(start = 12.dp).size(56.dp),
+            modifier = Modifier.align(Alignment.CenterStart).padding(start = 12.dp).size(62.dp),
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 4.dp,
+            // Shahar ichidagi chegaradan (60) oshsa — qizil halqa (maket A-Trip)
+            border = androidx.compose.foundation.BorderStroke(
+                if (speedKmh > 60) 4.dp else 1.dp,
+                if (speedKmh > 60) Color(0xFFE5484D) else MaterialTheme.colorScheme.outline,
+            ),
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Text("$speedKmh", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -135,15 +141,18 @@ fun TaxiMap(
             follow = true
             recenter++
         },
-        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp),
+        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp).size(52.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         containerColor = MaterialTheme.colorScheme.surface,
+        // Ko'tarilgan tugmaga Material sariq tus bermasin — tungi rejimda dog'dek ko'rinardi
+        elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(4.dp, 4.dp, 4.dp, 4.dp),
     ) {
         Icon(
             if (follow) Icons.Default.MyLocation else Icons.Default.LocationSearching,
             contentDescription = stringResource(R.string.my_location),
-            // GPS hali topilmagan — kulrang
+            // GPS hali topilmagan — xira, lekin ikkala rejimda ko'rinadi
             tint = when {
-                me == null -> MaterialTheme.colorScheme.outline
+                me == null -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                 follow -> MaterialTheme.colorScheme.primary
                 else -> MaterialTheme.colorScheme.onSurface
             },

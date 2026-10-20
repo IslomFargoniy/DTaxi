@@ -61,6 +61,7 @@ fun LoginScreen() {
         modifier = Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
+        AppLogo()
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
         Text(stringResource(R.string.login_title), style = MaterialTheme.typography.bodyLarge)
         if (BuildConfig.SERVER_EDITABLE) {

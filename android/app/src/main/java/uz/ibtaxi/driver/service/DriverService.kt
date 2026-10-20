@@ -310,7 +310,7 @@ class DriverService : LifecycleService() {
     private fun prefs() = getSharedPreferences("taximeter", Context.MODE_PRIVATE)
 
     private fun notification(): Notification = NotificationCompat.Builder(this, IbTaxiApp.CHANNEL_SERVICE)
-        .setSmallIcon(R.drawable.ic_launcher)
+        .setSmallIcon(R.drawable.ic_notification)
         .setContentTitle(getString(R.string.service_title))
         .setContentText(getString(R.string.service_text))
         .setOngoing(true)

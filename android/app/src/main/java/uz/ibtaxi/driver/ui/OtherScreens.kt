@@ -1,5 +1,7 @@
 package uz.ibtaxi.driver.ui
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.size
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -292,6 +294,7 @@ fun ConnectingScreen(error: String?, server: String, onRetry: () -> Unit, onLogo
         verticalArrangement = Arrangement.spacedBy(16.dp, androidx.compose.ui.Alignment.CenterVertically),
         horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
     ) {
+        AppLogo()
         if (error == null) {
             androidx.compose.material3.CircularProgressIndicator()
             Text(stringResource(R.string.connecting))
@@ -311,4 +314,14 @@ private fun localTime(iso: String?, pattern: String = "HH:mm"): String? = iso?.l
         java.time.OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault())
             .format(java.time.format.DateTimeFormatter.ofPattern(pattern))
     }.getOrNull()
+}
+
+/** D taxi belgisi — sariq plitkada (kirish va ulanish ekranlari) */
+@Composable
+fun AppLogo(size: Int = 88) {
+    androidx.compose.foundation.Image(
+        painter = androidx.compose.ui.res.painterResource(R.drawable.ic_launcher),
+        contentDescription = stringResource(R.string.app_name),
+        modifier = Modifier.size(size.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape((size / 4).dp)),
+    )
 }
