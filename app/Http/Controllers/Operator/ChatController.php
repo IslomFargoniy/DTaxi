@@ -36,6 +36,14 @@ class ChatController extends Controller
             ->get();
 
         $drivers = Driver::query()->with('user')->findMany($latest->pluck('driver_id'))->keyBy('id');
+        // Ro'yxatda oxirgi xabar ko'rinadi (Telegram kabi)
+        $last = DB::table('chat_messages')
+            ->join('drivers', 'drivers.id', '=', 'chat_messages.driver_id')
+            ->whereIn('chat_messages.driver_id', $latest->pluck('driver_id'))
+            ->selectRaw('DISTINCT ON (chat_messages.driver_id) chat_messages.driver_id, chat_messages.body,
+                chat_messages.attachment_path IS NOT NULL AS has_photo, chat_messages.sender_id = drivers.user_id AS from_driver')
+            ->orderBy('chat_messages.driver_id')->orderByDesc('chat_messages.created_at')
+            ->get()->keyBy('driver_id');
 
         return response()->json($latest->map(fn (object $row) => [
             'driver_id' => $row->driver_id,
@@ -43,6 +51,9 @@ class ChatController extends Controller
             'name' => $drivers->get($row->driver_id)?->user->name,
             'last_at' => $row->last_at,
             'unread' => (int) $row->unread,
+            'last_body' => $last->get($row->driver_id)?->body,
+            'last_photo' => (bool) ($last->get($row->driver_id)?->has_photo ?? false),
+            'last_from_driver' => (bool) ($last->get($row->driver_id)?->from_driver ?? false),
         ])->values());
     }
 

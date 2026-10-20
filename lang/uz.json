@@ -575,5 +575,8 @@
     "Rating call after, minutes": "Baho qo'ng'irog'i, necha daqiqadan keyin",
     "event.rated": "Mijoz baholadi",
     "Took offers, %": "Takliflarni oldi, %",
-    "Client rating": "Mijoz bahosi"
+    "Client rating": "Mijoz bahosi",
+    "Photo": "Rasm",
+    "Select a chat to start messaging": "Yozishish uchun suhbatni tanlang",
+    "No branch is assigned to you.": "Sizga filial biriktirilmagan."
 }

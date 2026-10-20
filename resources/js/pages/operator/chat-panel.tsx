@@ -1,7 +1,6 @@
 import { useEcho } from '@laravel/echo-react';
-import { MessageSquare, Send, X } from 'lucide-react';
+import { MessageSquare, Search, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTrans } from '@/hooks/use-trans';
@@ -19,6 +18,9 @@ type Thread = {
     name: string | null;
     last_at: string;
     unread: number;
+    last_body: string | null;
+    last_photo: boolean;
+    last_from_driver: boolean;
 };
 type Message = {
     id: number;
@@ -32,7 +34,51 @@ type Message = {
     created_at: string | null;
 };
 
-const CHAT_WIDTH = 560;
+const CHAT_WIDTH = 680;
+
+/** Avatar rangi pozivnoy bo'yicha doim bir xil (Telegram kabi) */
+const AVATAR_COLORS = [
+    'bg-rose-500',
+    'bg-orange-500',
+    'bg-amber-500',
+    'bg-emerald-500',
+    'bg-teal-500',
+    'bg-sky-500',
+    'bg-indigo-500',
+    'bg-fuchsia-500',
+];
+
+function Avatar({
+    thread,
+    size = 'size-10',
+}: {
+    thread: Thread;
+    size?: string;
+}) {
+    return (
+        <span
+            className={cn(
+                'flex shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white',
+                size,
+                AVATAR_COLORS[thread.driver_id % AVATAR_COLORS.length],
+            )}
+        >
+            {(thread.callsign ?? thread.name ?? '?').slice(0, 3)}
+        </span>
+    );
+}
+
+/** Ro'yxatdagi vaqt: bugun — soat, aks holda sana */
+function shortTime(iso: string | null): string {
+    if (!iso) {
+        return '';
+    }
+    const date = new Date(iso);
+
+    return date.toDateString() === new Date().toDateString()
+        ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+}
 
 const QUICK_REPLIES = [
     'Client is coming out',
@@ -71,6 +117,7 @@ export function ChatPanel({
     const [active, setActive] = useState<number | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState('');
+    const [query, setQuery] = useState('');
     const bottom = useRef<HTMLDivElement>(null);
     // Oyna joyi (sudrab ko'chiriladi, brauzerda eslab qolinadi); null — o'ng pastda
     const [position, setPosition] = useState<{ x: number; y: number } | null>(
@@ -147,14 +194,12 @@ export function ChatPanel({
         }
     }, [active, open, loadMessages]);
 
-    // Ochilganda suhbat tanlanmagan bo'lsa — o'qilmagani bor (yoki eng oxirgi) haydovchi
+    // Suhbat tanlanmagan — o'ng tomon bo'sh (Telegram kabi), eski suhbat xabarlari ko'rinmasin
     useEffect(() => {
-        if (open && active === null && threads.length > 0) {
-            setActive(
-                (threads.find((th) => th.unread > 0) ?? threads[0]).driver_id,
-            );
+        if (active === null) {
+            setMessages([]);
         }
-    }, [open, active, threads]);
+    }, [active]);
 
     // Effekt hech narsa qaytarmasin: yangi Chrome'da scrollIntoView() Promise qaytaradi va React uni
     // tozalash funksiyasi deb chaqirib sahifani yiqitardi
@@ -198,6 +243,14 @@ export function ChatPanel({
 
     const unread = threads.reduce((sum, th) => sum + th.unread, 0);
     const activeThread = threads.find((th) => th.driver_id === active);
+    const needle = query.trim().toLowerCase();
+    const visibleThreads = needle
+        ? threads.filter((th) =>
+              `${th.callsign ?? ''} ${th.name ?? ''}`
+                  .toLowerCase()
+                  .includes(needle),
+          )
+        : threads;
 
     return (
         <>
@@ -223,7 +276,7 @@ export function ChatPanel({
             </Button>
             {open && (
                 <div
-                    className="fixed z-50 flex h-[520px] max-h-[calc(100svh-2rem)] w-[560px] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border-2 border-primary/40 bg-card text-card-foreground shadow-2xl ring-1 ring-black/10 dark:bg-zinc-900"
+                    className="fixed z-50 flex h-[560px] max-h-[calc(100svh-2rem)] w-[680px] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border-2 border-primary/40 bg-card text-card-foreground shadow-2xl ring-1 ring-black/10 dark:bg-zinc-900"
                     style={
                         position
                             ? { left: position.x, top: position.y }
@@ -232,20 +285,15 @@ export function ChatPanel({
                 >
                     {/* Sarlavha — ushlab sudraladi */}
                     <div
-                        className="flex cursor-move items-center gap-2 border-b-2 border-primary/20 bg-muted px-3 py-1.5 select-none"
+                        className="flex cursor-move items-center gap-2 border-b bg-muted px-3 py-2 select-none"
                         onPointerDown={startDrag}
                         onPointerMove={moveDrag}
                         onPointerUp={endDrag}
                     >
-                        <MessageSquare className="size-4" />
+                        <MessageSquare className="size-4 text-primary" />
                         <span className="text-sm font-semibold">
                             {t('Drivers chat')}
                         </span>
-                        {activeThread && (
-                            <span className="text-sm text-muted-foreground">
-                                · {activeThread.callsign} {activeThread.name}
-                            </span>
-                        )}
                         <Button
                             size="icon"
                             variant="ghost"
@@ -255,100 +303,204 @@ export function ChatPanel({
                             <X />
                         </Button>
                     </div>
-                    <div className="grid min-h-0 flex-1 grid-cols-[180px_1fr]">
-                        <ul className="overflow-auto border-r-2 border-primary/10 bg-muted/40">
-                            {threads.map((th) => (
-                                <li key={th.driver_id}>
-                                    <button
-                                        type="button"
-                                        className={cn(
-                                            'w-full px-3 py-2 text-left text-sm hover:bg-accent',
-                                            active === th.driver_id &&
-                                                'bg-accent',
-                                        )}
-                                        onClick={() => setActive(th.driver_id)}
-                                    >
-                                        <span className="font-mono font-medium">
-                                            {th.callsign}
-                                        </span>
-                                        {th.unread > 0 && (
-                                            <Badge className="ml-1 bg-red-600 text-white">
-                                                {th.unread}
-                                            </Badge>
-                                        )}
-                                        <span className="block truncate text-xs text-muted-foreground">
-                                            {th.name}
-                                        </span>
-                                    </button>
-                                </li>
-                            ))}
-                            {threads.length === 0 && (
-                                <li className="p-3 text-xs text-muted-foreground">
-                                    {t('No messages yet')}
-                                </li>
-                            )}
-                        </ul>
-                        <div className="flex min-h-0 flex-col">
-                            <div className="flex-1 space-y-2 overflow-auto p-3">
-                                {messages.map((m) => (
-                                    <div
-                                        key={m.id}
-                                        className={cn(
-                                            'max-w-[80%] rounded-lg px-3 py-1.5 text-sm',
-                                            m.mine
-                                                ? 'ml-auto bg-primary text-primary-foreground'
-                                                : m.from_driver
-                                                  ? 'bg-muted'
-                                                  : 'bg-blue-100 text-blue-950 dark:bg-blue-950 dark:text-blue-50',
-                                        )}
-                                    >
-                                        {/* Bir haydovchi bilan bir nechta operator yozishishi mumkin — kim yozgani */}
-                                        <div className="mb-0.5 flex gap-2 text-[11px] opacity-70">
-                                            <span className="font-medium">
-                                                {m.mine
-                                                    ? t('You')
-                                                    : m.from_driver
-                                                      ? `${activeThread?.callsign ?? ''} · ${m.sender_name ?? ''}`
-                                                      : `${t('Operator')}: ${m.sender_name ?? ''}`}
-                                            </span>
-                                            {m.created_at && (
-                                                <span className="ml-auto">
-                                                    {new Date(
-                                                        m.created_at,
-                                                    ).toLocaleTimeString([], {
-                                                        hour: '2-digit',
-                                                        minute: '2-digit',
-                                                    })}
-                                                </span>
-                                            )}
-                                        </div>
-                                        {m.body}
-                                        {m.attachment_url && (
-                                            <a
-                                                href={m.attachment_url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                            >
-                                                <img
-                                                    src={m.attachment_url}
-                                                    alt=""
-                                                    className="mt-1 max-h-40 rounded"
-                                                />
-                                            </a>
-                                        )}
-                                    </div>
-                                ))}
-                                <div ref={bottom} />
+                    <div className="grid min-h-0 flex-1 grid-cols-[250px_1fr]">
+                        {/* Suhbatlar ro'yxati */}
+                        <div className="flex min-h-0 flex-col border-r">
+                            <div className="p-2">
+                                <div className="relative">
+                                    <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        value={query}
+                                        onChange={(e) =>
+                                            setQuery(e.target.value)
+                                        }
+                                        placeholder={t('Search')}
+                                        className="h-9 rounded-full bg-muted pl-9"
+                                    />
+                                </div>
                             </div>
-                            {active && (
+                            <ul className="min-h-0 flex-1 overflow-auto px-1.5 pb-2">
+                                {visibleThreads.map((th) => {
+                                    const selected = active === th.driver_id;
+                                    const preview =
+                                        th.last_photo && !th.last_body
+                                            ? `📷 ${t('Photo')}`
+                                            : (th.last_body ?? '');
+
+                                    return (
+                                        <li key={th.driver_id}>
+                                            <button
+                                                type="button"
+                                                className={cn(
+                                                    'flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left',
+                                                    selected
+                                                        ? 'bg-primary text-primary-foreground'
+                                                        : 'hover:bg-muted',
+                                                )}
+                                                onClick={() =>
+                                                    setActive(
+                                                        selected
+                                                            ? null
+                                                            : th.driver_id,
+                                                    )
+                                                }
+                                            >
+                                                <Avatar thread={th} />
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="flex items-baseline gap-2">
+                                                        <span className="truncate text-sm font-semibold">
+                                                            {th.callsign} ·{' '}
+                                                            {th.name}
+                                                        </span>
+                                                        <span
+                                                            className={cn(
+                                                                'ml-auto shrink-0 text-[11px]',
+                                                                selected
+                                                                    ? 'text-primary-foreground/70'
+                                                                    : 'text-muted-foreground',
+                                                            )}
+                                                        >
+                                                            {shortTime(
+                                                                th.last_at,
+                                                            )}
+                                                        </span>
+                                                    </span>
+                                                    <span className="flex items-center gap-2">
+                                                        <span
+                                                            className={cn(
+                                                                'truncate text-xs',
+                                                                selected
+                                                                    ? 'text-primary-foreground/80'
+                                                                    : 'text-muted-foreground',
+                                                            )}
+                                                        >
+                                                            {!th.last_from_driver &&
+                                                                preview && (
+                                                                    <span
+                                                                        className={cn(
+                                                                            !selected &&
+                                                                                'text-primary',
+                                                                        )}
+                                                                    >
+                                                                        {t(
+                                                                            'Operator',
+                                                                        )}
+                                                                        :{' '}
+                                                                    </span>
+                                                                )}
+                                                            {preview}
+                                                        </span>
+                                                        {th.unread > 0 && (
+                                                            <span className="ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-bold text-white">
+                                                                {th.unread}
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                </span>
+                                            </button>
+                                        </li>
+                                    );
+                                })}
+                                {visibleThreads.length === 0 && (
+                                    <li className="p-3 text-center text-xs text-muted-foreground">
+                                        {t('No messages yet')}
+                                    </li>
+                                )}
+                            </ul>
+                        </div>
+
+                        {/* Suhbat */}
+                        {!activeThread ? (
+                            <div className="flex items-center justify-center bg-muted/40">
+                                <span className="rounded-full bg-background/80 px-3 py-1 text-xs text-muted-foreground shadow-sm">
+                                    {t('Select a chat to start messaging')}
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="flex min-h-0 flex-col">
+                                <div className="flex items-center gap-2.5 border-b px-3 py-2">
+                                    <Avatar
+                                        thread={activeThread}
+                                        size="size-8"
+                                    />
+                                    <span className="min-w-0">
+                                        <span className="block truncate text-sm font-semibold">
+                                            {activeThread.callsign} ·{' '}
+                                            {activeThread.name}
+                                        </span>
+                                    </span>
+                                </div>
+                                <div className="flex-1 space-y-1.5 overflow-auto bg-muted/40 px-3 py-3">
+                                    {messages.map((m) => (
+                                        <div
+                                            key={m.id}
+                                            className={cn(
+                                                'flex',
+                                                m.mine
+                                                    ? 'justify-end'
+                                                    : 'justify-start',
+                                            )}
+                                        >
+                                            <div
+                                                className={cn(
+                                                    'max-w-[78%] rounded-2xl px-3 py-1.5 text-sm shadow-sm',
+                                                    m.mine
+                                                        ? 'rounded-br-sm bg-primary text-primary-foreground'
+                                                        : m.from_driver
+                                                          ? 'rounded-bl-sm bg-background'
+                                                          : 'rounded-br-sm bg-sky-100 text-sky-950 dark:bg-sky-900 dark:text-sky-50',
+                                                )}
+                                            >
+                                                {/* Bir haydovchi bilan bir nechta operator yozishishi mumkin — boshqa operator nomi */}
+                                                {!m.mine && !m.from_driver && (
+                                                    <div className="text-[11px] font-semibold opacity-80">
+                                                        {m.sender_name}
+                                                    </div>
+                                                )}
+                                                {m.attachment_url && (
+                                                    <a
+                                                        href={m.attachment_url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                    >
+                                                        <img
+                                                            src={
+                                                                m.attachment_url
+                                                            }
+                                                            alt=""
+                                                            className="my-1 max-h-48 rounded-lg"
+                                                        />
+                                                    </a>
+                                                )}
+                                                <span className="break-words whitespace-pre-wrap">
+                                                    {m.body}
+                                                </span>
+                                                {m.created_at && (
+                                                    <span className="float-right mt-1.5 ml-2 text-[10px] leading-none opacity-60">
+                                                        {new Date(
+                                                            m.created_at,
+                                                        ).toLocaleTimeString(
+                                                            [],
+                                                            {
+                                                                hour: '2-digit',
+                                                                minute: '2-digit',
+                                                            },
+                                                        )}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div ref={bottom} />
+                                </div>
                                 <div className="grid gap-2 border-t p-2">
-                                    <div className="flex flex-wrap gap-1">
+                                    <div className="flex gap-1 overflow-x-auto">
                                         {QUICK_REPLIES.map((reply) => (
                                             <Button
                                                 key={reply}
                                                 size="sm"
-                                                variant="secondary"
-                                                className="h-7 text-xs"
+                                                variant="outline"
+                                                className="h-7 shrink-0 rounded-full text-xs"
                                                 onClick={() => send(t(reply))}
                                             >
                                                 {t(reply)}
@@ -368,14 +520,19 @@ export function ChatPanel({
                                                 setText(e.target.value)
                                             }
                                             placeholder={t('Message')}
+                                            className="rounded-full"
                                         />
-                                        <Button size="icon">
+                                        <Button
+                                            size="icon"
+                                            className="shrink-0 rounded-full"
+                                            disabled={!text.trim()}
+                                        >
                                             <Send />
                                         </Button>
                                     </form>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

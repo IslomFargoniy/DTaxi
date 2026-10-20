@@ -575,5 +575,8 @@
     "Rating call after, minutes": "Звонок с оценкой через, минут",
     "event.rated": "Клиент оценил",
     "Took offers, %": "Принял предложений, %",
-    "Client rating": "Оценка клиентов"
+    "Client rating": "Оценка клиентов",
+    "Photo": "Фото",
+    "Select a chat to start messaging": "Выберите чат, чтобы начать переписку",
+    "No branch is assigned to you.": "Вам не назначен филиал."
 }

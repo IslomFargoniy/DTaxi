@@ -253,7 +253,8 @@ test('operator chats with a driver', function () {
     $driver = driverNear($this->branch, 0);
 
     $this->actingAs($operator)->postJson(route('operator.chat.send', $driver), ['body' => 'Mijoz 2 daqiqada chiqadi'])->assertCreated();
-    $this->getJson(route('operator.chat.threads'))->assertJsonPath('0.driver_id', $driver->id);
+    $this->getJson(route('operator.chat.threads'))->assertJsonPath('0.driver_id', $driver->id)
+        ->assertJsonPath('0.last_body', 'Mijoz 2 daqiqada chiqadi')->assertJsonPath('0.last_from_driver', false);
     $this->getJson(route('operator.chat.messages', $driver))->assertJsonPath('0.body', 'Mijoz 2 daqiqada chiqadi');
 });
 
@@ -334,4 +335,11 @@ test('client rating on a completed order lowers the driver rating once', functio
     $this->actingAs($admin)->post(route('admin.orders.rate', $order), ['rating' => 1])->assertRedirect();
 
     expect($order->fresh()->client_rating)->toBe(1)->and($driver->fresh()->rating)->toBe($rating - 5);
+});
+
+test('superadmin without a branch can open a cash shift', function () {
+    $superadmin = User::factory()->create(['branch_id' => null])->assignRole(Role::Superadmin);
+
+    $this->actingAs($superadmin)->post(route('cashier.shift.open'))->assertRedirect();
+    expect(CashShift::query()->where('cashier_id', $superadmin->id)->value('branch_id'))->not->toBeNull();
 });

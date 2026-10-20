@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Cashier;
 use App\Enums\TransactionSource;
 use App\Http\Controllers\Controller;
 use App\Jobs\SendPushNotification;
+use App\Models\Branch;
 use App\Models\CashShift;
 use App\Models\Driver;
 use App\Models\DriverTransaction;
@@ -87,7 +88,12 @@ class CashierController extends Controller
         $cashier = $request->user();
 
         if (! $this->openShift($cashier)) {
-            CashShift::query()->create(['branch_id' => $cashier->branch_id, 'cashier_id' => $cashier->id, 'opened_at' => now()]);
+            // Superadmin (yoki filiali biriktirilmagan kassir) — o'ziga ruxsat etilgan birinchi filial
+            $branchId = $cashier->branch_id
+                ?? ($cashier->isSuperadmin() ? Branch::query()->orderBy('id')->value('id') : ($cashier->branchIds()[0] ?? null));
+            abort_if($branchId === null, 422, __('No branch is assigned to you.'));
+
+            CashShift::query()->create(['branch_id' => $branchId, 'cashier_id' => $cashier->id, 'opened_at' => now()]);
         }
 
         return back();
