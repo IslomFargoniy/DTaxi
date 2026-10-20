@@ -28,7 +28,9 @@ class MapStyleController extends Controller
                     'attribution' => '© OpenStreetMap',
                 ],
             ],
-            'layers' => json_decode((string) file_get_contents(resource_path("map/layers-{$flavor}-{$lang}.json")), true),
-        ])->header('Cache-Control', 'public, max-age=3600');
+            // Obyekt sifatida o'qiladi: assoc=true bo'lsa "format" ichidagi {} bo'sh massivga ([]) aylanadi va
+            // Android'dagi MapLibre Native yozuv qatlamlarini o'qimaydi (joy nomlari ko'rinmay qoladi)
+            'layers' => json_decode((string) file_get_contents(resource_path("map/layers-{$flavor}-{$lang}.json"))),
+        ])->header('Cache-Control', 'public, max-age=300');
     }
 }

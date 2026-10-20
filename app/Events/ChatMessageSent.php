@@ -44,6 +44,9 @@ class ChatMessageSent implements ShouldBroadcastNow
             'driver_id' => $message->driver_id,
             'order_id' => $message->order_id,
             'sender_id' => $message->sender_id,
+            // Bir haydovchi bilan bir nechta operator yozishishi mumkin — kim yozgani ko'rinsin
+            'sender_name' => $message->sender?->name,
+            'from_driver' => $message->sender_id === $message->driver?->user_id,
             'mine' => $viewerId !== null && $message->sender_id === $viewerId,
             'body' => $message->body,
             // Panel ham, ilova ham ochishi uchun vaqtinchalik imzolangan havola

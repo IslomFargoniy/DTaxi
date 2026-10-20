@@ -24,6 +24,8 @@ type Message = {
     id: number;
     driver_id: number;
     sender_id: number;
+    sender_name: string | null;
+    from_driver: boolean;
     mine: boolean;
     body: string | null;
     attachment_url: string | null;
@@ -122,6 +124,7 @@ export function ChatPanel({
     };
 
     const unread = threads.reduce((sum, th) => sum + th.unread, 0);
+    const activeThread = threads.find((th) => th.driver_id === active);
 
     return (
         <>
@@ -192,9 +195,31 @@ export function ChatPanel({
                                         'max-w-[80%] rounded-lg px-3 py-1.5 text-sm',
                                         m.mine
                                             ? 'ml-auto bg-primary text-primary-foreground'
-                                            : 'bg-muted',
+                                            : m.from_driver
+                                              ? 'bg-muted'
+                                              : 'bg-blue-100 text-blue-950 dark:bg-blue-950 dark:text-blue-50',
                                     )}
                                 >
+                                    {/* Bir haydovchi bilan bir nechta operator yozishishi mumkin — kim yozgani */}
+                                    <div className="mb-0.5 flex gap-2 text-[11px] opacity-70">
+                                        <span className="font-medium">
+                                            {m.mine
+                                                ? t('You')
+                                                : m.from_driver
+                                                  ? `${activeThread?.callsign ?? ''} · ${m.sender_name ?? ''}`
+                                                  : `${t('Operator')}: ${m.sender_name ?? ''}`}
+                                        </span>
+                                        {m.created_at && (
+                                            <span className="ml-auto">
+                                                {new Date(
+                                                    m.created_at,
+                                                ).toLocaleTimeString([], {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                })}
+                                            </span>
+                                        )}
+                                    </div>
                                     {m.body}
                                     {m.attachment_url && (
                                         <a

@@ -121,6 +121,14 @@ class AriClient
     }
 
     /**
+     * Asterisk va ARI javob beryaptimi. Endpoint'lar ro'yxati bunga yaramaydi: endpoint bo'lmasa ARI 404 qaytaradi.
+     */
+    public function ping(): bool
+    {
+        return rescue(fn () => $this->http()->get('asterisk/info')->successful(), false, false);
+    }
+
+    /**
      * Brauzer/ilovada ro'yxatdan o'tgan (onlayn) ichki raqamlar.
      *
      * @return list<string>

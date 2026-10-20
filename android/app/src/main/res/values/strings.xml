@@ -79,4 +79,6 @@
     <string name="retry">Qayta urinish</string>
     <string name="connecting">Serverga ulanmoqda…</string>
     <string name="no_connection">Server bilan aloqa yo\'q</string>
+    <string name="you">Siz</string>
+    <string name="dispatcher">Dispetcher</string>
 </resources>

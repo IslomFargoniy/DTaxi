@@ -53,7 +53,7 @@ class TelephonyController extends Controller
             ]),
             'branches' => Branch::query()->orderBy('name')->get(['id', 'name', 'max_channels', 'max_auto_calls']),
             'settings' => collect(array_keys(self::SETTINGS))->mapWithKeys(fn (string $key) => [$key => $settings->get($key)]),
-            'asteriskOnline' => $states !== [],
+            'asteriskOnline' => $ari->ping(),
         ]);
     }
 

@@ -34,7 +34,8 @@ class ChatMessage extends Model
      */
     public function driver(): BelongsTo
     {
-        return $this->belongsTo(Driver::class);
+        // Xabar egasi aniq: filial cheklovi (BelongsToBranch) bu yerda kerak emas
+        return $this->belongsTo(Driver::class)->withoutGlobalScopes();
     }
 
     /**

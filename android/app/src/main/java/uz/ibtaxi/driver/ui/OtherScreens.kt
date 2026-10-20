@@ -112,12 +112,22 @@ fun ChatScreen(onBack: () -> Unit) {
             LazyColumn(Modifier.weight(1f).padding(12.dp), state = listState, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(messages, key = { it.id }) { m ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (m.mine) Arrangement.End else Arrangement.Start) {
-                        Text(
-                            m.body ?: "📷",
-                            modifier = Modifier.widthIn(max = 280.dp)
+                        Column(
+                            Modifier.widthIn(max = 280.dp)
                                 .background(if (m.mine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
-                        )
+                        ) {
+                            // Kim va qachon yozgani: operator ismi (bir nechta dispetcher bo'lishi mumkin)
+                            Row {
+                                Text(
+                                    if (m.mine) stringResource(R.string.you) else "${stringResource(R.string.dispatcher)}: ${m.senderName ?: ""}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                localTime(m.createdAt)?.let { Text("  $it", style = MaterialTheme.typography.labelSmall) }
+                            }
+                            Text(m.body ?: "📷")
+                        }
                     }
                 }
             }
@@ -161,7 +171,7 @@ fun BalanceScreen(onBack: () -> Unit) {
                 Row(Modifier.fillMaxWidth()) {
                     Column(Modifier.weight(1f)) {
                         Text(t.comment ?: transactionLabel(t.type))
-                        Text(t.createdAt?.take(16)?.replace('T', ' ') ?: "", style = MaterialTheme.typography.bodySmall)
+                        Text(localTime(t.createdAt, "dd.MM.yyyy HH:mm") ?: "", style = MaterialTheme.typography.bodySmall)
                     }
                     Text(
                         (if (t.amount > 0) "+" else "") + formatMoney(t.amount),
@@ -292,4 +302,12 @@ fun ConnectingScreen(error: String?, server: String, onRetry: () -> Unit, onLogo
             OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.logout)) }
         }
     }
+}
+
+/** Server vaqti (ISO, UTC) → telefonning mahalliy soati "14:05" */
+private fun localTime(iso: String?, pattern: String = "HH:mm"): String? = iso?.let {
+    runCatching {
+        java.time.OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ofPattern(pattern))
+    }.getOrNull()
 }

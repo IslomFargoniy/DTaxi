@@ -151,6 +151,9 @@ data class BalanceResponse(val balance: Long, val items: List<Transaction>)
 data class ChatMessage(
     val id: Int,
     val mine: Boolean,
+    /** Yozuvchi: bir haydovchi bilan bir nechta operator yozishishi mumkin */
+    @SerializedName("sender_name") val senderName: String? = null,
+    @SerializedName("from_driver") val fromDriver: Boolean = false,
     val body: String?,
     @SerializedName("attachment_url") val attachmentUrl: String?,
     @SerializedName("created_at") val createdAt: String?,

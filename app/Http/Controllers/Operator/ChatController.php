@@ -52,7 +52,7 @@ class ChatController extends Controller
             ->update(['read_at' => now()]);
 
         return response()->json(
-            ChatMessage::query()->where('driver_id', $driver->id)->latest('created_at')->limit(100)->get()->reverse()->values()
+            ChatMessage::query()->with(['sender:id,name', 'driver:id,user_id'])->where('driver_id', $driver->id)->latest('created_at')->limit(100)->get()->reverse()->values()
                 ->map(fn (ChatMessage $m) => ChatMessageSent::format($m, $request->user()?->id)),
         );
     }

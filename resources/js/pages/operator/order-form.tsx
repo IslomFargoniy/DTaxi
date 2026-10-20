@@ -89,6 +89,8 @@ export function OrderForm({
         const setter = target === 'pickup' ? setPickup : setDropoff;
         setter((place) => ({
             ...place,
+            // Matn majburiy (haydovchi ko'radi): operator yozmagan bo'lsa — keyin aniqlashtiradi
+            text: place.text.trim() || t('Point on the map'),
             lat: mapClick.lat,
             lng: mapClick.lng,
             landmarkId: null,

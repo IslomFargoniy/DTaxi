@@ -116,3 +116,14 @@ test('driver app gets WebRTC credentials to call the dispatcher', function () {
         ->assertJsonPath('target', 'dispatcher');
     $this->get(route('driver-app.call'))->assertOk()->assertSee('Dispetcher');
 });
+
+test('asterisk is shown as online even when no PJSIP endpoints exist yet', function () {
+    Http::swap(new Illuminate\Http\Client\Factory);
+    Http::fake([
+        '*/ari/asterisk/info' => Http::response(['system' => []]),
+        '*/ari/endpoints/PJSIP' => Http::response(['message' => 'No Endpoints found'], 404),
+    ]);
+
+    $this->actingAs($this->superadmin)->get(route('admin.telephony.index'))
+        ->assertInertia(fn ($page) => $page->where('asteriskOnline', true));
+});

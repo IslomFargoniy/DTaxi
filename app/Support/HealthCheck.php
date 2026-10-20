@@ -30,7 +30,7 @@ class HealthCheck
         $problems = [];
 
         $states = rescue(fn () => $this->ari->endpointStates(), [], false);
-        if ($states === [] && SipTrunk::query()->exists()) {
+        if (! $this->ari->ping()) {
             $problems['asterisk'] = 'Asterisk is not reachable (ARI). Calls are not working.';
         } else {
             foreach (SipTrunk::query()->where('is_active', true)->get() as $trunk) {
