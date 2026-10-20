@@ -57,6 +57,12 @@ val generateNetworkSecurity by tasks.registering {
     }
 }
 
+// Avtomatik versiya: git commit'lar soni (har yangi commit — kattaroq raqam, ilova avto-yangilanishi uchun)
+val autoBuildNumber: Int = runCatching {
+    ProcessBuilder("git", "rev-list", "--count", "HEAD").directory(rootDir).start()
+        .inputStream.bufferedReader().readText().trim().toInt()
+}.getOrDefault(1)
+
 android {
     namespace = "uz.ibtaxi.driver"
     compileSdk = 35
@@ -65,8 +71,8 @@ android {
         applicationId = firmProp("applicationId")
         minSdk = 29
         targetSdk = 35
-        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
-        versionName = (project.findProperty("versionName") as String?) ?: "1.0.0"
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: autoBuildNumber
+        versionName = (project.findProperty("versionName") as String?) ?: "1.0.$autoBuildNumber"
 
         resValue("string", "app_name", firmProp("appName", "ibTaxi Driver"))
         buildConfigField("String", "SERVER_URL", "\"${firmProp("serverUrl").trimEnd('/')}\"")
@@ -117,7 +123,8 @@ android {
             isEnable = true
             reset()
             include("arm64-v8a", "armeabi-v7a")
-            isUniversalApk = false
+            // Bitta fayl hamma telefonlar uchun — Telegram orqali tarqatish qulay
+            isUniversalApk = true
         }
     }
 
@@ -157,15 +164,16 @@ dependencies {
 
 tasks.named("preBuild") { dependsOn(generateNetworkSecurity) }
 
-// Har build'dan keyin APK'lar Laravel'ning public/android papkasiga (lokal sinov: http://<server>/android/...).
+// Har build'dan keyin universal APK public/android ga qisqa nom bilan: ibtaxi.1.0.49.apk (debug: ibtaxi.1.0.49-debug.apk).
 // Papkada faqat oxirgi build turadi — eskilari o'chiriladi
 val publicApkDir = rootProject.file("../public/android")
 listOf("debug", "release").forEach { type ->
     val name = type.replaceFirstChar { it.uppercase() }
     val sync = tasks.register<Sync>("copy${name}ApkToPublic") {
-        from(layout.buildDirectory.dir("outputs/apk/$type")) { include("*.apk") }
+        val version = android.defaultConfig.versionName
+        from(layout.buildDirectory.dir("outputs/apk/$type")) { include("*-universal-*.apk") }
         into(publicApkDir)
-        rename { "ibtaxi-driver-$firm-" + it.removePrefix("app-") }
+        rename { "ibtaxi.$version" + (if (type == "debug") "-debug" else "") + ".apk" }
     }
     tasks.matching { it.name == "assemble$name" }.configureEach { finalizedBy(sync) }
 }
