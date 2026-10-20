@@ -52,8 +52,8 @@ class ChatController extends Controller
             'last_at' => $row->last_at,
             'unread' => (int) $row->unread,
             'last_body' => $last->get($row->driver_id)?->body,
-            'last_photo' => (bool) ($last->get($row->driver_id)?->has_photo ?? false),
-            'last_from_driver' => (bool) ($last->get($row->driver_id)?->from_driver ?? false),
+            'last_photo' => (bool) ($last->get($row->driver_id)->has_photo ?? false),
+            'last_from_driver' => (bool) ($last->get($row->driver_id)->from_driver ?? false),
         ])->values());
     }
 

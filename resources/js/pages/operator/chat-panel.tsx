@@ -133,6 +133,73 @@ export function ChatPanel({
     );
     const drag = useRef<{ dx: number; dy: number } | null>(null);
 
+    // Tugmani ham sudrash mumkin (ba'zi sahifalarda orqasidagi ma'lumotni yopadi); joyi eslab qolinadi
+    const [buttonPos, setButtonPos] = useState<{ x: number; y: number } | null>(
+        () => {
+            try {
+                const saved = localStorage.getItem('chat-button-position');
+
+                return saved ? JSON.parse(saved) : null;
+            } catch {
+                return null;
+            }
+        },
+    );
+    const buttonDrag = useRef<{
+        dx: number;
+        dy: number;
+        startX: number;
+        startY: number;
+        moved: boolean;
+    } | null>(null);
+
+    const onButtonDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        buttonDrag.current = {
+            dx: e.clientX - rect.left,
+            dy: e.clientY - rect.top,
+            startX: e.clientX,
+            startY: e.clientY,
+            moved: false,
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+    };
+    const onButtonMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+        const d = buttonDrag.current;
+        if (!d) {
+            return;
+        }
+        // 5 px dan kam siljish — oddiy bosish (chatni ochadi)
+        if (
+            !d.moved &&
+            Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 5
+        ) {
+            return;
+        }
+        d.moved = true;
+        setButtonPos({
+            x: Math.min(Math.max(8, e.clientX - d.dx), window.innerWidth - 64),
+            y: Math.min(Math.max(8, e.clientY - d.dy), window.innerHeight - 64),
+        });
+    };
+    const onButtonUp = () => {
+        const d = buttonDrag.current;
+        buttonDrag.current = null;
+        if (d?.moved) {
+            try {
+                localStorage.setItem(
+                    'chat-button-position',
+                    JSON.stringify(buttonPos),
+                );
+            } catch {
+                // Saqlab bo'lmasa — keyingi safar o'ng pastda
+            }
+
+            return;
+        }
+        setOpen((value) => !value);
+    };
+
     const clamp = (x: number, y: number) => ({
         x: Math.min(Math.max(8, x), window.innerWidth - CHAT_WIDTH - 8),
         y: Math.min(Math.max(8, y), window.innerHeight - 120),
@@ -257,15 +324,28 @@ export function ChatPanel({
             {branchIds.map((id) => (
                 <BranchChat key={id} branchId={id} onMessage={onMessage} />
             ))}
-            {/* Suzuvchi tugma — o'ng pastda, har sahifada (layout'da turadi, sahifa almashsa ham yo'qolmaydi) */}
+            {/* Suzuvchi tugma — standart o'ng pastda, sudrab ko'chiriladi; har sahifada (layout'da turadi) */}
             <Button
                 size="icon"
                 title={t('Drivers chat')}
                 className={cn(
-                    'fixed right-6 bottom-6 z-50 size-14 rounded-full border-2 border-background shadow-xl',
+                    'fixed z-50 size-14 cursor-grab touch-none rounded-full border-2 border-background shadow-xl active:cursor-grabbing',
                     unread > 0 && 'bg-red-600 text-white hover:bg-red-700',
                 )}
-                onClick={() => setOpen(!open)}
+                style={
+                    buttonPos
+                        ? { left: buttonPos.x, top: buttonPos.y }
+                        : { right: 24, bottom: 24 }
+                }
+                onPointerDown={onButtonDown}
+                onPointerMove={onButtonMove}
+                onPointerUp={onButtonUp}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setOpen((value) => !value);
+                    }
+                }}
             >
                 <MessageSquare className="size-6" />
                 {unread > 0 && (
@@ -436,9 +516,10 @@ export function ChatPanel({
                                             key={m.id}
                                             className={cn(
                                                 'flex',
-                                                m.mine
-                                                    ? 'justify-end'
-                                                    : 'justify-start',
+                                                // Dispetcherlik tomoni (men va boshqa operatorlar) — o'ngda, haydovchi — chapda
+                                                m.from_driver
+                                                    ? 'justify-start'
+                                                    : 'justify-end',
                                             )}
                                         >
                                             <div
