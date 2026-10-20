@@ -1,4 +1,4 @@
-import { MapPin, Plus } from 'lucide-react';
+import { MapPin, Plus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,6 +68,8 @@ export function PlacePicker({
         }, 200);
     }, [value.text, value.landmarkId, open, near]);
 
+    const hasValue = value.text !== '' || value.lat !== null;
+
     const canSaveLandmark =
         value.lat !== null &&
         !value.landmarkId &&
@@ -79,21 +81,43 @@ export function PlacePicker({
                 {t(label)}
             </label>
             <div className="flex gap-1.5">
-                <Input
-                    id={id}
-                    value={value.text}
-                    autoComplete="off"
-                    placeholder={t('Landmark or address')}
-                    onFocus={() => setOpen(true)}
-                    onBlur={() => setTimeout(() => setOpen(false), 150)}
-                    onChange={(e) =>
-                        onChange({
-                            ...value,
-                            text: e.target.value,
-                            landmarkId: null,
-                        })
-                    }
-                />
+                <div className="relative flex-1">
+                    <Input
+                        id={id}
+                        value={value.text}
+                        autoComplete="off"
+                        className={hasValue ? 'pr-8' : undefined}
+                        placeholder={t('Landmark or address')}
+                        onFocus={() => setOpen(true)}
+                        onBlur={() => setTimeout(() => setOpen(false), 150)}
+                        onChange={(e) =>
+                            onChange({
+                                ...value,
+                                text: e.target.value,
+                                landmarkId: null,
+                            })
+                        }
+                    />
+                    {hasValue && (
+                        <button
+                            type="button"
+                            title={t('Clear')}
+                            aria-label={t('Clear')}
+                            className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                            onClick={() => {
+                                onChange({
+                                    text: '',
+                                    lat: null,
+                                    lng: null,
+                                    landmarkId: null,
+                                });
+                                document.getElementById(id)?.focus();
+                            }}
+                        >
+                            <X className="size-4" />
+                        </button>
+                    )}
+                </div>
                 <Button
                     type="button"
                     size="icon"
