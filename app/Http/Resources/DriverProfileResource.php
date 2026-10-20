@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Enums\IntegrationProvider;
+use App\Models\Branch;
 use App\Models\Driver;
 use App\Models\Integration;
 use App\Models\Tariff;
@@ -60,6 +61,8 @@ class DriverProfileResource extends JsonResource
                 ],
                 'location_interval_seconds' => 4,
                 'offer_seconds' => (int) $settings->get('dispatch.step_seconds', $this->branch_id),
+                // Taksometrdagi tungi tarif filial vaqti bo'yicha (telefon soat mintaqasi boshqacha bo'lishi mumkin)
+                'timezone' => Branch::query()->withoutGlobalScopes()->whereKey($this->branch_id)->value('timezone'),
                 // Hudud chizilmagan bo'lsa maydon yuborilmaydi (eski ilova null'ni o'qiy olmas edi)
                 'service_area' => $this->when($area !== null, $area),
                 // Balansni to'ldirish havolalari uchun (maxfiy bo'lmagan) merchant ma'lumotlari; sozlanmagan bo'lsa null

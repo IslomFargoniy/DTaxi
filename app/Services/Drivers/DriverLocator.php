@@ -9,6 +9,7 @@ use App\Models\DriverLocation;
 use App\Models\Order;
 use App\Support\Settings;
 use Clickbar\Magellan\Data\Geometries\Point;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -22,20 +23,55 @@ class DriverLocator
 
     public function update(Driver $driver, float $lat, float $lng, ?int $speed = null, ?int $heading = null, ?int $accuracy = null): void
     {
-        $point = Point::makeGeodetic($lat, $lng);
+        $this->record($driver, [['lat' => $lat, 'lng' => $lng, 'speed' => $speed, 'heading' => $heading, 'accuracy' => $accuracy]]);
+    }
 
-        $driver->forceFill(['last_location' => $point, 'last_seen_at' => now()])->save();
+    /**
+     * Nuqtalar to'plami (internet uzilganda yig'ilganlari ham). Har nuqta o'z vaqti bilan yoziladi —
+     * aks holda trek tartibi buziladi va eski nuqta "hozirgi joy" bo'lib qoladi.
+     *
+     * @param  list<array{lat: float, lng: float, speed?: int|null, heading?: int|null, accuracy?: int|null, t?: int|null}>  $points
+     */
+    public function record(Driver $driver, array $points): void
+    {
+        if ($points === []) {
+            return;
+        }
 
-        DriverLocation::query()->create([
-            'driver_id' => $driver->id,
-            'location' => $point,
-            'speed' => $speed,
-            'heading' => $heading,
-            'accuracy' => $accuracy,
-            'recorded_at' => now(),
-        ]);
+        $now = now();
+        $rows = [];
+        $latest = null;
+        foreach ($points as $point) {
+            $at = isset($point['t']) ? Carbon::createFromTimestampMs($point['t']) : $now;
+            // Telefon soati noto'g'ri bo'lsa — server vaqti
+            if ($at->isAfter($now->copy()->addMinute()) || $at->isBefore($now->copy()->subHours(3))) {
+                $at = $now;
+            }
 
-        DriverLocationUpdated::dispatch($driver);
+            $rows[] = [
+                'driver_id' => $driver->id,
+                'location' => Point::makeGeodetic($point['lat'], $point['lng']),
+                'speed' => $point['speed'] ?? null,
+                'heading' => $point['heading'] ?? null,
+                'accuracy' => $point['accuracy'] ?? null,
+                'recorded_at' => $at,
+            ];
+
+            if ($latest === null || $at->gte($latest['recorded_at'])) {
+                $latest = end($rows);
+            }
+        }
+
+        foreach ($rows as $row) {
+            DriverLocation::query()->create($row);
+        }
+
+        // Kechikib kelgan eski nuqtalar hozirgi joyni orqaga surmaydi (telefon soati bir daqiqagacha farq qilishi mumkin)
+        if (($driver->last_seen_at === null || $latest['recorded_at']->gte($driver->last_seen_at->copy()->subMinute()))) {
+            $live = $latest['recorded_at']->gte($now->copy()->subMinute());
+            $driver->forceFill(['last_location' => $latest['location'], 'last_seen_at' => $live ? $now : $latest['recorded_at']])->save();
+            DriverLocationUpdated::dispatch($driver);
+        }
     }
 
     /**

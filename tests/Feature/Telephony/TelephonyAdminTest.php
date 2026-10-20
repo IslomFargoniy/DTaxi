@@ -11,6 +11,7 @@ use App\Models\SoundClip;
 use App\Models\User;
 use App\Support\Settings;
 use Database\Seeders\RolesSeeder;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
@@ -118,7 +119,7 @@ test('driver app gets WebRTC credentials to call the dispatcher', function () {
 });
 
 test('asterisk is shown as online even when no PJSIP endpoints exist yet', function () {
-    Http::swap(new Illuminate\Http\Client\Factory);
+    Http::swap(new Factory);
     Http::fake([
         '*/ari/asterisk/info' => Http::response(['system' => []]),
         '*/ari/endpoints/PJSIP' => Http::response(['message' => 'No Endpoints found'], 404),

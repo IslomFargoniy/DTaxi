@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureSetupComplete;
+use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetLocale;
@@ -30,7 +31,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'abilities' => CheckAbilities::class,
         ]);
 
+        $middleware->api(append: [
+            EnsureUserIsActive::class,
+        ]);
+
         $middleware->web(append: [
+            EnsureUserIsActive::class,
             EnsureSetupComplete::class,
             SetLocale::class,
             HandleAppearance::class,

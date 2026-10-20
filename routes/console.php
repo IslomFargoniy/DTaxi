@@ -1,8 +1,12 @@
 <?php
 
+use App\Enums\DriverStatus;
+use App\Enums\OrderStatus;
 use App\Models\Call;
+use App\Models\Driver;
 use App\Models\SipTrunk;
 use App\Models\User;
+use App\Services\Dispatch\Dispatcher;
 use App\Services\Landmarks\OsmLandmarkImporter;
 use App\Services\Orders\OrderService;
 use App\Services\Regions\OsmRegionImporter;
@@ -14,6 +18,8 @@ use App\Support\HealthCheck;
 use App\Support\Settings;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
 
@@ -116,3 +122,47 @@ Artisan::command('ibtaxi:health', function (HealthCheck $health) {
 })->purpose('Tizim holatini tekshirish (Asterisk, trunk, OSRM, navbatlar, disk, zaxira)');
 
 Schedule::command('ibtaxi:health')->everyFiveMinutes()->withoutOverlapping();
+
+Artisan::command('drivers:release-stuck', function () {
+    // Faol buyurtmasi yo'q "band" haydovchi (masalan bekor qilish va qabul qilish bir vaqtga to'g'ri kelgan) —
+    // aks holda u liniyadan ham chiqa olmaydi, buyurtma ham ololmaydi
+    $released = Driver::query()->withoutGlobalScopes()
+        ->where('status', DriverStatus::Busy->value)
+        ->whereNotExists(fn ($q) => $q->from('orders')
+            ->whereColumn('orders.driver_id', 'drivers.id')
+            ->whereIn('orders.status', [OrderStatus::Assigned->value, OrderStatus::Arrived->value, OrderStatus::InProgress->value]))
+        ->update(['status' => DriverStatus::Free->value]);
+
+    if ($released > 0) {
+        Log::warning('Band bo\'lib qolgan haydovchilar bo\'shatildi', ['count' => $released]);
+        $this->info("Bo'shatildi: {$released}");
+    }
+})->purpose("Faol buyurtmasiz \"band\" qolib ketgan haydovchilarni bo'shatish");
+
+Schedule::command('drivers:release-stuck')->everyFiveMinutes()->withoutOverlapping();
+
+Artisan::command('locations:prune', function (Settings $settings) {
+    $days = (int) $settings->get('drivers.locations_retention_days');
+    $deleted = 0;
+
+    // Bo'laklab: katta jadvalni bitta so'rovda o'chirish uzoq qulf ushlaydi
+    do {
+        $batch = DB::delete('DELETE FROM driver_locations WHERE id IN (SELECT id FROM driver_locations WHERE recorded_at < ? LIMIT 20000)', [now()->subDays($days)]);
+        $deleted += $batch;
+    } while ($batch > 0);
+
+    $this->info("O'chirildi: {$deleted} ta GPS nuqta ({$days} kundan eski).");
+})->purpose("Eski GPS nuqtalarini o'chirish");
+
+Schedule::command('locations:prune')->dailyAt('04:00')->withoutOverlapping();
+Schedule::command('queue:prune-failed --hours=720')->daily();
+Schedule::command('auth:clear-resets')->daily();
+
+Artisan::command('orders:rebroadcast', function (Dispatcher $dispatcher) {
+    $offers = $dispatcher->rebroadcastExhausted();
+    if ($offers > 0) {
+        $this->info("Qayta efir: {$offers} ta taklif.");
+    }
+})->purpose('Hech kim olmagan buyurtmalarni qayta efirga chiqarish');
+
+Schedule::command('orders:rebroadcast')->everyMinute()->withoutOverlapping();

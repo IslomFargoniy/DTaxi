@@ -11,7 +11,7 @@ class ExpandOrderSearch implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public int $orderId, public int $step)
+    public function __construct(public int $orderId, public int $step, public ?int $round = null)
     {
         $this->onQueue('dispatch');
     }
@@ -21,7 +21,7 @@ class ExpandOrderSearch implements ShouldQueue
         $order = Order::query()->withoutGlobalScopes()->find($this->orderId);
 
         if ($order) {
-            $dispatcher->expand($order, $this->step);
+            $dispatcher->expand($order, $this->step, $this->round);
         }
     }
 }

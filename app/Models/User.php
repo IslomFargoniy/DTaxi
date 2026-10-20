@@ -66,6 +66,16 @@ class User extends Authenticatable implements PasskeyUser
         ];
     }
 
+    protected static function booted(): void
+    {
+        // Faolsizlantirilganda ilova tokenlari darhol bekor bo'ladi
+        static::updated(function (User $user) {
+            if ($user->wasChanged('is_active') && ! $user->is_active) {
+                $user->tokens()->delete();
+            }
+        });
+    }
+
     /**
      * Asosiy filial.
      *

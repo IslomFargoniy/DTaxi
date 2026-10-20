@@ -3,6 +3,7 @@
 namespace App\Services\Orders;
 
 use App\Enums\DriverStatus;
+use App\Enums\OfferResponse;
 use App\Enums\OrderSource;
 use App\Enums\OrderStatus;
 use App\Models\Branch;
@@ -11,6 +12,7 @@ use App\Models\ClientAddress;
 use App\Models\Driver;
 use App\Models\Landmark;
 use App\Models\Order;
+use App\Models\OrderOffer;
 use App\Models\TariffClass;
 use App\Models\User;
 use App\Services\Dispatch\Dispatcher;
@@ -128,61 +130,68 @@ class OrderService
 
     public function arrive(Order $order, Driver $driver): void
     {
-        $this->ensureDriverOrder($order, $driver, [OrderStatus::Assigned]);
-
-        $order->forceFill(['status' => OrderStatus::Arrived, 'arrived_at' => now()])->save();
+        $this->transition($order, $driver, [OrderStatus::Assigned], ['status' => OrderStatus::Arrived, 'arrived_at' => now()]);
         OrderEvents::record($order, 'arrived', $driver->user);
     }
 
     public function start(Order $order, Driver $driver): void
     {
-        $this->ensureDriverOrder($order, $driver, [OrderStatus::Assigned, OrderStatus::Arrived]);
-
-        $order->forceFill([
+        $this->transition($order, $driver, [OrderStatus::Assigned, OrderStatus::Arrived], [
             'status' => OrderStatus::InProgress,
             'started_at' => now(),
             // Kutish: "Yetib keldim" dan "Yo'lovchi o'tirdi" gacha (qaror #33)
             'waiting_s' => $order->arrived_at ? (int) $order->arrived_at->diffInSeconds(now()) : 0,
-        ])->save();
+        ]);
         OrderEvents::record($order, 'started', $driver->user);
     }
 
     /**
      * Taksometr natijasi bilan yakunlash. Masofani haydovchi ilovasi hisoblaydi (internet uzilsa ham),
-     * server esa GPS treki bo'yicha tekshiradi — katta farq bo'lsa tarixda belgi qoladi.
+     * server esa GPS treki bo'yicha tekshiradi: trek ancha uzun bo'lsa komissiya trek bo'yicha olinadi.
+     * Ilova internet uzilganda qayta yuborishi mumkin — takroriy so'rov ikkinchi marta hisoblanmaydi.
      */
     public function complete(Order $order, Driver $driver, int $insideMeters, int $outsideMeters = 0): Order
     {
-        $this->ensureDriverOrder($order, $driver, [OrderStatus::InProgress]);
+        if ($order->status === OrderStatus::Completed && $order->driver_id === $driver->id) {
+            return $order;
+        }
 
         $branch = $order->branch()->firstOrFail();
         $startedAt = CarbonImmutable::parse($order->started_at ?? now())->setTimezone($branch->timezone);
         $fare = $this->fares->calculate($order->tariff_snapshot, $insideMeters, $outsideMeters, $order->waiting_s ?? 0, $startedAt);
         $trackMeters = $this->trackLength($driver, $order);
+        $reported = $insideMeters + $outsideMeters;
 
-        DB::transaction(function () use ($order, $driver, $fare, $insideMeters, $outsideMeters) {
-            $order->forceFill([
+        // Ilova kamaytirib yuborsa (masalan 0) — komissiya GPS treki bo'yicha (mijoz narxi o'zgarmaydi)
+        $underReported = $trackMeters !== null && $trackMeters >= 500 && $trackMeters > $reported * 1.3;
+        $commissionBase = $underReported
+            ? max($fare->total, $this->fares->calculate($order->tariff_snapshot, max(0, $trackMeters - $outsideMeters), $outsideMeters, $order->waiting_s ?? 0, $startedAt)->total)
+            : null;
+
+        DB::transaction(function () use ($order, $driver, $fare, $reported, $commissionBase) {
+            $this->transition($order, $driver, [OrderStatus::InProgress], [
                 'status' => OrderStatus::Completed,
                 'completed_at' => now(),
                 'price_final' => $fare->total,
                 'price_breakdown' => $fare->breakdown,
-                'distance_m' => $insideMeters + $outsideMeters,
+                'distance_m' => $reported,
                 'duration_s' => $order->started_at ? (int) $order->started_at->diffInSeconds(now()) : null,
-            ])->save();
+            ]);
 
-            $this->balance->chargeCommission($order);
+            $this->balance->chargeCommission($order, $commissionBase);
             $driver->forceFill(['status' => DriverStatus::Free])->save();
             $order->client()->increment('orders_count');
         });
 
         $this->discipline->completed($driver);
 
-        $reported = $insideMeters + $outsideMeters;
         OrderEvents::record($order, 'completed', $driver->user, [
             'price' => $fare->total,
             'reported_m' => $reported,
             'track_m' => $trackMeters,
-            'suspicious' => $trackMeters !== null && $reported > 0 && abs($reported - $trackMeters) / $reported > 0.25,
+            'commission_base' => $commissionBase,
+            'suspicious' => $trackMeters !== null && max($reported, $trackMeters) >= 500
+                && abs($reported - $trackMeters) / max($reported, $trackMeters) > 0.25,
         ]);
 
         return $order;
@@ -225,31 +234,43 @@ class OrderService
 
     /**
      * Haydovchi bekor qildi: jarima (uzrsiz bo'lsa) va buyurtma qayta efirga chiqadi — mijoz mashinasiz qolmaydi.
+     * Shu buyurtma bu haydovchiga qayta taklif qilinmaydi.
      */
     public function cancelByDriver(Order $order, Driver $driver, string $reason, bool $excused = false): void
     {
-        $this->ensureDriverOrder($order, $driver, [OrderStatus::Assigned, OrderStatus::Arrived]);
+        DB::transaction(function () use ($order, $driver) {
+            $this->transition($order, $driver, [OrderStatus::Assigned, OrderStatus::Arrived], ['driver_id' => null, 'vehicle_id' => null]);
+            $driver->forceFill(['status' => DriverStatus::Free])->save();
+            OrderOffer::query()->where('order_id', $order->id)->where('driver_id', $driver->id)
+                ->update(['response' => OfferResponse::Cancelled->value, 'responded_at' => now()]);
+        });
 
-        $driver->forceFill(['status' => DriverStatus::Free])->save();
         $this->discipline->cancelled($driver, $order, $reason, $excused);
-        OrderEvents::record($order, 'driver_cancelled', $driver->user, ['reason' => $reason], broadcast: false);
+        OrderEvents::record($order, 'driver_cancelled', $driver->user, ['reason' => $reason, 'driver_id' => $driver->id], broadcast: false);
 
         $this->dispatcher->restartSearch($order);
     }
 
+    /**
+     * Qator qulflanadi: shu paytda haydovchi qabul qilsa yoki yakunlasa ham holat va haydovchi to'g'ri o'qiladi
+     * (aks holda haydovchi "band" bo'lib qolib ketishi yoki yakunlangan buyurtma bekor bo'lib qolishi mumkin).
+     */
     private function cancel(Order $order, OrderStatus $status, string $reason, ?User $actor): void
     {
-        if ($order->status->isFinished()) {
-            throw new InvalidArgumentException('Buyurtma allaqachon yakunlangan.');
-        }
-
         DB::transaction(function () use ($order, $status, $reason) {
-            if ($order->driver_id) {
-                Driver::query()->withoutGlobalScopes()->whereKey($order->driver_id)
+            $locked = Order::query()->withoutGlobalScopes()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->status->isFinished()) {
+                throw new InvalidArgumentException(__('The order is already finished.'));
+            }
+
+            if ($locked->driver_id) {
+                Driver::query()->withoutGlobalScopes()->whereKey($locked->driver_id)
                     ->update(['status' => DriverStatus::Free->value]);
             }
 
-            $order->forceFill(['status' => $status, 'cancelled_at' => now(), 'cancel_reason' => $reason])->save();
+            $locked->forceFill(['status' => $status, 'cancelled_at' => now(), 'cancel_reason' => $reason])->save();
+            $order->setRawAttributes($locked->getAttributes(), true);
         });
 
         $this->dispatcher->withdrawOtherOffers($order, null, 'cancelled');
@@ -257,13 +278,32 @@ class OrderService
     }
 
     /**
+     * Shartli UPDATE: holat va haydovchi kutilgandek bo'lsagina o'zgaradi. Ikki parallel so'rovdan
+     * (ikki marta "yakunlash", yoki operator bekor qilishi bilan bir vaqtda) faqat bittasi o'tadi.
+     *
      * @param  list<OrderStatus>  $allowed
+     * @param  array<string, mixed>  $attributes
      */
-    private function ensureDriverOrder(Order $order, Driver $driver, array $allowed): void
+    private function transition(Order $order, Driver $driver, array $allowed, array $attributes): void
     {
-        if ($order->driver_id !== $driver->id || ! in_array($order->status, $allowed, true)) {
-            throw new InvalidArgumentException('Bu amal hozir mumkin emas.');
+        $values = array_map(fn ($value) => $value instanceof \BackedEnum ? $value->value : $value, $attributes);
+        foreach (['price_breakdown'] as $json) {
+            if (isset($values[$json]) && is_array($values[$json])) {
+                $values[$json] = json_encode($values[$json]);
+            }
         }
+
+        $updated = Order::query()->withoutGlobalScopes()
+            ->whereKey($order->id)
+            ->where('driver_id', $driver->id)
+            ->whereIn('status', array_map(fn (OrderStatus $s) => $s->value, $allowed))
+            ->update($values);
+
+        if ($updated !== 1) {
+            throw new InvalidArgumentException(__('This action is not possible now.'));
+        }
+
+        $order->refresh();
     }
 
     private function tariffClass(Branch $branch, ?int $tariffClassId): TariffClass

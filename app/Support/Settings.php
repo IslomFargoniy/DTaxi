@@ -41,6 +41,8 @@ class Settings
         'dispatch.location_ttl_seconds' => 60,
         // Oldindan buyurtma necha daqiqa oldin efirga chiqadi
         'dispatch.preorder_lead_minutes' => 15,
+        // GPS treki necha kun saqlanadi (masofa bahslari uchun)
+        'drivers.locations_retention_days' => 30,
         // Jarima va reyting (qaror #29)
         'drivers.cancel_penalty' => 2000,
         'drivers.rating_cancel_penalty' => 5,

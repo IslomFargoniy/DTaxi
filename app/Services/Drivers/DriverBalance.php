@@ -38,14 +38,18 @@ class DriverBalance
     /**
      * Yakunlangan buyurtmadan komissiya: yakuniy narx × foiz (standart 10% — qaror #34).
      */
-    public function chargeCommission(Order $order): ?DriverTransaction
+    /**
+     * @param  int|null  $base  narx o'rniga hisob asosi (masofa kam ko'rsatilganda — GPS treki bo'yicha narx)
+     */
+    public function chargeCommission(Order $order, ?int $base = null): ?DriverTransaction
     {
-        if (! $order->driver_id || ! $order->price_final) {
+        $base ??= $order->price_final;
+        if (! $order->driver_id || ! $base) {
             return null;
         }
 
         $percent = (float) $this->settings->get('drivers.commission_percent', $order->branch_id);
-        $commission = (int) round($order->price_final * $percent / 100);
+        $commission = (int) round($base * $percent / 100);
 
         $order->forceFill(['commission' => $commission])->save();
 

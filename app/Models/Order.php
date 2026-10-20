@@ -41,7 +41,9 @@ use Illuminate\Support\Carbon;
  * @property int|null $waiting_s
  * @property int|null $commission
  * @property int|null $phone_number_id
- * @property int $search_radius_m
+ * @property int|null $search_radius_m
+ * @property int $search_round
+ * @property Carbon|null $search_exhausted_at
  * @property Carbon|null $scheduled_at
  * @property Carbon|null $searching_at
  * @property Carbon|null $assigned_at
@@ -88,6 +90,7 @@ class Order extends Model
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'search_exhausted_at' => 'datetime',
         ];
     }
 

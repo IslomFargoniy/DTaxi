@@ -16,11 +16,12 @@ use Illuminate\Support\Carbon;
  * @property int $driver_id
  * @property int|null $distance_m
  * @property bool $is_direct
+ * @property int $round
  * @property OfferResponse|null $response
  * @property Carbon $offered_at
  * @property Carbon|null $responded_at
  */
-#[Fillable(['order_id', 'driver_id', 'distance_m', 'is_direct', 'response', 'offered_at', 'responded_at'])]
+#[Fillable(['order_id', 'driver_id', 'distance_m', 'is_direct', 'round', 'response', 'offered_at', 'responded_at'])]
 class OrderOffer extends Model
 {
     public $timestamps = false;

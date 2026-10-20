@@ -292,6 +292,7 @@
     "offer.too_late": "Kech qoldi",
     "offer.ignored": "Javob bermadi",
     "offer.rejected": "Rad etdi",
+    "offer.cancelled": "Bekor qildi",
     "Driver app": "Haydovchi ilovasi",
     "The app has not been published yet.": "Ilova hali joylanmagan.",
     "Download (most phones)": "Yuklab olish (ko'pchilik telefonlar)",
@@ -487,5 +488,9 @@
     "Pre-order: the order goes on air shortly before the chosen time.": "Oldindan buyurtma: tanlangan vaqtdan biroz oldin efirga chiqadi.",
     "You": "Siz",
     "Point on the map": "Xaritadagi nuqta",
-    "Drag a marker on the map to adjust it, or press the pin button and click the map again.": "Nuqtani o'zgartirish: xaritadagi belgini suring yoki 📍 ni bosib, xaritani qayta bosing."
+    "Drag a marker on the map to adjust it, or press the pin button and click the map again.": "Nuqtani o'zgartirish: xaritadagi belgini suring yoki 📍 ni bosib, xaritani qayta bosing.",
+    "The order is no longer waiting for a driver.": "Buyurtma endi haydovchi kutmayapti.",
+    "The order is already finished.": "Buyurtma allaqachon yakunlangan.",
+    "This action is not possible now.": "Bu amal hozir mumkin emas.",
+    "Your account is disabled.": "Hisobingiz o'chirilgan."
 }

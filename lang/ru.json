@@ -292,6 +292,7 @@
     "offer.too_late": "Опоздал",
     "offer.ignored": "Без ответа",
     "offer.rejected": "Отказался",
+    "offer.cancelled": "Отменил",
     "Driver app": "Приложение водителя",
     "The app has not been published yet.": "Приложение ещё не опубликовано.",
     "Download (most phones)": "Скачать (большинство телефонов)",
@@ -487,5 +488,9 @@
     "Pre-order: the order goes on air shortly before the chosen time.": "Предзаказ: заказ уйдёт в эфир незадолго до выбранного времени.",
     "You": "Вы",
     "Point on the map": "Точка на карте",
-    "Drag a marker on the map to adjust it, or press the pin button and click the map again.": "Чтобы изменить точку: перетащите метку на карте или нажмите 📍 и кликните по карте снова."
+    "Drag a marker on the map to adjust it, or press the pin button and click the map again.": "Чтобы изменить точку: перетащите метку на карте или нажмите 📍 и кликните по карте снова.",
+    "The order is no longer waiting for a driver.": "Заказ уже не ждёт водителя.",
+    "The order is already finished.": "Заказ уже завершён.",
+    "This action is not possible now.": "Сейчас это действие невозможно.",
+    "Your account is disabled.": "Ваша учётная запись отключена."
 }

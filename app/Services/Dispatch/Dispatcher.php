@@ -18,6 +18,7 @@ use App\Services\Drivers\DriverLocator;
 use App\Services\Orders\OrderEvents;
 use App\Support\Settings;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 /**
  * Efir (qaror #28): buyurtma radius ichidagi barcha mos bo'sh haydovchilarga bir vaqtda ko'rsatiladi,
@@ -38,6 +39,8 @@ class Dispatcher
             'status' => OrderStatus::Searching,
             'searching_at' => $order->searching_at ?? now(),
             'search_radius_m' => $steps[0],
+            'search_round' => $order->search_round + 1,
+            'search_exhausted_at' => null,
         ])->save();
 
         OrderEvents::record($order, 'searching', payload: ['radius_m' => $steps[0]]);
@@ -47,7 +50,9 @@ class Dispatcher
     }
 
     /**
-     * Joriy radiusdagi, hali taklif olmagan haydovchilarga taklif yuboradi.
+     * Joriy radiusdagi, shu raundda hali taklif olmagan haydovchilarga taklif yuboradi.
+     * Oldingi raunddagi takliflar hisobga olinmaydi — qayta efirda hamma yana ko'radi,
+     * faqat shu buyurtmani bekor qilgan haydovchidan tashqari.
      */
     public function broadcast(Order $order): int
     {
@@ -55,17 +60,26 @@ class Dispatcher
             return 0;
         }
 
-        $alreadyOffered = array_values(OrderOffer::query()->where('order_id', $order->id)->pluck('driver_id')->all());
-        $candidates = $this->locator->candidatesFor($order, $order->search_radius_m, $alreadyOffered);
+        $excluded = array_values(OrderOffer::query()->where('order_id', $order->id)
+            ->where(fn ($q) => $q->where('round', $order->search_round)
+                ->orWhere('response', OfferResponse::Cancelled->value))
+            ->pluck('driver_id')->all());
+        $radius = $order->search_radius_m ?? $this->radiusSteps($order)[0];
+        $candidates = $this->locator->candidatesFor($order, $radius, $excluded);
         $expiresIn = (int) $this->settings->get('dispatch.step_seconds', $order->branch_id);
 
         foreach ($candidates as ['driver' => $driver, 'distance_m' => $distance]) {
-            $offer = OrderOffer::query()->create([
-                'order_id' => $order->id,
-                'driver_id' => $driver->id,
-                'distance_m' => $distance,
-                'offered_at' => now(),
-            ]);
+            $offer = OrderOffer::query()->updateOrCreate(
+                ['order_id' => $order->id, 'driver_id' => $driver->id],
+                [
+                    'round' => $order->search_round,
+                    'distance_m' => $distance,
+                    'is_direct' => false,
+                    'response' => null,
+                    'responded_at' => null,
+                    'offered_at' => now(),
+                ],
+            );
 
             $this->notify($order, $offer, $driver, $expiresIn);
         }
@@ -75,20 +89,32 @@ class Dispatcher
 
     /**
      * Radiusni keyingi bosqichga kengaytirish (ExpandOrderSearch job chaqiradi).
+     * Eng katta radiusdan keyin buyurtma tashlab qo'yilmaydi: operator panelida belgilanadi va
+     * `orders:rebroadcast` har daqiqada uni yangi raund bilan qayta efirga chiqaradi.
      */
-    public function expand(Order $order, int $fromStep): void
+    public function expand(Order $order, int $fromStep, ?int $round = null): void
     {
         $steps = $this->radiusSteps($order);
 
-        if ($order->status !== OrderStatus::Searching || $order->search_radius_m !== $steps[$fromStep]) {
+        if ($order->status !== OrderStatus::Searching || ($round !== null && $round !== $order->search_round)) {
             return;
         }
 
         $next = $fromStep + 1;
         if (! isset($steps[$next])) {
-            // Eng katta radiusda ham hech kim olmadi — operator hal qiladi (qo'lda tayinlash yoki bekor qilish)
-            OrderEvents::record($order, 'search_exhausted', payload: ['radius_m' => $order->search_radius_m]);
+            if ($order->search_radius_m !== end($steps)) {
+                return;
+            }
 
+            if (! $order->search_exhausted_at) {
+                $order->forceFill(['search_exhausted_at' => now()])->save();
+                OrderEvents::record($order, 'search_exhausted', payload: ['radius_m' => $order->search_radius_m]);
+            }
+
+            return;
+        }
+
+        if ($order->search_radius_m !== $steps[$fromStep]) {
             return;
         }
 
@@ -97,6 +123,24 @@ class Dispatcher
 
         $this->broadcast($order);
         $this->scheduleExpansion($order, $next);
+    }
+
+    /**
+     * Hech kim olmagan buyurtmalar: yangi raund — oldin javob bermaganlar va keyin bo'shaganlar ham ko'radi.
+     * Job o'zini qayta chaqirmaydi (sinxron navbatda cheksiz aylanardi) — rejalashtiruvchi har daqiqada ishga tushiradi.
+     */
+    public function rebroadcastExhausted(): int
+    {
+        $count = 0;
+        Order::query()->withoutGlobalScopes()
+            ->where('status', OrderStatus::Searching->value)
+            ->whereNotNull('search_exhausted_at')
+            ->each(function (Order $order) use (&$count) {
+                $order->forceFill(['search_round' => $order->search_round + 1])->save();
+                $count += $this->broadcast($order);
+            });
+
+        return $count;
     }
 
     /**
@@ -157,15 +201,25 @@ class Dispatcher
      */
     public function offerDirect(Order $order, Driver $driver, User $operator): OrderOffer
     {
+        // Eskirgan ekrandan: allaqachon olingan yoki yakunlangan buyurtma taklif qilinmaydi
+        if (! in_array($order->status, [OrderStatus::New, OrderStatus::Searching], true)) {
+            throw new InvalidArgumentException(__('The order is no longer waiting for a driver.'));
+        }
+
         $expiresIn = (int) $this->settings->get('dispatch.direct_offer_seconds', $order->branch_id);
 
         if ($order->status === OrderStatus::New) {
-            $order->forceFill(['status' => OrderStatus::Searching, 'searching_at' => now()])->save();
+            $order->forceFill([
+                'status' => OrderStatus::Searching,
+                'searching_at' => now(),
+                'search_radius_m' => $order->search_radius_m ?? $this->radiusSteps($order)[0],
+                'search_round' => $order->search_round + 1,
+            ])->save();
         }
 
         $offer = OrderOffer::query()->updateOrCreate(
             ['order_id' => $order->id, 'driver_id' => $driver->id],
-            ['is_direct' => true, 'response' => null, 'responded_at' => null, 'offered_at' => now(), 'distance_m' => null],
+            ['is_direct' => true, 'round' => $order->search_round, 'response' => null, 'responded_at' => null, 'offered_at' => now(), 'distance_m' => null],
         );
 
         OrderEvents::record($order, 'direct_offer', $operator, ['driver_id' => $driver->id]);
@@ -213,6 +267,7 @@ class Dispatcher
             'vehicle_id' => null,
             'assigned_at' => null,
             'arrived_at' => null,
+            'searching_at' => now(),
         ])->save();
 
         $this->startSearch($order);
@@ -231,7 +286,7 @@ class Dispatcher
     private function scheduleExpansion(Order $order, int $step): void
     {
         $seconds = (int) $this->settings->get('dispatch.step_seconds', $order->branch_id);
-        ExpandOrderSearch::dispatch($order->id, $step)->delay(now()->addSeconds($seconds));
+        ExpandOrderSearch::dispatch($order->id, $step, $order->search_round)->delay(now()->addSeconds($seconds));
     }
 
     /**

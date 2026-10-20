@@ -70,6 +70,8 @@ class DriverController extends Controller
             'points.*.heading' => ['nullable', 'integer', 'between:0,360'],
             'points.*.accuracy' => ['nullable', 'integer', 'min:0'],
             'points.*.mock' => ['boolean'],
+            // Nuqta olingan vaqt (epoch ms) — internet uzilganda yig'ilganlari uchun
+            'points.*.t' => ['nullable', 'integer', 'min:0'],
         ]);
         $driver = $this->driver($request);
 
@@ -81,9 +83,14 @@ class DriverController extends Controller
             Log::warning('Soxta GPS', ['driver' => $driver->id]);
         }
 
-        foreach ($real as $point) {
-            $locator->update($driver, (float) $point['lat'], (float) $point['lng'], $point['speed'] ?? null, $point['heading'] ?? null, $point['accuracy'] ?? null);
-        }
+        $locator->record($driver, array_values(array_map(fn (array $p) => [
+            'lat' => (float) $p['lat'],
+            'lng' => (float) $p['lng'],
+            'speed' => isset($p['speed']) ? (int) $p['speed'] : null,
+            'heading' => isset($p['heading']) ? (int) $p['heading'] : null,
+            'accuracy' => isset($p['accuracy']) ? (int) $p['accuracy'] : null,
+            't' => isset($p['t']) ? (int) $p['t'] : null,
+        ], $real)));
 
         return response()->json(['ok' => true]);
     }

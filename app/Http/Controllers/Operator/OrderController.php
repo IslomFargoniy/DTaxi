@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use InvalidArgumentException;
 
 class OrderController extends Controller
 {
@@ -42,9 +43,13 @@ class OrderController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $request->boolean('by_client')
-            ? $this->orders->cancelByClient($order, $user, $data['reason'])
-            : $this->orders->cancelByOperator($order, $user, $data['reason'], $request->boolean('no_driver_found'));
+        try {
+            $request->boolean('by_client')
+                ? $this->orders->cancelByClient($order, $user, $data['reason'])
+                : $this->orders->cancelByOperator($order, $user, $data['reason'], $request->boolean('no_driver_found'));
+        } catch (InvalidArgumentException $e) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $e->getMessage()]);
+        }
 
         return back();
     }
@@ -60,7 +65,11 @@ class OrderController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $dispatcher->offerDirect($order, Driver::query()->whereKey($data['driver_id'])->firstOrFail(), $user);
+        try {
+            $dispatcher->offerDirect($order, Driver::query()->whereKey($data['driver_id'])->firstOrFail(), $user);
+        } catch (InvalidArgumentException $e) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $e->getMessage()]);
+        }
 
         return back();
     }
