@@ -17,7 +17,7 @@ Telefon orqali ishlaydigan taksi dispetcherlik tizimi. Mahsulot nomi — **Dtaxi
 - Kod, `composer`, `npm`, `php artisan` va testlar — Mac'da (`.env` VM'dagi bazaga ulanadi).
 - Server o'rnatish: `deploy/install.sh` (toza Ubuntu; `--dev` lokal VM, `--prod --domain= --email=` firma serveri). OSM ma'lumoti: `deploy/osm-prepare.sh` → `php artisan regions:import --region=Fargona`.
 - Telefoniya: Asterisk VM'da; qo'ng'iroq mantig'i `App\Services\Telephony\CallCenter` (ARI), daemon `php artisan ari:listen` (supervisor `ibtaxi-ari`; yangi kod uchun `ari:restart`). Panel brauzerda `https://192.168.252.2` (self-signed) — mikrofon faqat https'da.
-- Android: JDK 17 (`~/Library/Java/JavaVirtualMachines/jdk-17*`), Studio'ning JBR'i (25) Gradle 8.9 bilan ishlamaydi. Har `assembleDebug`/`assembleRelease` dan keyin universal APK `public/android/ibtaxi.<versiya>.apk` ga tushadi (faqat oxirgisi, git'ga tushmaydi). Versiya — `1.0.<git commit'lar soni>`. Haqiqiy telefon uchun: `./gradlew assembleRelease -Pfirm=lan` + Mac'da `python3 deploy/dev-lan-proxy.py`.
+- Android: JDK 17 (`~/Library/Java/JavaVirtualMachines/jdk-17*`), Studio'ning JBR'i (25) Gradle 8.9 bilan ishlamaydi. Har `assembleDebug`/`assembleRelease` dan keyin universal APK `public/android/dtaxi.<versiya>.apk` ga tushadi (faqat oxirgisi, git'ga tushmaydi). Versiya — `1.0.<git commit'lar soni>`. Haqiqiy telefon uchun: `./gradlew assembleRelease -Pfirm=lan` + Mac'da `python3 deploy/dev-lan-proxy.py`.
 
 ## Buyruqlar
 

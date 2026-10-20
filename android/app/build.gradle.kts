@@ -164,7 +164,7 @@ dependencies {
 
 tasks.named("preBuild") { dependsOn(generateNetworkSecurity) }
 
-// Har build'dan keyin universal APK public/android ga qisqa nom bilan: ibtaxi.1.0.49.apk (debug: ibtaxi.1.0.49-debug.apk).
+// Har build'dan keyin universal APK public/android ga qisqa nom bilan: dtaxi.1.0.49.apk (debug: dtaxi.1.0.49-debug.apk).
 // Papkada faqat oxirgi build turadi — eskilari o'chiriladi
 val publicApkDir = rootProject.file("../public/android")
 listOf("debug", "release").forEach { type ->
@@ -173,7 +173,7 @@ listOf("debug", "release").forEach { type ->
         val version = android.defaultConfig.versionName
         from(layout.buildDirectory.dir("outputs/apk/$type")) { include("*-universal-*.apk") }
         into(publicApkDir)
-        rename { "ibtaxi.$version" + (if (type == "debug") "-debug" else "") + ".apk" }
+        rename { "dtaxi.$version" + (if (type == "debug") "-debug" else "") + ".apk" }
     }
     tasks.matching { it.name == "assemble$name" }.configureEach { finalizedBy(sync) }
 }
