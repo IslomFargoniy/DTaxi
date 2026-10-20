@@ -54,6 +54,46 @@ class OrderController extends Controller
         return back();
     }
 
+    public function update(Request $request, Order $order): RedirectResponse
+    {
+        $data = $request->validate([
+            'comment' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'pickup_text' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'pickup_lat' => ['nullable', 'numeric', 'between:-90,90', 'required_with:pickup_lng'],
+            'pickup_lng' => ['nullable', 'numeric', 'between:-180,180', 'required_with:pickup_lat'],
+            'dropoff_text' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'dropoff_lat' => ['nullable', 'numeric', 'between:-90,90', 'required_with:dropoff_lng'],
+            'dropoff_lng' => ['nullable', 'numeric', 'between:-180,180', 'required_with:dropoff_lat'],
+            'tariff_class_id' => ['sometimes', 'nullable', 'integer', Rule::exists('tariff_classes', 'id')->where('branch_id', $order->branch_id)],
+            'price_bonus' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000000'],
+        ]);
+        /** @var User $user */
+        $user = $request->user();
+
+        try {
+            $this->orders->update($order, $data, $user);
+            Inertia::flash('toast', ['type' => 'success', 'message' => __('Order #:id updated.', ['id' => $order->id])]);
+        } catch (InvalidArgumentException $e) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $e->getMessage()]);
+        }
+
+        return back();
+    }
+
+    public function redispatch(Request $request, Order $order): RedirectResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        try {
+            $this->orders->redispatch($order, $user);
+        } catch (InvalidArgumentException $e) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $e->getMessage()]);
+        }
+
+        return back();
+    }
+
     /**
      * Qo'lda tayinlash: haydovchiga to'g'ridan-to'g'ri taklif (qaror #29).
      */

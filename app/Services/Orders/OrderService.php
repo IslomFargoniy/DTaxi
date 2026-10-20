@@ -168,12 +168,17 @@ class OrderService
             ? max($fare->total, $this->fares->calculate($order->tariff_snapshot, max(0, $trackMeters - $outsideMeters), $outsideMeters, $order->waiting_s ?? 0, $startedAt)->total)
             : null;
 
-        DB::transaction(function () use ($order, $driver, $fare, $reported, $commissionBase) {
+        $bonus = (int) $order->price_bonus;
+        $total = $fare->total + $bonus;
+        $breakdown = $bonus > 0 ? [...$fare->breakdown, 'bonus' => $bonus] : $fare->breakdown;
+        $commissionBase = $commissionBase !== null ? $commissionBase + $bonus : null;
+
+        DB::transaction(function () use ($order, $driver, $total, $breakdown, $reported, $commissionBase) {
             $this->transition($order, $driver, [OrderStatus::InProgress], [
                 'status' => OrderStatus::Completed,
                 'completed_at' => now(),
-                'price_final' => $fare->total,
-                'price_breakdown' => $fare->breakdown,
+                'price_final' => $total,
+                'price_breakdown' => $breakdown,
                 'distance_m' => $reported,
                 'duration_s' => $order->started_at ? (int) $order->started_at->diffInSeconds(now()) : null,
             ]);
@@ -186,7 +191,7 @@ class OrderService
         $this->discipline->completed($driver);
 
         OrderEvents::record($order, 'completed', $driver->user, [
-            'price' => $fare->total,
+            'price' => $total,
             'reported_m' => $reported,
             'track_m' => $trackMeters,
             'commission_base' => $commissionBase,
@@ -195,6 +200,86 @@ class OrderService
         ]);
 
         return $order;
+    }
+
+    /**
+     * Operator buyurtmani tuzatadi (mijoz qayta qo'ng'iroq qildi). Manzil va tarif faqat haydovchi topilmaguncha;
+     * izoh, qayerga va ustama — haydovchi yo'lga chiqquncha ham. Haydovchiga OrderUpdated orqali boradi.
+     *
+     * @param  array{comment?: string|null, dropoff_text?: string|null, dropoff_lat?: float|null, dropoff_lng?: float|null, tariff_class_id?: int|null, price_bonus?: int|null, pickup_text?: string|null, pickup_lat?: float|null, pickup_lng?: float|null}  $data
+     */
+    public function update(Order $order, array $data, User $operator): Order
+    {
+        $editable = [OrderStatus::New, OrderStatus::Searching, OrderStatus::Assigned, OrderStatus::Arrived];
+        if (! in_array($order->status, $editable, true)) {
+            throw new InvalidArgumentException(__('The order can no longer be changed.'));
+        }
+
+        $waiting = in_array($order->status, [OrderStatus::New, OrderStatus::Searching], true);
+        $changes = [];
+
+        if (array_key_exists('comment', $data)) {
+            $changes['comment'] = $data['comment'];
+        }
+        if (array_key_exists('price_bonus', $data)) {
+            $changes['price_bonus'] = $data['price_bonus'] ?: null;
+        }
+        if (array_key_exists('dropoff_text', $data)) {
+            $changes['dropoff_text'] = $data['dropoff_text'];
+            $changes['dropoff_location'] = isset($data['dropoff_lat'], $data['dropoff_lng'])
+                ? Point::makeGeodetic($data['dropoff_lat'], $data['dropoff_lng'])
+                : null;
+        }
+        if ($waiting && ! empty($data['pickup_text']) && isset($data['pickup_lat'], $data['pickup_lng'])) {
+            $changes['pickup_text'] = $data['pickup_text'];
+            $changes['pickup_location'] = Point::makeGeodetic($data['pickup_lat'], $data['pickup_lng']);
+        }
+        $tariffChanged = $waiting && ! empty($data['tariff_class_id']) && $data['tariff_class_id'] !== $order->tariff_class_id;
+        if ($tariffChanged) {
+            $branch = $order->branch()->firstOrFail();
+            $tariffClass = $this->tariffClass($branch, $data['tariff_class_id']);
+            $changes['tariff_class_id'] = $tariffClass->id;
+            $changes['tariff_snapshot'] = $tariffClass->tariff()->withoutGlobalScopes()->firstOrFail()->snapshot();
+        }
+
+        $order->forceFill($changes);
+
+        // Taxminiy narx qayta hisoblanadi (manzil yoki tarif o'zgargan bo'lsa)
+        if ($order->isDirty(['dropoff_location', 'pickup_location', 'tariff_snapshot'])) {
+            $order->distance_m = null;
+            $order->price_estimate = null;
+            if ($order->dropoff_location) {
+                $branch ??= $order->branch()->firstOrFail();
+                $route = $this->router->route($order->pickup_location, $order->dropoff_location);
+                $order->distance_m = $route->distanceMeters;
+                $order->price_estimate = $this->fares->calculate($order->tariff_snapshot, $route->distanceMeters, startedAt: CarbonImmutable::now($branch->timezone))->total;
+            }
+        }
+
+        $dirty = array_keys($order->getDirty());
+        $order->save();
+        OrderEvents::record($order, 'edited', $operator, ['fields' => $dirty]);
+
+        // Yangi tarif yoki joy — boshqa haydovchilar mos keladi, ustama — ko'proq haydovchi qiziqadi
+        if ($order->status === OrderStatus::Searching && ($tariffChanged || in_array('pickup_location', $dirty, true) || in_array('price_bonus', $dirty, true))) {
+            $this->redispatch($order, $operator);
+        }
+
+        return $order;
+    }
+
+    /**
+     * Qayta efir: eng kichik radiusdan, yangi raund bilan — oldin javob bermaganlar ham yana ko'radi.
+     */
+    public function redispatch(Order $order, User $operator): void
+    {
+        if (! in_array($order->status, [OrderStatus::New, OrderStatus::Searching], true)) {
+            throw new InvalidArgumentException(__('The order is no longer waiting for a driver.'));
+        }
+
+        $this->dispatcher->withdrawOtherOffers($order, null, 'redispatch');
+        OrderEvents::record($order, 'redispatched', $operator, broadcast: false);
+        $this->dispatcher->startSearch($order);
     }
 
     /**

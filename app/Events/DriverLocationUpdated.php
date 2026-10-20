@@ -36,6 +36,7 @@ class DriverLocationUpdated implements ShouldBroadcastNow
             'status' => $this->driver->status->value,
             'lat' => $this->driver->last_location?->getLatitude(),
             'lng' => $this->driver->last_location?->getLongitude(),
+            'last_seen_at' => $this->driver->last_seen_at?->toIso8601String(),
         ];
     }
 }

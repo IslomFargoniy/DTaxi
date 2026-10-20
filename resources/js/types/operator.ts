@@ -33,8 +33,11 @@ export type Order = {
     dropoff: Place | null;
     comment: string | null;
     price_estimate: number | null;
+    price_bonus: number | null;
     price_final: number | null;
     search_radius_m: number;
+    searching_at?: string | null;
+    search_exhausted_at?: string | null;
     created_at: string;
     scheduled_at?: string | null;
     assigned_at: string | null;
@@ -49,6 +52,7 @@ export type MapDriver = {
     lat: number | null;
     lng: number | null;
     vehicle?: string | null;
+    last_seen_at?: string | null;
 };
 
 export type Branch = {
@@ -99,5 +103,8 @@ export type ClientCard = {
         dropoff_text: string | null;
         price_final: number | null;
         created_at: string;
+        driver: string | null;
+        vehicle: string | null;
     }[];
+    dropoffs: { text: string; lat: number; lng: number }[];
 };

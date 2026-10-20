@@ -152,6 +152,8 @@ Route::middleware(['auth', 'permission:orders.manage'])->prefix('operator')->nam
     Route::post('orders', [OrderController::class, 'store'])->name('orders.store');
     Route::post('orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
     Route::post('orders/{order}/assign', [OrderController::class, 'assign'])->name('orders.assign');
+    Route::patch('orders/{order}', [OrderController::class, 'update'])->name('orders.update');
+    Route::post('orders/{order}/redispatch', [OrderController::class, 'redispatch'])->name('orders.redispatch');
 
     Route::get('lookup/client', [LookupController::class, 'client'])->name('lookup.client');
     Route::get('lookup/landmarks', [LookupController::class, 'landmarks'])->name('lookup.landmarks');

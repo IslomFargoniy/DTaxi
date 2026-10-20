@@ -9,6 +9,7 @@ use App\Models\Driver;
 use App\Models\Order;
 use App\Models\TariffClass;
 use App\Models\User;
+use App\Support\Settings;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -46,6 +47,8 @@ class OperatorController extends Controller
                 'tiles' => config('services.tiles.url'),
                 'center' => ['lat' => 40.3864, 'lng' => 71.7864],
             ],
+            // Shundan eski GPS'li haydovchi "bo'sh" deb sanalmaydi va tayinlash ro'yxatida chiqmaydi
+            'locationTtlSeconds' => (int) app(Settings::class)->get('dispatch.location_ttl_seconds'),
         ]);
     }
 
@@ -70,6 +73,7 @@ class OperatorController extends Controller
                 'lat' => $driver->last_location?->getLatitude(),
                 'lng' => $driver->last_location?->getLongitude(),
                 'vehicle' => $driver->vehicle ? trim("{$driver->vehicle->color} {$driver->vehicle->model} {$driver->vehicle->plate_number}") : null,
+                'last_seen_at' => $driver->last_seen_at?->toIso8601String(),
             ])
             ->all());
     }

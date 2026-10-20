@@ -27,7 +27,7 @@ class LookupController extends Controller
         $client = Client::query()->where('phone', $phone)->first();
 
         if (! $client) {
-            return response()->json(['client' => null, 'addresses' => [], 'orders' => []]);
+            return response()->json(['client' => null, 'addresses' => [], 'orders' => [], 'dropoffs' => []]);
         }
 
         return response()->json([
@@ -48,7 +48,8 @@ class LookupController extends Controller
                     'lat' => $a->location->getLatitude(),
                     'lng' => $a->location->getLongitude(),
                 ]),
-            'orders' => $client->orders()->latest()->limit(5)->get()
+            // Faol buyurtma ham shu yerda: "mashinam qani?" deb qo'ng'iroq qilganda ikkinchi buyurtma ochilmasin
+            'orders' => $client->orders()->with(['driver:id,callsign', 'vehicle'])->latest()->limit(5)->get()
                 ->map(fn (Order $o) => [
                     'id' => $o->id,
                     'status' => $o->status->value,
@@ -56,6 +57,16 @@ class LookupController extends Controller
                     'dropoff_text' => $o->dropoff_text,
                     'price_final' => $o->price_final,
                     'created_at' => $o->created_at->toIso8601String(),
+                    'driver' => $o->driver?->callsign,
+                    'vehicle' => $o->vehicle ? trim("{$o->vehicle->color} {$o->vehicle->model} {$o->vehicle->plate_number}") : null,
+                ]),
+            // Oxirgi borilgan joylar — "qayerga" uchun bir bosishda
+            'dropoffs' => $client->orders()->whereNotNull('dropoff_location')->latest()->limit(20)->get()
+                ->unique('dropoff_text')->take(5)->values()
+                ->map(fn (Order $o) => [
+                    'text' => (string) $o->dropoff_text,
+                    'lat' => $o->dropoff_location?->getLatitude(),
+                    'lng' => $o->dropoff_location?->getLongitude(),
                 ]),
         ]);
     }

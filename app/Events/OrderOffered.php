@@ -54,6 +54,7 @@ class OrderOffered implements ShouldBroadcastNow
             'tariff_class' => $order->tariffClass->name,
             'is_delivery' => $order->tariffClass->is_delivery,
             'price_estimate' => $order->price_estimate,
+            'price_bonus' => $order->price_bonus,
             'comment' => $order->comment,
             'expires_in' => $expiresInSeconds,
         ];

@@ -10,6 +10,7 @@ use App\Models\Client;
 use App\Models\Landmark;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\Dispatch\Dispatcher;
 use App\Services\Orders\OrderService;
 use Carbon\CarbonImmutable;
 use Clickbar\Magellan\Data\Geometries\Point;
@@ -140,4 +141,64 @@ test('pre-order time must be in the future', function () {
     $this->actingAs($this->operator)->post(route('operator.orders.store'), orderData($this->branch, [
         'scheduled_at' => now($this->branch->timezone)->subHour()->format('Y-m-d\TH:i'),
     ]))->assertSessionHasErrors('scheduled_at');
+});
+
+test('operator edits a waiting order: extra price goes on air again and is paid on completion', function () {
+    $driver = driverNear($this->branch, 500, ['balance' => 50000]);
+    $order = app(OrderService::class)->create(orderData($this->branch));
+    $round = $order->fresh()->search_round;
+
+    $this->actingAs($this->operator)
+        ->patch(route('operator.orders.update', $order), ['comment' => '3-podyezd', 'price_bonus' => 5000])
+        ->assertRedirect();
+
+    $order->refresh();
+    expect($order->comment)->toBe('3-podyezd')
+        ->and($order->price_bonus)->toBe(5000)
+        ->and($order->search_round)->toBe($round + 1)
+        ->and($order->offers()->where('driver_id', $driver->id)->first()->response)->toBeNull();
+
+    $orders = app(OrderService::class);
+    app(Dispatcher::class)->accept($order, $driver);
+    $orders->start($order->fresh(), $driver->fresh());
+    $completed = $orders->complete($order->fresh(), $driver->fresh(), 3000);
+
+    expect($completed->price_final)->toBe(15000)
+        ->and($completed->price_breakdown['bonus'])->toBe(5000);
+});
+
+test('tariff and pickup cannot be changed once a driver is assigned, comment can', function () {
+    $driver = driverNear($this->branch, 500);
+    $order = app(OrderService::class)->create(orderData($this->branch));
+    app(Dispatcher::class)->accept($order, $driver);
+    $otherClass = $this->branch->tariffClasses()->where('id', '!=', $order->tariff_class_id)->first();
+
+    $this->actingAs($this->operator)
+        ->patch(route('operator.orders.update', $order), ['comment' => 'Yangi izoh', 'tariff_class_id' => $otherClass->id])
+        ->assertRedirect();
+
+    expect($order->fresh()->comment)->toBe('Yangi izoh')
+        ->and($order->fresh()->tariff_class_id)->toBe($order->tariff_class_id);
+});
+
+test('operator re-dispatches a searching order to everyone again', function () {
+    $driver = driverNear($this->branch, 500);
+    $order = app(OrderService::class)->create(orderData($this->branch));
+    $round = $order->fresh()->search_round;
+
+    $this->actingAs($this->operator)->post(route('operator.orders.redispatch', $order))->assertRedirect();
+
+    expect($order->fresh()->search_round)->toBe($round + 1)
+        ->and($order->offers()->where('driver_id', $driver->id)->first()->round)->toBe($round + 1);
+});
+
+test('client card warns about an active order and offers recent destinations', function () {
+    $orders = app(OrderService::class);
+    $orders->create(orderData($this->branch, ['dropoff_text' => 'Vokzal', 'dropoff_lat' => 40.37, 'dropoff_lng' => 71.79]));
+
+    $this->actingAs($this->operator)
+        ->getJson(route('operator.lookup.client', ['phone' => '90 123 45 67']))
+        ->assertOk()
+        ->assertJsonPath('orders.0.status', OrderStatus::Searching->value)
+        ->assertJsonPath('dropoffs.0.text', 'Vokzal');
 });

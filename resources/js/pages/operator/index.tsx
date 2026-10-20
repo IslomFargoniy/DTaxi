@@ -11,7 +11,7 @@ import type { Branch, MapDriver, Order, TariffClass } from '@/types/operator';
 import { ChatPanel } from './chat-panel';
 import { OrderForm } from './order-form';
 import type { PickTarget } from './order-form';
-import { OrdersList } from './orders-list';
+import { isFresh, OrdersList } from './orders-list';
 import type { PickedPlace } from './place-picker';
 import { Softphone } from './softphone';
 import type { CallCard } from './softphone';
@@ -22,6 +22,7 @@ type Props = {
     orders: Order[];
     drivers: MapDriver[];
     map: { tiles: string; center: { lat: number; lng: number } };
+    locationTtlSeconds: number;
 };
 
 const ACTIVE: Order['status'][] = [
@@ -32,7 +33,10 @@ const ACTIVE: Order['status'][] = [
     'in_progress',
 ];
 
-function driversGeoJson(drivers: MapDriver[]): GeoJSON.FeatureCollection {
+function driversGeoJson(
+    drivers: MapDriver[],
+    ttlSeconds: number,
+): GeoJSON.FeatureCollection {
     return {
         type: 'FeatureCollection',
         features: drivers
@@ -49,7 +53,8 @@ function driversGeoJson(drivers: MapDriver[]): GeoJSON.FeatureCollection {
                 properties: {
                     id: d.id,
                     callsign: d.callsign,
-                    status: d.status,
+                    // GPS eskirgan — kulrang (bo'sh deb sanalmaydi)
+                    status: isFresh(d, ttlSeconds) ? d.status : 'stale',
                 },
             })),
     };
@@ -93,6 +98,7 @@ export default function OperatorIndex({
     orders: initialOrders,
     drivers: initialDrivers,
     map: mapConfig,
+    locationTtlSeconds,
 }: Props) {
     const { t } = useTrans();
     const { auth } = usePage<{ auth: { user: { id: number } } }>().props;
@@ -139,15 +145,15 @@ export default function OperatorIndex({
         const source = mapRef.current?.getSource('drivers') as
             | GeoJSONSource
             | undefined;
-        void source?.setData(driversGeoJson(drivers));
-    }, [drivers]);
+        void source?.setData(driversGeoJson(drivers, locationTtlSeconds));
+    }, [drivers, locationTtlSeconds]);
 
     const onReady = useCallback(
         (map: MapLibreMap) => {
             mapRef.current = map;
             map.addSource('drivers', {
                 type: 'geojson',
-                data: driversGeoJson(drivers),
+                data: driversGeoJson(drivers, locationTtlSeconds),
             });
             map.addLayer({
                 id: 'drivers',
@@ -257,6 +263,8 @@ export default function OperatorIndex({
                     <OrdersList
                         orders={orders}
                         drivers={drivers}
+                        tariffClasses={tariffClasses}
+                        locationTtlSeconds={locationTtlSeconds}
                         selectedId={selectedId}
                         onSelect={setSelectedId}
                     />
@@ -287,7 +295,13 @@ export default function OperatorIndex({
                     <div className="absolute bottom-2 left-2 flex gap-3 rounded-md bg-background/90 px-2 py-1 text-xs shadow">
                         <span>
                             🟢 {t('Free')}:{' '}
-                            {drivers.filter((d) => d.status === 'free').length}
+                            {
+                                drivers.filter(
+                                    (d) =>
+                                        d.status === 'free' &&
+                                        isFresh(d, locationTtlSeconds),
+                                ).length
+                            }
                         </span>
                         <span>
                             🔴 {t('Busy')}:{' '}
@@ -314,6 +328,7 @@ export default function OperatorIndex({
                         mapClick={mapClick}
                         onPlacesChange={onPlacesChange}
                         incoming={incoming}
+                        onShowOrder={setSelectedId}
                     />
                 </section>
             </div>

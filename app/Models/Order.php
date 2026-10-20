@@ -34,6 +34,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $comment
  * @property array<string, mixed> $tariff_snapshot
  * @property int|null $price_estimate
+ * @property int|null $price_bonus
  * @property int|null $price_final
  * @property array<string, int>|null $price_breakdown
  * @property int|null $distance_m

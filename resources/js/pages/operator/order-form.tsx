@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { AlertTriangle, History } from 'lucide-react';
+import { AlertTriangle, CarFront, History } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import OrderController from '@/actions/App/Http/Controllers/Operator/OrderController';
 import InputError from '@/components/input-error';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTrans } from '@/hooks/use-trans';
 import { getJson } from '@/lib/http';
+import { orderStatusLabel } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
 import { client as lookupClient } from '@/routes/operator/lookup';
 import type { Branch, ClientCard, TariffClass } from '@/types/operator';
@@ -39,7 +40,17 @@ type Props = {
     onPlacesChange: (pickup: PickedPlace, dropoff: PickedPlace) => void;
     /** Kiruvchi qo'ng'iroq kartochkasi — telefon va filial avtomatik to'ldiriladi */
     incoming?: CallCard | null;
+    /** Mijozning faol buyurtmasini ro'yxatda ko'rsatish */
+    onShowOrder?: (id: number) => void;
 };
+
+const ACTIVE_STATUSES = [
+    'new',
+    'searching',
+    'assigned',
+    'arrived',
+    'in_progress',
+];
 
 /**
  * Yangi buyurtma formasi (reja §8.1). Doimiy mijoz uchun oxirgi manzil bir bosishda tanlanadi.
@@ -52,9 +63,11 @@ export function OrderForm({
     mapClick,
     onPlacesChange,
     incoming,
+    onShowOrder,
 }: Props) {
     const { t } = useTrans();
     const phoneRef = useRef<HTMLInputElement>(null);
+    const formRef = useRef<HTMLFormElement>(null);
     const [card, setCard] = useState<ClientCard | null>(null);
     const [pickup, setPickup] = useState<PickedPlace>(emptyPlace);
     const [dropoff, setDropoff] = useState<PickedPlace>(emptyPlace);
@@ -115,18 +128,35 @@ export function OrderForm({
         onPlacesChange(pickup, dropoff);
     }, [pickup, dropoff, onPlacesChange]);
 
-    // F2 — yangi buyurtma: telefon maydoniga o'tish
+    // Klaviatura: F2 — telefon, Ctrl+Enter — yuborish, Alt+1..5 — oxirgi manzil, Esc — xaritadan tanlashni bekor qilish
+    const addresses = card?.addresses;
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             if (e.key === 'F2') {
                 e.preventDefault();
                 phoneRef.current?.focus();
+            } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                formRef.current?.requestSubmit();
+            } else if (e.altKey && /^Digit[1-5]$/.test(e.code)) {
+                const address = addresses?.[Number(e.code.slice(5)) - 1];
+                if (address) {
+                    e.preventDefault();
+                    setPickup({
+                        text: address.text,
+                        lat: address.lat,
+                        lng: address.lng,
+                        landmarkId: address.landmark_id,
+                    });
+                }
+            } else if (e.key === 'Escape') {
+                setPicking(null);
             }
         };
         window.addEventListener('keydown', onKey);
 
         return () => window.removeEventListener('keydown', onKey);
-    }, []);
+    }, [addresses, setPicking]);
 
     const lookup = (phone: string = form.data.phone) => {
         if (phone.replace(/\D/g, '').length < 9) {
@@ -137,6 +167,20 @@ export function OrderForm({
         getJson<ClientCard>(lookupClient.url({ query: { phone } }))
             .then((result) => {
                 setCard(result);
+                // Doimiy mijoz: oxirgi manzil darhol tanlanadi (operator o'zgartirishi mumkin)
+                const last = result.addresses[0];
+                if (last) {
+                    setPickup((place) =>
+                        place.lat === null && place.text === ''
+                            ? {
+                                  text: last.text,
+                                  lat: last.lat,
+                                  lng: last.lng,
+                                  landmarkId: last.landmark_id,
+                              }
+                            : place,
+                    );
+                }
                 if (result.client?.name) {
                     form.setData((data) =>
                         data.client_name
@@ -201,7 +245,7 @@ export function OrderForm({
     const errors = form.errors as Record<string, string>;
 
     return (
-        <form onSubmit={submit} className="grid gap-3">
+        <form ref={formRef} onSubmit={submit} className="grid gap-3">
             {branches.length > 1 && (
                 <div className="flex flex-wrap gap-1.5">
                     {branches.map((branch) => (
@@ -259,6 +303,41 @@ export function OrderForm({
                 </div>
             )}
 
+            {card?.orders
+                .filter((o) => ACTIVE_STATUSES.includes(o.status))
+                .map((o) => (
+                    <div
+                        key={o.id}
+                        className="grid gap-1 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm"
+                    >
+                        <div className="flex items-center gap-2 font-medium text-amber-700 dark:text-amber-400">
+                            <CarFront className="size-4" />
+                            {t('Client already has an active order')} #{o.id} —{' '}
+                            {t(orderStatusLabel[o.status])}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                            {o.pickup_text}
+                            {o.dropoff_text && ` → ${o.dropoff_text}`}
+                        </div>
+                        {o.driver && (
+                            <div className="text-xs">
+                                🚕 {o.driver} · {o.vehicle}
+                            </div>
+                        )}
+                        {onShowOrder && (
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="justify-self-start"
+                                onClick={() => onShowOrder(o.id)}
+                            >
+                                {t('Show order')}
+                            </Button>
+                        )}
+                    </div>
+                ))}
+
             {card && card.addresses.length > 0 && (
                 <div className="grid gap-1">
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -267,12 +346,13 @@ export function OrderForm({
                         {t('orders')})
                     </span>
                     <div className="flex flex-wrap gap-1.5">
-                        {card.addresses.map((address) => (
+                        {card.addresses.map((address, index) => (
                             <Button
                                 key={address.id}
                                 type="button"
                                 size="sm"
                                 variant="secondary"
+                                title={`Alt+${index + 1}`}
                                 onClick={() =>
                                     setPickup({
                                         text: address.text,
@@ -317,6 +397,30 @@ export function OrderForm({
                     setPicking(picking === 'dropoff' ? null : 'dropoff')
                 }
             />
+
+            {card && card.dropoffs.length > 0 && (
+                <div className="-mt-1 flex flex-wrap gap-1.5">
+                    {card.dropoffs.map((place) => (
+                        <Button
+                            key={place.text}
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs"
+                            onClick={() =>
+                                setDropoff({
+                                    text: place.text,
+                                    lat: place.lat,
+                                    lng: place.lng,
+                                    landmarkId: null,
+                                })
+                            }
+                        >
+                            → {place.text}
+                        </Button>
+                    ))}
+                </div>
+            )}
 
             <div className="flex flex-wrap gap-1.5">
                 {classes.map((tariffClass) => (
@@ -425,6 +529,10 @@ export function OrderForm({
                     )}
                 </p>
             )}
+            <p className="text-xs text-muted-foreground">
+                {t('Keys')}: F2 — {t('phone')}, Alt+1…5 — {t('recent place')},
+                Ctrl+Enter — {t('create')}, Esc — {t('stop picking')}
+            </p>
             {form.data.scheduled_at && (
                 <p className="text-xs text-amber-600">
                     {t(
