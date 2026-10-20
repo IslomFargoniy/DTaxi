@@ -104,6 +104,7 @@ export default function OperatorIndex({
         lat: number;
         lng: number;
         seq: number;
+        target?: 'pickup' | 'dropoff';
     } | null>(null);
     const [incoming, setIncoming] = useState<CallCard | null>(null);
     const mapRef = useRef<MapLibreMap | null>(null);
@@ -194,16 +195,20 @@ export default function OperatorIndex({
             if (!map) {
                 return;
             }
-            for (const [place, color] of [
-                [pickup, '#2563eb'],
-                [dropoff, '#9333ea'],
+            for (const [place, color, target] of [
+                [pickup, '#2563eb', 'pickup'],
+                [dropoff, '#9333ea', 'dropoff'],
             ] as const) {
                 if (place.lat !== null && place.lng !== null) {
-                    placeMarkers.current.push(
-                        new Marker({ color })
-                            .setLngLat([place.lng, place.lat])
-                            .addTo(map),
-                    );
+                    // Nuqtani surib aniqlashtirish mumkin
+                    const marker = new Marker({ color, draggable: true })
+                        .setLngLat([place.lng, place.lat])
+                        .addTo(map);
+                    marker.on('dragend', () => {
+                        const { lat, lng } = marker.getLngLat();
+                        setMapClick({ lat, lng, seq: Date.now(), target });
+                    });
+                    placeMarkers.current.push(marker);
                 }
             }
             if (pickup.lat !== null && pickup.lng !== null) {

@@ -30,7 +30,12 @@ type Props = {
     picking: PickTarget;
     setPicking: (target: PickTarget) => void;
     /** Xaritada bosilgan nuqta — tanlash rejimidagi maydonga yoziladi */
-    mapClick: { lat: number; lng: number; seq: number } | null;
+    mapClick: {
+        lat: number;
+        lng: number;
+        seq: number;
+        target?: 'pickup' | 'dropoff';
+    } | null;
     onPlacesChange: (pickup: PickedPlace, dropoff: PickedPlace) => void;
     /** Kiruvchi qo'ng'iroq kartochkasi — telefon va filial avtomatik to'ldiriladi */
     incoming?: CallCard | null;
@@ -79,10 +84,17 @@ export function OrderForm({
         classes.find((c) => c.is_default) ??
         classes[0];
 
-    // Xarita bosilganda tanlangan maydonga nuqta; tanlash rejimi yoqilmagan bo'lsa ham
-    // olib ketish nuqtasi hali yo'q bo'lsa — u belgilanadi (operatorga bitta harakat kam)
+    // Xarita bosilganda: 📍 bilan tanlangan maydon; aks holda avval "qayerdan", keyin "qayerga".
+    // Belgilangan nuqta surilsa (target) — o'sha maydon yangilanadi
     useEffect(() => {
-        const target = picking ?? (pickup.lat === null ? 'pickup' : null);
+        const target =
+            mapClick?.target ??
+            picking ??
+            (pickup.lat === null
+                ? 'pickup'
+                : dropoff.lat === null
+                  ? 'dropoff'
+                  : null);
         if (!mapClick || !target) {
             return;
         }
@@ -399,6 +411,13 @@ export function OrderForm({
                 </Button>
             </div>
             {/* Tugma nega o'chiqligini ko'rsatish: olib ketish nuqtasi xaritada belgilanmagan */}
+            {pickup.lat !== null && (
+                <p className="text-xs text-muted-foreground">
+                    {t(
+                        'Drag a marker on the map to adjust it, or press the pin button and click the map again.',
+                    )}
+                </p>
+            )}
             {pickup.lat === null && (
                 <p className="text-xs text-muted-foreground">
                     {t(
