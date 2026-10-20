@@ -69,11 +69,25 @@ class MainActivity : ComponentActivity() {
                 var screen by remember { mutableStateOf(if (intent?.getStringExtra("open") == "chat") Screen.Chat else Screen.Home) }
                 var update by remember { mutableStateOf<AppVersion?>(null) }
                 val scope = rememberCoroutineScope()
-                val loggedIn = app.repository.isLoggedIn
+                // Server bilan aloqa yo'q (masalan sinov ilovasida Mac IP'si o'zgardi): xabar, qayta urinish, chiqish
+                var loadError by remember { mutableStateOf<String?>(null) }
+                var attempt by remember { mutableStateOf(0) }
+                var signOuts by remember { mutableStateOf(0) }
+                val loggedIn = signOuts >= 0 && app.repository.isLoggedIn
 
-                LaunchedEffect(loggedIn) {
+                LaunchedEffect(loggedIn, attempt) {
                     if (!loggedIn) return@LaunchedEffect
-                    app.repository.refreshProfile()
+                    loadError = null
+                    val result = app.repository.refreshProfile()
+                    if (result is Result.Error) {
+                        if (result.code == 401) {
+                            app.session.clear()
+                            signOuts++
+                        } else {
+                            loadError = result.message ?: getString(R.string.network_error)
+                        }
+                        return@LaunchedEffect
+                    }
                     app.repository.refreshOrder()
                     registerPush()
                     (app.repository.appVersion() as? Result.Ok)?.value?.takeIf(updater::isNewer)?.let { update = it }
@@ -87,9 +101,19 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                if (profile == null && !app.repository.isLoggedIn) {
+                if (profile == null && !loggedIn) {
                     LoginScreen()
-                } else if (profile != null) {
+                } else if (profile == null) {
+                    ConnectingScreen(
+                        error = loadError,
+                        server = app.session.serverUrl,
+                        onRetry = { attempt++ },
+                        onLogout = {
+                            app.session.clear()
+                            signOuts++
+                        },
+                    )
+                } else {
                     when (screen) {
                         Screen.Home, Screen.Call -> HomeScreen(onOpen = { target ->
                             if (target == Screen.Call) callDispatcher() else screen = target

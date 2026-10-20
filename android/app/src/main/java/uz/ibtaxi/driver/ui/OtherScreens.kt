@@ -269,3 +269,27 @@ fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
         }
     }
 }
+
+/**
+ * Profil yuklanmoqda yoki server bilan aloqa yo'q: qora ekran o'rniga holat va chiqish imkoni
+ * (sinov ilovasida chiqib, login ekranida server manzilini o'zgartirish mumkin).
+ */
+@Composable
+fun ConnectingScreen(error: String?, server: String, onRetry: () -> Unit, onLogout: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp, androidx.compose.ui.Alignment.CenterVertically),
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+    ) {
+        if (error == null) {
+            androidx.compose.material3.CircularProgressIndicator()
+            Text(stringResource(R.string.connecting))
+        } else {
+            Text(stringResource(R.string.no_connection), style = MaterialTheme.typography.titleLarge)
+            Text(error, color = MaterialTheme.colorScheme.error)
+            Text("${stringResource(R.string.server_address)}: $server", style = MaterialTheme.typography.bodySmall)
+            Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.retry)) }
+            OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.logout)) }
+        }
+    }
+}

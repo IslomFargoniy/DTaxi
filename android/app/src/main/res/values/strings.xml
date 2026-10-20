@@ -76,4 +76,7 @@
     <string name="tx_adjustment">Tuzatish</string>
     <string name="voice_guidance">Ovozli navigatsiya</string>
     <string name="server_address">Server manzili (Mac IP)</string>
+    <string name="retry">Qayta urinish</string>
+    <string name="connecting">Serverga ulanmoqda…</string>
+    <string name="no_connection">Server bilan aloqa yo\'q</string>
 </resources>

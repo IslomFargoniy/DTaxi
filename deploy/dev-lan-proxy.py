@@ -27,6 +27,9 @@ async def pipe(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> No
 
 def handler(port: int):
     async def handle(client_reader, client_writer):
+        # Kim ulanayotganini ko'rish — telefon so'rovi Mac'ga yetib kelyaptimi
+        peer = client_writer.get_extra_info("peername")
+        print(f"ulanish: {peer[0] if peer else '?'} → :{port}", flush=True)
         try:
             vm_reader, vm_writer = await asyncio.open_connection(VM_IP, port)
         except OSError:
