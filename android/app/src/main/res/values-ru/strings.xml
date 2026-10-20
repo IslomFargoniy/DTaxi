@@ -103,4 +103,7 @@
     <string name="orders_short">зак.</string>
     <string name="queue">Очередь</string>
     <string name="tx_corporate">Корпоративная поездка</string>
+    <string name="kmh">км/ч</string>
+    <string name="waiting_free_left">Бесплатно ещё</string>
+    <string name="waiting_not_charged">В этом тарифе ожидание не оплачивается</string>
 </resources>

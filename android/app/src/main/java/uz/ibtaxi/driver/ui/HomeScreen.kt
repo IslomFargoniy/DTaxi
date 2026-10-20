@@ -91,6 +91,7 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
     val profile by DriverState.profile.collectAsState()
     val order by DriverState.order.collectAsState()
     val location by DriverState.location.collectAsState()
+    val motion by DriverState.motion.collectAsState()
     val unread by DriverState.unread.collectAsState()
     var route by remember { mutableStateOf<List<List<Double>>?>(null) }
     var navigator by remember { mutableStateOf<Navigator?>(null) }
@@ -166,6 +167,9 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
             route = route,
             modifier = Modifier.fillMaxSize(),
             stops = order?.stops.orEmpty().drop(passedStops).map { MapPoint(it.lat, it.lng) },
+            navigating = order?.status in setOf("assigned", "arrived", "in_progress"),
+            bearing = motion.bearing,
+            speedKmh = motion.speedKmh,
         )
 
         // Yuqori panel: holat, balans, chat, sozlamalar
@@ -337,8 +341,8 @@ private fun OrderCard(order: Order, passedStops: Int, onPassedStops: (Int) -> Un
             }
             order.comment?.let { Text("${stringResource(R.string.comment)}: $it", style = MaterialTheme.typography.bodySmall) }
 
-            if (order.status == "arrived" && waitingSeconds > 0) {
-                Text("${stringResource(R.string.waiting)}: ${waitingSeconds / 60}:${"%02d".format(waitingSeconds % 60)}")
+            if (order.status == "arrived") {
+                WaitingPanel(order, tariff, waitingSeconds)
             }
             if (order.status == "in_progress" && tariff != null) {
                 TaximeterPanel(order, tariff, meters, profile?.config?.timezone)
@@ -467,6 +471,37 @@ private fun formatDistance(meters: Int): String =
  * Taksometr (safar davomida): katta narx, masofa, safar vaqti, kutish; server yakunda xuddi shu formula bilan
  * hisoblaydi (kutish = "Yetib keldim" → "Boshladim", tungi narx — safar boshlangan vaqt bo'yicha).
  */
+/**
+ * Mijozni kutish (qaror #33): taymer, bepul daqiqalar qoldig'i va hozirgi narx — haydovchi va mijoz ko'radi.
+ * Tarifda kutish o'chiq bo'lsa — narx o'zgarmasligi aniq yoziladi.
+ */
+@Composable
+private fun WaitingPanel(order: Order, tariff: Tariff?, waitingSeconds: Long) {
+    val charged = tariff?.waitingEnabled == true && tariff.waitingPerMin > 0
+    val freeLeft = tariff?.let { (it.waitingFreeMin * 60L - waitingSeconds).coerceAtLeast(0) } ?: 0L
+    val fare = tariff?.let {
+        Fare.calculate(it, 0, waitingSeconds = waitingSeconds, surgeCoeff = order.surgeCoeff ?: 1.0, discountPercent = order.discountPercent ?: 0)
+    }
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            MeterValue("${waitingSeconds / 60}:${"%02d".format(waitingSeconds % 60)}", stringResource(R.string.waiting))
+            if (charged && freeLeft > 0) {
+                MeterValue("${freeLeft / 60}:${"%02d".format(freeLeft % 60)}", stringResource(R.string.waiting_free_left))
+            }
+            if (fare != null) {
+                MeterValue("${formatMoney(fare.total + (order.priceBonus ?: 0))}", stringResource(R.string.som))
+            }
+        }
+        if (!charged) {
+            Text(
+                stringResource(R.string.waiting_not_charged),
+                Modifier.padding(start = 12.dp, end = 12.dp, bottom = 10.dp),
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
 @Composable
 private fun TaximeterPanel(order: Order, tariff: Tariff, meters: Pair<Long, Long>, timezone: String?) {
     // Tungi tarif filial vaqti bo'yicha (server ham shunday hisoblaydi), telefon zonasi boshqa bo'lsa ham

@@ -105,10 +105,10 @@ test('under-reported distance is charged commission by the GPS track', function 
         DriverLocation::query()->create([
             'driver_id' => $driver->id,
             'location' => Point::makeGeodetic(40.3864 + $i * 0.0045, 71.7864),
-            'recorded_at' => now()->addSeconds($i),
+            'recorded_at' => now()->addSeconds($i * 30),
         ]);
     }
-    $this->travel(1)->minutes();
+    $this->travel(6)->minutes();
     $completed = $this->orders->complete($order->fresh(), $driver->fresh(), 0);
 
     // Mijoz narxi — ilova ko'rsatgani bo'yicha, komissiya — trek bo'yicha
@@ -211,4 +211,25 @@ test('disabled users lose app tokens and panel sessions', function () {
     $this->actingAs($operator)->get('/dashboard')
         ->assertRedirect(route('login'))
         ->assertSessionHas('status', __('Your account is disabled.'));
+});
+
+test('impossible GPS jumps (two phones on one account) do not inflate the commission', function () {
+    $driver = driverNear($this->branch, 0, ['balance' => 50000]);
+    $order = $this->orders->create(orderData($this->branch));
+    $this->dispatcher->accept($order, $driver);
+    $this->orders->start($order->fresh(), $driver->fresh());
+
+    // Har soniyada ikki shahar orasida "sakraydi"
+    foreach (range(1, 20) as $i) {
+        DriverLocation::query()->create([
+            'driver_id' => $driver->id,
+            'location' => $i % 2 ? Point::makeGeodetic(40.3864, 71.7864) : Point::makeGeodetic(41.31, 69.28),
+            'recorded_at' => now()->addSeconds($i),
+        ]);
+    }
+    $this->travel(1)->minutes();
+    $completed = $this->orders->complete($order->fresh(), $driver->fresh(), 0);
+
+    expect($completed->commission)->toBe(1000)
+        ->and($completed->events()->where('type', 'completed')->first()->payload['commission_base'])->toBeNull();
 });

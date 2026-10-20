@@ -1,5 +1,18 @@
 package uz.ibtaxi.driver.ui
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.android.style.layers.Property
+import android.graphics.Paint
+import android.graphics.Canvas
+import android.graphics.Bitmap
+import android.content.Context
 import uz.ibtaxi.driver.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
@@ -59,6 +72,10 @@ fun TaxiMap(
     route: List<List<Double>>?,
     modifier: Modifier = Modifier,
     stops: List<MapPoint> = emptyList(),
+    // Buyurtma paytida — Yandex Navigator kabi: yaqin, qiya, harakat yo'nalishida, strelka pastroqda
+    navigating: Boolean = false,
+    bearing: Float? = null,
+    speedKmh: Int = 0,
 ) {
     val context = LocalContext.current
     val mapView = remember { MapView(context).apply { onCreate(Bundle()) } }
@@ -89,14 +106,29 @@ fun TaxiMap(
             view.getMapAsync { map ->
                 holder[0] = map
                 map.uiSettings.isRotateGesturesEnabled = false
+                map.uiSettings.isCompassEnabled = false
                 map.addOnCameraMoveStartedListener { reason ->
                     if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) follow = false
                 }
                 map.cameraPosition = CameraPosition.Builder().target(LatLng(40.3864, 71.7864)).zoom(13.0).build()
-                map.setStyle(Style.Builder().fromUri(styleUrl)) { style -> addLayers(style) }
+                map.setStyle(Style.Builder().fromUri(styleUrl)) { style -> addLayers(style, view.context) }
             }
         }
     }, modifier = Modifier.fillMaxSize())
+
+    if (navigating && me != null) {
+        Surface(
+            modifier = Modifier.align(Alignment.CenterStart).padding(start = 12.dp).size(56.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 4.dp,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Text("$speedKmh", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.kmh), style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
 
     SmallFloatingActionButton(
         onClick = {
@@ -119,11 +151,31 @@ fun TaxiMap(
     }
     }
 
-    LaunchedEffect(me, pickup, dropoff, route, recenter, stops) {
+    LaunchedEffect(me, pickup, dropoff, route, recenter, stops, navigating, bearing) {
         val map = holder[0] ?: return@LaunchedEffect
         val style = map.style ?: return@LaunchedEffect
-        update(style, me, pickup, dropoff, route, stops)
+        update(style, me, pickup, dropoff, route, stops, if (navigating) bearing ?: 0f else null)
         if (!follow) return@LaunchedEffect
+
+        if (navigating && me != null) {
+            // Strelka ekranning pastroq qismida (pastki buyurtma kartasidan yuqorida) — oldindagi yo'l ko'proq ko'rinsin
+            val top = mapView.height * 0.40
+            val bottom = mapView.height * 0.27
+            val camera = CameraPosition.Builder()
+                .target(LatLng(me.lat, me.lng))
+                .zoom(if (speedKmh > 60) 16.5 else 17.5)
+                .tilt(55.0)
+                .bearing((bearing ?: map.cameraPosition.bearing.toFloat()).toDouble())
+                .padding(0.0, top, 0.0, bottom)
+                .build()
+            map.animateCamera(CameraUpdateFactory.newCameraPosition(camera), 900)
+            return@LaunchedEffect
+        }
+
+        // Navigatordan chiqqanda — tekis va shimol tepada
+        if (map.cameraPosition.tilt > 0 || map.cameraPosition.bearing != 0.0) {
+            map.cameraPosition = CameraPosition.Builder(map.cameraPosition).tilt(0.0).bearing(0.0).padding(0.0, 0.0, 0.0, 0.0).build()
+        }
 
         // Tugma bosilganda — haydovchining o'ziga, uy raqamlari ko'rinadigan zoom'gacha
         if (recenter > 0 && me != null && pickup == null && dropoff == null) {
@@ -141,10 +193,28 @@ fun TaxiMap(
     }
 }
 
-private fun addLayers(style: Style) {
+private fun addLayers(style: Style, context: Context) {
+    style.addImage("nav-arrow", navArrow(context))
     style.addSource(GeoJsonSource("route"))
     style.addSource(GeoJsonSource("points"))
-    style.addLayer(LineLayer("route", "route").withProperties(PropertyFactory.lineColor("#2563eb"), PropertyFactory.lineWidth(5f)))
+    style.addSource(GeoJsonSource("me"))
+    // Navigatordagidek qalin chiziq oq hoshiya bilan
+    style.addLayer(
+        LineLayer("route-casing", "route").withProperties(
+            PropertyFactory.lineColor("#ffffff"),
+            PropertyFactory.lineWidth(11f),
+            PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+            PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+        ),
+    )
+    style.addLayer(
+        LineLayer("route", "route").withProperties(
+            PropertyFactory.lineColor("#2563eb"),
+            PropertyFactory.lineWidth(7f),
+            PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+            PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+        ),
+    )
     style.addLayer(
         CircleLayer("points", "points").withProperties(
             PropertyFactory.circleRadius(9f),
@@ -162,19 +232,58 @@ private fun addLayers(style: Style) {
             ),
         ),
     )
+    // Haydovchi strelkasi — xaritaga "yotqizilgan", yo'nalish bo'yicha buriladi
+    style.addLayer(
+        SymbolLayer("me-arrow", "me").withProperties(
+            PropertyFactory.iconImage("nav-arrow"),
+            PropertyFactory.iconRotate(Expression.get("bearing")),
+            PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP),
+            PropertyFactory.iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_MAP),
+            PropertyFactory.iconAllowOverlap(true),
+            PropertyFactory.iconIgnorePlacement(true),
+            PropertyFactory.iconSize(0.6f),
+        ),
+    )
 }
 
-private fun update(style: Style, me: MapPoint?, pickup: MapPoint?, dropoff: MapPoint?, route: List<List<Double>>?, stops: List<MapPoint>) {
+/** navBearing != null — navigator rejimi: "me" yashil nuqta emas, strelka */
+private fun update(style: Style, me: MapPoint?, pickup: MapPoint?, dropoff: MapPoint?, route: List<List<Double>>?, stops: List<MapPoint>, navBearing: Float?) {
     val features = listOfNotNull(
-        me?.let { feature(it, "me") },
+        me?.takeIf { navBearing == null }?.let { feature(it, "me") },
         pickup?.let { feature(it, "pickup") },
         dropoff?.let { feature(it, "dropoff") },
     ) + stops.map { feature(it, "stop") }
     style.getSourceAs<GeoJsonSource>("points")?.setGeoJson(FeatureCollection.fromFeatures(features))
+    style.getSourceAs<GeoJsonSource>("me")?.setGeoJson(
+        FeatureCollection.fromFeatures(
+            listOfNotNull(
+                me?.takeIf { navBearing != null }?.let {
+                    feature(it, "me").apply { addNumberProperty("bearing", navBearing) }
+                },
+            ),
+        ),
+    )
     val line = route?.takeIf { it.size >= 2 }?.map { Point.fromLngLat(it[0], it[1]) }
     style.getSourceAs<GeoJsonSource>("route")?.setGeoJson(
         FeatureCollection.fromFeatures(line?.let { listOf(Feature.fromGeometry(LineString.fromLngLats(it))) } ?: emptyList()),
     )
+}
+
+/** Yandex'dagidek sariq strelka (o'q uchi tepaga) */
+private fun navArrow(context: Context): Bitmap {
+    val size = (64 * context.resources.displayMetrics.density).toInt()
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val path = android.graphics.Path().apply {
+        moveTo(size * 0.5f, size * 0.08f)
+        lineTo(size * 0.9f, size * 0.88f)
+        lineTo(size * 0.5f, size * 0.7f)
+        lineTo(size * 0.1f, size * 0.88f)
+        close()
+    }
+    canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFF5B400.toInt(); style = Paint.Style.FILL; setShadowLayer(size * 0.05f, 0f, size * 0.02f, 0x66000000) })
+    canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFB37F00.toInt(); style = Paint.Style.STROKE; strokeWidth = size * 0.03f; strokeJoin = Paint.Join.ROUND })
+    return bitmap
 }
 
 private fun feature(point: MapPoint, kind: String) =

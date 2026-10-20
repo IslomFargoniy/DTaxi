@@ -22,6 +22,10 @@ object DriverState {
     private val _location = MutableStateFlow<Pair<Double, Double>?>(null)
     val location: StateFlow<Pair<Double, Double>?> = _location.asStateFlow()
 
+    private val _motion = MutableStateFlow(Motion(null, 0))
+    /** Navigator uchun: harakat yo'nalishi (gradus, turganda — oxirgisi) va tezlik (km/soat) */
+    val motion: StateFlow<Motion> = _motion.asStateFlow()
+
     private val _meters = MutableStateFlow(0L to 0L)
     /** Taksometr: (shahar ichi, tashqarisi) metr */
     val meters: StateFlow<Pair<Long, Long>> = _meters.asStateFlow()
@@ -81,6 +85,8 @@ object DriverState {
 
     fun setLocation(lat: Double, lng: Double) = _location.update { lat to lng }
 
+    fun setMotion(bearing: Float?, speedKmh: Int) = _motion.update { Motion(bearing ?: it.bearing, speedKmh) }
+
     fun setMeters(inside: Long, outside: Long) = _meters.update { inside to outside }
 
     fun setUnread(count: Int) = _unread.update { count }
@@ -97,3 +103,5 @@ object DriverState {
 
     val FINISHED = setOf("completed", "cancelled_by_client", "cancelled_by_operator", "cancelled_by_driver", "no_driver_found")
 }
+
+data class Motion(val bearing: Float?, val speedKmh: Int)

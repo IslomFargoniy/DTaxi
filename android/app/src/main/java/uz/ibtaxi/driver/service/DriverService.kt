@@ -54,6 +54,7 @@ class DriverService : LifecycleService() {
     private var orderSynced = false
     /** Turgan bo'sh haydovchi uchun siyrak GPS (batareya) */
     private var slowGps = false
+    private var lastBufferedAt = 0L
     private var lastMovedAt = System.currentTimeMillis()
     private var lastMovedLat = 0.0
     private var lastMovedLng = 0.0
@@ -123,7 +124,12 @@ class DriverService : LifecycleService() {
     @SuppressLint("MissingPermission")
     private fun startLocation() {
         val configured = (DriverState.profile.value?.config?.locationIntervalSeconds ?: 4) * 1000L
-        val interval = if (slowGps) maxOf(configured, SLOW_INTERVAL_MS) else configured
+        // Buyurtma paytida navigator xaritasi silliq yursin — har soniyada (serverga baribir siyrak ketadi)
+        val interval = when {
+            hasActiveOrder() -> NAV_INTERVAL_MS
+            slowGps -> maxOf(configured, SLOW_INTERVAL_MS)
+            else -> configured
+        }
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, interval)
             .setMinUpdateIntervalMillis(interval / 2)
             .build()
@@ -138,18 +144,26 @@ class DriverService : LifecycleService() {
         // Soxta GPS ilovasi (mock location): server nuqtani hisobga olmaydi, taksometr ham
         @Suppress("DEPRECATION")
         val mock = if (android.os.Build.VERSION.SDK_INT >= 31) location.isMock else location.isFromMockProvider
-        if (!mock) DriverState.setLocation(location.latitude, location.longitude)
-        buffer.add(
-            LocationPoint(
-                location.latitude,
-                location.longitude,
-                (location.speed * 3.6).toInt(),
-                location.bearing.toInt(),
-                location.accuracy.toInt(),
-                mock,
-                location.time,
-            ),
-        )
+        if (!mock) {
+            DriverState.setLocation(location.latitude, location.longitude)
+            // Turganda GPS yo'nalishi tasodifiy — faqat harakatda yangilanadi
+            DriverState.setMotion(if (location.hasBearing() && location.speed > 1.5f) location.bearing else null, (location.speed * 3.6).toInt())
+        }
+        val configuredMs = (DriverState.profile.value?.config?.locationIntervalSeconds ?: 4) * 1000L
+        if (location.time - lastBufferedAt >= configuredMs - 500) {
+            lastBufferedAt = location.time
+            buffer.add(
+                LocationPoint(
+                    location.latitude,
+                    location.longitude,
+                    (location.speed * 3.6).toInt(),
+                    location.bearing.toInt(),
+                    location.accuracy.toInt(),
+                    mock,
+                    location.time,
+                ),
+            )
+        }
         if (mock) return
         adaptInterval(location)
 
@@ -234,7 +248,15 @@ class DriverService : LifecycleService() {
     }
 
     /** Safar boshlanganda taksometr noldan; tugaganda tozalanadi */
+    private fun hasActiveOrder() = DriverState.order.value?.status in setOf("assigned", "arrived", "in_progress")
+
+    private var navGps = false
+
     private fun onOrderChanged(order: Order?) {
+        if (hasActiveOrder() != navGps) {
+            navGps = hasActiveOrder()
+            startLocation()
+        }
         if (order == null) {
             // Ilk null — hali serverdan javob kelmagan; saqlangan taksometrni o'chirmaymiz
             if (!orderSynced || app.session.pendingComplete != null) return
@@ -300,6 +322,7 @@ class DriverService : LifecycleService() {
     companion object {
         private const val NOTIFICATION_ID = 1001
         private const val SLOW_INTERVAL_MS = 15_000L
+        private const val NAV_INTERVAL_MS = 1_000L
         private val gson = Gson()
 
         fun start(context: Context) = context.startForegroundService(Intent(context, DriverService::class.java))

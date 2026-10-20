@@ -491,6 +491,8 @@ class OrderService
 
     /**
      * Server tomonidagi tekshiruv: yo'lda (started_at dan hozirgacha) GPS nuqtalari bo'yicha masofa.
+     * Imkonsiz sakrashlar (soatiga ~200 km dan tez — GPS xatosi yoki bitta akkaunt ikki telefonda) hisobga olinmaydi,
+     * aks holda bitta sakrash yuzlab km "trek" va noto'g'ri komissiya beradi.
      */
     private function trackLength(Driver $driver, Order $order): ?int
     {
@@ -499,9 +501,14 @@ class OrderService
         }
 
         $length = DB::scalar(<<<'SQL'
-            SELECT ST_Length(ST_MakeLine(location::geometry ORDER BY recorded_at)::geography)
-            FROM driver_locations
-            WHERE driver_id = ? AND recorded_at BETWEEN ? AND ?
+            SELECT SUM(d) FROM (
+                SELECT ST_Distance(location, LAG(location) OVER w) AS d,
+                       EXTRACT(EPOCH FROM recorded_at - LAG(recorded_at) OVER w) AS dt
+                FROM driver_locations
+                WHERE driver_id = ? AND recorded_at BETWEEN ? AND ?
+                WINDOW w AS (ORDER BY recorded_at)
+            ) AS segments
+            WHERE dt > 0 AND d <= 55 * dt + 30
             SQL, [$driver->id, $order->started_at, now()]);
 
         return $length === null ? null : (int) round((float) $length);
