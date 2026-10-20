@@ -38,13 +38,15 @@ class OperatorPool
         }
 
         return User::query()
-            ->role([Role::Operator->value, Role::Admin->value])
+            ->role([Role::Operator->value, Role::Admin->value, Role::Superadmin->value])
             ->where('is_active', true)
             ->where('operator_status', 'ready')
             ->whereIn('sip_extension', $online)
             ->whereNotIn('id', [...$exclude, ...$this->busyOperatorIds()])
+            // Superadmin — barcha filiallar navbatida
             ->where(fn ($q) => $q->whereIn('branch_id', $branchIds)
-                ->orWhereHas('branches', fn ($b) => $b->whereIn('branches.id', $branchIds)))
+                ->orWhereHas('branches', fn ($b) => $b->whereIn('branches.id', $branchIds))
+                ->orWhereHas('roles', fn ($r) => $r->where('name', Role::Superadmin->value)))
             ->orderByRaw('operator_status_at ASC NULLS FIRST')
             ->first();
     }

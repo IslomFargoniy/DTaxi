@@ -371,6 +371,16 @@ class CallCenter
      */
     private function operatorDials(string $channelId, User $operator, string $exten): void
     {
+        // Qisqa raqam haydovchi pozivnoyi bo'lsa — o'sha haydovchiga ("777" → dr74)
+        if (preg_match('/^\d{1,6}$/', $exten)) {
+            $driverId = Driver::query()->withoutGlobalScopes()->where('callsign', $exten)
+                ->when(! $operator->isSuperadmin(), fn ($q) => $q->whereIn('branch_id', $operator->branchIds()))
+                ->value('id');
+            if ($driverId) {
+                $exten = 'dr'.$driverId;
+            }
+        }
+
         $toDriver = (bool) preg_match('/^dr(\d+)$/', $exten, $dm);
         $phone = $toDriver ? $exten : Client::normalizePhone($exten);
         $number = $toDriver ? null : PhoneNumber::forBranch($operator->branch_id);

@@ -114,7 +114,8 @@ class Extensions
      */
     private function extensionFor(User $user): ?string
     {
-        if ($user->hasRole(Role::Operator) || $user->hasRole(Role::Admin)) {
+        // Superadmin ham qo'ng'iroqqa javob bera oladi (kichik firmada egasi o'zi operator)
+        if ($user->hasRole(Role::Operator) || $user->hasRole(Role::Admin) || $user->hasRole(Role::Superadmin)) {
             return 'op'.$user->id;
         }
 

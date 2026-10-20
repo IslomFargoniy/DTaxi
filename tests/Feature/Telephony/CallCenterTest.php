@@ -24,6 +24,8 @@ use App\Services\Telephony\AriClient;
 use App\Services\Telephony\CallCenter;
 use App\Services\Telephony\ChannelLimits;
 use App\Services\Telephony\ClientNotifier;
+use App\Services\Telephony\Extensions;
+use App\Services\Telephony\OperatorPool;
 use App\Support\Settings;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Http\Client\Request;
@@ -334,4 +336,26 @@ test('after the trip the client is called and rates it by pressing a digit', fun
 
     expect($order->fresh()->client_rating)->toBe(2)
         ->and($driver->fresh()->rating)->toBe(85);
+});
+
+test('operator calls a driver by typing the callsign', function () {
+    $driver = driverNear($this->branch, 0, ['callsign' => '777']);
+
+    $this->center->handle(stasis('ch-op', ['internal', '777'], "PJSIP/{$this->operator->sip_extension}-0001", $this->operator->sip_extension));
+
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    expect($call->kind)->toBe('driver')
+        ->and($call->driver_id)->toBe($driver->id)
+        ->and(ariRequests("endpoint=PJSIP/dr{$driver->id}"))->toHaveCount(1);
+});
+
+test('superadmin without a branch gets an extension and takes queued calls when ready', function () {
+    $superadmin = User::factory()->create(['branch_id' => null])->assignRole(Role::Superadmin);
+    app(Extensions::class)->syncFor($superadmin);
+    $superadmin->refresh()->forceFill(['operator_status' => 'ready'])->save();
+    $this->operator->forceFill(['operator_status' => 'paused'])->save();
+    $this->online[] = $superadmin->sip_extension;
+
+    expect($superadmin->sip_extension)->toBe('op'.$superadmin->id)
+        ->and(app(OperatorPool::class)->pick([$this->branch->id])?->id)->toBe($superadmin->id);
 });
