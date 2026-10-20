@@ -81,4 +81,7 @@
     <string name="no_connection">Server bilan aloqa yo\'q</string>
     <string name="you">Siz</string>
     <string name="dispatcher">Dispetcher</string>
+    <string name="ride_time">Safar vaqti</string>
+    <string name="outside_km">Shahar tashqarisi, km</string>
+    <string name="my_location">Mening joylashuvim</string>
 </resources>

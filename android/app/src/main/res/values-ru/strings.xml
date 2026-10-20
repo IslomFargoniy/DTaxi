@@ -81,4 +81,7 @@
     <string name="no_connection">Нет связи с сервером</string>
     <string name="you">Вы</string>
     <string name="dispatcher">Диспетчер</string>
+    <string name="ride_time">Время в пути</string>
+    <string name="outside_km">За городом, км</string>
+    <string name="my_location">Моё местоположение</string>
 </resources>

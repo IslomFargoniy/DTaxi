@@ -60,6 +60,7 @@ import uz.ibtaxi.driver.taximeter.Fare
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.material3.CardDefaults
 import uz.ibtaxi.driver.data.NavStep
+import uz.ibtaxi.driver.data.Tariff
 import uz.ibtaxi.driver.navigation.Instructions
 import uz.ibtaxi.driver.navigation.Navigator
 import uz.ibtaxi.driver.navigation.VoiceGuide
@@ -256,12 +257,7 @@ private fun OrderCard(order: Order) {
                 Text("${stringResource(R.string.waiting)}: ${waitingSeconds / 60}:${"%02d".format(waitingSeconds % 60)}")
             }
             if (order.status == "in_progress" && tariff != null) {
-                val fare = Fare.calculate(tariff, meters.first, meters.second, startedAt = LocalTime.now())
-                Text(
-                    "${"%.2f".format((meters.first + meters.second) / 1000.0)} ${stringResource(R.string.km)} · ${formatMoney(fare.total)} ${stringResource(R.string.som)}",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                )
+                TaximeterPanel(order, tariff, meters)
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -341,3 +337,56 @@ private fun arrow(step: NavStep): String = when {
 
 private fun formatDistance(meters: Int): String =
     if (meters >= 1000) String.format(java.util.Locale.US, "%.1f km", meters / 1000.0) else "${(meters / 10) * 10} m"
+
+/**
+ * Taksometr (safar davomida): katta narx, masofa, safar vaqti, kutish; server yakunda xuddi shu formula bilan
+ * hisoblaydi (kutish = "Yetib keldim" → "Boshladim", tungi narx — safar boshlangan vaqt bo'yicha).
+ */
+@Composable
+private fun TaximeterPanel(order: Order, tariff: Tariff, meters: Pair<Long, Long>) {
+    val started = order.startedAt?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }
+    val arrived = order.arrivedAt?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }
+    val waitingSeconds = if (started != null && arrived != null) Duration.between(arrived, started).seconds.coerceAtLeast(0) else 0L
+    var rideSeconds by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(order.id, started) {
+        while (started != null) {
+            rideSeconds = Duration.between(started, OffsetDateTime.now()).seconds.coerceAtLeast(0)
+            delay(1000)
+        }
+    }
+    val fare = Fare.calculate(
+        tariff,
+        meters.first,
+        meters.second,
+        waitingSeconds = waitingSeconds,
+        startedAt = started?.atZoneSameInstant(java.time.ZoneId.systemDefault())?.toLocalTime() ?: LocalTime.now(),
+    )
+
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
+    ) {
+        Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                "${formatMoney(fare.total)} ${stringResource(R.string.som)}",
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimary,
+            )
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                MeterValue("%.2f".format((meters.first + meters.second) / 1000.0), stringResource(R.string.km))
+                MeterValue("${rideSeconds / 60}:${"%02d".format(rideSeconds % 60)}", stringResource(R.string.ride_time))
+                if (waitingSeconds > 0) MeterValue("${waitingSeconds / 60}:${"%02d".format(waitingSeconds % 60)}", stringResource(R.string.waiting))
+                if (meters.second > 0) MeterValue("%.1f".format(meters.second / 1000.0), stringResource(R.string.outside_km))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MeterValue(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
+    }
+}

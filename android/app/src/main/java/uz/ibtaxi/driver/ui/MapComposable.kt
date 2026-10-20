@@ -1,5 +1,22 @@
 package uz.ibtaxi.driver.ui
 
+import uz.ibtaxi.driver.R
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.Alignment
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.LocationSearching
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
 import android.os.Bundle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -46,6 +63,9 @@ fun TaxiMap(
     val mapView = remember { MapView(context).apply { onCreate(Bundle()) } }
     val holder = remember { arrayOfNulls<MapLibreMap>(1) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+    // Kuzatish rejimi: haydovchi xaritani surgach o'chadi, "joylashuvim" tugmasi qayta yoqadi (Yandex kabi)
+    var follow by remember { mutableStateOf(true) }
+    var recenter by remember { mutableIntStateOf(0) }
 
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
@@ -62,21 +82,53 @@ fun TaxiMap(
         onDispose { lifecycle.removeObserver(observer) }
     }
 
+    Box(modifier) {
     AndroidView(factory = {
         mapView.also { view ->
             view.getMapAsync { map ->
                 holder[0] = map
                 map.uiSettings.isRotateGesturesEnabled = false
+                map.addOnCameraMoveStartedListener { reason ->
+                    if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) follow = false
+                }
                 map.cameraPosition = CameraPosition.Builder().target(LatLng(40.3864, 71.7864)).zoom(13.0).build()
                 map.setStyle(Style.Builder().fromUri(styleUrl)) { style -> addLayers(style) }
             }
         }
-    }, modifier = modifier)
+    }, modifier = Modifier.fillMaxSize())
 
-    LaunchedEffect(me, pickup, dropoff, route) {
+    SmallFloatingActionButton(
+        onClick = {
+            follow = true
+            recenter++
+        },
+        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        Icon(
+            if (follow) Icons.Default.MyLocation else Icons.Default.LocationSearching,
+            contentDescription = stringResource(R.string.my_location),
+            // GPS hali topilmagan — kulrang
+            tint = when {
+                me == null -> MaterialTheme.colorScheme.outline
+                follow -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.onSurface
+            },
+        )
+    }
+    }
+
+    LaunchedEffect(me, pickup, dropoff, route, recenter) {
         val map = holder[0] ?: return@LaunchedEffect
         val style = map.style ?: return@LaunchedEffect
         update(style, me, pickup, dropoff, route)
+        if (!follow) return@LaunchedEffect
+
+        // Tugma bosilganda — haydovchining o'ziga yaqinlashib
+        if (recenter > 0 && me != null && pickup == null && dropoff == null) {
+            map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(me.lat, me.lng), 16.0))
+            return@LaunchedEffect
+        }
 
         val points = listOfNotNull(me, pickup, dropoff)
         if (points.size >= 2) {

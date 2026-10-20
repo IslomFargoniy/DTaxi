@@ -79,6 +79,7 @@ data class Order(
     @SerializedName("price_final") val priceFinal: Long?,
     @SerializedName("price_breakdown") val priceBreakdown: Map<String, Long>?,
     @SerializedName("arrived_at") val arrivedAt: String?,
+    @SerializedName("started_at") val startedAt: String? = null,
 )
 
 data class OrderClient(val id: Int, val phone: String, val name: String?)
