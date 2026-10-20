@@ -36,7 +36,7 @@ sudo docker run --rm -v "$OSRM_DIR:/data" "$IMAGE" osrm-customize /data/area.osr
 echo "==> Xizmat (systemd): $OSRM_BIND:5000"
 sudo tee /etc/systemd/system/ibtaxi-osrm.service >/dev/null <<UNIT
 [Unit]
-Description=ibTaxi OSRM
+Description=Dtaxi OSRM
 After=docker.service
 Requires=docker.service
 

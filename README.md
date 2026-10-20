@@ -1,10 +1,10 @@
-# ibTaxi
+# Dtaxi
 
 Telefon orqali ishlaydigan mahalliy taksi xizmatlari uchun dispetcherlik tizimi.
 
 Mijoz qo'ng'iroq qiladi, bo'sh operator javob beradi va mo'ljalni kiritadi. Buyurtma "efir" orqali yaqin atrofdagi bo'sh haydovchilarga bir vaqtda ko'rsatiladi. Birinchi qabul qilgan haydovchi buyurtmani oladi. Mijozga haydovchi ma'lumotlari va "haydovchi kutmoqda" xabari avtomatik ovozli qo'ng'iroq bilan yetkaziladi.
 
-ibTaxi taksi firmalariga sotiladigan mahsulot. Har bir firma o'z serverida alohida nusxa oladi. Tashqi xizmatlarga (SIP trunk, Click, Payme, SpeechKit, Firebase) firma o'zi shartnoma tuzadi va kalitlarini admin panelga kiritadi.
+Dtaxi taksi firmalariga sotiladigan mahsulot. Har bir firma o'z serverida alohida nusxa oladi. Tashqi xizmatlarga (SIP trunk, Click, Payme, SpeechKit, Firebase) firma o'zi shartnoma tuzadi va kalitlarini admin panelga kiritadi.
 
 ## Holat
 

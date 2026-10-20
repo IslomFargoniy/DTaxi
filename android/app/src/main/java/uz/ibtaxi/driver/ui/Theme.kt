@@ -20,7 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import uz.ibtaxi.driver.BuildConfig
 
-/** Firma rangi — firm.properties → primaryColor (D taxi: sariq) */
+/** Firma rangi — firm.properties → primaryColor (Dtaxi: sariq) */
 private val brand = runCatching { Color(android.graphics.Color.parseColor(BuildConfig.PRIMARY_COLOR)) }.getOrDefault(Color(0xFFFFC800))
 
 /** Material sxemasida yo'q ranglar: yashil (liniyada, qabul), xira matn, navigator banneri */

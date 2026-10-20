@@ -17,7 +17,7 @@ class Settings
      * @var array<string, mixed>
      */
     public const DEFAULTS = [
-        'company.name' => 'ibTaxi',
+        'company.name' => 'Dtaxi',
         'company.default_locale' => 'uz',
         'drivers.commission_percent' => 10,
         'drivers.min_balance' => 5000,

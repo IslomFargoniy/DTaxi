@@ -18,7 +18,7 @@ class UpdateApp extends Command
         {--rollback : Oxirgi yangilanishni bekor qilish}
         {--skip-build : Frontend build qilinmasin (faqat backend o\'zgargan bo\'lsa)}';
 
-    protected $description = 'ibTaxi\'ni yangilash (zaxira va qaytarish imkoni bilan)';
+    protected $description = 'Dtaxi\'ni yangilash (zaxira va qaytarish imkoni bilan)';
 
     public function handle(Backup $backup): int
     {

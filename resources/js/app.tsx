@@ -21,7 +21,7 @@ configureEcho({
     enabledTransports: ['ws', 'wss'],
 });
 
-const appName = import.meta.env.VITE_APP_NAME || 'ibTaxi';
+const appName = import.meta.env.VITE_APP_NAME || 'Dtaxi';
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

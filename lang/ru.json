@@ -430,7 +430,6 @@
     "First branch": "Первый филиал",
     "Branch name": "Название филиала",
     "Finish setup": "Завершить настройку",
-    "Welcome to ibTaxi": "Добро пожаловать в ibTaxi",
     "Set up your company: a few details and you are ready to work.": "Настройте компанию: несколько данных — и можно работать.",
     "All lines were busy at peak time. Consider getting more channels from the SIP provider.": "В пиковое время все линии были заняты. Рассмотрите покупку дополнительных каналов у SIP-провайдера.",
     "Average fare": "Средний чек",
@@ -579,5 +578,6 @@
     "Photo": "Фото",
     "Select a chat to start messaging": "Выберите чат, чтобы начать переписку",
     "No branch is assigned to you.": "Вам не назначен филиал.",
-    "Loading…": "Загрузка…"
+    "Loading…": "Загрузка…",
+    "Welcome to Dtaxi": "Добро пожаловать в Dtaxi"
 }

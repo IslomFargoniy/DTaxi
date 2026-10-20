@@ -316,7 +316,7 @@ private fun localTime(iso: String?, pattern: String = "HH:mm"): String? = iso?.l
     }.getOrNull()
 }
 
-/** D taxi belgisi — sariq plitkada (kirish va ulanish ekranlari) */
+/** Dtaxi belgisi — sariq plitkada (kirish va ulanish ekranlari) */
 @Composable
 fun AppLogo(size: Int = 88) {
     androidx.compose.foundation.Image(

@@ -13,9 +13,9 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'Dtaxi'),
 
-    // ibTaxi versiyasi (VERSION fayli; o'zgarishlar CHANGELOG.md da)
+    // Dtaxi versiyasi (VERSION fayli; o'zgarishlar CHANGELOG.md da)
     'version' => trim((string) @file_get_contents(base_path('VERSION'))) ?: 'dev',
 
     /*

@@ -430,7 +430,6 @@
     "First branch": "Birinchi filial",
     "Branch name": "Filial nomi",
     "Finish setup": "Sozlashni yakunlash",
-    "Welcome to ibTaxi": "ibTaxi'ga xush kelibsiz",
     "Set up your company: a few details and you are ready to work.": "Firmangizni sozlang: bir nechta ma'lumot — va ishga tayyor.",
     "All lines were busy at peak time. Consider getting more channels from the SIP provider.": "Eng band vaqtda barcha liniyalar band bo'lgan. SIP provayderdan qo'shimcha kanal olishni o'ylab ko'ring.",
     "Average fare": "O'rtacha narx",
@@ -579,5 +578,6 @@
     "Photo": "Rasm",
     "Select a chat to start messaging": "Yozishish uchun suhbatni tanlang",
     "No branch is assigned to you.": "Sizga filial biriktirilmagan.",
-    "Loading…": "Yuklanmoqda…"
+    "Loading…": "Yuklanmoqda…",
+    "Welcome to Dtaxi": "Dtaxi'ga xush kelibsiz"
 }

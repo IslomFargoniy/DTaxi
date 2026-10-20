@@ -1,6 +1,6 @@
-# ibTaxi — loyiha qoidalari
+# Dtaxi — loyiha qoidalari
 
-Telefon orqali ishlaydigan taksi dispetcherlik tizimi. **Sotiladigan mahsulot**: har bir taksi firmasi o'z serverida alohida nusxa oladi. To'liq reja va qabul qilingan qarorlar — `docs/plan.md` (o'zgartirishdan oldin o'qing, qaror qabul qilinsa jadvalga qo'shing).
+Telefon orqali ishlaydigan taksi dispetcherlik tizimi. Mahsulot nomi — **Dtaxi** (logo: D ichida lokatsiya belgisi); kod ichidagi `ibtaxi` nomlari (paket, buyruqlar, baza, VM) o'zgarmaydi. **Sotiladigan mahsulot**: har bir taksi firmasi o'z serverida alohida nusxa oladi. To'liq reja va qabul qilingan qarorlar — `docs/plan.md` (o'zgartirishdan oldin o'qing, qaror qabul qilinsa jadvalga qo'shing).
 
 ## Asosiy qoidalar
 

@@ -74,7 +74,7 @@ android {
         versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: autoBuildNumber
         versionName = (project.findProperty("versionName") as String?) ?: "1.0.$autoBuildNumber"
 
-        resValue("string", "app_name", firmProp("appName", "D taxi"))
+        resValue("string", "app_name", firmProp("appName", "Dtaxi"))
         buildConfigField("String", "SERVER_URL", "\"${firmProp("serverUrl").trimEnd('/')}\"")
         // Faqat lokal sinov ilovasi: server manzili login ekranida o'zgartiriladi (Mac IP'si har Wi-Fi'da boshqa)
         buildConfigField("boolean", "SERVER_EDITABLE", firmProp("serverEditable", "false"))

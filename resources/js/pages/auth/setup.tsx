@@ -166,7 +166,7 @@ export default function Setup({ regions }: { regions: Region[] }) {
 }
 
 Setup.layout = {
-    title: 'Welcome to ibTaxi',
+    title: 'Welcome to Dtaxi',
     description:
         'Set up your company: a few details and you are ready to work.',
 };

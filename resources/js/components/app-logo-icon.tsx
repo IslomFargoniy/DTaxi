@@ -1,7 +1,7 @@
 import type { SVGAttributes } from 'react';
 
 /**
- * D taxi belgisi: "D" harfi, ichida lokatsiya belgisi (teshik). Bir rangli — rangni `fill-current` beradi.
+ * Dtaxi belgisi: "D" harfi, ichida lokatsiya belgisi (teshik). Bir rangli — rangni `fill-current` beradi.
  */
 export default function AppLogoIcon(props: SVGAttributes<SVGElement>) {
     return (
