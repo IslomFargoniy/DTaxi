@@ -591,5 +591,7 @@
     "Connecting…": "Подключение…",
     "Extension :extension is active": "Внутренний номер :extension активен",
     "Disconnected": "Отключено",
-    "Decline": "Отклонить"
+    "Decline": "Отклонить",
+    "The microphone works only on a secure (https) address.": "Микрофон работает только на защищённом адресе (https).",
+    "Open the https version": "Открыть https-версию"
 }

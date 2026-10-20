@@ -591,5 +591,7 @@
     "Connecting…": "Уланмоқда…",
     "Extension :extension is active": "Ички рақам :extension фаол",
     "Disconnected": "Узилган",
-    "Decline": "Рад этиш"
+    "Decline": "Рад этиш",
+    "The microphone works only on a secure (https) address.": "Микрофон фақат хавфсиз (ҳттпс) манзилда ишлайди.",
+    "Open the https version": "ҳттпс манзилни очиш"
 }

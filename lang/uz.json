@@ -591,5 +591,7 @@
     "Connecting…": "Ulanmoqda…",
     "Extension :extension is active": "Ichki raqam :extension faol",
     "Disconnected": "Uzilgan",
-    "Decline": "Rad etish"
+    "Decline": "Rad etish",
+    "The microphone works only on a secure (https) address.": "Mikrofon faqat xavfsiz (https) manzilda ishlaydi.",
+    "Open the https version": "https manzilni ochish"
 }

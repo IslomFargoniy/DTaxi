@@ -534,6 +534,25 @@ export function WebPhone({
                         ))}
                     </div>
 
+                    {/* Mikrofon faqat xavfsiz (https) sahifada — http'da qo'ng'iroq keladi, lekin javob berib bo'lmaydi */}
+                    {typeof window !== 'undefined' &&
+                        !window.isSecureContext && (
+                            <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-400">
+                                <ShieldAlert className="size-4 shrink-0" />
+                                <span className="flex-1">
+                                    {t(
+                                        'The microphone works only on a secure (https) address.',
+                                    )}{' '}
+                                    <a
+                                        className="font-semibold underline"
+                                        href={`https://${window.location.host}${window.location.pathname}`}
+                                    >
+                                        {t('Open the https version')}
+                                    </a>
+                                </span>
+                            </div>
+                        )}
+
                     {status === 'registration_failed' && (
                         <div className="flex items-start gap-2 border-b border-red-200 bg-red-50 p-2.5 text-xs text-red-600 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400">
                             <ShieldAlert className="size-4 shrink-0" />

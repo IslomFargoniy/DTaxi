@@ -93,9 +93,10 @@ class Extensions
     /**
      * Operator brauzeri / haydovchi ilovasi uchun ulanish ma'lumotlari (JsSIP).
      *
+     * @param  bool  $secure  sahifa https bo'lsa wss://, aks holda ws:// (brauzer sertifikatni qabul qilmagan http sahifadan wss ulanmaydi)
      * @return array{uri: string, password: string, ws: string, extension: string}|null
      */
-    public function credentials(User $user, string $host): ?array
+    public function credentials(User $user, string $host, bool $secure = true): ?array
     {
         if (! $user->sip_extension || ! $user->sip_password) {
             return null;
@@ -105,7 +106,7 @@ class Extensions
             'extension' => $user->sip_extension,
             'uri' => "sip:{$user->sip_extension}@{$host}",
             'password' => (string) $user->sip_password,
-            'ws' => "wss://{$host}/ws",
+            'ws' => ($secure ? 'wss' : 'ws')."://{$host}/ws",
         ];
     }
 
