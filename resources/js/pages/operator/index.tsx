@@ -249,17 +249,15 @@ export default function OperatorIndex({
                     onDriver={onDriver}
                 />
             ))}
-            <div className="grid h-[calc(100svh-4rem)] grid-cols-1 gap-3 p-3 lg:grid-cols-[320px_1fr_380px]">
-                <section className="order-2 overflow-auto lg:order-1">
-                    <div className="mb-2 flex items-center justify-between">
-                        <h2 className="text-sm font-semibold">
-                            {t('Active orders')} ({orders.length})
-                        </h2>
-                        <ChatPanel
-                            branchIds={branches.map((b) => b.id)}
-                            userId={auth.user.id}
-                        />
-                    </div>
+            <div className="relative grid h-[calc(100svh-4rem)] grid-cols-1 gap-3 p-3 lg:grid-cols-[320px_1fr_380px]">
+                <ChatPanel
+                    branchIds={branches.map((b) => b.id)}
+                    userId={auth.user.id}
+                />
+                <section className="order-2 overflow-auto pb-16 lg:order-1">
+                    <h2 className="mb-2 text-sm font-semibold">
+                        {t('Active orders')} ({orders.length})
+                    </h2>
                     <OrdersList
                         orders={orders}
                         drivers={drivers}

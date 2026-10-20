@@ -81,13 +81,24 @@ export function ChatPanel({
         loadThreads();
     }, [loadThreads]);
 
-    useEffect(() => {
-        if (active) {
-            getJson<Message[]>(messagesRoute.url(active))
-                .then(setMessages)
+    // Suhbatni ochish xabarlarni o'qilgan qiladi — hisoblagich darhol yangilansin
+    const loadMessages = useCallback(
+        (driverId: number) => {
+            getJson<Message[]>(messagesRoute.url(driverId))
+                .then((list) => {
+                    setMessages(list);
+                    loadThreads();
+                })
                 .catch(() => setMessages([]));
+        },
+        [loadThreads],
+    );
+
+    useEffect(() => {
+        if (active && open) {
+            loadMessages(active);
         }
-    }, [active]);
+    }, [active, open, loadMessages]);
 
     // Effekt hech narsa qaytarmasin: yangi Chrome'da scrollIntoView() Promise qaytaradi va React uni
     // tozalash funksiyasi deb chaqirib sahifani yiqitardi
@@ -97,16 +108,22 @@ export function ChatPanel({
 
     const onMessage = useCallback(
         (m: Message) => {
-            if (m.driver_id === active) {
+            if (m.driver_id === active && open) {
                 setMessages((list) =>
                     list.some((x) => x.id === m.id)
                         ? list
                         : [...list, { ...m, mine: m.sender_id === userId }],
                 );
+                // Ochiq suhbatga kelgan xabar — operator ko'rib turibdi, o'qilgan deb belgilanadi
+                if (m.from_driver) {
+                    loadMessages(active);
+
+                    return;
+                }
             }
             loadThreads();
         },
-        [active, userId, loadThreads],
+        [active, open, userId, loadThreads, loadMessages],
     );
 
     const send = (body: string) => {
@@ -131,21 +148,25 @@ export function ChatPanel({
             {branchIds.map((id) => (
                 <BranchChat key={id} branchId={id} onMessage={onMessage} />
             ))}
+            {/* Suzuvchi tugma — chap pastda, ro'yxat va xaritaga xalal bermaydi */}
             <Button
-                variant="outline"
-                size="sm"
-                className="relative"
+                size="icon"
+                title={t('Drivers chat')}
+                className={cn(
+                    'absolute bottom-4 left-4 z-30 size-12 rounded-full shadow-lg',
+                    unread > 0 && 'bg-red-600 text-white hover:bg-red-700',
+                )}
                 onClick={() => setOpen(!open)}
             >
-                <MessageSquare /> {t('Drivers chat')}
+                <MessageSquare className="size-5" />
                 {unread > 0 && (
-                    <Badge className="ml-1 bg-red-600 text-white">
-                        {unread}
-                    </Badge>
+                    <span className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-background text-[11px] font-bold text-red-600 ring-2 ring-red-600">
+                        {unread > 99 ? '99+' : unread}
+                    </span>
                 )}
             </Button>
             {open && (
-                <div className="fixed right-4 bottom-4 z-40 grid h-[520px] w-[560px] max-w-[calc(100vw-2rem)] grid-cols-[180px_1fr] overflow-hidden rounded-xl border bg-background shadow-xl">
+                <div className="absolute bottom-20 left-4 z-40 grid h-[520px] max-h-[calc(100%-6rem)] w-[560px] max-w-[calc(100%-2rem)] grid-cols-[180px_1fr] overflow-hidden rounded-xl border bg-background shadow-xl">
                     <ul className="overflow-auto border-r">
                         {threads.map((th) => (
                             <li key={th.driver_id}>

@@ -20,17 +20,17 @@ class ChatController extends Controller
     /**
      * Suhbatlar ro'yxati: oxirgi xabar va o'qilmaganlar soni.
      */
-    public function threads(Request $request): JsonResponse
+    public function threads(): JsonResponse
     {
-        /** @var User $user */
-        $user = $request->user();
         $driverIds = Driver::query()->pluck('id');
 
+        // O'qilmagan — faqat haydovchi yozganlari (boshqa operatorning xabari "o'qilmagan" bo'lib qolib ketmasin)
         $latest = DB::table('chat_messages')
-            ->whereIn('driver_id', $driverIds)
-            ->select('driver_id', DB::raw('MAX(created_at) AS last_at'))
-            ->selectRaw('COUNT(*) FILTER (WHERE read_at IS NULL AND sender_id <> ?) AS unread', [$user->id])
-            ->groupBy('driver_id')
+            ->join('drivers', 'drivers.id', '=', 'chat_messages.driver_id')
+            ->whereIn('chat_messages.driver_id', $driverIds)
+            ->select('chat_messages.driver_id', DB::raw('MAX(chat_messages.created_at) AS last_at'))
+            ->selectRaw('COUNT(*) FILTER (WHERE chat_messages.read_at IS NULL AND chat_messages.sender_id = drivers.user_id) AS unread')
+            ->groupBy('chat_messages.driver_id')
             ->orderByDesc('last_at')
             ->limit(50)
             ->get();

@@ -9,6 +9,7 @@ use App\Events\OrderOffered;
 use App\Events\OrderUpdated;
 use App\Models\Branch;
 use App\Models\CashShift;
+use App\Models\ChatMessage;
 use App\Models\Client;
 use App\Models\Complaint;
 use App\Models\Driver;
@@ -254,6 +255,20 @@ test('operator chats with a driver', function () {
     $this->actingAs($operator)->postJson(route('operator.chat.send', $driver), ['body' => 'Mijoz 2 daqiqada chiqadi'])->assertCreated();
     $this->getJson(route('operator.chat.threads'))->assertJsonPath('0.driver_id', $driver->id);
     $this->getJson(route('operator.chat.messages', $driver))->assertJsonPath('0.body', 'Mijoz 2 daqiqada chiqadi');
+});
+
+test('unread counts only driver messages and clears when the thread is opened', function () {
+    Event::fake([ChatMessageSent::class]);
+    $operator = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+    $other = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+    $driver = driverNear($this->branch, 0);
+    ChatMessage::query()->create(['driver_id' => $driver->id, 'sender_id' => $driver->user_id, 'body' => 'Mijoz chiqmadi', 'created_at' => now()]);
+    $this->actingAs($other)->postJson(route('operator.chat.send', $driver), ['body' => 'Kuting'])->assertCreated();
+
+    // Boshqa operatorning xabari o'qilmagan deb sanalmaydi
+    $this->actingAs($operator)->getJson(route('operator.chat.threads'))->assertJsonPath('0.unread', 1);
+    $this->getJson(route('operator.chat.messages', $driver))->assertOk();
+    $this->getJson(route('operator.chat.threads'))->assertJsonPath('0.unread', 0);
 });
 
 test('operator logs a lost item for an order and admin resolves it', function () {
