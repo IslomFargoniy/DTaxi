@@ -14,6 +14,8 @@ use App\Models\Order;
 use App\Models\User;
 use App\Services\Drivers\DriverBalance;
 use App\Services\Drivers\DriverLocator;
+use App\Services\Drivers\ShiftTracker;
+use App\Services\Drivers\StandQueue;
 use App\Services\Routing\Router;
 use App\Services\Telephony\Extensions;
 use Clickbar\Magellan\Data\Geometries\Point;
@@ -31,7 +33,7 @@ class DriverController extends Controller
     /**
      * Liniyaga chiqish / chiqish. Tasdiqlanmagan, bloklangan yoki balansi yetmaydigan haydovchi chiqa olmaydi.
      */
-    public function shift(Request $request, DriverBalance $balance): JsonResponse
+    public function shift(Request $request, DriverBalance $balance, ShiftTracker $shifts, StandQueue $queue): JsonResponse
     {
         $online = $request->validate(['online' => ['required', 'boolean']])['online'];
         $driver = $this->driver($request);
@@ -53,6 +55,10 @@ class DriverController extends Controller
         }
 
         $driver->forceFill(['status' => $online ? DriverStatus::Free : DriverStatus::Offline])->save();
+        $online ? $shifts->start($driver) : $shifts->end($driver);
+        if (! $online) {
+            $queue->leave($driver);
+        }
 
         return response()->json(['status' => $driver->status->value]);
     }
@@ -93,6 +99,16 @@ class DriverController extends Controller
         ], $real)));
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Joriy smena hisoboti va navbat joyidagi o'rin (ilova bosh ekranida).
+     */
+    public function shiftSummary(Request $request, ShiftTracker $shifts, StandQueue $queue): JsonResponse
+    {
+        $driver = $this->driver($request);
+
+        return response()->json(['shift' => $shifts->summary($driver), 'stand' => $queue->position($driver)]);
     }
 
     public function deviceToken(Request $request): JsonResponse

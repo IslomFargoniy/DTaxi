@@ -12,6 +12,7 @@ import {
     LayoutGrid,
     MapPin,
     MessageSquareWarning,
+    ParkingSquare,
     AudioLines,
     PhoneCall,
     PlugZap,
@@ -41,6 +42,7 @@ import { index as branches } from '@/routes/admin/branches';
 import { index as calls } from '@/routes/admin/calls';
 import { index as clients } from '@/routes/admin/clients';
 import { index as companies } from '@/routes/admin/companies';
+import { index as stands } from '@/routes/admin/stands';
 import { index as complaints } from '@/routes/admin/complaints';
 import { edit as companySettings } from '@/routes/admin/company-settings';
 import { index as driverApp } from '@/routes/admin/driver-app';
@@ -101,6 +103,9 @@ export function AppSidebar() {
             : []),
         ...(can('tariffs.manage')
             ? [{ title: 'Companies', href: companies(), icon: Briefcase }]
+            : []),
+        ...(can('tariffs.manage')
+            ? [{ title: 'Taxi stands', href: stands(), icon: ParkingSquare }]
             : []),
         ...(can('users.manage')
             ? [{ title: 'Staff', href: staff(), icon: Users }]

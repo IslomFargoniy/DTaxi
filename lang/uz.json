@@ -561,5 +561,14 @@
     "Stop": "To'xtash",
     "Remove stop": "To'xtashni olib tashlash",
     "Add stop": "To'xtash joyi",
-    "Round trip": "Borib-kelish"
+    "Round trip": "Borib-kelish",
+    "Shifts": "Smenalar",
+    "Start": "Boshlanish",
+    "Earnings": "Tushum",
+    "Taxi stands": "Navbat joylari",
+    "Airport, station, bazaar: free drivers here wait in turn, orders from here go to the first in line": "Aeroport, vokzal, bozor: bu yerdagi bo'sh haydovchilar navbatda turadi, shu yerdan chiqqan buyurtma navbatdagi birinchisiga ketadi",
+    "Radius, m": "Radius, m",
+    "Click the map to set the place": "Joyni belgilash uchun xaritani bosing",
+    "Delete": "O'chirish",
+    "No stands yet": "Hali navbat joyi yo'q"
 }

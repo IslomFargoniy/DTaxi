@@ -15,6 +15,7 @@ use App\Models\Order;
 use App\Models\OrderOffer;
 use App\Models\User;
 use App\Services\Drivers\DriverLocator;
+use App\Services\Drivers\StandQueue;
 use App\Services\Orders\OrderEvents;
 use App\Support\Settings;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,7 @@ class Dispatcher
     public function __construct(
         private DriverLocator $locator,
         private Settings $settings,
+        private StandQueue $standQueue,
     ) {}
 
     public function startSearch(Order $order): void
@@ -68,9 +70,22 @@ class Dispatcher
         $candidates = $this->locator->candidatesFor($order, $radius, $excluded);
         $expiresIn = (int) $this->settings->get('dispatch.step_seconds', $order->branch_id);
 
+        $firstStep = $radius === $this->radiusSteps($order)[0] && $order->search_exhausted_at === null;
+        $fromQueue = false;
+
+        // Navbat joyi hududidan chiqqan buyurtma — birinchi bosqichda faqat navbat boshidagiga
+        if ($firstStep && ($queue = $this->standQueue->queueFor($order)) !== []) {
+            $byId = $candidates->keyBy(fn (array $c) => $c['driver']->id);
+            $head = collect($queue)->first(fn (int $id) => $byId->has($id));
+            if ($head !== null) {
+                $candidates = collect([$byId->get($head)]);
+                $fromQueue = true;
+            }
+        }
+
         // Reytingi past haydovchi eng yaqin radiusda ko'rmaydi — keyingi bosqichda (reja §6, qaror #29)
         $threshold = (int) $this->settings->get('dispatch.low_rating_threshold', $order->branch_id);
-        if ($threshold > 0 && $radius === $this->radiusSteps($order)[0] && $order->search_exhausted_at === null) {
+        if ($threshold > 0 && $firstStep && ! $fromQueue) {
             $candidates = $candidates->filter(fn (array $c) => $c['driver']->rating >= $threshold)->values();
         }
 
@@ -194,6 +209,7 @@ class Dispatcher
 
         $order->refresh();
         $driver->refresh();
+        $this->standQueue->leave($driver);
 
         $this->withdrawOtherOffers($order, $driver->id, 'taken');
         OrderEvents::record($order, 'assigned', $driver->user, ['driver_id' => $driver->id]);

@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\OrderHistoryController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SoundController;
 use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Admin\StandController;
 use App\Http\Controllers\Admin\TariffController;
 use App\Http\Controllers\Admin\TelephonyController;
 use App\Http\Controllers\Cashier\CashierController;
@@ -117,6 +118,10 @@ Route::middleware(['auth', 'permission:drivers.manage'])->prefix('admin')->name(
 });
 
 Route::middleware(['auth', 'permission:tariffs.manage'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('stands', [StandController::class, 'index'])->name('stands.index');
+    Route::post('stands', [StandController::class, 'store'])->name('stands.store');
+    Route::put('stands/{stand}', [StandController::class, 'update'])->name('stands.update');
+    Route::delete('stands/{stand}', [StandController::class, 'destroy'])->name('stands.destroy');
     Route::get('companies', [CompanyController::class, 'index'])->name('companies.index');
     Route::post('companies', [CompanyController::class, 'store'])->name('companies.store');
     Route::put('companies/{company}', [CompanyController::class, 'update'])->name('companies.update');

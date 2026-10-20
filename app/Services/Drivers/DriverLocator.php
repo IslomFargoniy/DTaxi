@@ -71,6 +71,7 @@ class DriverLocator
             $live = $latest['recorded_at']->gte($now->copy()->subMinute());
             $driver->forceFill(['last_location' => $latest['location'], 'last_seen_at' => $live ? $now : $latest['recorded_at']])->save();
             DriverLocationUpdated::dispatch($driver);
+            app(StandQueue::class)->refresh($driver);
         }
     }
 

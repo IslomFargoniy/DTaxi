@@ -11,12 +11,14 @@ use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Driver;
 use App\Models\DriverDocument;
+use App\Models\DriverShift;
 use App\Models\DriverTransaction;
 use App\Models\TariffClass;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Services\Dispatch\DriverDiscipline;
 use App\Services\Drivers\DriverBalance;
+use App\Services\Drivers\ShiftTracker;
 use App\Services\Telephony\Extensions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -66,7 +68,7 @@ class DriverController extends Controller
         return Inertia::render('admin/drivers/form', ['driver' => null, ...$this->formOptions($request)]);
     }
 
-    public function edit(Request $request, Driver $driver): Response
+    public function edit(Request $request, Driver $driver, ShiftTracker $shifts): Response
     {
         $driver->load(['user', 'vehicle.tariffClasses:id', 'documents']);
 
@@ -83,6 +85,8 @@ class DriverController extends Controller
                     'expires_at' => $doc->expires_at?->toDateString(),
                     'url' => route('admin.drivers.documents.show', [$driver, $doc]),
                 ]),
+                'shifts' => DriverShift::query()->where('driver_id', $driver->id)->latest('started_at')->limit(10)->get()
+                    ->map(fn (DriverShift $shift) => $shifts->summary($driver, $shift))->filter()->values(),
                 'transactions' => $driver->transactions()->latest('created_at')->limit(30)->get()->map(fn (DriverTransaction $t) => [
                     'id' => $t->id,
                     'type' => $t->type->value,

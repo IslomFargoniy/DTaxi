@@ -39,6 +39,14 @@ type Driver = DriverRow & {
         created_at: string | null;
         excused_at: string | null;
     }[];
+    shifts: {
+        started_at: string;
+        ended_at: string | null;
+        minutes: number;
+        orders: number;
+        earnings: number;
+        commission: number;
+    }[];
 };
 
 type Props = {
@@ -553,6 +561,57 @@ export default function DriverForm({
                                                         {t('Excuse')}
                                                     </Button>
                                                 ) : null,
+                                        },
+                                    ]}
+                                />
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>{t('Shifts')}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <DataTable
+                                    rows={driver.shifts.map((r, i) => ({
+                                        ...r,
+                                        id: i,
+                                    }))}
+                                    columns={[
+                                        {
+                                            key: 'start',
+                                            title: 'Start',
+                                            render: (r) =>
+                                                formatDateTime(r.started_at),
+                                        },
+                                        {
+                                            key: 'duration',
+                                            title: 'Duration',
+                                            render: (r) =>
+                                                `${Math.floor(r.minutes / 60)}:${String(r.minutes % 60).padStart(2, '0')}${r.ended_at ? '' : ' ▶'}`,
+                                        },
+                                        {
+                                            key: 'orders',
+                                            title: 'Orders',
+                                            className: 'text-right',
+                                            render: (r) => r.orders,
+                                        },
+                                        {
+                                            key: 'earnings',
+                                            title: 'Earnings',
+                                            className: 'text-right',
+                                            render: (r) =>
+                                                r.earnings.toLocaleString(
+                                                    'ru-RU',
+                                                ),
+                                        },
+                                        {
+                                            key: 'commission',
+                                            title: 'Commission',
+                                            className: 'text-right',
+                                            render: (r) =>
+                                                r.commission.toLocaleString(
+                                                    'ru-RU',
+                                                ),
                                         },
                                     ]}
                                 />

@@ -561,5 +561,14 @@
     "Stop": "Остановка",
     "Remove stop": "Убрать остановку",
     "Add stop": "Остановка",
-    "Round trip": "Туда и обратно"
+    "Round trip": "Туда и обратно",
+    "Shifts": "Смены",
+    "Start": "Начало",
+    "Earnings": "Выручка",
+    "Taxi stands": "Стоянки",
+    "Airport, station, bazaar: free drivers here wait in turn, orders from here go to the first in line": "Аэропорт, вокзал, базар: свободные водители стоят в очереди, заказ отсюда уходит первому в очереди",
+    "Radius, m": "Радиус, м",
+    "Click the map to set the place": "Нажмите на карту, чтобы указать место",
+    "Delete": "Удалить",
+    "No stands yet": "Стоянок пока нет"
 }
