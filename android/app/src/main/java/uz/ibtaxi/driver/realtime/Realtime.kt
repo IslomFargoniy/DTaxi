@@ -1,5 +1,7 @@
 package uz.ibtaxi.driver.realtime
 
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonObject
@@ -21,11 +23,17 @@ class Realtime(
     private val token: String,
     private val driverId: Int,
     private val onEvent: (name: String, data: JsonObject) -> Unit,
+    /** Ulanish holati: true — ulangan (qayta ulanganda buyurtma holati serverdan qayta olinadi) */
+    private val onConnection: (connected: Boolean) -> Unit = {},
 ) {
     private var pusher: Pusher? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private var backoffMs = 2_000L
+    private var stopped = false
 
     fun connect() {
         if (pusher != null) return
+        stopped = false
 
         val authorizer = HttpChannelAuthorizer("${uz.ibtaxi.driver.IbTaxiApp.instance.session.serverUrl}/api/broadcasting/auth").apply {
             setHeaders(mapOf("Authorization" to "Bearer $token", "Accept" to "application/json"))
@@ -42,6 +50,18 @@ class Realtime(
             client.connect(object : ConnectionEventListener {
                 override fun onConnectionStateChange(change: ConnectionStateChange) {
                     Log.d(TAG, "connection: ${change.currentState}")
+                    when (change.currentState) {
+                        ConnectionState.CONNECTED -> {
+                            backoffMs = 2_000L
+                            handler.post { onConnection(true) }
+                        }
+                        // Kutubxona uzoq uzilishdan keyin o'zi qayta ulanmaydi — o'zimiz, oshib boruvchi kutish bilan
+                        ConnectionState.DISCONNECTED -> {
+                            handler.post { onConnection(false) }
+                            if (!stopped) scheduleReconnect()
+                        }
+                        else -> Unit
+                    }
                 }
 
                 override fun onError(message: String?, code: String?, e: Exception?) {
@@ -75,7 +95,15 @@ class Realtime(
         }
     }
 
+    private fun scheduleReconnect() {
+        val delayMs = backoffMs
+        backoffMs = (backoffMs * 2).coerceAtMost(60_000L)
+        handler.postDelayed({ if (!stopped) pusher?.connect() }, delayMs)
+    }
+
     fun disconnect() {
+        stopped = true
+        handler.removeCallbacksAndMessages(null)
         pusher?.disconnect()
         pusher = null
     }

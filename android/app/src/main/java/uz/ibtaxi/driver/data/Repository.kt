@@ -60,18 +60,43 @@ class Repository(val client: ApiClient, val session: Session) {
 
     suspend fun start(orderId: Int) = orderCall { api.start(orderId) }
 
-    suspend fun complete(orderId: Int, inside: Long, outside: Long): Result<Order?> =
+    /**
+     * Internet yo'q bo'lsa natija saqlanadi va servis [retryPendingComplete] bilan qayta yuboradi —
+     * taksometr ko'rsatkichi yo'qolmaydi (server takroriy yakunlashni muvaffaqiyat deb qaytaradi).
+     */
+    suspend fun complete(orderId: Int, inside: Long, outside: Long): Result<Order?> {
+        session.pendingComplete = Triple(orderId, inside, outside)
+        DriverState.setPendingComplete(orderId)
+        return sendComplete(orderId, inside, outside)
+    }
+
+    suspend fun retryPendingComplete(): Result<Order?>? {
+        val (orderId, inside, outside) = session.pendingComplete ?: return null
+        DriverState.setPendingComplete(orderId)
+        return sendComplete(orderId, inside, outside)
+    }
+
+    private suspend fun sendComplete(orderId: Int, inside: Long, outside: Long): Result<Order?> =
         call { api.complete(orderId, CompleteRequest(inside, outside)) }.map { it.order }.also {
+            // Tarmoq xatosi (-1) bo'lmasa server javob berdi — qayta yuborish shart emas
+            if (it !is Result.Error || it.code != -1) {
+                session.pendingComplete = null
+                DriverState.setPendingComplete(null)
+            }
             if (it is Result.Ok) {
+                it.value?.let(DriverState::setOrder)
                 DriverState.setStatus("free")
                 refreshProfile()
             }
         }
 
+    /** Faqat server tasdiqlasa buyurtma yopiladi — aks holda ilova va server holati ajralib qoladi */
     suspend fun cancel(orderId: Int, reason: String) = orderCall { api.cancel(orderId, CancelRequest(reason)) }.also {
-        DriverState.setOrder(null)
-        DriverState.setStatus("free")
-        refreshProfile()
+        if (it is Result.Ok) {
+            DriverState.setOrder(null)
+            DriverState.setStatus("free")
+            refreshProfile()
+        }
     }
 
     suspend fun route(fromLat: Double, fromLng: Double, toLat: Double, toLng: Double) = call { api.route(fromLat, fromLng, toLat, toLng) }

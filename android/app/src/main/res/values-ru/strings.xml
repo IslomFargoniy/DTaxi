@@ -84,4 +84,13 @@
     <string name="ride_time">Время в пути</string>
     <string name="outside_km">За городом, км</string>
     <string name="my_location">Моё местоположение</string>
+    <string name="reason_client_no_show">Клиент не вышел</string>
+    <string name="reason_car_broken">Машина сломалась</string>
+    <string name="reason_wrong_address">Неверный адрес</string>
+    <string name="reason_client_asked">Клиент попросил отменить</string>
+    <string name="reason_other">Другое</string>
+    <string name="problem_no_internet">Нет интернета — заказы не поступают</string>
+    <string name="problem_gps_off">GPS выключен — включите геолокацию</string>
+    <string name="problem_realtime">Заказы не поступают — нет связи</string>
+    <string name="sending">Отправляется…</string>
 </resources>

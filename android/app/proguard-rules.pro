@@ -1,5 +1,7 @@
 # API modellari Gson orqali (maydon nomlari @SerializedName bilan, lekin klasslar saqlanishi kerak)
 -keep class uz.ibtaxi.driver.data.** { *; }
+# Taksometr holati diskka Gson bilan yoziladi
+-keep class uz.ibtaxi.driver.taximeter.MeterState { *; }
 -keepattributes Signature, *Annotation*, InnerClasses, EnclosingMethod
 # Retrofit
 -keep,allowobfuscation,allowshrinking interface retrofit2.Call

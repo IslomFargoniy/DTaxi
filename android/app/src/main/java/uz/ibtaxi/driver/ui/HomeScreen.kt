@@ -1,5 +1,14 @@
 package uz.ibtaxi.driver.ui
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.LocationManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import androidx.compose.material3.FilterChip
+import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -88,7 +97,17 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
     val voice = remember { VoiceGuide(context, session.locale) }
     DisposableEffect(Unit) { onDispose { voice.shutdown() } }
     var info by remember { mutableStateOf<String?>(null) }
+    val realtimeConnected by DriverState.realtimeConnected.collectAsState()
+    var problem by remember { mutableStateOf<Int?>(null) }
     val p = profile ?: return
+
+    // Liniyadagi haydovchi buyurtma olmay qolishi sabablari: internet, GPS, Reverb ulanishi
+    LaunchedEffect(p.status, realtimeConnected) {
+        while (true) {
+            problem = if (p.status == "offline") null else connectionProblem(context, realtimeConnected)
+            delay(3000)
+        }
+    }
 
     // Marshrut: mijozgacha yoki manzilgacha (OSRM orqali)
     LaunchedEffect(order?.id, order?.status, location == null, reroute) {
@@ -153,10 +172,24 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
             IconButton(onClick = { onOpen(Screen.Settings) }) { Icon(Icons.Default.Settings, null) }
         }
 
+        problem?.let { text ->
+            Card(
+                Modifier.align(Alignment.TopCenter).padding(top = 76.dp, start = 12.dp, end = 12.dp).fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            ) {
+                Text(
+                    stringResource(text),
+                    Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+
         // Navigatsiya banneri: keyingi manevr va unga qadar masofa
         banner?.let { (step, meters) ->
             Card(
-                Modifier.align(Alignment.TopCenter).padding(top = 76.dp, start = 12.dp, end = 12.dp).fillMaxWidth(),
+                Modifier.align(Alignment.TopCenter).padding(top = if (problem != null) 128.dp else 76.dp, start = 12.dp, end = 12.dp).fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
             ) {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -225,6 +258,8 @@ private fun OrderCard(order: Order) {
     val profile by DriverState.profile.collectAsState()
     var busy by remember { mutableStateOf(false) }
     var cancelling by remember { mutableStateOf(false) }
+    val pendingComplete by DriverState.pendingComplete.collectAsState()
+    val sending = pendingComplete == order.id
     var waitingSeconds by remember { mutableLongStateOf(0L) }
     val tariff = profile?.tariffs?.firstOrNull { it.tariffClassId == order.tariffClass?.id }
 
@@ -257,7 +292,7 @@ private fun OrderCard(order: Order) {
                 Text("${stringResource(R.string.waiting)}: ${waitingSeconds / 60}:${"%02d".format(waitingSeconds % 60)}")
             }
             if (order.status == "in_progress" && tariff != null) {
-                TaximeterPanel(order, tariff, meters)
+                TaximeterPanel(order, tariff, meters, profile?.config?.timezone)
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -288,15 +323,18 @@ private fun OrderCard(order: Order) {
                         IbTaxiApp.instance.scope.launch {
                             when (val result = repository.complete(order.id, meters.first, meters.second)) {
                                 is Result.Ok -> DriverState.receipt(result.value?.priceFinal)
-                                is Result.Error -> DriverState.toast(result.message ?: context.getString(R.string.network_error))
+                                // Internet yo'q — natija saqlangan, servis o'zi qayta yuboradi
+                                is Result.Error -> if (result.code != -1) {
+                                    DriverState.toast(result.message ?: context.getString(R.string.network_error))
+                                }
                             }
                             busy = false
                         }
                     },
-                    enabled = !busy,
+                    enabled = !busy && !sending,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text(stringResource(R.string.finish)) }
+                ) { Text(stringResource(if (sending) R.string.sending else R.string.finish)) }
             }
         }
     }
@@ -309,21 +347,60 @@ private fun OrderCard(order: Order) {
 
 @Composable
 private fun CancelDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
-    var reason by remember { mutableStateOf("") }
-    val quick = listOf(stringResource(R.string.quick_client_late), stringResource(R.string.quick_address))
+    val reasons = listOf(
+        R.string.reason_client_no_show,
+        R.string.reason_car_broken,
+        R.string.reason_wrong_address,
+        R.string.reason_client_asked,
+    ).map { stringResource(it) }
+    var selected by remember { mutableStateOf<String?>(null) }
+    var other by remember { mutableStateOf(false) }
+    var text by remember { mutableStateOf("") }
+    val reason = if (other) text.trim() else selected
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.cancel_reason)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                quick.forEach { option -> OutlinedButton(onClick = { reason = option }, modifier = Modifier.fillMaxWidth()) { Text(option) } }
-                OutlinedTextField(value = reason, onValueChange = { reason = it }, modifier = Modifier.fillMaxWidth())
+            // Sabablar ro'yxati qat'iy — hisobotda guruhlanadi; "Boshqa" uchun matn
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                reasons.forEach { option ->
+                    FilterChip(
+                        selected = !other && selected == option,
+                        onClick = { selected = option; other = false },
+                        label = { Text(option) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                FilterChip(
+                    selected = other,
+                    onClick = { other = true },
+                    label = { Text(stringResource(R.string.reason_other)) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (other) OutlinedTextField(value = text, onValueChange = { text = it }, modifier = Modifier.fillMaxWidth())
             }
         },
-        confirmButton = { Button(onClick = { onConfirm(reason) }, enabled = reason.isNotBlank()) { Text(stringResource(R.string.cancel_order)) } },
+        confirmButton = {
+            Button(onClick = { reason?.let(onConfirm) }, enabled = !reason.isNullOrBlank()) { Text(stringResource(R.string.cancel_order)) }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("✕") } },
     )
+}
+
+/** Banner matni yoki null — hammasi joyida */
+private fun connectionProblem(context: Context, realtimeConnected: Boolean): Int? {
+    val network = context.getSystemService(ConnectivityManager::class.java)
+    val online = network?.getNetworkCapabilities(network.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    val locationManager = context.getSystemService(LocationManager::class.java)
+    val gpsOn = locationManager?.let { LocationManagerCompat.isLocationEnabled(it) } == true
+    val permitted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    return when {
+        !online -> R.string.problem_no_internet
+        !permitted || !gpsOn -> R.string.problem_gps_off
+        !realtimeConnected -> R.string.problem_realtime
+        else -> null
+    }
 }
 
 private fun arrow(step: NavStep): String = when {
@@ -343,7 +420,9 @@ private fun formatDistance(meters: Int): String =
  * hisoblaydi (kutish = "Yetib keldim" → "Boshladim", tungi narx — safar boshlangan vaqt bo'yicha).
  */
 @Composable
-private fun TaximeterPanel(order: Order, tariff: Tariff, meters: Pair<Long, Long>) {
+private fun TaximeterPanel(order: Order, tariff: Tariff, meters: Pair<Long, Long>, timezone: String?) {
+    // Tungi tarif filial vaqti bo'yicha (server ham shunday hisoblaydi), telefon zonasi boshqa bo'lsa ham
+    val zone = timezone?.let { runCatching { java.time.ZoneId.of(it) }.getOrNull() } ?: java.time.ZoneId.systemDefault()
     val started = order.startedAt?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }
     val arrived = order.arrivedAt?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }
     val waitingSeconds = if (started != null && arrived != null) Duration.between(arrived, started).seconds.coerceAtLeast(0) else 0L
@@ -359,7 +438,7 @@ private fun TaximeterPanel(order: Order, tariff: Tariff, meters: Pair<Long, Long
         meters.first,
         meters.second,
         waitingSeconds = waitingSeconds,
-        startedAt = started?.atZoneSameInstant(java.time.ZoneId.systemDefault())?.toLocalTime() ?: LocalTime.now(),
+        startedAt = started?.atZoneSameInstant(zone)?.toLocalTime() ?: LocalTime.now(zone),
     )
 
     Card(

@@ -35,6 +35,14 @@ object DriverState {
     private val _toast = MutableStateFlow<String?>(null)
     val toast: StateFlow<String?> = _toast.asStateFlow()
 
+    /** Reverb ulanishi (liniyada uzilsa — "buyurtmalar kelmayapti" banneri) */
+    private val _realtimeConnected = MutableStateFlow(true)
+    val realtimeConnected: StateFlow<Boolean> = _realtimeConnected.asStateFlow()
+
+    /** Yakunlash yuborilmoqda (internet yo'q) — buyurtma id */
+    private val _pendingComplete = MutableStateFlow<Int?>(null)
+    val pendingComplete: StateFlow<Int?> = _pendingComplete.asStateFlow()
+
     /** Takrorni e'tiborsiz qoldirish: Reverb va FCM bir xil taklifni yuboradi */
     private val seenOffers = LinkedHashSet<Int>()
 
@@ -73,6 +81,10 @@ object DriverState {
     fun toast(message: String?) = _toast.update { message }
 
     fun receipt(total: Long?) = _receipt.update { total }
+
+    fun setRealtimeConnected(connected: Boolean) = _realtimeConnected.update { connected }
+
+    fun setPendingComplete(orderId: Int?) = _pendingComplete.update { orderId }
 
     val FINISHED = setOf("completed", "cancelled_by_client", "cancelled_by_operator", "cancelled_by_driver", "no_driver_found")
 }

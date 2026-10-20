@@ -35,6 +35,8 @@ data class AppConfig(
     /** GeoJSON (Polygon / MultiPolygon) — taksometr shahar tashqarisini ajratishi uchun */
     @SerializedName("service_area") val serviceArea: JsonElement?,
     val payments: PaymentsConfig? = null,
+    /** Filial vaqt zonasi (masalan "Asia/Tashkent") — tungi tarif server bilan bir xil hisoblanishi uchun */
+    val timezone: String? = null,
 )
 
 /** Firma Click/Payme bilan shartnoma qilgan bo'lsa — balansni to'ldirish havolalari uchun */
@@ -105,7 +107,16 @@ data class Offer(
     @SerializedName("expires_in") val expiresIn: Int,
 )
 
-data class LocationPoint(val lat: Double, val lng: Double, val speed: Int?, val heading: Int?, val accuracy: Int?, val mock: Boolean = false)
+/** [t] — nuqta olingan vaqt (epoch ms): internet qaytganda yuborilgan nuqtalar to'g'ri tartibda yoziladi */
+data class LocationPoint(
+    val lat: Double,
+    val lng: Double,
+    val speed: Int?,
+    val heading: Int?,
+    val accuracy: Int?,
+    val mock: Boolean = false,
+    val t: Long = System.currentTimeMillis(),
+)
 
 data class LocationBatch(val points: List<LocationPoint>)
 

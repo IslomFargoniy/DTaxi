@@ -40,5 +40,12 @@ class Session(context: Context) {
         get() = prefs.getString("server_url", null)?.takeIf { BuildConfig.SERVER_EDITABLE && it.isNotBlank() } ?: BuildConfig.SERVER_URL
         set(value) = prefs.edit().putString("server_url", value.trim().trimEnd('/')).apply()
 
+    /** Internet yo'q paytda bosilgan "Yakunlash": (buyurtma, ichkari m, tashqari m) — server javob berguncha qayta yuboriladi */
+    var pendingComplete: Triple<Int, Long, Long>?
+        get() = prefs.getString("pending_complete", null)?.split(":")?.takeIf { it.size == 3 }?.let {
+            runCatching { Triple(it[0].toInt(), it[1].toLong(), it[2].toLong()) }.getOrNull()
+        }
+        set(value) = prefs.edit().putString("pending_complete", value?.let { "${it.first}:${it.second}:${it.third}" }).apply()
+
     fun clear() = prefs.edit().remove("token").apply()
 }

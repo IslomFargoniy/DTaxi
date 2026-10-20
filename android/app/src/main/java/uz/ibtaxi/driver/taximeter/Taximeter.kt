@@ -1,5 +1,15 @@
 package uz.ibtaxi.driver.taximeter
 
+/** Taksometr holati — jarayon o'ldirilsa ham davom etishi uchun diskka yoziladi */
+data class MeterState(
+    val orderId: Int,
+    val inside: Double,
+    val outside: Double,
+    val lastLat: Double?,
+    val lastLng: Double?,
+    val lastTime: Long,
+)
+
 /**
  * GPS bo'yicha bosib o'tilgan masofa (qaror #21, #33). Internet uzilsa ham ishlaydi — hisob telefonda.
  * Sakrashlar filtrlanadi: aniqligi past nuqtalar va imkonsiz tezlik (aks holda masofa sun'iy oshadi).
@@ -15,6 +25,16 @@ class Taximeter(private val area: ServiceArea) {
     private var lastTime: Long = 0
 
     val totalMeters: Double get() = insideMeters + outsideMeters
+
+    fun snapshot(orderId: Int) = MeterState(orderId, insideMeters, outsideMeters, lastLat, lastLng, lastTime)
+
+    fun restore(state: MeterState) {
+        insideMeters = state.inside
+        outsideMeters = state.outside
+        lastLat = state.lastLat
+        lastLng = state.lastLng
+        lastTime = state.lastTime
+    }
 
     fun reset() {
         insideMeters = 0.0
