@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import AppLayoutTemplate from '@/layouts/app/app-sidebar-layout';
+import { WebPhone } from '@/components/webphone/webphone';
 import { ChatPanel } from '@/pages/operator/chat-panel';
 import type { BreadcrumbItem } from '@/types';
 
@@ -11,9 +12,16 @@ export default function AppLayout({
     children: React.ReactNode;
 }) {
     const { auth, chatBranchIds } = usePage<{
-        auth: { user: { id: number } | null };
+        auth: {
+            user: { id: number; name: string } | null;
+            permissions: string[];
+        };
         chatBranchIds?: number[];
     }>().props;
+    // Qo'ng'iroqqa javob beradiganlar (operator, superadmin) — webfon har sahifada
+    const canPhone =
+        auth.permissions.includes('*') ||
+        auth.permissions.includes('calls.answer');
 
     return (
         <AppLayoutTemplate breadcrumbs={breadcrumbs}>
@@ -21,6 +29,9 @@ export default function AppLayout({
             {/* Layout sahifalar orasida saqlanadi — chat qayta yuklanmaydi, ochiq suhbat yopilmaydi */}
             {auth.user && chatBranchIds && chatBranchIds.length > 0 && (
                 <ChatPanel branchIds={chatBranchIds} userId={auth.user.id} />
+            )}
+            {auth.user && canPhone && (
+                <WebPhone userId={auth.user.id} userName={auth.user.name} />
             )}
         </AppLayoutTemplate>
     );

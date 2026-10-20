@@ -579,5 +579,17 @@
     "Select a chat to start messaging": "Ёзишиш учун суҳбатни танланг",
     "No branch is assigned to you.": "Сизга филиал бириктирилмаган.",
     "Loading…": "Юкланмоқда…",
-    "Welcome to Dtaxi": "Dtaxi'ga хуш келибсиз"
+    "Welcome to Dtaxi": "Dtaxi'ga хуш келибсиз",
+    "Active call": "Суҳбат",
+    "Number, extension or callsign": "Рақам, ички рақам ёки позивной",
+    "Call": "Қўнғироқ қилиш",
+    "Disable sounds": "Овозларни ўчириш",
+    "The phone could not connect to the PBX. Check the network and reload the page.": "Телефон ATS'ga улана олмади. Тармоқни текшириб, саҳифани янгиланг.",
+    "Minimize": "Йиғиш",
+    "Connection error": "Уланиш хатоси",
+    "Enable sounds": "Овозларни ёқиш",
+    "Connecting…": "Уланмоқда…",
+    "Extension :extension is active": "Ички рақам :extension фаол",
+    "Disconnected": "Узилган",
+    "Decline": "Рад этиш"
 }

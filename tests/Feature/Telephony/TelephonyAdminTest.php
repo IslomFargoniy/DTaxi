@@ -9,6 +9,7 @@ use App\Models\Pjsip\PsEndpoint;
 use App\Models\SipTrunk;
 use App\Models\SoundClip;
 use App\Models\User;
+use App\Services\Telephony\Extensions;
 use App\Support\Settings;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Http\Client\Factory;
@@ -128,4 +129,17 @@ test('asterisk is shown as online even when no PJSIP endpoints exist yet', funct
 
     $this->actingAs($this->superadmin)->get(route('admin.telephony.index'))
         ->assertInertia(fn ($page) => $page->where('asteriskOnline', true));
+});
+
+test('deleting a user removes its extension from Asterisk and sync prunes leftovers', function () {
+    $operator = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+    app(Extensions::class)->syncFor($operator);
+    $extension = $operator->fresh()->sip_extension;
+    PsEndpoint::query()->create(['id' => 'op999999', 'transport' => 'transport-ws']);
+
+    $operator->delete();
+    $this->artisan('telephony:sync')->assertSuccessful();
+
+    expect(PsEndpoint::query()->whereKey($extension)->exists())->toBeFalse()
+        ->and(PsEndpoint::query()->whereKey('op999999')->exists())->toBeFalse();
 });

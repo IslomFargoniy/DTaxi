@@ -128,6 +128,19 @@ class Extensions
         return null;
     }
 
+    /**
+     * Egasi yo'q ichki raqamlar (o'chirilgan foydalanuvchilar) — telephony:sync tozalaydi.
+     */
+    public function pruneOrphans(): int
+    {
+        $known = User::query()->whereNotNull('sip_extension')->pluck('sip_extension')->all();
+        $orphans = PsEndpoint::query()->where(fn ($q) => $q->where('id', 'like', 'op%')->orWhere('id', 'like', 'dr%'))
+            ->whereNotIn('id', $known)->pluck('id');
+        $orphans->each(fn (string $id) => $this->delete($id));
+
+        return $orphans->count();
+    }
+
     private function delete(string $extension): void
     {
         PsEndpoint::query()->whereKey($extension)->delete();

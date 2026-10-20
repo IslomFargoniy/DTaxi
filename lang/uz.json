@@ -579,5 +579,17 @@
     "Select a chat to start messaging": "Yozishish uchun suhbatni tanlang",
     "No branch is assigned to you.": "Sizga filial biriktirilmagan.",
     "Loading…": "Yuklanmoqda…",
-    "Welcome to Dtaxi": "Dtaxi'ga xush kelibsiz"
+    "Welcome to Dtaxi": "Dtaxi'ga xush kelibsiz",
+    "Active call": "Suhbat",
+    "Number, extension or callsign": "Raqam, ichki raqam yoki pozivnoy",
+    "Call": "Qo'ng'iroq qilish",
+    "Disable sounds": "Ovozlarni o'chirish",
+    "The phone could not connect to the PBX. Check the network and reload the page.": "Telefon ATS'ga ulana olmadi. Tarmoqni tekshirib, sahifani yangilang.",
+    "Minimize": "Yig'ish",
+    "Connection error": "Ulanish xatosi",
+    "Enable sounds": "Ovozlarni yoqish",
+    "Connecting…": "Ulanmoqda…",
+    "Extension :extension is active": "Ichki raqam :extension faol",
+    "Disconnected": "Uzilgan",
+    "Decline": "Rad etish"
 }

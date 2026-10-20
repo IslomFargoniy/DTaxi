@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Role;
 use App\Models\Concerns\Auditable;
+use App\Services\Telephony\Extensions;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -69,6 +70,13 @@ class User extends Authenticatable implements PasskeyUser
     protected static function booted(): void
     {
         // Faolsizlantirilganda ilova tokenlari darhol bekor bo'ladi
+        // O'chirilgan foydalanuvchining ichki raqami Asterisk'da qolib ketmasin
+        static::deleting(function (User $user) {
+            if ($user->sip_extension) {
+                app(Extensions::class)->remove($user);
+            }
+        });
+
         static::updated(function (User $user) {
             if ($user->wasChanged('is_active') && ! $user->is_active) {
                 $user->tokens()->delete();

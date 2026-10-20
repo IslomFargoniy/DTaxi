@@ -59,8 +59,9 @@ Artisan::command('telephony:sync', function (Extensions $extensions, TrunkSync $
         $users++;
     });
     SipTrunk::query()->each(fn (SipTrunk $trunk) => $trunks->sync($trunk));
+    $orphans = $extensions->pruneOrphans();
 
-    $this->info("Tayyor: {$users} foydalanuvchi va trunklar Asterisk Realtime'ga yozildi.");
+    $this->info("Tayyor: {$users} foydalanuvchi va trunklar Asterisk Realtime'ga yozildi, {$orphans} ta eski ichki raqam o'chirildi.");
 })->purpose('Ichki raqamlar va SIP trunklarni Asterisk jadvallariga qayta yozish');
 
 Artisan::command('recordings:cleanup', function (Settings $settings) {

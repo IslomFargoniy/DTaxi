@@ -579,5 +579,17 @@
     "Select a chat to start messaging": "Выберите чат, чтобы начать переписку",
     "No branch is assigned to you.": "Вам не назначен филиал.",
     "Loading…": "Загрузка…",
-    "Welcome to Dtaxi": "Добро пожаловать в Dtaxi"
+    "Welcome to Dtaxi": "Добро пожаловать в Dtaxi",
+    "Active call": "Разговор",
+    "Number, extension or callsign": "Номер, внутренний или позывной",
+    "Call": "Позвонить",
+    "Disable sounds": "Выключить звуки",
+    "The phone could not connect to the PBX. Check the network and reload the page.": "Телефон не подключился к АТС. Проверьте сеть и обновите страницу.",
+    "Minimize": "Свернуть",
+    "Connection error": "Ошибка подключения",
+    "Enable sounds": "Включить звуки",
+    "Connecting…": "Подключение…",
+    "Extension :extension is active": "Внутренний номер :extension активен",
+    "Disconnected": "Отключено",
+    "Decline": "Отклонить"
 }

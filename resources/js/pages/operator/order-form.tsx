@@ -24,7 +24,7 @@ import {
 import type { Branch, ClientCard, TariffClass } from '@/types/operator';
 import { PlacePicker } from './place-picker';
 import type { PickedPlace } from './place-picker';
-import type { CallCard } from './softphone';
+import type { CallCard } from '@/components/webphone/webphone';
 
 const emptyPlace: PickedPlace = {
     text: '',

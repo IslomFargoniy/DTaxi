@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { useEcho } from '@laravel/echo-react';
 import { Marker } from 'maplibre-gl';
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
@@ -12,8 +12,7 @@ import { OrderForm } from './order-form';
 import type { PickTarget } from './order-form';
 import { isFresh, OrdersList } from './orders-list';
 import type { PickedPlace } from './place-picker';
-import { Softphone } from './softphone';
-import type { CallCard } from './softphone';
+import type { CallCard } from '@/components/webphone/webphone';
 
 type Props = {
     branches: Branch[];
@@ -100,7 +99,6 @@ export default function OperatorIndex({
     locationTtlSeconds,
 }: Props) {
     const { t } = useTrans();
-    const { auth } = usePage<{ auth: { user: { id: number } } }>().props;
     const [orders, setOrders] = useState<Order[]>(initialOrders);
     const [drivers, setDrivers] = useState<MapDriver[]>(initialDrivers);
     const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -112,6 +110,15 @@ export default function OperatorIndex({
         target?: 'pickup' | 'dropoff';
     } | null>(null);
     const [incoming, setIncoming] = useState<CallCard | null>(null);
+
+    // Kiruvchi qo'ng'iroq kartochkasi webfondan (layout'da) — buyurtma formasi mijoz raqami bilan ochiladi
+    useEffect(() => {
+        const onCard = (e: Event) =>
+            setIncoming((e as CustomEvent<CallCard>).detail);
+        window.addEventListener('dtaxi:call-card', onCard);
+
+        return () => window.removeEventListener('dtaxi:call-card', onCard);
+    }, []);
     const mapRef = useRef<MapLibreMap | null>(null);
     const placeMarkers = useRef<Marker[]>([]);
 
@@ -304,9 +311,6 @@ export default function OperatorIndex({
                 </section>
 
                 <section className="order-1 overflow-auto lg:order-3">
-                    <div className="mb-3">
-                        <Softphone userId={auth.user.id} onCard={setIncoming} />
-                    </div>
                     <h2 className="mb-2 text-sm font-semibold">
                         {t('New order')}{' '}
                         <span className="font-normal text-muted-foreground">
