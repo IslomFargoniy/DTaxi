@@ -38,7 +38,13 @@ export function mapStyle(
                 attribution: '© OpenStreetMap',
             },
         },
-        layers: layers('protomaps', namedFlavor(flavor), { lang }),
+        // Uy raqamlari 18 o'rniga 17-zoom'dan (resources/map/generate-layers.mjs bilan bir xil)
+        layers: layers('protomaps', namedFlavor(flavor), { lang }).map(
+            (layer) =>
+                layer.id === 'address_label'
+                    ? { ...layer, minzoom: 17 }
+                    : layer,
+        ),
     };
 }
 

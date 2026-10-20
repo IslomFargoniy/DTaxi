@@ -1347,11 +1347,11 @@
         "type": "symbol",
         "source": "protomaps",
         "source-layer": "buildings",
-        "minzoom": 18,
+        "minzoom": 17,
         "filter": ["==", "kind", "address"],
         "layout": {
             "symbol-placement": "point",
-            "text-font": ["Noto Sans Italic"],
+            "text-font": ["Noto Sans Regular"],
             "text-field": ["get", "addr_housenumber"],
             "text-size": 12
         },

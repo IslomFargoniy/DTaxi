@@ -124,9 +124,9 @@ fun TaxiMap(
         update(style, me, pickup, dropoff, route)
         if (!follow) return@LaunchedEffect
 
-        // Tugma bosilganda — haydovchining o'ziga yaqinlashib
+        // Tugma bosilganda — haydovchining o'ziga, uy raqamlari ko'rinadigan zoom'gacha
         if (recenter > 0 && me != null && pickup == null && dropoff == null) {
-            map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(me.lat, me.lng), 16.0))
+            map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(me.lat, me.lng), 17.0))
             return@LaunchedEffect
         }
 
