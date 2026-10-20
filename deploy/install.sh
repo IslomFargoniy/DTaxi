@@ -264,6 +264,13 @@ server {
         try_files \$uri /index.php?\$query_string;
     }
 
+    # ES modul fayllari (MapLibre worker) — brauzer faqat JavaScript MIME bilan yuklaydi
+    location ~* \.mjs$ {
+        types { }
+        default_type application/javascript;
+        try_files \$uri =404;
+    }
+
     location ~ /\.(?!well-known).* {
         deny all;
     }

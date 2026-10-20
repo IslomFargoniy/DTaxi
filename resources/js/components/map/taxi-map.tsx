@@ -3,12 +3,17 @@ import {
     addProtocol,
     Map as MapLibreMap,
     NavigationControl,
+    setWorkerUrl,
 } from 'maplibre-gl';
+// MapLibre 6 worker'ni o'z chunk'iga nisbatan qidiradi — Vite bundle'ida u yo'q, shuning uchun aniq manzil
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import type { MapMouseEvent, StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { useEffect, useRef } from 'react';
 import { useTrans } from '@/hooks/use-trans';
+
+setWorkerUrl(maplibreWorkerUrl);
 
 let protocolRegistered = false;
 
@@ -100,5 +105,11 @@ export function TaxiMap({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    return <div ref={container} className={className} />;
+    // MapLibre CSS konteynerga position: relative beradi va tashqi "absolute inset-0" ni bekor qiladi —
+    // shuning uchun joylashuv tashqi o'ramda, xarita ichida to'liq o'lchamda
+    return (
+        <div className={className}>
+            <div ref={container} className="h-full w-full" />
+        </div>
+    );
 }
