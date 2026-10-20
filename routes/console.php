@@ -83,11 +83,13 @@ Schedule::command('recordings:cleanup')->dailyAt('03:30')->withoutOverlapping();
 
 Artisan::command('ibtaxi:backup {--keep=14 : Necha kunlik zaxira saqlanadi}', function (Backup $backup) {
     $file = $backup->create();
+    $files = $backup->createFiles();
     $pruned = $backup->prune((int) $this->option('keep'));
-    $this->info("Zaxira: {$file} (o'chirildi: {$pruned} ta eski)");
+    $this->info("Zaxira: {$file}, {$files} (o'chirildi: {$pruned} ta eski)");
 
     try {
         if ($backup->upload($file)) {
+            $backup->upload($files);
             $this->info('Zaxira serveriga yuborildi.');
         }
     } catch (Throwable $e) {
@@ -98,7 +100,7 @@ Artisan::command('ibtaxi:backup {--keep=14 : Necha kunlik zaxira saqlanadi}', fu
         return;
     }
     Cache::forget('backup.upload_error');
-})->purpose('Bazaning zaxira nusxasi (pg_dump)');
+})->purpose('Baza (pg_dump), fayllar va .env zaxirasi');
 
 Artisan::command('ari:restart', function () {
     Cache::forever('ari:restart', now()->getTimestamp());
@@ -166,3 +168,10 @@ Artisan::command('orders:rebroadcast', function (Dispatcher $dispatcher) {
 })->purpose('Hech kim olmagan buyurtmalarni qayta efirga chiqarish');
 
 Schedule::command('orders:rebroadcast')->everyMinute()->withoutOverlapping();
+
+Artisan::command('telephony:trunk-ips', function () {
+    // deploy/sip-firewall.sh (root, cron) shu ro'yxat bo'yicha 5060/udp ni faqat trunk'larga ochadi
+    SipTrunk::query()->where('is_active', true)->pluck('host')
+        ->flatMap(fn (string $host) => filter_var($host, FILTER_VALIDATE_IP) ? [$host] : (gethostbynamel($host) ?: []))
+        ->unique()->sort()->each(fn (string $ip) => $this->line($ip));
+})->purpose("Faol SIP trunk'larning IP manzillari (xavfsizlik devori uchun)");

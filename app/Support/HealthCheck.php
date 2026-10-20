@@ -2,14 +2,11 @@
 
 namespace App\Support;
 
-use App\Enums\IntegrationProvider;
-use App\Models\Integration;
 use App\Models\SipTrunk;
 use App\Services\Telephony\AriClient;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Laravel\Horizon\Contracts\MasterSupervisorRepository;
 
 /**
@@ -95,21 +92,11 @@ class HealthCheck
             return;
         }
 
-        $token = Integration::credential(IntegrationProvider::Telegram, 'bot_token');
-        $chat = Integration::credential(IntegrationProvider::Telegram, 'chat_id');
-        if (! $token || ! $chat) {
-            return;
-        }
-
-        $company = (string) app(Settings::class)->get('company.name');
         $lines = [
             ...array_map(fn (string $m) => "🔴 {$m}", array_values($new)),
             ...array_map(fn (string $m) => "✅ {$m}", array_values($fixed)),
         ];
 
-        rescue(fn () => Http::timeout(5)->post("https://api.telegram.org/bot{$token}/sendMessage", [
-            'chat_id' => $chat,
-            'text' => "{$company}\n".implode("\n", $lines),
-        ]), fn () => Log::warning('Telegram ogohlantirishi yuborilmadi'), false);
+        TelegramAlert::send(implode("\n", $lines));
     }
 }

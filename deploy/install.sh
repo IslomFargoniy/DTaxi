@@ -311,10 +311,13 @@ if [[ "$MODE" == "--prod" ]]; then
     log "Prod: xavfsizlik devori (ufw) va fail2ban"
     ufw allow OpenSSH
     ufw allow 80,443/tcp
-    # SIP (trunk) va ovoz (RTP)
-    ufw allow 5060/udp
+    # Ovoz (RTP) — trunk va brauzer/ilova (WebRTC) uchun. SIP 5060 esa faqat trunk IP'lariga (sip-firewall.sh)
     ufw allow 10000:20000/udp
     ufw --force enable
+    cat > /etc/cron.d/ibtaxi-sip <<CRON
+*/5 * * * * root APP_DIR=${APP_DIR} APP_USER=${APP_USER} ${APP_DIR}/deploy/sip-firewall.sh
+CRON
+    APP_DIR="${APP_DIR}" APP_USER="${APP_USER}" "${APP_DIR}/deploy/sip-firewall.sh" || true
     cat > /etc/fail2ban/jail.d/ibtaxi.conf <<'JAIL'
 [sshd]
 enabled = true
@@ -328,6 +331,19 @@ JAIL
     systemctl enable --now fail2ban
     systemctl restart fail2ban
 fi
+
+log "Loglarni aylantirish (disk to'lmasin)"
+cat > /etc/logrotate.d/ibtaxi <<LOGROTATE
+${APP_DIR}/storage/logs/*.log /var/log/ibtaxi-*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+LOGROTATE
 
 log "Fon xizmatlari: Reverb, Horizon, scheduler"
 REVERB_HOST_BIND="127.0.0.1"

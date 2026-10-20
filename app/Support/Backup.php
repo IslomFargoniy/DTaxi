@@ -30,6 +30,29 @@ class Backup
         if ($result->failed()) {
             throw new RuntimeException('pg_dump: '.$result->errorOutput());
         }
+        @chmod($file, 0600);
+
+        return $file;
+    }
+
+    /**
+     * Fayllar zaxirasi: haydovchi hujjatlari, suhbat yozuvlari, ovozli bo'laklar, APK va `.env`.
+     * `.env` dagi APP_KEY siz bazadagi shifrlangan kalitlarni (Click, Payme, SIP) tiklab bo'lmaydi.
+     */
+    public function createFiles(string $label = 'daily'): string
+    {
+        File::ensureDirectoryExists($this->directory());
+        $file = $this->directory().'/'.now()->format('Y-m-d_His')."_{$label}.files.tar.gz";
+
+        $result = Process::timeout(3600)->path(base_path())->run([
+            'tar', '--create', '--gzip', '--file='.$file,
+            '--exclude=storage/app/private/backups',
+            '.env', 'storage/app/private',
+        ]);
+        if ($result->failed()) {
+            throw new RuntimeException('tar: '.$result->errorOutput());
+        }
+        @chmod($file, 0600);
 
         return $file;
     }
@@ -96,7 +119,7 @@ class Backup
     public function prune(int $keepDays = 14): int
     {
         $deleted = 0;
-        foreach (File::glob($this->directory().'/*.dump') as $file) {
+        foreach ([...File::glob($this->directory().'/*.dump'), ...File::glob($this->directory().'/*.files.tar.gz')] as $file) {
             if (filemtime($file) < now()->subDays($keepDays)->getTimestamp()) {
                 File::delete($file);
                 $deleted++;
