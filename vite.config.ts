@@ -32,6 +32,10 @@ export default defineConfig({
             formVariants: true,
         }),
     ]),
+    // Xatolarni topish uchun: SOURCEMAP=1 npm run build
+    build: {
+        sourcemap: process.env.SOURCEMAP === '1',
+    },
     server: {
         watch: {
             ignored: [

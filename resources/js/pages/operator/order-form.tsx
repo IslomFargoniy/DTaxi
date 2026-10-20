@@ -97,10 +97,9 @@ export function OrderForm({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mapClick?.seq]);
 
-    useEffect(
-        () => onPlacesChange(pickup, dropoff),
-        [pickup, dropoff, onPlacesChange],
-    );
+    useEffect(() => {
+        onPlacesChange(pickup, dropoff);
+    }, [pickup, dropoff, onPlacesChange]);
 
     // F2 — yangi buyurtma: telefon maydoniga o'tish
     useEffect(() => {

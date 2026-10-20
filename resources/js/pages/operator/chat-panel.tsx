@@ -75,7 +75,9 @@ export function ChatPanel({
             .catch(() => undefined);
     }, []);
 
-    useEffect(() => loadThreads(), [loadThreads]);
+    useEffect(() => {
+        loadThreads();
+    }, [loadThreads]);
 
     useEffect(() => {
         if (active) {
@@ -85,7 +87,11 @@ export function ChatPanel({
         }
     }, [active]);
 
-    useEffect(() => bottom.current?.scrollIntoView(), [messages]);
+    // Effekt hech narsa qaytarmasin: yangi Chrome'da scrollIntoView() Promise qaytaradi va React uni
+    // tozalash funksiyasi deb chaqirib sahifani yiqitardi
+    useEffect(() => {
+        bottom.current?.scrollIntoView();
+    }, [messages]);
 
     const onMessage = useCallback(
         (m: Message) => {

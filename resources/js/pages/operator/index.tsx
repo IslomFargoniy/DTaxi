@@ -109,7 +109,9 @@ export default function OperatorIndex({
     const mapRef = useRef<MapLibreMap | null>(null);
     const placeMarkers = useRef<Marker[]>([]);
 
-    useEffect(() => setOrders(initialOrders), [initialOrders]);
+    useEffect(() => {
+        setOrders(initialOrders);
+    }, [initialOrders]);
 
     const center = branches[0]?.center ?? mapConfig.center;
 
