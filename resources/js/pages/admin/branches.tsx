@@ -259,7 +259,7 @@ function BranchDialog({
                 />
                 <InputError message={errors.name} />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 items-start gap-2">
                 <div className="grid gap-1.5">
                     <Label>{t('Region')}</Label>
                     <select

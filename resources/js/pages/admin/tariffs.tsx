@@ -138,7 +138,7 @@ function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
                         });
                     }}
                 >
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-4">
                         <NumberField
                             label="Base fare, so'm"
                             value={form.data.tariff.base_fare}
@@ -181,7 +181,7 @@ function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
                     <div className="grid gap-2 rounded-md border p-3">
                         {toggle('waiting_enabled', 'Charge for waiting')}
                         {form.data.tariff.waiting_enabled && (
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 items-start gap-3">
                                 <NumberField
                                     label="Free minutes"
                                     value={form.data.tariff.waiting_free_min}
@@ -198,7 +198,7 @@ function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
                     <div className="grid gap-2 rounded-md border p-3">
                         {toggle('night_enabled', 'Night rate')}
                         {form.data.tariff.night_enabled && (
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-3 items-start gap-3">
                                 <div className="grid gap-1">
                                     <Label className="text-xs font-normal text-muted-foreground">
                                         {t('From')}

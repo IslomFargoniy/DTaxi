@@ -155,7 +155,7 @@ function TrunkDialog({
                       })
             }
         >
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 items-start gap-2">
                 <Field label="Code (latin)" error={e.name}>
                     {text('name')}
                 </Field>
@@ -163,7 +163,7 @@ function TrunkDialog({
                     {text('title')}
                 </Field>
             </div>
-            <div className="grid grid-cols-[1fr_100px] gap-2">
+            <div className="grid grid-cols-[1fr_100px] items-start gap-2">
                 <Field label="SIP host" error={e.host}>
                     {text('host')}
                 </Field>
@@ -171,7 +171,7 @@ function TrunkDialog({
                     {num('port')}
                 </Field>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 items-start gap-2">
                 <Field label="Login" error={e.username}>
                     {text('username')}
                 </Field>
@@ -193,7 +193,7 @@ function TrunkDialog({
             >
                 {text('from_user')}
             </Field>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 items-start gap-2">
                 <Field label="Channels" error={e.max_channels}>
                     {num('max_channels')}
                 </Field>
@@ -274,7 +274,7 @@ function NumberDialog({
                       })
             }
         >
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 items-start gap-2">
                 <Field label="Number" error={e.number}>
                     <Input
                         placeholder="+998712000000"
@@ -291,7 +291,7 @@ function NumberDialog({
                     />
                 </Field>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 items-start gap-2">
                 <Field label="SIP trunk" error={e.sip_trunk_id}>
                     <select
                         className="h-9 rounded-md border bg-transparent px-2 text-sm"
@@ -578,7 +578,7 @@ function SettingsForm({ settings }: { settings: Props['settings'] }) {
 
     return (
         <form
-            className="grid gap-3 sm:grid-cols-2"
+            className="grid items-start gap-3 sm:grid-cols-2"
             onSubmit={(ev) => {
                 ev.preventDefault();
                 form.put(TelephonyController.updateSettings.url(), {

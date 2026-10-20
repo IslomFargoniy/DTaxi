@@ -77,7 +77,7 @@ function LandmarkDialog({
                     onChange={(e) => form.setData('aliases', e.target.value)}
                 />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 items-start gap-2">
                 <div className="grid gap-1.5">
                     <Label>{t('Latitude')}</Label>
                     <Input

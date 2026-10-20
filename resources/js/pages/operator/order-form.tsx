@@ -222,7 +222,7 @@ export function OrderForm({
                 </div>
             )}
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 items-start gap-2">
                 <div className="grid gap-1.5">
                     <Label htmlFor="phone">{t('Phone')}</Label>
                     <Input
@@ -339,7 +339,7 @@ export function OrderForm({
             </div>
 
             {selectedClass?.is_delivery && (
-                <div className="grid grid-cols-2 gap-2 rounded-md border p-2">
+                <div className="grid grid-cols-2 items-start gap-2 rounded-md border p-2">
                     {(
                         [
                             'sender_name',

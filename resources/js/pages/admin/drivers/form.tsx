@@ -214,7 +214,7 @@ export default function DriverForm({
                         <CardHeader>
                             <CardTitle>{t('Driver')}</CardTitle>
                         </CardHeader>
-                        <CardContent className="grid gap-3 sm:grid-cols-2">
+                        <CardContent className="grid items-start gap-3 sm:grid-cols-2">
                             {branches.length > 1 && (
                                 <Field
                                     id="branch"
@@ -339,7 +339,7 @@ export default function DriverForm({
                                 </Badge>
                             )}
                         </CardHeader>
-                        <CardContent className="grid gap-3 sm:grid-cols-2">
+                        <CardContent className="grid items-start gap-3 sm:grid-cols-2">
                             {(
                                 [
                                     'brand',
