@@ -5,6 +5,7 @@ import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TaxiMap } from '@/components/map/taxi-map';
 import { useTrans } from '@/hooks/use-trans';
+import { cn } from '@/lib/utils';
 import { index } from '@/routes/operator';
 import type { Branch, MapDriver, Order, TariffClass } from '@/types/operator';
 import { ChatPanel } from './chat-panel';
@@ -254,7 +255,14 @@ export default function OperatorIndex({
                     />
                 </section>
 
-                <section className="relative order-3 min-h-80 overflow-hidden rounded-xl border lg:order-2">
+                <section
+                    className={cn(
+                        'relative order-3 min-h-80 overflow-hidden rounded-xl border lg:order-2',
+                        // Tanlash rejimida nishon kursor — bosish nuqta qo'yishini ko'rsatadi
+                        picking &&
+                            '[&_.maplibregl-canvas-container]:!cursor-crosshair',
+                    )}
+                >
                     <TaxiMap
                         tilesUrl={mapConfig.tiles}
                         center={center}

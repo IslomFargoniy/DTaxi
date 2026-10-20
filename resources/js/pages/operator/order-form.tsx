@@ -79,12 +79,14 @@ export function OrderForm({
         classes.find((c) => c.is_default) ??
         classes[0];
 
-    // Xarita bosilganda tanlangan maydonga nuqta
+    // Xarita bosilganda tanlangan maydonga nuqta; tanlash rejimi yoqilmagan bo'lsa ham
+    // olib ketish nuqtasi hali yo'q bo'lsa — u belgilanadi (operatorga bitta harakat kam)
     useEffect(() => {
-        if (!mapClick || !picking) {
+        const target = picking ?? (pickup.lat === null ? 'pickup' : null);
+        if (!mapClick || !target) {
             return;
         }
-        const setter = picking === 'pickup' ? setPickup : setDropoff;
+        const setter = target === 'pickup' ? setPickup : setDropoff;
         setter((place) => ({
             ...place,
             lat: mapClick.lat,
