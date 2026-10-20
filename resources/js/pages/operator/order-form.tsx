@@ -395,6 +395,21 @@ export function OrderForm({
                     {t('Clear')}
                 </Button>
             </div>
+            {/* Tugma nega o'chiqligini ko'rsatish: olib ketish nuqtasi xaritada belgilanmagan */}
+            {pickup.lat === null && (
+                <p className="text-xs text-muted-foreground">
+                    {t(
+                        'Choose a landmark from the list or press the pin button and click on the map to set the pickup point.',
+                    )}
+                </p>
+            )}
+            {form.data.scheduled_at && (
+                <p className="text-xs text-amber-600">
+                    {t(
+                        'Pre-order: the order goes on air shortly before the chosen time.',
+                    )}
+                </p>
+            )}
         </form>
     );
 }
