@@ -19,6 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import uz.ibtaxi.driver.BuildConfig
+import uz.ibtaxi.driver.data.DriverState
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 
 /** Firma rangi — firm.properties → primaryColor (Dtaxi: sariq) */
 private val brand = runCatching { Color(android.graphics.Color.parseColor(BuildConfig.PRIMARY_COLOR)) }.getOrDefault(Color(0xFFFFC800))
@@ -107,7 +110,13 @@ private val typography = Typography().let { t ->
 
 @Composable
 fun IbTaxiTheme(content: @Composable () -> Unit) {
-    val isDark = isSystemInDarkTheme()
+    // Sozlamalardagi tanlov: tizim / kunduzgi / tungi
+    val mode by DriverState.themeMode.collectAsState()
+    val isDark = when (mode) {
+        "light" -> false
+        "dark" -> true
+        else -> isSystemInDarkTheme()
+    }
     val scheme = if (isDark) dark else light
     val extra = if (isDark) {
         AppColors(Color(0xFF34D399), Color(0xFF0B1F16), Color(0xFFA6ADBA), Color(0xFF262A31), true)

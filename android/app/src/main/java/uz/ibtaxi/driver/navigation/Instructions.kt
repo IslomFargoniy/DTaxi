@@ -1,43 +1,55 @@
 package uz.ibtaxi.driver.navigation
 
 import uz.ibtaxi.driver.data.NavStep
+import uz.ibtaxi.driver.data.UzCyrillic
 
 /**
- * Manevr matni (o'zbek / rus): banner va ovoz uchun.
+ * Manevr matni (o'zbek lotin/kirill, rus, ingliz): banner va ovoz uchun.
+ * Kirill — o'zbek lotin matnidan o'giriladi (ko'cha nomi OSM'dagidek qoladi).
  */
 object Instructions {
     fun text(step: NavStep, locale: String, meters: Int? = null): String {
-        val ru = locale == "ru"
-        val action = action(step, ru)
+        val lang = if (locale == "oz") "uz" else locale
+        val action = action(step, lang)
         val street = step.name.takeIf { it.isNotBlank() && step.type != "arrive" }
         val where = when {
             street == null -> ""
-            ru -> " на $street"
+            lang == "ru" -> " на $street"
+            lang == "en" -> " onto $street"
             else -> ", $street"
         }
-        return when (meters) {
-            null -> action.replaceFirstChar { it.uppercase() } + where
-            else -> if (ru) "Через $meters метров $action$where" else "$meters metrdan keyin $action$where"
+        val text = when (meters) {
+            null -> action.replaceFirstChar { it.uppercase() }
+            else -> when (lang) {
+                "ru" -> "Через $meters метров $action"
+                "en" -> "In $meters meters $action"
+                else -> "$meters metrdan keyin $action"
+            }
         }
+        return if (locale == "oz") UzCyrillic.convert(text) + where else text + where
     }
 
-    private fun action(step: NavStep, ru: Boolean): String {
-        val m = step.modifier
+    private fun action(step: NavStep, lang: String): String {
+        fun t(uz: String, ru: String, en: String) = when (lang) {
+            "ru" -> ru
+            "en" -> en
+            else -> uz
+        }
         return when (step.type) {
-            "arrive" -> if (ru) "вы прибыли" else "manzilga yetib keldingiz"
+            "arrive" -> t("manzilga yetib keldingiz", "вы прибыли", "you have arrived")
             "roundabout", "rotary" -> {
                 val exit = step.exit ?: 1
-                if (ru) "на круге $exit-й съезд" else "aylanmadan $exit-chiqish"
+                t("aylanmadan $exit-chiqish", "на круге $exit-й съезд", "at the roundabout take exit $exit")
             }
-            else -> when (m) {
-                "left" -> if (ru) "поверните налево" else "chapga buriling"
-                "right" -> if (ru) "поверните направо" else "o'ngga buriling"
-                "slight left" -> if (ru) "держитесь левее" else "chaproqqa yuring"
-                "slight right" -> if (ru) "держитесь правее" else "o'ngroqqa yuring"
-                "sharp left" -> if (ru) "резко налево" else "keskin chapga"
-                "sharp right" -> if (ru) "резко направо" else "keskin o'ngga"
-                "uturn" -> if (ru) "развернитесь" else "orqaga buriling"
-                else -> if (ru) "прямо" else "to'g'riga"
+            else -> when (step.modifier) {
+                "left" -> t("chapga buriling", "поверните налево", "turn left")
+                "right" -> t("o'ngga buriling", "поверните направо", "turn right")
+                "slight left" -> t("chaproqqa yuring", "держитесь левее", "keep left")
+                "slight right" -> t("o'ngroqqa yuring", "держитесь правее", "keep right")
+                "sharp left" -> t("keskin chapga", "резко налево", "sharp left")
+                "sharp right" -> t("keskin o'ngga", "резко направо", "sharp right")
+                "uturn" -> t("orqaga buriling", "развернитесь", "make a U-turn")
+                else -> t("to'g'riga", "прямо", "go straight")
             }
         }
     }

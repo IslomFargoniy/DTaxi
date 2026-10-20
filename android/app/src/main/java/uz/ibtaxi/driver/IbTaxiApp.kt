@@ -24,6 +24,7 @@ class IbTaxiApp : Application() {
         instance = this
         session = Session(this)
         repository = Repository(ApiClient(session), session)
+        uz.ibtaxi.driver.data.DriverState.setThemeMode(session.themeMode)
         MapLibre.getInstance(this)
         initFirebase()
         createChannels()

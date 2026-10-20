@@ -73,81 +73,6 @@ private fun ScreenScaffold(title: String, onBack: () -> Unit, content: @Composab
 }
 
 /**
- * Dispetcher bilan chat (qaror #47): tezkor javoblar; yangi xabarlar Reverb orqali.
- */
-@Composable
-fun ChatScreen(onBack: () -> Unit) {
-    val repository = IbTaxiApp.instance.repository
-    val scope = rememberCoroutineScope()
-    val messages = remember { mutableStateListOf<ChatMessage>() }
-    val unread by DriverState.unread.collectAsState()
-    val order by DriverState.order.collectAsState()
-    var text by remember { mutableStateOf("") }
-    val listState = rememberLazyListState()
-    val quick = listOf(
-        stringResource(R.string.quick_client_late),
-        stringResource(R.string.quick_address),
-        stringResource(R.string.quick_on_way),
-        stringResource(R.string.quick_traffic),
-    )
-
-    suspend fun load() {
-        (repository.chat() as? Result.Ok)?.value?.let {
-            messages.clear()
-            messages.addAll(it.reversed())
-            DriverState.setUnread(0)
-        }
-    }
-    LaunchedEffect(unread) { load() }
-    LaunchedEffect(messages.size) { if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1) }
-
-    fun send(body: String) {
-        if (body.isBlank()) return
-        scope.launch {
-            (repository.sendChat(body, order?.id) as? Result.Ok)?.value?.let { messages.add(it) }
-        }
-        text = ""
-    }
-
-    ScreenScaffold(stringResource(R.string.chat), onBack) { modifier ->
-        Column(modifier.fillMaxSize()) {
-            LazyColumn(Modifier.weight(1f).padding(12.dp), state = listState, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(messages, key = { it.id }) { m ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (m.mine) Arrangement.End else Arrangement.Start) {
-                        Column(
-                            Modifier.widthIn(max = 280.dp)
-                                .background(if (m.mine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                        ) {
-                            // Kim va qachon yozgani: operator ismi (bir nechta dispetcher bo'lishi mumkin)
-                            Row {
-                                Text(
-                                    if (m.mine) stringResource(R.string.you) else "${stringResource(R.string.dispatcher)}: ${m.senderName ?: ""}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                localTime(m.createdAt)?.let { Text("  $it", style = MaterialTheme.typography.labelSmall) }
-                            }
-                            Text(m.body ?: "📷")
-                        }
-                    }
-                }
-            }
-            Row(Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                quick.take(2).forEach { AssistChip(onClick = { send(it) }, label = { Text(it) }) }
-            }
-            Row(Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                quick.drop(2).forEach { AssistChip(onClick = { send(it) }, label = { Text(it) }) }
-            }
-            Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(value = text, onValueChange = { text = it }, placeholder = { Text(stringResource(R.string.message)) }, modifier = Modifier.weight(1f))
-                IconButton(onClick = { send(text) }) { Icon(Icons.AutoMirrored.Filled.Send, null) }
-            }
-        }
-    }
-}
-
-/**
  * Balans va tarix; to'ldirish yo'riqnomasi (qaror #23): Click/Payme'da ID yoki kassa.
  */
 @Composable
@@ -242,6 +167,7 @@ private fun TopUpCard(callsign: String, payments: PaymentsConfig?) {
 /**
  * Sozlamalar: til, batareya yo'riqnomasi, chiqish.
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
     val context = LocalContext.current
@@ -259,9 +185,21 @@ fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
                 })
             }
             Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("uz" to "O'zbekcha", "ru" to "Русский").forEach { (code, label) ->
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                uz.ibtaxi.driver.data.AppLocale.codes.forEach { code ->
+                    val label = uz.ibtaxi.driver.data.AppLocale.labels.getValue(code)
                     if (app.session.locale == code) Button(onClick = {}) { Text(label) } else OutlinedButton(onClick = { onLocaleChange(code) }) { Text(label) }
+                }
+            }
+            Text(stringResource(R.string.theme), style = MaterialTheme.typography.titleMedium)
+            val themeMode by DriverState.themeMode.collectAsState()
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("system" to R.string.theme_system, "light" to R.string.theme_light, "dark" to R.string.theme_dark).forEach { (mode, label) ->
+                    val select = {
+                        app.session.themeMode = mode
+                        DriverState.setThemeMode(mode)
+                    }
+                    if (themeMode == mode) Button(onClick = {}) { Text(stringResource(label)) } else OutlinedButton(onClick = select) { Text(stringResource(label)) }
                 }
             }
             HorizontalDivider()
@@ -309,7 +247,7 @@ fun ConnectingScreen(error: String?, server: String, onRetry: () -> Unit, onLogo
 }
 
 /** Server vaqti (ISO, UTC) → telefonning mahalliy soati "14:05" */
-private fun localTime(iso: String?, pattern: String = "HH:mm"): String? = iso?.let {
+internal fun localTime(iso: String?, pattern: String = "HH:mm"): String? = iso?.let {
     runCatching {
         java.time.OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault())
             .format(java.time.format.DateTimeFormatter.ofPattern(pattern))

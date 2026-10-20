@@ -1,5 +1,7 @@
 package uz.ibtaxi.driver.ui
 
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.activity.compose.BackHandler
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -27,13 +29,13 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 import uz.ibtaxi.driver.IbTaxiApp
 import uz.ibtaxi.driver.R
+import uz.ibtaxi.driver.data.AppLocale
 import uz.ibtaxi.driver.data.AppVersion
 import uz.ibtaxi.driver.data.DriverState
 import uz.ibtaxi.driver.data.Result
 import uz.ibtaxi.driver.service.DriverService
 import uz.ibtaxi.driver.service.OfferNotifier
 import uz.ibtaxi.driver.update.Updater
-import java.util.Locale
 
 enum class Screen { Home, Chat, Balance, Settings, Call }
 
@@ -50,10 +52,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun attachBaseContext(base: Context) {
-        // Ilova tili (o'zbek/rus — qaror #44)
-        val locale = Locale(IbTaxiApp.instance.session.locale)
-        val config = base.resources.configuration.apply { setLocale(locale) }
-        super.attachBaseContext(base.createConfigurationContext(config))
+        // Ilova tili (uz, oz — kirill, ru, en): telefon tilidan qat'i nazar
+        super.attachBaseContext(AppLocale.wrap(base, IbTaxiApp.instance.session.locale))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,7 +66,10 @@ class MainActivity : ComponentActivity() {
                 val profile by DriverState.profile.collectAsState()
                 val offer by DriverState.offer.collectAsState()
                 val toast by DriverState.toast.collectAsState()
-                var screen by remember { mutableStateOf(if (intent?.getStringExtra("open") == "chat") Screen.Chat else Screen.Home) }
+                // rememberSaveable: til yoki rejim almashib Activity qayta yaratilsa ham ochiq ekran saqlanadi
+                var screen by rememberSaveable { mutableStateOf(if (intent?.getStringExtra("open") == "chat") Screen.Chat else Screen.Home) }
+                // Tizimning "orqaga" tugmasi ichki ekrandan bosh ekranga (ilovadan chiqib ketmasin)
+                BackHandler(enabled = screen != Screen.Home && screen != Screen.Call) { screen = Screen.Home }
                 var update by remember { mutableStateOf<AppVersion?>(null) }
                 val scope = rememberCoroutineScope()
                 // Server bilan aloqa yo'q (masalan sinov ilovasida Mac IP'si o'zgardi): xabar, qayta urinish, chiqish
@@ -102,7 +105,10 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (profile == null && !loggedIn) {
-                    LoginScreen()
+                    LoginScreen(onLocaleChange = { code ->
+                        app.session.locale = code
+                        recreate()
+                    })
                 } else if (profile == null) {
                     ConnectingScreen(
                         error = loadError,
@@ -118,10 +124,12 @@ class MainActivity : ComponentActivity() {
                         Screen.Home, Screen.Call -> HomeScreen(onOpen = { target ->
                             if (target == Screen.Call) callDispatcher() else screen = target
                         }, requestPermissions = ::withPermissions)
-                        Screen.Chat -> ChatScreen { screen = Screen.Home }
+                        Screen.Chat -> ChatScreen(onBack = { screen = Screen.Home }, onCall = ::callDispatcher)
                         Screen.Balance -> BalanceScreen { screen = Screen.Home }
                         Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Home }, onLocaleChange = { code ->
                             app.session.locale = code
+                            // Server xabarlari va xarita nomlari ham shu tilda (ilova scope'ida — ekran qayta yaratilsa ham)
+                            app.scope.launch { app.repository.setLocale(code) }
                             recreate()
                         })
                     }
@@ -177,9 +185,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Tez-tez ikki marta bosilsa ikkita qo'ng'iroq oynasi ochilib, SIP ulanishlari to'qnashardi (qora ekran)
+    private var lastCallAt = 0L
+
     private fun callDispatcher() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastCallAt < 1_500) return
+        lastCallAt = now
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            startActivity(Intent(this, CallActivity::class.java))
+            startActivity(Intent(this, CallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
         } else {
             micLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }

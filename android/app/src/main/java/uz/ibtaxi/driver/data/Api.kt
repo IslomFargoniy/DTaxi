@@ -4,6 +4,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -25,6 +26,9 @@ interface Api {
 
     @GET("api/driver/v1/shift")
     suspend fun shiftSummary(): Response<ShiftSummaryResponse>
+
+    @PUT("api/driver/v1/locale")
+    suspend fun setLocale(@Body body: LocaleRequest): Response<LocaleResponse>
 
     @POST("api/driver/v1/location")
     suspend fun location(@Body body: LocationBatch): Response<Unit>

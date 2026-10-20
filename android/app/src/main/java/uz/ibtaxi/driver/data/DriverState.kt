@@ -55,6 +55,15 @@ object DriverState {
 
     fun setStatus(status: String) = _profile.update { it?.copy(status = status) }
 
+    /** Til almashganda xarita nomlari ham shu tilda (server bergan uslub manzili) */
+    fun setMapStyle(url: String) = _profile.update { it?.copy(config = it.config.copy(mapStyle = url)) }
+
+    private val _themeMode = MutableStateFlow("system")
+    /** system / light / dark — Sozlamalarda tanlanadi */
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+
+    fun setThemeMode(mode: String) = _themeMode.update { mode }
+
     fun setBalance(balance: Long) = _profile.update { it?.copy(balance = balance) }
 
     fun setOrder(order: Order?) {

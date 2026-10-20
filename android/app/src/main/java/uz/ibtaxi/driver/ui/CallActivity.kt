@@ -30,6 +30,10 @@ class CallActivity : ComponentActivity() {
     private val host = Uri.parse(callUrl).host
 
     @SuppressLint("SetJavaScriptEnabled")
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(uz.ibtaxi.driver.data.AppLocale.wrap(base, uz.ibtaxi.driver.IbTaxiApp.instance.session.locale))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

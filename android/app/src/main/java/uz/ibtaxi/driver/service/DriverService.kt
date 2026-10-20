@@ -68,6 +68,11 @@ class DriverService : LifecycleService() {
         }
     }
 
+    // Bildirishnoma matnlari ilova tilida
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(uz.ibtaxi.driver.data.AppLocale.wrap(base, IbTaxiApp.instance.session.locale))
+    }
+
     override fun onCreate() {
         super.onCreate()
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)

@@ -22,9 +22,15 @@ class Session(context: Context) {
         get() = prefs.getString("token", null)
         set(value) = prefs.edit().putString("token", value).apply()
 
+    /** Ilova tili: uz, oz (kirill), ru, en */
     var locale: String
-        get() = prefs.getString("locale", "uz") ?: "uz"
-        set(value) = prefs.edit().putString("locale", value).apply()
+        get() = AppLocale.normalize(prefs.getString("locale", "uz"))
+        set(value) = prefs.edit().putString("locale", AppLocale.normalize(value)).apply()
+
+    /** Mavzu: system — telefon rejimi, light, dark */
+    var themeMode: String
+        get() = prefs.getString("theme_mode", "system") ?: "system"
+        set(value) = prefs.edit().putString("theme_mode", value).apply()
 
     var batteryHintShown: Boolean
         get() = prefs.getBoolean("battery_hint", false)

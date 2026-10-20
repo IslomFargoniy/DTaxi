@@ -21,8 +21,9 @@ class Repository(val client: ApiClient, val session: Session) {
         call { api.login(LoginRequest(phone, password, Build.MODEL ?: "android")) }.also {
             if (it is Result.Ok) {
                 session.token = it.value.token
-                session.locale = it.value.driver.locale
                 DriverState.setProfile(it.value.driver)
+                // Kirish ekranida tanlangan til saqlanadi — serverga ham shu til
+                if (AppLocale.normalize(it.value.driver.locale) != session.locale) setLocale(session.locale)
             }
         }.map { it.driver }
 
@@ -102,6 +103,12 @@ class Repository(val client: ApiClient, val session: Session) {
     suspend fun route(fromLat: Double, fromLng: Double, toLat: Double, toLng: Double) = call { api.route(fromLat, fromLng, toLat, toLng) }
 
     suspend fun shiftSummary() = call { api.shiftSummary() }
+
+    /** Ilova tili serverda ham: xabarlar va xarita nomlari shu tilda */
+    suspend fun setLocale(code: String): Result<LocaleResponse> =
+        call { api.setLocale(LocaleRequest(code)) }.also { result ->
+            if (result is Result.Ok) result.value.mapStyle?.let(DriverState::setMapStyle)
+        }
 
     suspend fun balance() = call { api.balance() }.also { if (it is Result.Ok) DriverState.setBalance(it.value.balance) }
 

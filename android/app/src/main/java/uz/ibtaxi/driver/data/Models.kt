@@ -208,3 +208,7 @@ data class AppVersion(
 )
 
 data class ApiError(val message: String?)
+
+data class LocaleRequest(val locale: String)
+
+data class LocaleResponse(val locale: String, @SerializedName("map_style") val mapStyle: String?)

@@ -112,4 +112,14 @@
     <string name="skip">O\'tkazib yuborish</string>
     <string name="minutes_short">daq</string>
     <string name="waiting_for_orders">Buyurtma kutilmoqda…</string>
+    <string name="theme">Mavzu</string>
+    <string name="theme_system">Tizim</string>
+    <string name="theme_light">Kunduzgi</string>
+    <string name="theme_dark">Tungi</string>
+    <string name="chat_subtitle">Operatorlar bilan yozishma</string>
+    <string name="today">Bugun</string>
+    <string name="yesterday">Kecha</string>
+    <string name="no_messages">Hali xabar yo\'q</string>
+    <string name="photo">Rasm</string>
+    <string name="scroll_down">Pastga</string>
 </resources>

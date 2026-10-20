@@ -61,6 +61,8 @@ class NavigatorTest {
     fun instructionTexts() {
         assertEquals("300 metrdan keyin chapga buriling, Mustaqillik", Instructions.text(steps[2], "uz", 300))
         assertEquals("Через 300 метров поверните налево на Mustaqillik", Instructions.text(steps[2], "ru", 300))
+        assertEquals("300 метрдан кейин чапга бурилинг, Mustaqillik", Instructions.text(steps[2], "oz", 300))
+        assertEquals("In 300 meters turn left onto Mustaqillik", Instructions.text(steps[2], "en", 300))
         assertEquals("Manzilga yetib keldingiz", Instructions.text(steps[3], "uz"))
     }
 }

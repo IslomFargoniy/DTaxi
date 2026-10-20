@@ -112,4 +112,14 @@
     <string name="skip">Пропустить</string>
     <string name="minutes_short">мин</string>
     <string name="waiting_for_orders">Ожидание заказа…</string>
+    <string name="theme">Тема</string>
+    <string name="theme_system">Системная</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Тёмная</string>
+    <string name="chat_subtitle">Переписка с операторами</string>
+    <string name="today">Сегодня</string>
+    <string name="yesterday">Вчера</string>
+    <string name="no_messages">Сообщений пока нет</string>
+    <string name="photo">Фото</string>
+    <string name="scroll_down">Вниз</string>
 </resources>
