@@ -88,7 +88,10 @@ async function start(): Promise<void> {
 
     session.on('peerconnection', ({ peerconnection }) => {
         peerconnection.addEventListener('track', (e: RTCTrackEvent) => {
-            ($('remote') as HTMLAudioElement).srcObject = e.streams[0];
+            const remote = $('remote') as HTMLAudioElement;
+            remote.srcObject = e.streams[0];
+            // Ba'zi Android WebView'larda autoplay o'zi boshlanmaydi — operator ovozi eshitilmay qolardi
+            void remote.play().catch(() => undefined);
         });
     });
     session.on('confirmed', () => {
