@@ -8,7 +8,6 @@ import { useTrans } from '@/hooks/use-trans';
 import { cn } from '@/lib/utils';
 import { index } from '@/routes/operator';
 import type { Branch, MapDriver, Order, TariffClass } from '@/types/operator';
-import { ChatPanel } from './chat-panel';
 import { OrderForm } from './order-form';
 import type { PickTarget } from './order-form';
 import { isFresh, OrdersList } from './orders-list';
@@ -249,12 +248,8 @@ export default function OperatorIndex({
                     onDriver={onDriver}
                 />
             ))}
-            <div className="relative grid h-[calc(100svh-4rem)] grid-cols-1 gap-3 p-3 lg:grid-cols-[320px_1fr_380px]">
-                <ChatPanel
-                    branchIds={branches.map((b) => b.id)}
-                    userId={auth.user.id}
-                />
-                <section className="order-2 overflow-auto pb-16 lg:order-1">
+            <div className="grid h-[calc(100svh-4rem)] grid-cols-1 gap-3 p-3 lg:grid-cols-[320px_1fr_380px]">
+                <section className="order-2 overflow-auto lg:order-1">
                     <h2 className="mb-2 text-sm font-semibold">
                         {t('Active orders')} ({orders.length})
                     </h2>

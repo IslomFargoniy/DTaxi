@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Branch;
 use App\Models\User;
 use App\Support\HealthCheck;
 use App\Support\Settings;
@@ -51,6 +52,10 @@ class HandleInertiaRequests extends Middleware
             'translations' => fn () => $this->translations(app()->getLocale()),
             // Tizim muammolari — faqat superadmin ko'radi (§10.9)
             'health' => fn () => $request->user()?->isSuperadmin() ? array_values(HealthCheck::problems()) : [],
+            // Haydovchilar chati har sahifada (suzuvchi oyna) — kimga va qaysi filiallar
+            'chatBranchIds' => fn () => $request->user()?->can('chat.drivers')
+                ? ($request->user()->isSuperadmin() ? Branch::query()->pluck('id')->all() : $request->user()->branchIds())
+                : [],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

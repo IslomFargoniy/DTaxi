@@ -32,6 +32,8 @@ type Message = {
     created_at: string | null;
 };
 
+const CHAT_WIDTH = 560;
+
 const QUICK_REPLIES = [
     'Client is coming out',
     'Please wait 2 minutes',
@@ -70,6 +72,51 @@ export function ChatPanel({
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState('');
     const bottom = useRef<HTMLDivElement>(null);
+    // Oyna joyi (sudrab ko'chiriladi, brauzerda eslab qolinadi); null — o'ng pastda
+    const [position, setPosition] = useState<{ x: number; y: number } | null>(
+        () => {
+            try {
+                const saved = localStorage.getItem('chat-position');
+
+                return saved ? JSON.parse(saved) : null;
+            } catch {
+                return null;
+            }
+        },
+    );
+    const drag = useRef<{ dx: number; dy: number } | null>(null);
+
+    const clamp = (x: number, y: number) => ({
+        x: Math.min(Math.max(8, x), window.innerWidth - CHAT_WIDTH - 8),
+        y: Math.min(Math.max(8, y), window.innerHeight - 120),
+    });
+
+    const startDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+        if ((e.target as HTMLElement).closest('button')) {
+            return;
+        }
+        const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+        if (!rect) {
+            return;
+        }
+        drag.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+        e.currentTarget.setPointerCapture(e.pointerId);
+    };
+    const moveDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (drag.current) {
+            setPosition(
+                clamp(e.clientX - drag.current.dx, e.clientY - drag.current.dy),
+            );
+        }
+    };
+    const endDrag = () => {
+        drag.current = null;
+        try {
+            localStorage.setItem('chat-position', JSON.stringify(position));
+        } catch {
+            // Saqlab bo'lmasa — keyingi safar o'ng pastda ochiladi
+        }
+    };
 
     const loadThreads = useCallback(() => {
         getJson<Thread[]>(threadsRoute.url())
@@ -99,6 +146,15 @@ export function ChatPanel({
             loadMessages(active);
         }
     }, [active, open, loadMessages]);
+
+    // Ochilganda suhbat tanlanmagan bo'lsa — o'qilmagani bor (yoki eng oxirgi) haydovchi
+    useEffect(() => {
+        if (open && active === null && threads.length > 0) {
+            setActive(
+                (threads.find((th) => th.unread > 0) ?? threads[0]).driver_id,
+            );
+        }
+    }, [open, active, threads]);
 
     // Effekt hech narsa qaytarmasin: yangi Chrome'da scrollIntoView() Promise qaytaradi va React uni
     // tozalash funksiyasi deb chaqirib sahifani yiqitardi
@@ -148,152 +204,178 @@ export function ChatPanel({
             {branchIds.map((id) => (
                 <BranchChat key={id} branchId={id} onMessage={onMessage} />
             ))}
-            {/* Suzuvchi tugma — chap pastda, ro'yxat va xaritaga xalal bermaydi */}
+            {/* Suzuvchi tugma — o'ng pastda, har sahifada (layout'da turadi, sahifa almashsa ham yo'qolmaydi) */}
             <Button
                 size="icon"
                 title={t('Drivers chat')}
                 className={cn(
-                    'absolute bottom-4 left-4 z-30 size-12 rounded-full shadow-lg',
+                    'fixed right-6 bottom-6 z-50 size-14 rounded-full border-2 border-background shadow-xl',
                     unread > 0 && 'bg-red-600 text-white hover:bg-red-700',
                 )}
                 onClick={() => setOpen(!open)}
             >
-                <MessageSquare className="size-5" />
+                <MessageSquare className="size-6" />
                 {unread > 0 && (
-                    <span className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-background text-[11px] font-bold text-red-600 ring-2 ring-red-600">
+                    <span className="absolute -top-1 -right-1 flex size-6 items-center justify-center rounded-full bg-background text-xs font-bold text-red-600 ring-2 ring-red-600">
                         {unread > 99 ? '99+' : unread}
                     </span>
                 )}
             </Button>
             {open && (
-                <div className="absolute bottom-20 left-4 z-40 grid h-[520px] max-h-[calc(100%-6rem)] w-[560px] max-w-[calc(100%-2rem)] grid-cols-[180px_1fr] overflow-hidden rounded-xl border bg-background shadow-xl">
-                    <ul className="overflow-auto border-r">
-                        {threads.map((th) => (
-                            <li key={th.driver_id}>
-                                <button
-                                    type="button"
-                                    className={cn(
-                                        'w-full px-3 py-2 text-left text-sm hover:bg-accent',
-                                        active === th.driver_id && 'bg-accent',
-                                    )}
-                                    onClick={() => setActive(th.driver_id)}
-                                >
-                                    <span className="font-mono font-medium">
-                                        {th.callsign}
-                                    </span>
-                                    {th.unread > 0 && (
-                                        <Badge className="ml-1 bg-red-600 text-white">
-                                            {th.unread}
-                                        </Badge>
-                                    )}
-                                    <span className="block truncate text-xs text-muted-foreground">
-                                        {th.name}
-                                    </span>
-                                </button>
-                            </li>
-                        ))}
-                        {threads.length === 0 && (
-                            <li className="p-3 text-xs text-muted-foreground">
-                                {t('No messages yet')}
-                            </li>
+                <div
+                    className="fixed z-50 flex h-[520px] max-h-[calc(100svh-2rem)] w-[560px] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border-2 border-primary/40 bg-card text-card-foreground shadow-2xl ring-1 ring-black/10 dark:bg-zinc-900"
+                    style={
+                        position
+                            ? { left: position.x, top: position.y }
+                            : { right: 24, bottom: 96 }
+                    }
+                >
+                    {/* Sarlavha — ushlab sudraladi */}
+                    <div
+                        className="flex cursor-move items-center gap-2 border-b-2 border-primary/20 bg-muted px-3 py-1.5 select-none"
+                        onPointerDown={startDrag}
+                        onPointerMove={moveDrag}
+                        onPointerUp={endDrag}
+                    >
+                        <MessageSquare className="size-4" />
+                        <span className="text-sm font-semibold">
+                            {t('Drivers chat')}
+                        </span>
+                        {activeThread && (
+                            <span className="text-sm text-muted-foreground">
+                                · {activeThread.callsign} {activeThread.name}
+                            </span>
                         )}
-                    </ul>
-                    <div className="flex min-h-0 flex-col">
-                        <div className="flex items-center justify-end border-b p-1">
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => setOpen(false)}
-                            >
-                                <X />
-                            </Button>
-                        </div>
-                        <div className="flex-1 space-y-2 overflow-auto p-3">
-                            {messages.map((m) => (
-                                <div
-                                    key={m.id}
-                                    className={cn(
-                                        'max-w-[80%] rounded-lg px-3 py-1.5 text-sm',
-                                        m.mine
-                                            ? 'ml-auto bg-primary text-primary-foreground'
-                                            : m.from_driver
-                                              ? 'bg-muted'
-                                              : 'bg-blue-100 text-blue-950 dark:bg-blue-950 dark:text-blue-50',
-                                    )}
-                                >
-                                    {/* Bir haydovchi bilan bir nechta operator yozishishi mumkin — kim yozgani */}
-                                    <div className="mb-0.5 flex gap-2 text-[11px] opacity-70">
-                                        <span className="font-medium">
-                                            {m.mine
-                                                ? t('You')
-                                                : m.from_driver
-                                                  ? `${activeThread?.callsign ?? ''} · ${m.sender_name ?? ''}`
-                                                  : `${t('Operator')}: ${m.sender_name ?? ''}`}
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="ml-auto size-7"
+                            onClick={() => setOpen(false)}
+                        >
+                            <X />
+                        </Button>
+                    </div>
+                    <div className="grid min-h-0 flex-1 grid-cols-[180px_1fr]">
+                        <ul className="overflow-auto border-r-2 border-primary/10 bg-muted/40">
+                            {threads.map((th) => (
+                                <li key={th.driver_id}>
+                                    <button
+                                        type="button"
+                                        className={cn(
+                                            'w-full px-3 py-2 text-left text-sm hover:bg-accent',
+                                            active === th.driver_id &&
+                                                'bg-accent',
+                                        )}
+                                        onClick={() => setActive(th.driver_id)}
+                                    >
+                                        <span className="font-mono font-medium">
+                                            {th.callsign}
                                         </span>
-                                        {m.created_at && (
-                                            <span className="ml-auto">
-                                                {new Date(
-                                                    m.created_at,
-                                                ).toLocaleTimeString([], {
-                                                    hour: '2-digit',
-                                                    minute: '2-digit',
-                                                })}
+                                        {th.unread > 0 && (
+                                            <Badge className="ml-1 bg-red-600 text-white">
+                                                {th.unread}
+                                            </Badge>
+                                        )}
+                                        <span className="block truncate text-xs text-muted-foreground">
+                                            {th.name}
+                                        </span>
+                                    </button>
+                                </li>
+                            ))}
+                            {threads.length === 0 && (
+                                <li className="p-3 text-xs text-muted-foreground">
+                                    {t('No messages yet')}
+                                </li>
+                            )}
+                        </ul>
+                        <div className="flex min-h-0 flex-col">
+                            <div className="flex-1 space-y-2 overflow-auto p-3">
+                                {messages.map((m) => (
+                                    <div
+                                        key={m.id}
+                                        className={cn(
+                                            'max-w-[80%] rounded-lg px-3 py-1.5 text-sm',
+                                            m.mine
+                                                ? 'ml-auto bg-primary text-primary-foreground'
+                                                : m.from_driver
+                                                  ? 'bg-muted'
+                                                  : 'bg-blue-100 text-blue-950 dark:bg-blue-950 dark:text-blue-50',
+                                        )}
+                                    >
+                                        {/* Bir haydovchi bilan bir nechta operator yozishishi mumkin — kim yozgani */}
+                                        <div className="mb-0.5 flex gap-2 text-[11px] opacity-70">
+                                            <span className="font-medium">
+                                                {m.mine
+                                                    ? t('You')
+                                                    : m.from_driver
+                                                      ? `${activeThread?.callsign ?? ''} · ${m.sender_name ?? ''}`
+                                                      : `${t('Operator')}: ${m.sender_name ?? ''}`}
                                             </span>
+                                            {m.created_at && (
+                                                <span className="ml-auto">
+                                                    {new Date(
+                                                        m.created_at,
+                                                    ).toLocaleTimeString([], {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                    })}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {m.body}
+                                        {m.attachment_url && (
+                                            <a
+                                                href={m.attachment_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                            >
+                                                <img
+                                                    src={m.attachment_url}
+                                                    alt=""
+                                                    className="mt-1 max-h-40 rounded"
+                                                />
+                                            </a>
                                         )}
                                     </div>
-                                    {m.body}
-                                    {m.attachment_url && (
-                                        <a
-                                            href={m.attachment_url}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                        >
-                                            <img
-                                                src={m.attachment_url}
-                                                alt=""
-                                                className="mt-1 max-h-40 rounded"
-                                            />
-                                        </a>
-                                    )}
-                                </div>
-                            ))}
-                            <div ref={bottom} />
-                        </div>
-                        {active && (
-                            <div className="grid gap-2 border-t p-2">
-                                <div className="flex flex-wrap gap-1">
-                                    {QUICK_REPLIES.map((reply) => (
-                                        <Button
-                                            key={reply}
-                                            size="sm"
-                                            variant="secondary"
-                                            className="h-7 text-xs"
-                                            onClick={() => send(t(reply))}
-                                        >
-                                            {t(reply)}
-                                        </Button>
-                                    ))}
-                                </div>
-                                <form
-                                    className="flex gap-2"
-                                    onSubmit={(e) => {
-                                        e.preventDefault();
-                                        send(text);
-                                    }}
-                                >
-                                    <Input
-                                        value={text}
-                                        onChange={(e) =>
-                                            setText(e.target.value)
-                                        }
-                                        placeholder={t('Message')}
-                                    />
-                                    <Button size="icon">
-                                        <Send />
-                                    </Button>
-                                </form>
+                                ))}
+                                <div ref={bottom} />
                             </div>
-                        )}
+                            {active && (
+                                <div className="grid gap-2 border-t p-2">
+                                    <div className="flex flex-wrap gap-1">
+                                        {QUICK_REPLIES.map((reply) => (
+                                            <Button
+                                                key={reply}
+                                                size="sm"
+                                                variant="secondary"
+                                                className="h-7 text-xs"
+                                                onClick={() => send(t(reply))}
+                                            >
+                                                {t(reply)}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                    <form
+                                        className="flex gap-2"
+                                        onSubmit={(e) => {
+                                            e.preventDefault();
+                                            send(text);
+                                        }}
+                                    >
+                                        <Input
+                                            value={text}
+                                            onChange={(e) =>
+                                                setText(e.target.value)
+                                            }
+                                            placeholder={t('Message')}
+                                        />
+                                        <Button size="icon">
+                                            <Send />
+                                        </Button>
+                                    </form>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
