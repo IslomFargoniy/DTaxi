@@ -1,7 +1,8 @@
 import { usePage } from '@inertiajs/react';
 import { useCallback } from 'react';
+import { setCurrentLocale } from '@/lib/locales';
 
-export type Locale = 'uz' | 'ru';
+export type Locale = 'uz' | 'oz' | 'ru' | 'en';
 
 /**
  * Tarjima: kalit — inglizcha matn, qiymat — lang/{uz,ru}.json dan.
@@ -12,6 +13,7 @@ export function useTrans() {
         locale: Locale;
         translations: Record<string, string>;
     }>().props;
+    setCurrentLocale(locale);
 
     const t = useCallback(
         (key: string, replace?: Record<string, string | number>) => {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Driver;
 use App\Enums\DriverStatus;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\SetLocale;
 use App\Http\Resources\DriverProfileResource;
 use App\Http\Resources\OrderResource;
 use App\Models\DeviceToken;
@@ -22,6 +23,7 @@ use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class DriverController extends Controller
 {
@@ -109,6 +111,17 @@ class DriverController extends Controller
         $driver = $this->driver($request);
 
         return response()->json(['shift' => $shifts->summary($driver), 'stand' => $queue->position($driver)]);
+    }
+
+    /**
+     * Ilova tili (uz, oz — kirill, ru, en): server xabarlari va xarita nomlari shu tilda.
+     */
+    public function locale(Request $request): JsonResponse
+    {
+        $locale = $request->validate(['locale' => ['required', Rule::in(SetLocale::LOCALES)]])['locale'];
+        $request->user()?->forceFill(['locale' => $locale])->save();
+
+        return response()->json(['locale' => $locale, 'map_style' => route('map.style', ['lang' => $locale])]);
     }
 
     public function deviceToken(Request $request): JsonResponse

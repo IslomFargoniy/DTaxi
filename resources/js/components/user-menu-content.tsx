@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { Languages, LogOut, Settings } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
 import {
     DropdownMenuGroup,
     DropdownMenuItem,
@@ -9,7 +9,6 @@ import {
 import { UserInfo } from '@/components/user-info';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { logout } from '@/routes';
-import { update as updateLocale } from '@/routes/locale';
 import { edit } from '@/routes/profile';
 import type { User } from '@/types';
 import { useTrans } from '@/hooks/use-trans';
@@ -20,7 +19,7 @@ type Props = {
 
 export function UserMenuContent({ user }: Props) {
     const cleanup = useMobileNavigation();
-    const { t, locale } = useTrans();
+    const { t } = useTrans();
 
     const handleLogout = () => {
         cleanup();
@@ -45,18 +44,6 @@ export function UserMenuContent({ user }: Props) {
                     >
                         <Settings className="mr-2" />
                         {t('Settings')}
-                    </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                    <Link
-                        className="block w-full cursor-pointer"
-                        href={updateLocale()}
-                        data={{ locale: locale === 'uz' ? 'ru' : 'uz' }}
-                        as="button"
-                        preserveScroll
-                    >
-                        <Languages className="mr-2" />
-                        {locale === 'uz' ? 'Русский' : "O'zbekcha"}
                     </Link>
                 </DropdownMenuItem>
             </DropdownMenuGroup>

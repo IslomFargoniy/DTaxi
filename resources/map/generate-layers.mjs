@@ -5,7 +5,7 @@ import { layers, namedFlavor } from '@protomaps/basemaps';
 import { writeFileSync } from 'node:fs';
 
 for (const flavor of ['light', 'dark']) {
-    for (const lang of ['uz', 'ru']) {
+    for (const lang of ['uz', 'ru', 'en']) {
         const out = new URL(`./layers-${flavor}-${lang}.json`, import.meta.url);
         writeFileSync(
             out,

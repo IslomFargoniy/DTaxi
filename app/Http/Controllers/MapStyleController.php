@@ -13,7 +13,12 @@ class MapStyleController extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         $flavor = $request->query('flavor') === 'dark' ? 'dark' : 'light';
-        $lang = $request->query('lang') === 'ru' ? 'ru' : 'uz';
+        // Kirill o'zbekcha (oz) — OSM'dagi o'zbekcha nomlar
+        $lang = match ($request->query('lang')) {
+            'ru' => 'ru',
+            'en' => 'en',
+            default => 'uz',
+        };
         $base = rtrim($request->getSchemeAndHttpHost(), '/');
         $tiles = (string) config('services.tiles.url');
 

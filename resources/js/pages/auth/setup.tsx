@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { LOCALES } from '@/lib/locales';
 import { useTrans } from '@/hooks/use-trans';
 import { store } from '@/routes/setup';
 
@@ -72,8 +73,11 @@ export default function Setup({ regions }: { regions: Region[] }) {
                                 form.setData('locale', e.target.value)
                             }
                         >
-                            <option value="uz">O‘zbekcha</option>
-                            <option value="ru">Русский</option>
+                            {LOCALES.map((l) => (
+                                <option key={l.code} value={l.code}>
+                                    {l.label}
+                                </option>
+                            ))}
                         </select>
                     </div>
                 </fieldset>

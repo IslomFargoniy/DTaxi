@@ -30,6 +30,7 @@ Route::prefix('driver/v1')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('me', [DriverController::class, 'me']);
         Route::get('shift', [DriverController::class, 'shiftSummary']);
+        Route::put('locale', [DriverController::class, 'locale']);
         Route::post('shift', [DriverController::class, 'shift']);
         Route::post('location', [DriverController::class, 'location'])->middleware('throttle:120,1');
         Route::post('device-token', [DriverController::class, 'deviceToken']);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\Role;
 use App\Http\Middleware\EnsureSetupComplete;
+use App\Http\Middleware\SetLocale;
 use App\Models\Branch;
 use App\Models\Region;
 use App\Models\User;
@@ -44,7 +45,7 @@ class SetupController extends Controller
 
         $data = $request->validate([
             'company_name' => ['required', 'string', 'max:100'],
-            'locale' => ['required', Rule::in(['uz', 'ru'])],
+            'locale' => ['required', Rule::in(SetLocale::LOCALES)],
             'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', Password::min(8)],

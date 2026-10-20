@@ -7,7 +7,7 @@ Telefon orqali ishlaydigan taksi dispetcherlik tizimi. Mahsulot nomi — **Dtaxi
 - **Firmaga xos hech narsa kodda yoki `.env` da emas.** Kalitlar (Click, Payme, SpeechKit, Firebase, SIP) — `integrations` jadvalida shifrlangan; sozlamalar — `App\Support\Settings` (`Settings::DEFAULTS` ga yangi kalit qo'shiladi).
 - **Filial chegarasi**: filialga tegishli modellar `App\Models\Concerns\BelongsToBranch` trait'ini ishlatadi — admin/operator/kassir faqat o'z filial(lar)ini ko'radi, superadmin hammasini.
 - **Rollar**: `App\Enums\Role` (superadmin, admin, operator, cashier, driver) va ularning ruxsatlari shu enum'da; superadmin `Gate::before` orqali hamma narsaga ruxsatli.
-- **Tillar**: o'zbek (lotin) va rus. Frontend matnlari — inglizcha kalit + `lang/uz.json`, `lang/ru.json`; React'da `useTrans()` → `t('Key')`. Yangi matn qo'shilsa ikkala faylga ham tarjima qo'shiladi.
+- **Tillar**: o'zbek lotin (`uz`), o'zbek kirill (`oz`), rus (`ru`), ingliz (`en`). Frontend matnlari — inglizcha kalit + `lang/uz.json`, `lang/ru.json` (`lang/en.json` faqat kalit inglizcha matn bo'lmasa, masalan `offer.accepted`); React'da `useTrans()` → `t('Key')`. Kirill qo'lda yozilmaydi: uz o'zgargach `php artisan lang:cyrillic` (lang/oz yasaladi; test kalitlar mosligini tekshiradi). Android: values (uz), values-ru, values-en, values-b+uz+Cyrl (`android/tools/uz_cyrillic.py`).
 - **Faqat Android** haydovchi ilovasi; iOS yo'q. FastPanel ishlatilmaydi.
 - Testlar majburiy (Pest, haqiqiy PostgreSQL+PostGIS bilan). Dispatcher, narx, balans va buyurtma statuslari — albatta testlar bilan.
 

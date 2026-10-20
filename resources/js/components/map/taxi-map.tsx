@@ -12,6 +12,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { useEffect, useRef } from 'react';
 import { useTrans } from '@/hooks/use-trans';
+import { mapLang } from '@/lib/locales';
 
 setWorkerUrl(maplibreWorkerUrl);
 
@@ -91,7 +92,7 @@ export function TaxiMap({
         const dark = document.documentElement.classList.contains('dark');
         const map = new MapLibreMap({
             container: container.current,
-            style: mapStyle(tilesUrl, dark, locale === 'ru' ? 'ru' : 'uz'),
+            style: mapStyle(tilesUrl, dark, mapLang(locale)),
             center: [center.lng, center.lat],
             zoom,
             attributionControl: { compact: true },

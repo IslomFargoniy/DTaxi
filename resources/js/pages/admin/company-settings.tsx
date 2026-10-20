@@ -12,6 +12,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { LOCALES } from '@/lib/locales';
 import { useTrans } from '@/hooks/use-trans';
 import { edit } from '@/routes/admin/company-settings';
 
@@ -84,10 +85,11 @@ export default function CompanySettings({ settings }: { settings: Settings }) {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="uz">{t('Uzbek')}</SelectItem>
-                                <SelectItem value="ru">
-                                    {t('Russian')}
-                                </SelectItem>
+                                {LOCALES.map((l) => (
+                                    <SelectItem key={l.code} value={l.code}>
+                                        {l.label}
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>

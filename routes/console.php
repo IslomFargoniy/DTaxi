@@ -16,9 +16,11 @@ use App\Services\Telephony\TrunkSync;
 use App\Support\Backup;
 use App\Support\HealthCheck;
 use App\Support\Settings;
+use App\Support\UzbekCyrillic;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
@@ -175,3 +177,21 @@ Artisan::command('telephony:trunk-ips', function () {
         ->flatMap(fn (string $host) => filter_var($host, FILTER_VALIDATE_IP) ? [$host] : (gethostbynamel($host) ?: []))
         ->unique()->sort()->each(fn (string $ip) => $this->line($ip));
 })->purpose("Faol SIP trunk'larning IP manzillari (xavfsizlik devori uchun)");
+
+Artisan::command('lang:cyrillic', function () {
+    // Kirill tarjimalari qo'lda yozilmaydi — lotin (uz) dan yasaladi; uz o'zgarsa qayta ishga tushiriladi
+    $json = json_decode((string) file_get_contents(lang_path('uz.json')), true, flags: JSON_THROW_ON_ERROR);
+    $converted = array_map(fn ($value) => is_string($value) ? UzbekCyrillic::convert($value) : $value, $json);
+    file_put_contents(lang_path('oz.json'), json_encode($converted, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)."\n");
+
+    File::ensureDirectoryExists(lang_path('oz'));
+    $walk = function (mixed $value) use (&$walk): mixed {
+        return is_array($value) ? array_map($walk, $value) : (is_string($value) ? UzbekCyrillic::convert($value) : $value);
+    };
+    foreach (File::files(lang_path('uz')) as $file) {
+        $data = $walk(require $file->getPathname());
+        file_put_contents(lang_path('oz/'.$file->getFilename()), "<?php\n\n// lang/uz dan yasalgan: php artisan lang:cyrillic\nreturn ".var_export($data, true).";\n");
+    }
+
+    $this->info('Tayyor: lang/oz.json va lang/oz/*.php ('.count($converted).' ta matn)');
+})->purpose("O'zbek kirill tarjimalarini lotindan yasash");
