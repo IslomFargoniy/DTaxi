@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\DB;
  * @property Point $location
  * @property string|null $category
  * @property int|null $osm_id
+ * @property string $source osm | manual | overture | wikidata
+ * @property string|null $external_id
  * @property Carbon|null $edited_at
  * @property int $usage_count
  */
@@ -32,6 +34,9 @@ class Landmark extends Model
 {
     /** @use HasFactory<LandmarkFactory> */
     use HasFactory;
+
+    /** Importerlar xom SQL bilan yozadi — model orqali yaratilgani operator/admin qo'shgani */
+    protected $attributes = ['source' => 'manual'];
 
     protected function casts(): array
     {

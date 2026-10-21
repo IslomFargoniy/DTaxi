@@ -1,0 +1,6 @@
+{"type":"Feature","geometry":{"type":"Point","coordinates":[71.2,40.2]},"properties":{"id":"ov-1","name":"Korzinka","names":null,"categories":["grocery_store","food_and_beverage_store"]}}
+{"type":"Feature","geometry":{"type":"Point","coordinates":[71.201,40.201]},"properties":{"id":"ov-2","name":"Bella Pizza","names":{"ru":"Белла Пицца"},"categories":["pizza_restaurant","restaurant"]}}
+{"type":"Feature","geometry":{"type":"Point","coordinates":[71.2054,40.2052]},"properties":{"id":"ov-3","name":"Chorsu Bozori","names":null,"categories":["market"]}}
+{"type":"Feature","geometry":{"type":"Point","coordinates":[71.21,40.21]},"properties":{"id":"ov-4","name":"Tikuvchilik sexi","names":null,"categories":["sewing_and_alterations","home_service"]}}
+{"type":"Feature","geometry":{"type":"Point","coordinates":[75.0,45.0]},"properties":{"id":"ov-5","name":"Chegaradan tashqarida","names":null,"categories":["cafe"]}}
+{"type":"Feature","geometry":{"type":"Point","coordinates":[71.22,40.22]},"properties":{"id":"ov-6","name":null,"names":null,"categories":["cafe"]}}
