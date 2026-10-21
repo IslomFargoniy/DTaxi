@@ -43,6 +43,9 @@ class CallCenter
     /** Avto-qo'ng'iroq xabari necha marta takrorlanadi (§5.4) */
     private const TTS_REPEATS = 2;
 
+    /** Solishtirishda shundan yangi qo'ng'iroqlar yopilmaydi (kanal hali yaratilayotgan bo'lishi mumkin) */
+    private const RECONCILE_GRACE_SECONDS = 10;
+
     public function __construct(
         private AriClient $ari,
         private OperatorPool $operators,
@@ -108,6 +111,99 @@ class CallCenter
             }
 
             $this->offerToOperator($call);
+        }
+    }
+
+    /**
+     * ARI'ga (qayta) ulanganda va har daqiqada: bazadagi ochiq qo'ng'iroqlarni Asterisk'dagi haqiqiy kanallar bilan solishtirish.
+     * Uzilish yoki daemon qayta ishga tushishi paytida yo'qolgan hodisalar sababli osilib qolgan qo'ng'iroqlar yopiladi
+     * (operator bo'shaydi), tirik kanallar bog'lanishi tiklanadi, hech bir ochiq qo'ng'iroqqa tegishli bo'lmagan ko'priklar yopiladi.
+     */
+    public function reconcile(): void
+    {
+        // Avval baza, keyin Asterisk: ro'yxat olingach yaratilgan qo'ng'iroq "kanalsiz" deb yopilmasin
+        $calls = Call::query()->withoutGlobalScopes()->whereNull('ended_at')->orderBy('id')->get();
+        $channels = $this->ari->channels();
+        if ($channels === null) {
+            return;
+        }
+
+        $live = [];
+        foreach ($channels as $channel) {
+            $live[(string) ($channel['id'] ?? '')] = true;
+        }
+        // Kanal yaratilishi (originate) bilan qator yozilishi orasida — bunday yangi qo'ng'iroqlarga tegilmaydi
+        $settled = now()->subSeconds(self::RECONCILE_GRACE_SECONDS);
+
+        foreach ($calls as $call) {
+            $this->reconcileCall($call, $live, $call->started_at->lessThan($settled));
+        }
+
+        $this->reconcileBridges();
+    }
+
+    /**
+     * @param  array<string, true>  $live
+     */
+    private function reconcileCall(Call $call, array $live, bool $settled): void
+    {
+        /** @var array<string, string> $roles kanal => rol (remember() dagidek) */
+        $roles = [];
+        foreach ([
+            [$call->channel_id, data_get($call->meta, 'peer_channel') ? 'operator' : 'client'],
+            [data_get($call->meta, 'operator_channel'), 'operator'],
+            [data_get($call->meta, 'peer_channel'), 'peer'],
+        ] as [$channel, $role]) {
+            if (is_string($channel) && $channel !== '') {
+                $roles[$channel] = $role;
+            }
+        }
+
+        $dead = null;
+        foreach ($roles as $channel => $role) {
+            $channel = (string) $channel;
+            if (isset($live[$channel])) {
+                $this->remember($channel, $call, $role);
+            } else {
+                $dead ??= $channel;
+            }
+        }
+        if (! $settled || ($dead === null && $roles !== [])) {
+            return;
+        }
+
+        Log::info("CallCenter: Asterisk'da kanali yo'q qo'ng'iroq yopiladi", ['call' => $call->id, 'channel' => $dead]);
+        if ($dead === null) {
+            $this->finish($call, $this->endStatus($call, 0));
+
+            return;
+        }
+
+        // Yo'qolgan ChannelDestroyed hodisasi o'rniga: rolga qarab yopiladi yoki (operator jiringlashi bo'lsa) keyingi operatorga
+        $this->remember($dead, $call, $roles[$dead]);
+        $this->onChannelDestroyed($dead, 0);
+    }
+
+    /**
+     * Asterisk'da qolib ketgan bizning (Stasis) ko'priklarimiz — ochiq qo'ng'iroqqa tegishli bo'lmasa yopiladi.
+     */
+    private function reconcileBridges(): void
+    {
+        $bridges = $this->ari->bridges();
+        if ($bridges === null) {
+            return;
+        }
+
+        $inUse = Call::query()->withoutGlobalScopes()->whereNull('ended_at')->get()
+            ->map(fn (Call $call) => data_get($call->meta, 'bridge'))->filter()->map(fn ($id) => (string) $id)->all();
+
+        foreach ($bridges as $bridge) {
+            $id = (string) ($bridge['id'] ?? '');
+            $ours = strtolower((string) ($bridge['bridge_class'] ?? '')) === 'stasis' || ($bridge['creator'] ?? null) === 'Stasis';
+            if ($id !== '' && $ours && ! in_array($id, $inUse, true)) {
+                Log::info("CallCenter: egasiz ko'prik yopiladi", ['bridge' => $id]);
+                $this->ari->destroyBridge($id);
+            }
         }
     }
 
@@ -595,19 +691,23 @@ class CallCenter
             return;
         }
 
-        $status = match ($call->status) {
+        $status = $this->endStatus($call, $cause);
+        $this->finish($call, $status, [], $channelId);
+
+        if ($call->kind === 'tts' && $status !== 'completed') {
+            app(ClientNotifier::class)->retry($call);
+        }
+    }
+
+    private function endStatus(Call $call, int $cause): string
+    {
+        return match ($call->status) {
             'answered' => 'completed',
             'blocked', 'rejected' => $call->status,
             // Navbatda kutib, operator javob berguncha qo'yib qo'ydi — "javobsiz" ro'yxati (callback)
             'waiting' => 'missed',
             default => $cause === 17 ? 'busy' : 'no_answer',
         };
-
-        $this->finish($call, $status, [], $channelId);
-
-        if ($call->kind === 'tts' && $status !== 'completed') {
-            app(ClientNotifier::class)->retry($call);
-        }
     }
 
     private function onPlaybackFinished(string $playbackId): void

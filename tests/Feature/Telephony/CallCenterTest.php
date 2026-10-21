@@ -484,6 +484,93 @@ test('a bridge left open at finish is closed by the next channel event, once', f
         ->and($call->refresh()->meta['bridge_closed'])->toBeTrue();
 });
 
+test('reconnect keeps calls whose channels are still alive and handles their later events', function () {
+    $call = answeredCall($this);
+    $operatorChannel = $call->meta['operator_channel'];
+    // Daemon qayta ishga tushdi, kesh bog'lanishlari ham yo'qoldi
+    Cache::flush();
+    $this->travel(30)->seconds();
+    $this->ari['channels'] = ['ch-1', $operatorChannel];
+
+    $this->center->reconcile();
+
+    expect($call->refresh()->status)->toBe('answered')
+        ->and($call->ended_at)->toBeNull()
+        ->and(Cache::get("ari:ch:{$operatorChannel}"))->toBe(['call' => $call->id, 'role' => 'operator']);
+
+    $this->center->handle(['type' => 'StasisEnd', 'channel' => ['id' => $operatorChannel]]);
+    expect($call->refresh()->status)->toBe('completed')
+        ->and(bridgeDeletes())->toBe(1);
+});
+
+test('reconnect finishes calls whose channels vanished and releases the operator', function () {
+    $call = answeredCall($this);
+    $this->travel(30)->seconds();
+    $this->ari['channels'] = [];
+
+    $this->center->reconcile();
+
+    expect($call->refresh()->status)->toBe('completed')
+        ->and($call->ended_at)->not->toBeNull()
+        ->and(app(OperatorPool::class)->busyOperatorIds())->toBe([])
+        ->and(bridgeDeletes())->toBe(1);
+});
+
+test('a queued call whose client vanished becomes missed, one whose operator ring vanished goes on', function () {
+    $other = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+    $other->forceFill(['sip_extension' => 'op'.$other->id, 'operator_status' => 'ready', 'operator_status_at' => now()])->save();
+    $this->online[] = $other->sip_extension;
+    $this->operator->forceFill(['operator_status_at' => now()->subHour()])->save();
+
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $this->center->handle(stasis('ch-2', ['inbound', '712000000'], caller: '998907654321'));
+    $first = Call::query()->withoutGlobalScopes()->where('channel_id', 'ch-1')->sole();
+    $second = Call::query()->withoutGlobalScopes()->where('channel_id', 'ch-2')->sole();
+    expect($first->operator_id)->toBe($this->operator->id)->and($second->operator_id)->toBe($other->id);
+
+    $this->travel(30)->seconds();
+    Cache::forget('telephony:online-endpoints');
+    // Birinchi mijoz ham, uning operator jiringlashi ham yo'q; ikkinchi mijoz tirik, uning operator jiringlashi yo'q
+    $this->ari['channels'] = ['ch-2'];
+    $this->center->reconcile();
+
+    expect($first->refresh()->status)->toBe('missed')
+        ->and($second->refresh()->status)->toBe('waiting')
+        ->and($second->ended_at)->toBeNull()
+        // Bo'shagan birinchi operatorga o'tdi
+        ->and($second->operator_id)->toBe($this->operator->id);
+});
+
+test('reconciliation does nothing when Asterisk cannot list channels, and spares brand-new calls', function () {
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+
+    $this->ari['channels'] = [];
+    $this->center->reconcile();
+    expect($call->refresh()->ended_at)->toBeNull();
+
+    $this->travel(30)->seconds();
+    $this->ari['channels'] = null;
+    $this->center->reconcile();
+    expect($call->refresh()->ended_at)->toBeNull();
+});
+
+test('orphan Stasis bridges are destroyed, bridges of live calls are kept', function () {
+    $call = answeredCall($this);
+    $this->ari['channels'] = ['ch-1', $call->meta['operator_channel']];
+    $this->ari['bridges'] = [
+        ['id' => 'bridge-1', 'bridge_class' => 'stasis', 'channels' => ['ch-1']],
+        ['id' => 'orphan', 'bridge_class' => 'stasis', 'channels' => []],
+        ['id' => 'foreign', 'bridge_class' => 'base', 'channels' => []],
+    ];
+
+    $this->center->reconcile();
+
+    $deleted = Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_contains($r->url(), '/ari/bridges/'))
+        ->map(fn ($pair) => basename($pair[0]->url()))->values()->all();
+    expect($deleted)->toBe(['orphan']);
+});
+
 test('the listener loop survives any exception', function () {
     app(AriListen::class)->guard(fn () => throw new RuntimeException('boom'));
 

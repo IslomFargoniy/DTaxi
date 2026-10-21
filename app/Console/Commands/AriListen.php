@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Call;
 use App\Models\SipTrunk;
 use App\Services\Telephony\CallCenter;
 use App\Services\Telephony\TrunkSync;
@@ -28,10 +27,15 @@ class AriListen extends Command
     public function handle(CallCenter $center, TrunkSync $trunks): int
     {
         DB::disableQueryLog();
-        $this->recoverAfterRestart($trunks);
+        // Trunklarni Realtime'ga qayta yozish. Ochiq qo'ng'iroqlar bu yerda yopilmaydi: ular ulanishda
+        // Asterisk kanallari bilan solishtiriladi — yangilanish (ari:restart) davom etayotgan suhbatni uzmasin
+        $this->guard(fn () => SipTrunk::query()->each(fn (SipTrunk $trunk) => $trunks->sync($trunk)));
 
         $loop = Loop::get();
         $started = time();
+
+        // Hodisa yo'qolgan bo'lsa ham (tarmoq uzilishi) osilib qolgan qo'ng'iroq bir daqiqada yopiladi
+        $loop->addPeriodicTimer(60, fn () => $this->guard(fn () => $center->reconcile()));
 
         // Navbatni taqsimlash va heartbeat (monitoring "daemon ishlayaptimi" ko'rsatadi)
         $loop->addPeriodicTimer(2, function () use ($center, $started) {
@@ -61,6 +65,8 @@ class AriListen extends Command
 
         connect($url)->then(function (WebSocket $conn) use ($center) {
             $this->info('ARI ulandi');
+            // Uzilish paytida o'tib ketgan hodisalar o'rniga — ochiq qo'ng'iroqlarni haqiqiy kanallar bilan solishtirish
+            $this->guard(fn () => $center->reconcile());
 
             $conn->on('message', function ($message) use ($center) {
                 $event = json_decode((string) $message, true);
@@ -80,19 +86,6 @@ class AriListen extends Command
             $this->error("ARI'ga ulanib bo'lmadi: {$e->getMessage()}. 3 soniyadan keyin qayta…");
             Loop::get()->addTimer(3, fn () => $this->connect($center));
         });
-    }
-
-    /**
-     * Daemon qayta ishga tushganda: "faol" bo'lib qolgan qo'ng'iroqlarni yopish, trunklarni Realtime'ga qayta yozish.
-     */
-    private function recoverAfterRestart(TrunkSync $trunks): void
-    {
-        Call::query()->withoutGlobalScopes()->whereIn('status', Call::ACTIVE)->update([
-            'status' => DB::raw("CASE WHEN status = 'answered' THEN 'completed' WHEN direction = 'inbound' THEN 'missed' ELSE 'no_answer' END"),
-            'ended_at' => now(),
-        ]);
-
-        SipTrunk::query()->each(fn (SipTrunk $trunk) => $trunks->sync($trunk));
     }
 
     /**
