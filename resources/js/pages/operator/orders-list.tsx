@@ -1,6 +1,14 @@
-import { router } from '@inertiajs/react';
-import { Ban, Pencil, Phone, RefreshCw, UserCheck } from 'lucide-react';
+import { router, usePage } from '@inertiajs/react';
+import {
+    ArrowDownUp,
+    Ban,
+    Pencil,
+    Phone,
+    RefreshCw,
+    UserCheck,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import OrderController from '@/actions/App/Http/Controllers/Operator/OrderController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,6 +47,194 @@ export function isFresh(driver: MapDriver, ttlSeconds: number): boolean {
 
 /** Uzoq qidirilayotgan buyurtma (daqiqa) — sariq bilan ajratiladi */
 const SLOW_SEARCH_SECONDS = 120;
+
+/** Oldindan buyurtma shuncha qolganda ham haydovchisiz bo'lsa — e'tibor talab qiladi */
+const PREORDER_SOON_SECONDS = 30 * 60;
+
+export type OrderFilter =
+    | 'all'
+    | 'searching'
+    | 'assigned'
+    | 'in_progress'
+    | 'preorders'
+    | 'problems';
+export type OrderSort = 'newest' | 'waiting' | 'attention';
+
+const FILTERS: { key: OrderFilter; label: string; title: string }[] = [
+    { key: 'all', label: 'All', title: 'All active orders' },
+    {
+        key: 'searching',
+        label: 'In search',
+        title: 'New and searching for a driver',
+    },
+    {
+        key: 'assigned',
+        label: 'Assigned',
+        title: 'Driver assigned or arrived',
+    },
+    { key: 'in_progress', label: 'On the way', title: 'Trip in progress' },
+    { key: 'preorders', label: 'Pre-orders', title: 'Scheduled pre-orders' },
+    {
+        key: 'problems',
+        label: 'Problems',
+        title: 'Nobody took the order, long search or a pre-order due soon',
+    },
+];
+const SORTS: { key: OrderSort; label: string }[] = [
+    { key: 'newest', label: 'Newest first' },
+    { key: 'waiting', label: 'Waiting longest' },
+    { key: 'attention', label: 'Needs attention first' },
+];
+
+const isPreorder = (o: Order) => o.status === 'new' && !!o.scheduled_at;
+const time = (iso: string | null | undefined) =>
+    iso ? new Date(iso).getTime() : 0;
+
+/**
+ * Qanchalik e'tibor kerak: 3 — hech kim olmadi, 2 — uzoq qidirilmoqda,
+ * 1 — oldindan buyurtma vaqti yaqin, haydovchi hali yo'q; 0 — hammasi joyida.
+ */
+export function attentionLevel(o: Order, now: number): number {
+    if (o.status === 'searching' && o.search_exhausted_at) {
+        return 3;
+    }
+    if (
+        o.status === 'searching' &&
+        o.searching_at &&
+        now - time(o.searching_at) > SLOW_SEARCH_SECONDS * 1000
+    ) {
+        return 2;
+    }
+    if (
+        isPreorder(o) &&
+        time(o.scheduled_at) - now <= PREORDER_SOON_SECONDS * 1000
+    ) {
+        return 1;
+    }
+
+    return 0;
+}
+
+export function matchesFilter(
+    filter: OrderFilter,
+    o: Order,
+    now: number,
+): boolean {
+    switch (filter) {
+        case 'all':
+            return true;
+        case 'searching':
+            return (
+                o.status === 'searching' ||
+                (o.status === 'new' && !isPreorder(o))
+            );
+        case 'assigned':
+            return o.status === 'assigned' || o.status === 'arrived';
+        case 'in_progress':
+            return o.status === 'in_progress';
+        case 'preorders':
+            return isPreorder(o);
+        case 'problems':
+            return attentionLevel(o, now) > 0;
+    }
+}
+
+/** Kutish boshlangan vaqt: oldindan buyurtmada — belgilangan vaqt (kelajakdagisi oxirida) */
+const waitingSince = (o: Order) =>
+    isPreorder(o) ? time(o.scheduled_at) : time(o.created_at);
+
+export function compareOrders(
+    sort: OrderSort,
+    now: number,
+): (a: Order, b: Order) => number {
+    const newest = (a: Order, b: Order) =>
+        time(b.created_at) - time(a.created_at) || b.id - a.id;
+    const waiting = (a: Order, b: Order) =>
+        waitingSince(a) - waitingSince(b) || a.id - b.id;
+
+    switch (sort) {
+        case 'newest':
+            return newest;
+        case 'waiting':
+            return waiting;
+        case 'attention':
+            return (a, b) =>
+                attentionLevel(b, now) - attentionLevel(a, now) ||
+                waiting(a, b);
+    }
+}
+
+/**
+ * Barqaror tartib: mavjud qatorlar joyida qoladi (kursor ostida sakramaydi),
+ * yo'qolganlari olib tashlanadi, yangilari tanlangan tartib bo'yicha o'z joyiga qo'yiladi.
+ */
+export function placeOrders(
+    ids: number[],
+    orders: Order[],
+    compare: (a: Order, b: Order) => number,
+): number[] {
+    const byId = new Map(orders.map((o) => [o.id, o]));
+    const next = ids.filter((id) => byId.has(id));
+    const known = new Set(next);
+    const added = orders.filter((o) => !known.has(o.id)).sort(compare);
+
+    for (const order of added) {
+        const at = next.findIndex(
+            (id) => compare(order, byId.get(id) as Order) < 0,
+        );
+        next.splice(at === -1 ? next.length : at, 0, order.id);
+    }
+
+    return next;
+}
+
+const sortIds = (orders: Order[], sort: OrderSort) =>
+    [...orders].sort(compareOrders(sort, Date.now())).map((o) => o.id);
+
+type ViewPrefs = { filter: OrderFilter; sort: OrderSort };
+const DEFAULT_VIEW: ViewPrefs = { filter: 'all', sort: 'newest' };
+const viewKey = (userId: number | undefined) =>
+    `operator-orders-view:${userId ?? 'guest'}`;
+
+/** Operatorning tanlovi (filtr va tartib) — har operator uchun alohida */
+function loadView(userId: number | undefined): ViewPrefs {
+    try {
+        const raw = localStorage.getItem(viewKey(userId));
+        const saved = raw ? (JSON.parse(raw) as Partial<ViewPrefs>) : {};
+
+        return {
+            filter: FILTERS.some((f) => f.key === saved.filter)
+                ? (saved.filter as OrderFilter)
+                : DEFAULT_VIEW.filter,
+            sort: SORTS.some((o) => o.key === saved.sort)
+                ? (saved.sort as OrderSort)
+                : DEFAULT_VIEW.sort,
+        };
+    } catch {
+        return DEFAULT_VIEW;
+    }
+}
+
+function saveView(userId: number | undefined, view: ViewPrefs) {
+    try {
+        localStorage.setItem(viewKey(userId), JSON.stringify(view));
+    } catch {
+        // Saqlab bo'lmasa (maxfiy oyna) — tanlov faqat shu sahifada amal qiladi
+    }
+}
+
+/** Har necha soniyada yangilanadigan "hozir" — sanoqlar va "uzoq qidiruv" uchun */
+function useNow(intervalMs: number): number {
+    const [now, setNow] = useState(() => Date.now());
+
+    useEffect(() => {
+        const id = setInterval(() => setNow(Date.now()), intervalMs);
+
+        return () => clearInterval(id);
+    }, [intervalMs]);
+
+    return now;
+}
 
 /** Hech kim olmagan yangi buyurtma paydo bo'lganda qisqa signal */
 function beep() {
@@ -392,6 +588,35 @@ export function OrdersList({
     onSelect: (id: number) => void;
 }) {
     const { t } = useTrans();
+    const userId = usePage<{ auth: { user: { id: number } | null } }>().props
+        .auth.user?.id;
+    const now = useNow(5000);
+    const [view, setView] = useState<ViewPrefs>(() => loadView(userId));
+    // Ko'rsatish tartibi (id'lar): faqat operator tartibni o'zgartirganda qayta saralanadi
+    const [ids, setIds] = useState<number[]>(() => sortIds(orders, view.sort));
+    const [placedFrom, setPlacedFrom] = useState(orders);
+    if (placedFrom !== orders) {
+        setPlacedFrom(orders);
+        setIds(placeOrders(ids, orders, compareOrders(view.sort, Date.now())));
+    }
+    const byId = new Map(orders.map((o) => [o.id, o]));
+    const chipRefs = useRef<
+        Partial<Record<OrderFilter, HTMLButtonElement | null>>
+    >({});
+    const counts = Object.fromEntries(
+        FILTERS.map((f) => [
+            f.key,
+            orders.filter((o) => matchesFilter(f.key, o, now)).length,
+        ]),
+    ) as Record<OrderFilter, number>;
+
+    const changeView = (next: ViewPrefs) => {
+        if (next.sort !== view.sort) {
+            setIds(sortIds(orders, next.sort));
+        }
+        setView(next);
+        saveView(userId, next);
+    };
     // Buyurtma → signal berilgan "hech kim olmadi" vaqti
     const alerted = useRef<Map<number, string>>(new Map());
 
@@ -421,19 +646,144 @@ export function OrdersList({
         );
     }
 
+    const visible = ids
+        .map((id) => byId.get(id))
+        .filter((o): o is Order => !!o && matchesFilter(view.filter, o, now));
+
+    // Klaviatura: chiplar orasida chap/o'ng strelka, ro'yxatda yuqori/past — oldingi/keyingi buyurtma
+    const onChipKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
+        const step =
+            e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (!step) {
+            return;
+        }
+        e.preventDefault();
+        const next = FILTERS[(i + step + FILTERS.length) % FILTERS.length];
+        changeView({ ...view, filter: next.key });
+        chipRefs.current[next.key]?.focus();
+    };
+    const onListKey = (e: KeyboardEvent<HTMLUListElement>) => {
+        if (e.target !== e.currentTarget) {
+            return;
+        }
+        const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+        if (!step || visible.length === 0) {
+            return;
+        }
+        e.preventDefault();
+        const at = visible.findIndex((o) => o.id === selectedId);
+        const next =
+            at === -1
+                ? step > 0
+                    ? 0
+                    : visible.length - 1
+                : Math.min(visible.length - 1, Math.max(0, at + step));
+        onSelect(visible[next].id);
+    };
+
     return (
-        <ul className="grid gap-2">
-            {orders.map((order) => (
-                <OrderRow
-                    key={order.id}
-                    order={order}
-                    drivers={drivers}
-                    tariffClasses={tariffClasses}
-                    locationTtlSeconds={locationTtlSeconds}
-                    selected={selectedId === order.id}
-                    onSelect={() => onSelect(order.id)}
-                />
-            ))}
-        </ul>
+        <div className="grid gap-2">
+            <div
+                role="toolbar"
+                aria-label={t('Filter orders')}
+                className="flex flex-wrap gap-1"
+            >
+                {FILTERS.map((f, i) => {
+                    const active = view.filter === f.key;
+
+                    return (
+                        <button
+                            key={f.key}
+                            ref={(el) => {
+                                chipRefs.current[f.key] = el;
+                            }}
+                            type="button"
+                            aria-pressed={active}
+                            tabIndex={active ? 0 : -1}
+                            title={t(f.title)}
+                            className={cn(
+                                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                                active
+                                    ? 'border-primary bg-primary text-primary-foreground'
+                                    : 'hover:bg-accent',
+                                !active &&
+                                    f.key === 'problems' &&
+                                    counts.problems > 0 &&
+                                    'border-red-500 text-red-600 dark:text-red-400',
+                            )}
+                            onClick={() =>
+                                changeView({ ...view, filter: f.key })
+                            }
+                            onKeyDown={(e) => onChipKey(e, i)}
+                        >
+                            {t(f.label)}
+                            <span className="font-mono tabular-nums opacity-80">
+                                {counts[f.key]}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+            <div className="flex items-center gap-1">
+                <label
+                    htmlFor="orders-sort"
+                    className="text-xs text-muted-foreground"
+                >
+                    {t('Sort')}
+                </label>
+                <select
+                    id="orders-sort"
+                    className="h-7 min-w-0 flex-1 rounded-md border bg-transparent px-1 text-xs"
+                    value={view.sort}
+                    onChange={(e) =>
+                        changeView({
+                            ...view,
+                            sort: e.target.value as OrderSort,
+                        })
+                    }
+                >
+                    {SORTS.map((o) => (
+                        <option key={o.key} value={o.key}>
+                            {t(o.label)}
+                        </option>
+                    ))}
+                </select>
+                <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-7"
+                    title={t('Re-sort the list now')}
+                    aria-label={t('Re-sort the list now')}
+                    onClick={() => setIds(sortIds(orders, view.sort))}
+                >
+                    <ArrowDownUp />
+                </Button>
+            </div>
+
+            {visible.length === 0 ? (
+                <p className="p-4 text-center text-sm text-muted-foreground">
+                    {t('No orders match this filter')}
+                </p>
+            ) : (
+                <ul
+                    className="grid gap-2 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    tabIndex={0}
+                    aria-label={t('Active orders')}
+                    onKeyDown={onListKey}
+                >
+                    {visible.map((order) => (
+                        <OrderRow
+                            key={order.id}
+                            order={order}
+                            drivers={drivers}
+                            tariffClasses={tariffClasses}
+                            locationTtlSeconds={locationTtlSeconds}
+                            selected={selectedId === order.id}
+                            onSelect={() => onSelect(order.id)}
+                        />
+                    ))}
+                </ul>
+            )}
+        </div>
     );
 }

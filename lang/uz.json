@@ -689,5 +689,22 @@
     "Quick reply": "Tezkor javob",
     "Move up": "Yuqoriga",
     "Move down": "Pastga",
-    "Add reply": "Javob qo'shish"
+    "Add reply": "Javob qo'shish",
+    "All active orders": "Barcha faol buyurtmalar",
+    "In search": "Qidiruvda",
+    "New and searching for a driver": "Yangi va haydovchi qidirilayotgan",
+    "Assigned": "Tayinlangan",
+    "Driver assigned or arrived": "Haydovchi tayinlangan yoki yetib kelgan",
+    "Trip in progress": "Safar davom etmoqda",
+    "Pre-orders": "Oldindan",
+    "Scheduled pre-orders": "Oldindan berilgan buyurtmalar",
+    "Problems": "Muammoli",
+    "Nobody took the order, long search or a pre-order due soon": "Hech kim olmadi, uzoq qidirilmoqda yoki oldindan buyurtma vaqti yaqin",
+    "Newest first": "Avval yangilari",
+    "Waiting longest": "Eng uzoq kutayotgan",
+    "Needs attention first": "Avval e'tibor talab qiladigan",
+    "Filter orders": "Buyurtmalar filtri",
+    "Sort": "Tartib",
+    "Re-sort the list now": "Ro'yxatni hozir qayta saralash",
+    "No orders match this filter": "Bu filtrda buyurtma yo'q"
 }

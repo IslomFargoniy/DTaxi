@@ -689,5 +689,22 @@
     "Quick reply": "Тезкор жавоб",
     "Move up": "Юқорига",
     "Move down": "Пастга",
-    "Add reply": "Жавоб қўшиш"
+    "Add reply": "Жавоб қўшиш",
+    "All active orders": "Барча фаол буюртмалар",
+    "In search": "Қидирувда",
+    "New and searching for a driver": "Янги ва ҳайдовчи қидирилаётган",
+    "Assigned": "Тайинланган",
+    "Driver assigned or arrived": "Ҳайдовчи тайинланган ёки етиб келган",
+    "Trip in progress": "Сафар давом этмоқда",
+    "Pre-orders": "Олдиндан",
+    "Scheduled pre-orders": "Олдиндан берилган буюртмалар",
+    "Problems": "Муаммоли",
+    "Nobody took the order, long search or a pre-order due soon": "Ҳеч ким олмади, узоқ қидирилмоқда ёки олдиндан буюртма вақти яқин",
+    "Newest first": "Аввал янгилари",
+    "Waiting longest": "Энг узоқ кутаётган",
+    "Needs attention first": "Аввал эътибор талаб қиладиган",
+    "Filter orders": "Буюртмалар филтри",
+    "Sort": "Тартиб",
+    "Re-sort the list now": "Рўйхатни ҳозир қайта саралаш",
+    "No orders match this filter": "Бу филтрда буюртма йўқ"
 }

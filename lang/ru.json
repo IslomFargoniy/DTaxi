@@ -689,5 +689,22 @@
     "Quick reply": "Быстрый ответ",
     "Move up": "Вверх",
     "Move down": "Вниз",
-    "Add reply": "Добавить ответ"
+    "Add reply": "Добавить ответ",
+    "All active orders": "Все активные заказы",
+    "In search": "В поиске",
+    "New and searching for a driver": "Новые и в поиске водителя",
+    "Assigned": "Назначены",
+    "Driver assigned or arrived": "Водитель назначен или на месте",
+    "Trip in progress": "Поездка идёт",
+    "Pre-orders": "Предзаказы",
+    "Scheduled pre-orders": "Запланированные предзаказы",
+    "Problems": "Проблемные",
+    "Nobody took the order, long search or a pre-order due soon": "Никто не взял, долгий поиск или скоро предзаказ",
+    "Newest first": "Сначала новые",
+    "Waiting longest": "Дольше всех ждут",
+    "Needs attention first": "Сначала требующие внимания",
+    "Filter orders": "Фильтр заказов",
+    "Sort": "Сортировка",
+    "Re-sort the list now": "Пересортировать список сейчас",
+    "No orders match this filter": "Нет заказов по этому фильтру"
 }

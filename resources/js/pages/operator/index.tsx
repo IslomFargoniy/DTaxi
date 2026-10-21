@@ -170,7 +170,7 @@ export default function OperatorIndex({
                     return prev ? list.filter((o) => o.id !== order.id) : list;
                 }
                 if (!prev) {
-                    // Yangi buyurtma — tepada
+                    // Yangi buyurtma — ro'yxatdagi joyini OrdersList tanlangan tartibga ko'ra belgilaydi
                     return [order, ...list];
                 }
                 // Yangilangan qator joyida qoladi (ro'yxat sakramasin)
