@@ -672,5 +672,8 @@
     "or, enter the code manually": "ёки кодни қўлда киритинг",
     "Location and service radius": "Жойлашув ва хизмат радиуси",
     "Click on the map to set the branch center. With a radius, the service area is this circle instead of the city boundary.": "Филиал марказини белгилаш учун харитани босинг. Радиус киритилса, хизмат ҳудуди шаҳар чегараси ўрнига шу айлана бўлади.",
-    "Service radius, km": "Хизмат радиуси, км"
+    "Service radius, km": "Хизмат радиуси, км",
+    "Enter your login and password below to log in": "Кириш учун логин ва паролингизни киритинг",
+    "Or continue with login": "Ёки логин билан давом этинг",
+    "Email (optional)": "Эмаил (ихтиёрий)"
 }

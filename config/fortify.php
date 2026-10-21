@@ -45,7 +45,8 @@ return [
     |
     */
 
-    'username' => 'email',
+    // Login maydoni: username yoki email (FortifyServiceProvider::authenticateUsing)
+    'username' => 'login',
 
     'email' => 'email',
 

@@ -26,6 +26,7 @@ class UserFactory extends Factory
     {
         return [
             'name' => UzbekNames::fullName(),
+            'username' => fake()->unique()->regexify('[a-z]{6}[0-9]{4}'),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),

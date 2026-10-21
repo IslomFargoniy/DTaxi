@@ -38,8 +38,9 @@ trait ProfileValidationRules
      */
     protected function emailRules(?int $userId = null): array
     {
+        // Xodim login bilan kiradi — email ixtiyoriy (parolni email orqali tiklash uchun)
         return [
-            'required',
+            'nullable',
             'string',
             'email',
             'max:255',

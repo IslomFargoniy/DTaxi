@@ -17,7 +17,8 @@ import { index } from '@/routes/admin/staff';
 type StaffUser = {
     id: number;
     name: string;
-    email: string;
+    username: string | null;
+    email: string | null;
     phone: string | null;
     role: string | null;
     branch_id: number | null;
@@ -49,6 +50,7 @@ function StaffDialog({
     const existing = user === 'new' ? null : user;
     const form = useForm({
         name: existing?.name ?? '',
+        username: existing?.username ?? '',
         email: existing?.email ?? '',
         phone: existing?.phone ?? '',
         password: '',
@@ -77,15 +79,16 @@ function StaffDialog({
                       })
             }
         >
-            {(['name', 'email', 'phone'] as const).map((field) => (
+            {(['name', 'username', 'email', 'phone'] as const).map((field) => (
                 <div key={field} className="grid gap-1.5">
                     <Label htmlFor={field}>
                         {t(
-                            field === 'name'
-                                ? 'Full name'
-                                : field === 'email'
-                                  ? 'Email address'
-                                  : 'Phone',
+                            {
+                                name: 'Full name',
+                                username: 'Login',
+                                email: 'Email (optional)',
+                                phone: 'Phone',
+                            }[field],
                         )}
                     </Label>
                     <Input
@@ -237,9 +240,9 @@ export default function Staff({ users, roles, branches }: Props) {
                             render: (u) => u.branch ?? '—',
                         },
                         {
-                            key: 'email',
-                            title: 'Email address',
-                            render: (u) => u.email,
+                            key: 'username',
+                            title: 'Login',
+                            render: (u) => u.username ?? '—',
                         },
                         {
                             key: 'phone',

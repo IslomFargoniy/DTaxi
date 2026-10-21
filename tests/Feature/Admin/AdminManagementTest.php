@@ -174,12 +174,12 @@ test('admin creates operators and cashiers only for own branch', function () {
     $other = Branch::factory()->create();
 
     $this->actingAs($this->admin)->post(route('admin.staff.store'), [
-        'name' => 'Dilnoza', 'email' => 'dilnoza@test.uz', 'password' => 'password12', 'role' => 'operator', 'branch_id' => $this->branch->id,
+        'name' => 'Dilnoza', 'username' => 'Dilnoza', 'password' => 'password12', 'role' => 'operator', 'branch_id' => $this->branch->id,
     ])->assertRedirect();
-    expect(User::query()->where('email', 'dilnoza@test.uz')->firstOrFail()->hasRole(Role::Operator))->toBeTrue();
+    expect(User::query()->where('username', 'dilnoza')->firstOrFail()->hasRole(Role::Operator))->toBeTrue();
 
     $this->post(route('admin.staff.store'), [
-        'name' => 'X', 'email' => 'x@test.uz', 'password' => 'password12', 'role' => 'operator', 'branch_id' => $other->id,
+        'name' => 'X', 'username' => 'x_user', 'password' => 'password12', 'role' => 'operator', 'branch_id' => $other->id,
     ])->assertSessionHasErrors('branch_id');
 
     $this->post(route('admin.staff.store'), [

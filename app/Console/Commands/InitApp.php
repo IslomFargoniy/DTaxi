@@ -14,9 +14,10 @@ class InitApp extends Command
 {
     protected $signature = 'ibtaxi:init
         {--company= : Firma (xizmat) nomi, standart — Dtaxi}
-        {--email= : Superadmin login e-mail\'i, standart — admin@<domen>}';
+        {--username=admin : Superadmin logini}
+        {--email= : Superadmin e-mail\'i (ixtiyoriy, parolni tiklash uchun)}';
 
-    protected $description = 'Birinchi filial va superadmin yaratish (parol tasodifiy)';
+    protected $description = 'Birinchi filial va superadmin yaratish (parol tasodifiy; lokal muhitda — sinov paroli)';
 
     public function handle(): int
     {
@@ -25,6 +26,14 @@ class InitApp extends Command
         if (is_string($company) && trim($company) !== '') {
             $seeder->company = trim($company);
         }
+        $option = $this->option('username');
+        $username = is_string($option) ? strtolower(trim($option)) : '';
+        if (preg_match('/^[a-z0-9._-]{3,50}$/', $username) !== 1) {
+            $this->error("Noto'g'ri login: {$username}");
+
+            return self::FAILURE;
+        }
+        $seeder->username = $username;
         $email = $this->option('email');
         if (is_string($email) && $email !== '') {
             if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
@@ -47,7 +56,7 @@ class InitApp extends Command
         $url = rtrim((string) config('app.url'), '/').'/login';
         $text = "Dtaxi — birinchi kirish\n"
             ."Manzil: {$url}\n"
-            ."Login:  {$seeder->credentials['email']}\n"
+            ."Login:  {$seeder->credentials['login']}\n"
             ."Parol:  {$seeder->credentials['password']}\n";
 
         $file = self::credentialsFile();

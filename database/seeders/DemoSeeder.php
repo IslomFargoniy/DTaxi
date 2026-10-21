@@ -38,8 +38,8 @@ class DemoSeeder extends Seeder
         foreach (range(1, 12) as $i) {
             $user = User::query()->firstOrCreate(['phone' => sprintf('+99890000%04d', $i)], [
                 'name' => "Haydovchi {$i}",
-                'email' => "driver{$i}@ibtaxi.test",
-                'password' => 'password',
+                'username' => "driver{$i}",
+                'password' => FirstRunSeeder::DEV_PASSWORD,
                 'branch_id' => $branch->id,
             ]);
 

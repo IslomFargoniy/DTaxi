@@ -12,16 +12,17 @@ use Illuminate\Support\Str;
  */
 class AdminPassword extends Command
 {
-    protected $signature = 'ibtaxi:admin-password {email? : Superadmin e-mail\'i (standart — birinchi superadmin)}';
+    protected $signature = 'ibtaxi:admin-password {login? : Superadmin logini yoki e-mail\'i (standart — birinchi superadmin)}';
 
     protected $description = 'Superadmin uchun yangi tasodifiy parol';
 
     public function handle(): int
     {
-        $email = $this->argument('email');
+        $argument = $this->argument('login');
+        $login = is_string($argument) ? trim($argument) : '';
         $user = User::query()
             ->whereHas('roles', fn ($q) => $q->where('name', Role::Superadmin->value))
-            ->when(is_string($email) && $email !== '', fn ($q) => $q->where('email', $email))
+            ->when($login !== '', fn ($q) => $q->where(fn ($q) => $q->where('username', strtolower($login))->orWhere('email', $login)))
             ->orderBy('id')
             ->first();
 
@@ -34,7 +35,7 @@ class AdminPassword extends Command
         $password = Str::password(16, symbols: false);
         $user->forceFill(['password' => $password, 'is_active' => true])->save();
 
-        $this->line("Login: {$user->email}");
+        $this->line('Login: '.($user->username ?? $user->email));
         $this->line("Parol: {$password}");
         $this->warn('Kirgandan keyin parolni almashtiring.');
 

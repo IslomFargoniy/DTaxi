@@ -672,5 +672,8 @@
     "or, enter the code manually": "или введите код вручную",
     "Location and service radius": "Местоположение и радиус обслуживания",
     "Click on the map to set the branch center. With a radius, the service area is this circle instead of the city boundary.": "Нажмите на карту, чтобы указать центр филиала. Если задан радиус, зона обслуживания — этот круг вместо границы города.",
-    "Service radius, km": "Радиус обслуживания, км"
+    "Service radius, km": "Радиус обслуживания, км",
+    "Enter your login and password below to log in": "Введите логин и пароль для входа",
+    "Or continue with login": "Или войдите по логину",
+    "Email (optional)": "Email (необязательно)"
 }

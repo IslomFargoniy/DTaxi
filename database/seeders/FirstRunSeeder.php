@@ -19,12 +19,17 @@ class FirstRunSeeder extends Seeder
 {
     public string $company = 'Dtaxi';
 
+    /** Sinov (lokal) muhitida barcha demo foydalanuvchilar paroli — firma serverida ishlatilmaydi */
+    public const DEV_PASSWORD = '11221122';
+
+    public string $username = 'admin';
+
     public ?string $email = null;
 
     /**
      * Shu ishga tushirishda yaratilgan superadmin kirish ma'lumotlari.
      *
-     * @var array{email: string, password: string}|null
+     * @var array{login: string, password: string}|null
      */
     public ?array $credentials = null;
 
@@ -36,10 +41,9 @@ class FirstRunSeeder extends Seeder
             return;
         }
 
-        $email = $this->email ?: self::defaultEmail();
-        $password = Str::password(16, symbols: false);
+        $password = app()->isLocal() ? self::DEV_PASSWORD : Str::password(16, symbols: false);
 
-        DB::transaction(function () use ($email, $password) {
+        DB::transaction(function () use ($password) {
             $settings = app(Settings::class);
             $settings->set('company.name', $this->company);
             $settings->set('company.default_locale', 'uz');
@@ -49,27 +53,17 @@ class FirstRunSeeder extends Seeder
                 Branch::query()->create(['name' => 'Asosiy filial', 'service_name' => $this->company]);
             }
 
-            $user = User::query()->firstOrNew(['email' => $email]);
-            $user->fill(['name' => 'Superadmin', 'password' => $password, 'locale' => 'uz', 'branch_id' => null]);
+            $user = User::query()->firstOrNew(['username' => $this->username]);
+            $user->fill(['name' => 'Superadmin', 'email' => $this->email, 'password' => $password, 'locale' => 'uz', 'branch_id' => null]);
             $user->forceFill(['email_verified_at' => now()])->save();
             $user->syncRoles(Role::Superadmin);
         });
 
-        $this->credentials = ['email' => $email, 'password' => $password];
+        $this->credentials = ['login' => $this->username, 'password' => $password];
     }
 
     public static function superadminExists(): bool
     {
         return User::query()->whereHas('roles', fn ($q) => $q->where('name', Role::Superadmin->value))->exists();
-    }
-
-    /**
-     * admin@<domen> — server domeni APP_URL dan.
-     */
-    public static function defaultEmail(): string
-    {
-        $host = parse_url((string) config('app.url'), PHP_URL_HOST);
-
-        return 'admin@'.(is_string($host) && $host !== '' ? $host : 'dtaxi.local');
     }
 }

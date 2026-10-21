@@ -11,6 +11,7 @@ use App\Services\Telephony\Extensions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
@@ -37,6 +38,7 @@ class StaffController extends Controller
             'users' => $users->map(fn (User $u) => [
                 'id' => $u->id,
                 'name' => $u->name,
+                'username' => $u->username,
                 'email' => $u->email,
                 'phone' => $u->phone,
                 'role' => $u->getRoleNames()->first(),
@@ -75,9 +77,11 @@ class StaffController extends Controller
         $actor = $request->user();
         $branchIds = $this->branches($actor)->pluck('id')->all();
 
+        $request->merge(['username' => Str::lower(trim((string) $request->input('username')))]);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'email', 'max:150', Rule::unique('users')->ignore($user->id)],
+            'username' => ['required', 'string', 'min:3', 'max:50', 'regex:/^[a-z0-9._-]+$/', Rule::unique('users')->ignore($user->id)],
+            'email' => ['nullable', 'email', 'max:150', Rule::unique('users')->ignore($user->id)],
             'phone' => ['nullable', 'string', 'max:20'],
             'password' => [$user->exists ? 'nullable' : 'required', Password::defaults()],
             'role' => ['required', Rule::in($this->manageableRoles($actor))],
@@ -89,7 +93,8 @@ class StaffController extends Controller
 
         $user->fill([
             'name' => $data['name'],
-            'email' => $data['email'],
+            'username' => $data['username'],
+            'email' => $data['email'] ?? null,
             'phone' => ! empty($data['phone']) ? Client::normalizePhone($data['phone']) : null,
             'branch_id' => $data['role'] === Role::Superadmin->value ? null : $data['branch_id'],
             'is_active' => $data['is_active'] ?? true,

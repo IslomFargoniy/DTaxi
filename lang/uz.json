@@ -672,5 +672,8 @@
     "or, enter the code manually": "yoki kodni qo'lda kiriting",
     "Location and service radius": "Joylashuv va xizmat radiusi",
     "Click on the map to set the branch center. With a radius, the service area is this circle instead of the city boundary.": "Filial markazini belgilash uchun xaritani bosing. Radius kiritilsa, xizmat hududi shahar chegarasi o'rniga shu aylana bo'ladi.",
-    "Service radius, km": "Xizmat radiusi, km"
+    "Service radius, km": "Xizmat radiusi, km",
+    "Enter your login and password below to log in": "Kirish uchun login va parolingizni kiriting",
+    "Or continue with login": "Yoki login bilan davom eting",
+    "Email (optional)": "Email (ixtiyoriy)"
 }

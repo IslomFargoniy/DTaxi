@@ -26,17 +26,18 @@ class DatabaseSeeder extends Seeder
             $branch->save();
         }
 
+        // Sinov kirishlari: login — admin, branch, operator, cashier; parol hammasida bir xil
         $users = [
-            ['Superadmin', 'admin@ibtaxi.test', Role::Superadmin],
-            ['Filial admini', 'branch@ibtaxi.test', Role::Admin],
-            ['Operator', 'operator@ibtaxi.test', Role::Operator],
-            ['Kassir', 'cashier@ibtaxi.test', Role::Cashier],
+            ['Superadmin', 'admin', Role::Superadmin],
+            ['Filial admini', 'branch', Role::Admin],
+            ['Operator', 'operator', Role::Operator],
+            ['Kassir', 'cashier', Role::Cashier],
         ];
 
-        foreach ($users as [$name, $email, $role]) {
-            User::query()->firstOrCreate(['email' => $email], [
+        foreach ($users as [$name, $username, $role]) {
+            User::query()->firstOrCreate(['username' => $username], [
                 'name' => $name,
-                'password' => 'password',
+                'password' => FirstRunSeeder::DEV_PASSWORD,
                 'branch_id' => $role === Role::Superadmin ? null : $branch->id,
                 'email_verified_at' => now(),
             ])->syncRoles($role);
