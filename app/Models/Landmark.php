@@ -72,6 +72,12 @@ class Landmark extends Model
             ? implode(' AND ', array_fill(0, count($words), 'search ~* ?'))
             : 'FALSE';
         $wordPatterns = array_map(fn (string $w) => '(^|[^0-9a-z])'.preg_quote($w).'($|[^0-9a-z])', $words);
+        $houses = count($words) > 1
+            ? array_values(array_map(
+                fn (string $w) => '(^|[^0-9a-z])'.preg_quote($w).'($|[^0-9a-z])',
+                array_filter($words, fn (string $w) => preg_match('/^\d+[a-z]?$/', $w) === 1),
+            ))
+            : [];
 
         $query->where(fn (Builder $q) => $q
             ->whereRaw('search ILIKE ?', ['%'.$needle.'%'])
@@ -87,6 +93,11 @@ class Landmark extends Model
                 "CASE WHEN search ILIKE ? THEN 0 WHEN search ~* ? THEN 1 WHEN {$wholeWords} THEN 2 WHEN search ILIKE ? THEN 3 ELSE 4 END",
                 [$needle.'%', '(^|[^0-9a-z])'.preg_quote($needle), ...(count($words) > 1 ? $wordPatterns : []), '%'.$needle.'%'],
             )
+            // So'rovda uy raqami bo'lsa ("mustaqillik 12") — aynan shu raqamli manzil oldinda
+            ->when($houses !== [], fn (Builder $q) => $q->orderByRaw(
+                'CASE WHEN '.implode(' OR ', array_fill(0, count($houses), 'search ~* ?')).' THEN 0 ELSE 1 END',
+                $houses,
+            ))
             // Bir xil darajada — nomli joylar (bozor, maktab) oddiy uy manzili va ko'chadan oldin
             ->orderByRaw("CASE WHEN category IN ('address', 'street') THEN 1 ELSE 0 END")
             ->orderByDesc('usage_count')

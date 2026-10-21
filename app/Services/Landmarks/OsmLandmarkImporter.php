@@ -70,11 +70,13 @@ class OsmLandmarkImporter
         // Uy manzili: "Mustaqillik ko'chasi, 12" — operator ko'cha va uy raqami bilan qidiradi
         $house = $tags['addr:housenumber'] ?? null;
         $street = $tags['addr:street'] ?? $tags['addr:place'] ?? null;
-        if (is_string($house) && is_string($street) && $house !== '' && $street !== '') {
+        $hasAddress = is_string($house) && is_string($street) && $house !== '' && $street !== '';
+        if ($hasAddress) {
             $address = "{$street}, {$house}";
             $aliasSources[] = is_string($name) ? $address : null;
+            // Nomli joy (bank, do'kon) o'z turini oladi — "address" bo'lsa xaritadagi joy yozuvlariga kirmasdi
+            $category = is_string($name) && trim($name) !== '' ? null : 'address';
             $name = is_string($name) && trim($name) !== '' ? $name : $address;
-            $category = 'address';
         } elseif (isset($tags['highway']) && is_string($name)) {
             $category = 'street';
         }
@@ -94,6 +96,10 @@ class OsmLandmarkImporter
                     $category = "{$tag}:{$tags[$tag]}";
                     break;
                 }
+            }
+            // Turi noma'lum nomli bino — avvalgidek manzil sifatida
+            if ($category === null && $hasAddress) {
+                $category = 'address';
             }
         }
 

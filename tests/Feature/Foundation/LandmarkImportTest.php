@@ -35,7 +35,9 @@ test('house addresses and streets are imported and found by street and house num
     }
 
     expect(Landmark::query()->where('category', 'address')->pluck('name')->sort()->values()->all())
-        ->toBe(['Makro', "Mustaqillik ko'chasi, 112", "Mustaqillik ko'chasi, 12"])
+        ->toBe(["Mustaqillik ko'chasi, 112", "Mustaqillik ko'chasi, 12"])
+        // Nomli joy o'z turida (xaritadagi joy yozuvlarida ko'rinadi), manzili — qidiruv uchun muqobil nom
+        ->and(Landmark::query()->where('name', 'Makro')->value('category'))->toBe('shop:supermarket')
         ->and(Landmark::query()->where('name', 'Makro')->value('aliases'))->toContain("Mustaqillik ko'chasi, 5")
         ->and(Landmark::query()->where('category', 'street')->count())->toBe(1);
 
