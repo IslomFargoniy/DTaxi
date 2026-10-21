@@ -120,8 +120,21 @@ export function mapStyle(
                     };
                 }
                 if (layer.id === 'pois' && layer.type === 'symbol') {
+                    // Ikonkasi yo'q turlar (karaoke, dorixona...) uslubda fon rangida yozilardi — o'qib bo'lmasdi
+                    const color = layer.paint?.['text-color'];
+                    const paint = Array.isArray(color)
+                        ? {
+                              ...layer.paint,
+                              'text-color': [
+                                  ...color.slice(0, -1),
+                                  dark ? '#c2bdb5' : '#5c5853',
+                              ] as typeof color,
+                          }
+                        : layer.paint;
+
                     return {
                         ...layer,
+                        paint,
                         source: 'dtaxi',
                         'source-layer': 'pois',
                         filter: ['>=', ['zoom'], ['get', 'min_zoom']],

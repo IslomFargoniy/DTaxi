@@ -11,6 +11,11 @@ use Illuminate\Http\Request;
  */
 class MapStyleController extends Controller
 {
+    /** Ikonkasiz joy yozuvlari rangi (taxi-map.tsx bilan bir xil) */
+    public const LABEL_LIGHT = '#5c5853';
+
+    public const LABEL_DARK = '#c2bdb5';
+
     public function __invoke(Request $request, StreetRenamer $renamer): JsonResponse
     {
         $flavor = $request->query('flavor') === 'dark' ? 'dark' : 'light';
@@ -33,6 +38,12 @@ class MapStyleController extends Controller
                 $layer->source = 'dtaxi';
                 $layer->filter = ['>=', ['zoom'], ['get', 'min_zoom']];
                 $layer->layout->{'text-field'} = ['get', 'name'];
+                // Ikonkasi yo'q turlar (karaoke, dorixona...) uslubda fon rangida yozilardi — o'qib bo'lmasdi
+                if (isset($layer->paint->{'text-color'}) && is_array($layer->paint->{'text-color'})) {
+                    $color = $layer->paint->{'text-color'};
+                    $color[count($color) - 1] = $flavor === 'dark' ? self::LABEL_DARK : self::LABEL_LIGHT;
+                    $layer->paint->{'text-color'} = $color;
+                }
             }
             // Ko'cha yozuvlari — OSM'dagi eski nom o'rniga admin kiritgan yangi nom (taxi-map.tsx bilan bir xil)
             if ($renames !== [] && $layer instanceof \stdClass && ($layer->{'source-layer'} ?? null) === 'roads'

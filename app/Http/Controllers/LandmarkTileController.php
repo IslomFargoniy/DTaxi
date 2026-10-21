@@ -35,7 +35,8 @@ class LandmarkTileController extends Controller
                         WHEN split_part(l.category, ':', 2) IN ('university', 'cafe', 'restaurant', 'fast_food', 'bar', 'stadium', 'park',
                             'museum', 'theatre', 'post_office', 'aerodrome', 'clothes', 'electronics', 'beauty', 'books', 'library', 'zoo')
                             THEN split_part(l.category, ':', 2)
-                        ELSE ''
+                        -- Mos ikonka yo'q — kichik nuqta, yozuv neytral rangda (MapStyleController::LABEL_*)
+                        ELSE 'townspot'
                     END AS kind,
                     CASE
                         WHEN l.category IN ('railway:station', 'amenity:bus_station', 'amenity:university', 'leisure:stadium',
