@@ -46,6 +46,7 @@ export function PlacePicker({
     const [results, setResults] = useState<Landmark[]>([]);
     const [open, setOpen] = useState(false);
     const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+    const blurTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
     useEffect(() => {
         clearTimeout(timer.current);
@@ -90,15 +91,27 @@ export function PlacePicker({
                         autoComplete="off"
                         className={hasValue ? 'pr-8' : undefined}
                         placeholder={t('Landmark or address')}
-                        onFocus={() => setOpen(true)}
-                        onBlur={() => setTimeout(() => setOpen(false), 150)}
-                        onChange={(e) =>
+                        onFocus={() => {
+                            // Kechikkan "yopish" (blur'dan) qayta fokusda ro'yxatni yopib qo'ymasin
+                            clearTimeout(blurTimer.current);
+                            setOpen(true);
+                        }}
+                        onBlur={() => {
+                            blurTimer.current = setTimeout(
+                                () => setOpen(false),
+                                150,
+                            );
+                        }}
+                        onChange={(e) => {
+                            setOpen(true);
                             onChange({
                                 ...value,
                                 text: e.target.value,
                                 landmarkId: null,
-                            })
-                        }
+                                // Operator o'zi yozdi — xaritadan kelgan nom ustidan yozmasin
+                                auto: false,
+                            });
+                        }}
                     />
                     {hasValue && (
                         <button
@@ -106,6 +119,8 @@ export function PlacePicker({
                             title={t('Clear')}
                             aria-label={t('Clear')}
                             className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                            // Fokus maydondan ketmasin — tozalagach darhol yangi qidiruv yoziladi
+                            onMouseDown={(e) => e.preventDefault()}
                             onClick={() => {
                                 onChange({
                                     text: '',
