@@ -39,6 +39,8 @@ Route::prefix('driver/v1')->group(function () {
         Route::get('route', [DriverController::class, 'route']);
         Route::get('balance', [DriverController::class, 'transactions']);
 
+        Route::get('orders/history', [OrderController::class, 'history']);
+        Route::get('orders/{order}/track', [OrderController::class, 'track'])->whereNumber('order');
         Route::post('orders/{order}/accept', [OrderController::class, 'accept']);
         Route::post('orders/{order}/reject', [OrderController::class, 'reject']);
         Route::post('orders/{order}/arrive', [OrderController::class, 'arrive']);

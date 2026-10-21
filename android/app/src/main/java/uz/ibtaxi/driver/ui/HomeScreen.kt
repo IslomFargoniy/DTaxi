@@ -35,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Settings
@@ -706,6 +707,9 @@ private fun TopBar(p: uz.ibtaxi.driver.data.DriverProfile, unread: Int, onOpen: 
                     fontWeight = FontWeight.ExtraBold,
                     color = if (p.balance < p.minBalance) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                 )
+            }
+            Box(Modifier.padding(start = 6.dp)) {
+                TileIconButton(Icons.Default.History, stringResource(R.string.order_history), size = 44) { onOpen(Screen.Orders) }
             }
             Box(Modifier.padding(start = 6.dp)) {
                 TileIconButton(Icons.Default.Chat, stringResource(R.string.chat), size = 44) { onOpen(Screen.Chat) }

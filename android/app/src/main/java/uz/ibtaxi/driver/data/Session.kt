@@ -96,6 +96,15 @@ class Session(context: Context) {
         }
         set(value) = prefs.edit().putString("pending_complete", value?.let { "${it.first}:${it.second}:${it.third}" }).apply()
 
+    /** "Yakunlash" bosilgan joy: internet keyin qaytsa ham tarixda yo'lovchi tushgan joy to'g'ri qoladi */
+    var pendingFinishAt: Pair<Double, Double>?
+        get() = prefs.getString("pending_finish_at", null)?.split(":")?.takeIf { it.size == 2 }?.let {
+            val lat = it[0].toDoubleOrNull()
+            val lng = it[1].toDoubleOrNull()
+            if (lat != null && lng != null) lat to lng else null
+        }
+        set(value) = prefs.edit().putString("pending_finish_at", value?.let { "${it.first}:${it.second}" }).apply()
+
     /** Safarda o'tilgan oraliq to'xtashlar soni (buyurtma bo'yicha) — ilova qayta ochilsa ham marshrut keyingi nuqtadan */
     fun passedStops(orderId: Int): Int =
         prefs.getString("passed_stops", null)?.split(":")?.takeIf { it.size == 2 && it[0] == orderId.toString() }?.get(1)?.toIntOrNull() ?: 0

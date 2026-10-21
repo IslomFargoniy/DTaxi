@@ -31,6 +31,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $pickup_landmark_id
  * @property string|null $dropoff_text
  * @property Point|null $dropoff_location
+ * @property Point|null $start_location
+ * @property Point|null $finish_location
  * @property string|null $comment
  * @property array<string, mixed> $tariff_snapshot
  * @property int|null $price_estimate
@@ -85,6 +87,8 @@ class Order extends Model
             'source' => OrderSource::class,
             'pickup_location' => Point::class,
             'dropoff_location' => Point::class,
+            'start_location' => Point::class,
+            'finish_location' => Point::class,
             'tariff_snapshot' => 'array',
             'price_breakdown' => 'array',
             'stops' => 'array',

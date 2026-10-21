@@ -163,7 +163,45 @@ data class ShiftSummary(
 
 data class StandPosition(val stand: String, val position: Int, val total: Int)
 
-data class CompleteRequest(@SerializedName("inside_m") val insideM: Long, @SerializedName("outside_m") val outsideM: Long)
+data class CompleteRequest(
+    @SerializedName("inside_m") val insideM: Long,
+    @SerializedName("outside_m") val outsideM: Long,
+    val lat: Double? = null,
+    val lng: Double? = null,
+)
+
+/** "Yo'lovchi o'tirdi" paytidagi joy (GPS hali bo'lmasa — server oxirgi ma'lum joyni oladi) */
+data class PositionRequest(val lat: Double?, val lng: Double?)
+
+data class GeoPoint(val lat: Double, val lng: Double)
+
+/** Buyurtmalar tarixidagi bitta safar (GET orders/history) */
+data class HistoryOrder(
+    val id: Int,
+    val status: String,
+    @SerializedName("created_at") val createdAt: String?,
+    @SerializedName("started_at") val startedAt: String?,
+    @SerializedName("completed_at") val completedAt: String?,
+    @SerializedName("cancelled_at") val cancelledAt: String?,
+    @SerializedName("pickup_text") val pickupText: String?,
+    val pickup: GeoPoint?,
+    @SerializedName("dropoff_text") val dropoffText: String?,
+    val dropoff: GeoPoint?,
+    val start: GeoPoint?,
+    @SerializedName("start_name") val startName: String?,
+    val finish: GeoPoint?,
+    @SerializedName("finish_name") val finishName: String?,
+    @SerializedName("distance_m") val distanceM: Int?,
+    @SerializedName("duration_s") val durationS: Int?,
+    val price: Long?,
+    val commission: Long?,
+    val cashless: Boolean = false,
+)
+
+data class OrderHistoryPage(val items: List<HistoryOrder>, @SerializedName("next_page") val nextPage: Int?)
+
+/** Safarning haqiqiy yo'li: [[lat, lng], ...]; GPS o'chirilgan bo'lsa bo'sh */
+data class OrderTrack(val points: List<List<Double>> = emptyList(), val start: GeoPoint?, val finish: GeoPoint?)
 
 data class CancelRequest(val reason: String)
 

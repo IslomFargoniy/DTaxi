@@ -158,4 +158,18 @@
     <string name="incoming_call">Kiruvchi qo\'ng\'iroq</string>
     <string name="answer">Javob berish</string>
     <string name="decline">Rad etish</string>
+    <string name="order_history">Buyurtmalar tarixi</string>
+    <string name="picked_up">Oldi</string>
+    <string name="dropped_off">Yakunladi</string>
+    <string name="status_completed">Yakunlandi</string>
+    <string name="status_cancelled_by_client">Mijoz bekor qildi</string>
+    <string name="status_cancelled_by_operator">Operator bekor qildi</string>
+    <string name="status_cancelled_by_driver">Siz bekor qildingiz</string>
+    <string name="history_empty">Hali buyurtmalar yo\'q</string>
+    <string name="trip">Safar</string>
+    <string name="trip_duration">Yo\'lda</string>
+    <string name="distance">Masofa</string>
+    <string name="price">Narx</string>
+    <string name="corporate_short">Korporativ</string>
+    <string name="track_missing">GPS yo\'li saqlanmagan — boshlanish va tugash nuqtalari to\'g\'ri chiziq bilan</string>
 </resources>

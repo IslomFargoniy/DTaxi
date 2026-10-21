@@ -159,4 +159,18 @@
     <string name="incoming_call">Кирувчи қўнғироқ</string>
     <string name="answer">Жавоб бериш</string>
     <string name="decline">Рад этиш</string>
+    <string name="order_history">Буюртмалар тарихи</string>
+    <string name="picked_up">Олди</string>
+    <string name="dropped_off">Якунлади</string>
+    <string name="status_completed">Якунланди</string>
+    <string name="status_cancelled_by_client">Мижоз бекор қилди</string>
+    <string name="status_cancelled_by_operator">Оператор бекор қилди</string>
+    <string name="status_cancelled_by_driver">Сиз бекор қилдингиз</string>
+    <string name="history_empty">Ҳали буюртмалар йўқ</string>
+    <string name="trip">Сафар</string>
+    <string name="trip_duration">Йўлда</string>
+    <string name="distance">Масофа</string>
+    <string name="price">Нарх</string>
+    <string name="corporate_short">Корпоратив</string>
+    <string name="track_missing">GPS йўли сақланмаган — бошланиш ва тугаш нуқталари тўғри чизиқ билан</string>
 </resources>

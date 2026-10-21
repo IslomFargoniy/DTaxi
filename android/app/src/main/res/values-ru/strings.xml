@@ -158,4 +158,18 @@
     <string name="incoming_call">Входящий звонок</string>
     <string name="answer">Ответить</string>
     <string name="decline">Отклонить</string>
+    <string name="order_history">История заказов</string>
+    <string name="picked_up">Забрал</string>
+    <string name="dropped_off">Высадил</string>
+    <string name="status_completed">Выполнен</string>
+    <string name="status_cancelled_by_client">Отменил клиент</string>
+    <string name="status_cancelled_by_operator">Отменил оператор</string>
+    <string name="status_cancelled_by_driver">Вы отменили</string>
+    <string name="history_empty">Заказов пока нет</string>
+    <string name="trip">Поездка</string>
+    <string name="trip_duration">В пути</string>
+    <string name="distance">Расстояние</string>
+    <string name="price">Цена</string>
+    <string name="corporate_short">Корпоративный</string>
+    <string name="track_missing">GPS-трек не сохранён — начало и конец соединены прямой линией</string>
 </resources>
