@@ -108,6 +108,7 @@ def configure_asterisk(lan_ip: str) -> None:
         "[ice_host_candidates]\n"
         f"{VM_IP} => {lan_ip}\n"
     )
+    lan_net = lan_ip.rsplit(".", 1)[0] + ".0/24"
     # multipass exec argumentlarni qo'shtirnoqsiz birlashtiradi — sozlama va buyruq fayl sifatida uzatiladi
     import tempfile
     with tempfile.TemporaryDirectory() as tmp:
@@ -116,7 +117,14 @@ def configure_asterisk(lan_ip: str) -> None:
         with open(conf_file, "w") as f:
             f.write(conf)
         with open(script_file, "w") as f:
-            f.write("#!/bin/bash\nset -e\ncp /tmp/dtaxi-rtp.conf /etc/asterisk/rtp.conf\nasterisk -rx 'module reload res_rtp_asterisk.so'\n")
+            f.write(
+                "#!/bin/bash\nset -e\ncp /tmp/dtaxi-rtp.conf /etc/asterisk/rtp.conf\n"
+                # VM o'zi ham Mac NAT'i orqali telefonga ICE tekshiruvi yuboradi va telefon o'sha yo'lni tanlaydi —
+                # NAT portni o'zgartiradi, ovoz telefonga yetmaydi. Wi-Fi tarmog'iga to'g'ridan-to'g'ri RTP yopiladi.
+                f"while iptables -D OUTPUT -p udp --sport {RTP_START}:{RTP_END} -d {lan_net} -j DROP 2>/dev/null; do :; done\n"
+                f"iptables -I OUTPUT -p udp --sport {RTP_START}:{RTP_END} -d {lan_net} -j DROP\n"
+                "asterisk -rx 'module reload res_rtp_asterisk.so'\n"
+            )
         subprocess.run(["multipass", "transfer", conf_file, f"{VM_NAME}:/tmp/dtaxi-rtp.conf"], capture_output=True, text=True)
         subprocess.run(["multipass", "transfer", script_file, f"{VM_NAME}:/tmp/dtaxi-apply-rtp.sh"], capture_output=True, text=True)
         result = subprocess.run(["multipass", "exec", VM_NAME, "--", "sudo", "bash", "/tmp/dtaxi-apply-rtp.sh"], capture_output=True, text=True, timeout=60)
