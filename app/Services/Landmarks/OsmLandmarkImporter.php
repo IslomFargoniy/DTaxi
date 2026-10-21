@@ -17,6 +17,8 @@ class OsmLandmarkImporter
 
     private const BATCH = 500;
 
+    public function __construct(private readonly StreetRenamer $renamer) {}
+
     /**
      * @return array{read: int, imported: int}
      */
@@ -46,7 +48,11 @@ class OsmLandmarkImporter
             }
         }
 
-        return ['read' => $stats['read'], 'imported' => $stats['imported'] + $this->flush($batch)];
+        $stats['imported'] += $this->flush($batch);
+        // OSM'da hali eski nom — admin kiritgan qayta nomlashlar yangi kelgan ko'cha va manzillarga ham
+        $this->renamer->applyAll();
+
+        return $stats;
     }
 
     /**

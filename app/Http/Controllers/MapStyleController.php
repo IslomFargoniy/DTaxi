@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Landmarks\StreetRenamer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -10,7 +11,7 @@ use Illuminate\Http\Request;
  */
 class MapStyleController extends Controller
 {
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(Request $request, StreetRenamer $renamer): JsonResponse
     {
         $flavor = $request->query('flavor') === 'dark' ? 'dark' : 'light';
         // Kirill o'zbekcha (oz) — OSM'dagi o'zbekcha nomlar
@@ -25,12 +26,18 @@ class MapStyleController extends Controller
         // Obyekt sifatida o'qiladi: assoc=true bo'lsa "format" ichidagi {} bo'sh massivga ([]) aylanadi va
         // Android'dagi MapLibre Native yozuv qatlamlarini o'qimaydi (joy nomlari ko'rinmay qoladi)
         $layers = json_decode((string) file_get_contents(resource_path("map/layers-{$flavor}-{$lang}.json")));
+        $renames = $renamer->map();
         foreach (is_array($layers) ? $layers : [] as $layer) {
             // Joy yozuvlari — bizning bazadan (LandmarkTileController): admin tuzatgan nomlar darhol ko'rinadi
             if ($layer instanceof \stdClass && ($layer->id ?? null) === 'pois' && isset($layer->layout)) {
                 $layer->source = 'dtaxi';
                 $layer->filter = ['>=', ['zoom'], ['get', 'min_zoom']];
                 $layer->layout->{'text-field'} = ['get', 'name'];
+            }
+            // Ko'cha yozuvlari — OSM'dagi eski nom o'rniga admin kiritgan yangi nom (taxi-map.tsx bilan bir xil)
+            if ($renames !== [] && $layer instanceof \stdClass && ($layer->{'source-layer'} ?? null) === 'roads'
+                && ($layer->id ?? null) !== 'roads_shields' && isset($layer->layout->{'text-field'})) {
+                $layer->layout->{'text-field'} = self::renamed($layer->layout->{'text-field'}, $lang, $renames);
             }
         }
 
@@ -54,5 +61,34 @@ class MapStyleController extends Controller
             ],
             'layers' => $layers,
         ])->header('Cache-Control', 'public, max-age=300');
+    }
+
+    /**
+     * Panel xaritasi uchun qayta nomlangan ko'chalar (eski → yangi); uslubni brauzer o'zi yig'adi.
+     */
+    public function renames(StreetRenamer $renamer): JsonResponse
+    {
+        return response()->json((object) $renamer->map())->header('Cache-Control', 'public, max-age=300');
+    }
+
+    /**
+     * Yozuvdagi nom (tildagi yoki asosiy) eski nomga teng bo'lsa — yangi nom, aks holda asl ifoda.
+     *
+     * @param  array<string, string>  $renames
+     * @return list<mixed>
+     */
+    public static function renamed(mixed $textField, string $lang, array $renames): array
+    {
+        $pairs = [];
+        foreach ($renames as $old => $new) {
+            // "format" — asl ifoda formatted turida; Android'dagi MapLibre Native ham bir xil turni kutadi
+            array_push($pairs, (string) $old, ['format', $new, new \stdClass]);
+        }
+
+        return [
+            'match', ['coalesce', ['get', "name:{$lang}"], ['get', 'name'], ''], ...$pairs,
+            // Tildagi nom (name:uz) bor, admin esa asosiy nomni (name) tanlagan bo'lsa ham
+            ['match', ['coalesce', ['get', 'name'], ''], ...$pairs, $textField],
+        ];
     }
 }

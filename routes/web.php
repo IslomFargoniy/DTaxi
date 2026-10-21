@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SoundController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\StandController;
+use App\Http\Controllers\Admin\StreetRenameController;
 use App\Http\Controllers\Admin\TariffController;
 use App\Http\Controllers\Admin\TelephonyController;
 use App\Http\Controllers\Cashier\CashierController;
@@ -36,6 +37,7 @@ Route::get('/', fn () => to_route('dashboard'))->name('home');
 
 Route::put('locale', [LocaleController::class, 'update'])->name('locale.update');
 Route::get('map/style.json', MapStyleController::class)->name('map.style');
+Route::get('map/street-renames.json', [MapStyleController::class, 'renames'])->name('map.street-renames');
 Route::get('map/landmarks/{z}/{x}/{y}.pbf', LandmarkTileController::class)->whereNumber(['z', 'x', 'y'])->name('map.landmarks');
 
 // Haydovchi ilovasi — Google Play'siz (qaror #37)
@@ -117,6 +119,12 @@ Route::middleware(['auth', 'permission:tariffs.manage'])->prefix('admin')->name(
     Route::post('stands', [StandController::class, 'store'])->name('stands.store');
     Route::put('stands/{stand}', [StandController::class, 'update'])->name('stands.update');
     Route::delete('stands/{stand}', [StandController::class, 'destroy'])->name('stands.destroy');
+    // Qayta nomlangan ko'chalar xarita va navigatsiyaga ta'sir qiladi — operator emas, admin
+    Route::get('street-renames', [StreetRenameController::class, 'index'])->name('street-renames.index');
+    Route::get('street-renames/suggest', [StreetRenameController::class, 'suggest'])->name('street-renames.suggest');
+    Route::post('street-renames', [StreetRenameController::class, 'store'])->name('street-renames.store');
+    Route::put('street-renames/{streetRename}', [StreetRenameController::class, 'update'])->name('street-renames.update');
+    Route::delete('street-renames/{streetRename}', [StreetRenameController::class, 'destroy'])->name('street-renames.destroy');
     Route::get('companies', [CompanyController::class, 'index'])->name('companies.index');
     Route::post('companies', [CompanyController::class, 'store'])->name('companies.store');
     Route::put('companies/{company}', [CompanyController::class, 'update'])->name('companies.update');

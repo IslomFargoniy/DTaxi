@@ -2,6 +2,7 @@
 
 namespace App\Services\Routing;
 
+use App\Services\Landmarks\StreetRenamer;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -16,6 +17,8 @@ class Router
     private const DETOUR_FACTOR = 1.3;
 
     private const FALLBACK_SPEED_MPS = 30 / 3.6;
+
+    public function __construct(private readonly StreetRenamer $renamer) {}
 
     public function route(Point $from, Point $to, bool $withGeometry = false, bool $withSteps = false): Route
     {
@@ -56,14 +59,17 @@ class Router
     private function steps(array $steps): array
     {
         $result = [];
+        // OSRM OSM'dagi eski ko'cha nomini beradi — navigatsiya ko'rsatmasida hozirgi nom
+        $renames = $this->renamer->map();
         foreach ($steps as $step) {
             if (! is_array($step)) {
                 continue;
             }
+            $name = (string) ($step['name'] ?? '');
             $result[] = [
                 'type' => (string) data_get($step, 'maneuver.type'),
                 'modifier' => data_get($step, 'maneuver.modifier'),
-                'name' => (string) ($step['name'] ?? ''),
+                'name' => $renames[$name] ?? $name,
                 // Shu qadam yo'li uzunligi (keyingi manevrgacha)
                 'distance' => (int) round((float) ($step['distance'] ?? 0)),
                 'lng' => (float) data_get($step, 'maneuver.location.0'),
