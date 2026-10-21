@@ -27,7 +27,7 @@ class LookupController extends Controller
         $client = Client::query()->where('phone', $phone)->first();
 
         if (! $client) {
-            return response()->json(['client' => null, 'addresses' => [], 'orders' => [], 'dropoffs' => []]);
+            return response()->json(['client' => null, 'addresses' => [], 'orders' => [], 'dropoffs' => [], 'last_order' => null]);
         }
 
         return response()->json([
@@ -68,7 +68,40 @@ class LookupController extends Controller
                     'lat' => $o->dropoff_location?->getLatitude(),
                     'lng' => $o->dropoff_location?->getLongitude(),
                 ]),
+            // "Oxirgi buyurtmani takrorlash" — manzillar, to'xtashlar va tarif bir bosishda
+            'last_order' => $this->lastOrder($client),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function lastOrder(Client $client): ?array
+    {
+        /** @var Order|null $order */
+        $order = $client->orders()->latest('id')->first();
+        if (! $order) {
+            return null;
+        }
+
+        return [
+            'id' => $order->id,
+            'branch_id' => $order->branch_id,
+            'tariff_class_id' => $order->tariff_class_id,
+            'pickup' => [
+                'text' => $order->pickup_text,
+                'lat' => $order->pickup_location->getLatitude(),
+                'lng' => $order->pickup_location->getLongitude(),
+                'landmark_id' => $order->pickup_landmark_id,
+            ],
+            'dropoff' => $order->dropoff_location ? [
+                'text' => (string) $order->dropoff_text,
+                'lat' => $order->dropoff_location->getLatitude(),
+                'lng' => $order->dropoff_location->getLongitude(),
+            ] : null,
+            'stops' => $order->stops ?? [],
+            'comment' => $order->comment,
+        ];
     }
 
     public function landmarks(Request $request): JsonResponse

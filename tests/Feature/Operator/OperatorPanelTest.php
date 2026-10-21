@@ -231,3 +231,31 @@ test('a point on the map gets the nearest house address as its name', function (
     $order = app(OrderService::class)->create(orderData($this->branch, ['pickup_text' => 'Xaritadagi nuqta']), dispatch: false);
     expect($order->pickup_text)->toBe("Mustaqillik ko'chasi, 22");
 });
+
+test('client lookup returns the last order for one-click repeat', function () {
+    $orders = app(OrderService::class);
+    $orders->create(orderData($this->branch, ['pickup_text' => 'Eski joy']), dispatch: false);
+    $last = $orders->create(orderData($this->branch, [
+        'dropoff_text' => 'Vokzal', 'dropoff_lat' => 40.37, 'dropoff_lng' => 71.79, 'comment' => 'Darvoza oldida',
+    ]), dispatch: false);
+
+    $this->actingAs($this->operator)
+        ->getJson(route('operator.lookup.client', ['phone' => $last->client->phone]))
+        ->assertOk()
+        ->assertJsonPath('last_order.id', $last->id)
+        ->assertJsonPath('last_order.tariff_class_id', $last->tariff_class_id)
+        ->assertJsonPath('last_order.pickup.text', $last->pickup_text)
+        ->assertJsonPath('last_order.dropoff.text', 'Vokzal')
+        ->assertJsonPath('last_order.comment', 'Darvoza oldida');
+
+    $this->getJson(route('operator.lookup.client', ['phone' => '+998 99 000 00 00']))
+        ->assertOk()->assertJsonPath('last_order', null);
+});
+
+test('operator goes offline on logout', function () {
+    $this->operator->forceFill(['operator_status' => 'ready'])->save();
+
+    $this->actingAs($this->operator)->post(route('logout'))->assertRedirect();
+
+    expect($this->operator->fresh()->operator_status)->toBe('offline');
+});
