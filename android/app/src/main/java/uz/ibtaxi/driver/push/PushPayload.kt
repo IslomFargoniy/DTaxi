@@ -2,6 +2,7 @@ package uz.ibtaxi.driver.push
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import uz.ibtaxi.driver.data.IncomingCall
 import uz.ibtaxi.driver.data.Offer
 
 /**
@@ -26,5 +27,16 @@ object PushPayload {
         // Kotlin'da null bo'lmaydigan matn maydonlari — Gson ularni null qoldirsa ekran yiqiladi
         requiredText.forEach { if (!json.has(it)) json.addProperty(it, "") }
         return runCatching { gson.fromJson(json, Offer::class.java) }.getOrNull()
+    }
+
+    /** Operator qo'ng'irog'i: call_id, operator, expires_in, sent_at (server vaqti, soniya) */
+    fun incomingCall(data: Map<String, String>, nowSeconds: Long): IncomingCall? {
+        val callId = data["call_id"]?.toIntOrNull() ?: return null
+        val expiresIn = data["expires_in"]?.toIntOrNull() ?: 30
+        return IncomingCall(
+            callId,
+            data["operator"].orEmpty(),
+            IncomingCall.remaining(expiresIn, data["sent_at"]?.toLongOrNull(), nowSeconds),
+        )
     }
 }

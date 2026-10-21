@@ -50,6 +50,9 @@ class Repository(val client: ApiClient, val session: Session) {
 
     suspend fun registerPushToken(token: String) = unitCall { api.deviceToken(TokenRequest(token)) }
 
+    /** Operator qo'ng'irog'ini rad etish */
+    suspend fun declineCall(callId: Int) = unitCall { api.declineCall(callId) }
+
     suspend fun refreshOrder(): Result<Order?> =
         call { api.currentOrder() }.map { it.order }.also { if (it is Result.Ok) DriverState.setOrder(it.value) }
 

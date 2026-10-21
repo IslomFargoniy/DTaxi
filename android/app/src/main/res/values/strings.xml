@@ -154,4 +154,8 @@
     <string name="finish_confirm_text">Mijozdan olinadigan summa: %1$s so\'m. Masofa: %2$s km.</string>
     <string name="offer_sound">Yangi buyurtma ovozi</string>
     <string name="offer_sound_default">Standart</string>
+    <string name="channel_calls">Dispetcher qo\'ng\'iroqlari</string>
+    <string name="incoming_call">Kiruvchi qo\'ng\'iroq</string>
+    <string name="answer">Javob berish</string>
+    <string name="decline">Rad etish</string>
 </resources>

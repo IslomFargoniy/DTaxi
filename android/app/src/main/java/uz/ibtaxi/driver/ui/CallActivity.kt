@@ -36,6 +36,10 @@ class CallActivity : ComponentActivity() {
     private val callUrl = IbTaxiApp.instance.session.serverUrl.replaceFirst("http://", "https://") + "/driver-app/call"
     private val host = Uri.parse(callUrl).host
 
+    /** Operator qo'ng'irog'iga javob (answer-{callId}); bo'sh — dispetcher navbatiga qo'ng'iroq */
+    private val target by lazy { intent.getStringExtra(EXTRA_TARGET).orEmpty() }
+    private val caller by lazy { intent.getStringExtra(EXTRA_CALLER).orEmpty() }
+
     /** Hozir ochiq sahifa (asosiy freym) — JS ko'prik oqimidan o'qiladi, WebView.url esa faqat UI oqimida */
     @Volatile
     private var pageUrl: Uri? = null
@@ -48,6 +52,11 @@ class CallActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // Qulflangan ekranda javob berilgan qo'ng'iroq qulf ortida qolib ketmasin
+        if (target.isNotEmpty()) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        }
         volumeControlStream = AudioManager.STREAM_VOICE_CALL
         audio.mode = AudioManager.MODE_IN_COMMUNICATION
         // Mashinada odatda karnay orqali gaplashiladi
@@ -193,5 +202,16 @@ class CallActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun route(): String = this@CallActivity.route()
+
+        @JavascriptInterface
+        fun target(): String = this@CallActivity.target
+
+        @JavascriptInterface
+        fun caller(): String = this@CallActivity.caller
+    }
+
+    companion object {
+        const val EXTRA_TARGET = "target"
+        const val EXTRA_CALLER = "caller"
     }
 }

@@ -154,4 +154,8 @@
     <string name="finish_confirm_text">К оплате: %1$s сум. Расстояние: %2$s км.</string>
     <string name="offer_sound">Звук нового заказа</string>
     <string name="offer_sound_default">По умолчанию</string>
+    <string name="channel_calls">Звонки диспетчера</string>
+    <string name="incoming_call">Входящий звонок</string>
+    <string name="answer">Ответить</string>
+    <string name="decline">Отклонить</string>
 </resources>

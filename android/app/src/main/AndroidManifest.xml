@@ -56,6 +56,21 @@
             android:screenOrientation="portrait"
             android:theme="@android:style/Theme.Material.NoActionBar" />
 
+        <!-- Operator qo'ng'irog'i (qaror #59): qulflangan ekranda ham, telefon qo'ng'irog'idek -->
+        <activity
+            android:name=".ui.IncomingCallActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
+        <receiver
+            android:name=".service.IncomingCallReceiver"
+            android:exported="false" />
+
         <!-- Liniyada bo'lganda: GPS, Reverb ulanishi, takliflar (qaror #1, reja §8.4) -->
         <service
             android:name=".service.DriverService"

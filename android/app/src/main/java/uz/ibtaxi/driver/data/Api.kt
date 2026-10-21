@@ -74,6 +74,9 @@ interface Api {
     @POST("api/driver/v1/chat")
     suspend fun sendChat(@Body body: ChatRequest): Response<ChatMessage>
 
+    @POST("api/driver/v1/phone/calls/{id}/decline")
+    suspend fun declineCall(@Path("id") id: Int): Response<Unit>
+
     @GET("api/driver/v1/app-version")
     suspend fun appVersion(@Query("abi") abi: String): Response<AppVersion>
 }

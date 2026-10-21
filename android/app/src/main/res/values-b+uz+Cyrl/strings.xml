@@ -155,4 +155,8 @@
     <string name="finish_confirm_text">Мижоздан олинадиган сумма: %1$s сўм. Масофа: %2$s км.</string>
     <string name="offer_sound">Янги буюртма овози</string>
     <string name="offer_sound_default">Стандарт</string>
+    <string name="channel_calls">Диспетчер қўнғироқлари</string>
+    <string name="incoming_call">Кирувчи қўнғироқ</string>
+    <string name="answer">Жавоб бериш</string>
+    <string name="decline">Рад этиш</string>
 </resources>

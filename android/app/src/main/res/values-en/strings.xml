@@ -154,4 +154,8 @@
     <string name="finish_confirm_text">Amount to collect: %1$s som. Distance: %2$s km.</string>
     <string name="offer_sound">New order sound</string>
     <string name="offer_sound_default">Default</string>
+    <string name="channel_calls">Dispatcher calls</string>
+    <string name="incoming_call">Incoming call</string>
+    <string name="answer">Answer</string>
+    <string name="decline">Decline</string>
 </resources>

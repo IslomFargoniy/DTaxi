@@ -81,6 +81,14 @@ class IbTaxiApp : Application() {
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_SERVICE, getString(R.string.channel_service), NotificationManager.IMPORTANCE_LOW),
         )
+        // Operator qo'ng'irog'i: ohang va tebranishni IncomingCallNotifier o'zi boshqaradi (to'xtatish uchun), kanal jim
+        manager.createNotificationChannel(
+            NotificationChannel(CHANNEL_CALLS, getString(R.string.channel_calls), NotificationManager.IMPORTANCE_HIGH).apply {
+                setSound(null, null)
+                enableVibration(false)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+            },
+        )
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_MESSAGES, getString(R.string.channel_messages), NotificationManager.IMPORTANCE_HIGH),
         )
@@ -90,6 +98,7 @@ class IbTaxiApp : Application() {
         const val CHANNEL_OFFERS = "offers_silent"
         const val CHANNEL_SERVICE = "service"
         const val CHANNEL_MESSAGES = "messages"
+        const val CHANNEL_CALLS = "calls"
 
         lateinit var instance: IbTaxiApp
             private set

@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 import uz.ibtaxi.driver.IbTaxiApp
 import uz.ibtaxi.driver.R
 import uz.ibtaxi.driver.data.DriverState
+import uz.ibtaxi.driver.data.IncomingCall
 import uz.ibtaxi.driver.data.LocationPoint
 import uz.ibtaxi.driver.data.Offer
 import uz.ibtaxi.driver.data.Order
@@ -358,6 +359,13 @@ class DriverService : LifecycleService() {
                 DriverState.setOrder(order)
                 if (order.status in DriverState.FINISHED) lifecycleScope.launch { app.repository.refreshProfile() }
             }
+            "IncomingCall" -> {
+                val callId = data.get("call_id")?.takeIf { !it.isJsonNull }?.asInt ?: return
+                val operator = data.get("operator")?.takeIf { !it.isJsonNull }?.asString.orEmpty()
+                val expiresIn = data.get("expires_in")?.takeIf { !it.isJsonNull }?.asInt ?: 30
+                IncomingCallNotifier.show(this, IncomingCall(callId, operator, expiresIn))
+            }
+            "IncomingCallEnded" -> data.get("call_id")?.takeIf { !it.isJsonNull }?.asInt?.let { IncomingCallNotifier.ended(this, it) }
             "ChatMessageSent" -> {
                 // O'zimiz yuborgan xabar ham shu kanalga keladi — faqat dispetcherdan kelganlar sanaladi
                 if (data.get("sender_id")?.asInt != DriverState.profile.value?.userId) {
