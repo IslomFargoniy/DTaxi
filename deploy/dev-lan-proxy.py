@@ -99,13 +99,27 @@ def configure_asterisk(lan_ip: str) -> None:
         f"rtpstart={RTP_START}\n"
         f"rtpend={RTP_END}\n"
         "icesupport=yes\n"
+        "; Docker interfeysi telefonga ko'rinmaydi — ICE nomzodi sifatida chalg'itmasin\n"
+        "ice_blacklist=172.16.0.0/12\n"
         "\n"
-        "; dev-lan-proxy.py yozdi: telefon Mac orqali ovoz yuboradi\n"
+        "; dev-lan-proxy.py yozdi: telefon Mac orqali ovoz yuboradi.\n"
+        "; Ichki manzil (VM) e'lon qilinmaydi: aks holda telefon Mac NAT'i orqali to'g'ridan-to'g'ri yo'lni tanlaydi,\n"
+        "; NAT esa javob portini o'zgartiradi va WebRTC kelgan ovozni tashlab yuboradi (operator ovozi eshitilmaydi)\n"
         "[ice_host_candidates]\n"
-        f"{VM_IP} => {lan_ip},include_local_address\n"
+        f"{VM_IP} => {lan_ip}\n"
     )
-    script = f"cat > /etc/asterisk/rtp.conf <<'EOF'\n{conf}EOF\nasterisk -rx 'module reload res_rtp_asterisk.so'"
-    result = subprocess.run(["multipass", "exec", VM_NAME, "--", "sudo", "bash", "-c", script], capture_output=True, text=True)
+    # multipass exec argumentlarni qo'shtirnoqsiz birlashtiradi — sozlama va buyruq fayl sifatida uzatiladi
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        conf_file = os.path.join(tmp, "rtp.conf")
+        script_file = os.path.join(tmp, "apply-rtp.sh")
+        with open(conf_file, "w") as f:
+            f.write(conf)
+        with open(script_file, "w") as f:
+            f.write("#!/bin/bash\nset -e\ncp /tmp/dtaxi-rtp.conf /etc/asterisk/rtp.conf\nasterisk -rx 'module reload res_rtp_asterisk.so'\n")
+        subprocess.run(["multipass", "transfer", conf_file, f"{VM_NAME}:/tmp/dtaxi-rtp.conf"], capture_output=True, text=True)
+        subprocess.run(["multipass", "transfer", script_file, f"{VM_NAME}:/tmp/dtaxi-apply-rtp.sh"], capture_output=True, text=True)
+        result = subprocess.run(["multipass", "exec", VM_NAME, "--", "sudo", "bash", "/tmp/dtaxi-apply-rtp.sh"], capture_output=True, text=True, timeout=60)
     if result.returncode == 0:
         print(f"Asterisk: ovoz nomzodi {VM_IP} → {lan_ip} (RTP {RTP_START}–{RTP_END})", flush=True)
     else:
