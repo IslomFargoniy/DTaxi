@@ -119,7 +119,18 @@ data class Offer(
     @SerializedName("price_bonus") val priceBonus: Long? = null,
     @SerializedName("is_corporate") val isCorporate: Boolean = false,
     @SerializedName("stops_text") val stopsText: String? = null,
-)
+    /** Server yuborgan vaqt (unix ms) — har qayta yuborishda yangi; eski serverlarda yo'q */
+    @SerializedName("offered_at") val offeredAt: Long? = null,
+    /** Qabul qilingan payt (SystemClock.elapsedRealtime) — taymer ekran qayta yaratilsa ham shundan sanaladi */
+    @Transient val receivedAt: Long = 0,
+) {
+    /** Qayta yuborilgan taklif (yangi offered_at) takror emas; eski serverda faqat offer_id */
+    val dedupKey: String get() = if (offeredAt != null) "$offerId:$offeredAt" else "$offerId"
+
+    fun millisLeft(now: Long): Long = (expiresIn * 1000L - (now - receivedAt)).coerceAtLeast(0)
+
+    fun secondsLeft(now: Long): Int = ((millisLeft(now) + 999) / 1000).toInt()
+}
 
 /** [t] — nuqta olingan vaqt (epoch ms): internet qaytganda yuborilgan nuqtalar to'g'ri tartibda yoziladi */
 data class LocationPoint(

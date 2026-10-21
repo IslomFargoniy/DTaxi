@@ -22,7 +22,12 @@ object OfferSound {
     /** Bir taklif uchun bir marta: push, Reverb va oyna bir vaqtda chaqirsa ham ovoz bitta */
     @Synchronized
     fun start(context: Context, offerId: Int, expiresInSeconds: Int) {
-        if (this.offerId == offerId && ringtone?.isPlaying == true) return
+        if (this.offerId == offerId && ringtone?.isPlaying == true) {
+            // Qayta yuborilgan taklif — signal yangi muddatgacha chalinadi
+            handler.removeCallbacks(autoStop)
+            handler.postDelayed(autoStop, expiresInSeconds.coerceAtLeast(1) * 1000L)
+            return
+        }
         stop()
         this.offerId = offerId
         ringtone = RingtoneManager.getRingtone(context.applicationContext, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))?.apply {

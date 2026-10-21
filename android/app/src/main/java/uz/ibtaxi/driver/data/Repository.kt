@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import android.os.Build
 import retrofit2.Response
 import java.io.IOException
+import kotlin.coroutines.cancellation.CancellationException
 
 sealed interface Result<out T> {
     data class Ok<T>(val value: T) : Result<T>
@@ -30,8 +31,11 @@ class Repository(val client: ApiClient, val session: Session) {
         }.map { it.driver }
 
     suspend fun logout() {
-        call { api.logout() }
+        unitCall { api.logout() }
         session.clear()
+        // Keyingi haydovchiga eski buyurtmaning "Yakunlash"i qayta yuborilmasin
+        session.pendingComplete = null
+        DriverState.setPendingComplete(null)
         DriverState.setProfile(null)
         DriverState.setOrder(null)
     }
@@ -42,9 +46,9 @@ class Repository(val client: ApiClient, val session: Session) {
     suspend fun setOnline(online: Boolean): Result<ShiftResponse> =
         call { api.shift(ShiftRequest(online)) }.also { if (it is Result.Ok) DriverState.setStatus(it.value.status) }
 
-    suspend fun sendLocations(points: List<LocationPoint>): Boolean = call { api.location(LocationBatch(points)) } is Result.Ok
+    suspend fun sendLocations(points: List<LocationPoint>): Boolean = unitCall { api.location(LocationBatch(points)) } is Result.Ok
 
-    suspend fun registerPushToken(token: String) = call { api.deviceToken(TokenRequest(token)) }
+    suspend fun registerPushToken(token: String) = unitCall { api.deviceToken(TokenRequest(token)) }
 
     suspend fun refreshOrder(): Result<Order?> =
         call { api.currentOrder() }.map { it.order }.also { if (it is Result.Ok) DriverState.setOrder(it.value) }
@@ -56,7 +60,7 @@ class Repository(val client: ApiClient, val session: Session) {
 
     suspend fun reject(orderId: Int) {
         DriverState.clearOffer(orderId)
-        call { api.reject(orderId) }
+        unitCall { api.reject(orderId) }
     }
 
     suspend fun arrive(orderId: Int) = orderCall { api.arrive(orderId) }
@@ -143,10 +147,21 @@ class Repository(val client: ApiClient, val session: Session) {
     private suspend fun orderCall(block: suspend () -> Response<OrderEnvelope>): Result<Order?> =
         call(block).map { it.order }.also { if (it is Result.Ok) DriverState.setOrder(it.value) }
 
-    private suspend fun <T> call(block: suspend () -> Response<T>): Result<T> = try {
+    /** Javob tanasi shart: bo'sh kelsa (204) — xato (oldin `Unit as T` keyinroq ClassCastException berardi) */
+    private suspend fun <T : Any> call(block: suspend () -> Response<T>): Result<T> =
+        send(block) { body, code -> if (body != null) Result.Ok(body) else Result.Error(null, code) }
+
+    /** Tanasiz javob kutiladigan so'rovlar (204 ham muvaffaqiyat) */
+    private suspend fun unitCall(block: suspend () -> Response<Unit>): Result<Unit> = send(block) { _, _ -> Result.Ok(Unit) }
+
+    /**
+     * Har qanday xato Result.Error bo'ladi — servisning syncLoop'i yiqilmasin.
+     * -1: tarmoq (qayta yuboriladi), -2: server javobi o'qilmadi (JSON).
+     */
+    private suspend fun <T, R> send(block: suspend () -> Response<T>, onSuccess: (T?, Int) -> Result<R>): Result<R> = try {
         val response = block()
         when {
-            response.isSuccessful -> Result.Ok(response.body() ?: @Suppress("UNCHECKED_CAST") (Unit as T))
+            response.isSuccessful -> onSuccess(response.body(), response.code())
             response.code() == 401 -> {
                 session.clear()
                 DriverState.setProfile(null)
@@ -154,8 +169,12 @@ class Repository(val client: ApiClient, val session: Session) {
             }
             else -> Result.Error(ApiClient.errorMessage(response), response.code())
         }
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: IOException) {
         Result.Error(null, -1)
+    } catch (e: Exception) {
+        Result.Error(null, -2)
     }
 
     private inline fun <T, R> Result<T>.map(transform: (T) -> R): Result<R> = when (this) {

@@ -3,12 +3,18 @@ package uz.ibtaxi.driver
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.os.SystemClock
 import com.google.firebase.FirebaseApp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import com.google.firebase.FirebaseOptions
 import org.maplibre.android.MapLibre
 import uz.ibtaxi.driver.data.ApiClient
 import uz.ibtaxi.driver.data.Repository
+import uz.ibtaxi.driver.data.DriverState
 import uz.ibtaxi.driver.data.Session
+import uz.ibtaxi.driver.service.OfferNotifier
 
 class IbTaxiApp : Application() {
     /** Ekranlardan mustaqil amallar: buyurtma kartochkasi yopilsa ham so'rov bekor bo'lmaydi */
@@ -28,6 +34,20 @@ class IbTaxiApp : Application() {
         MapLibre.getInstance(this)
         initFirebase()
         createChannels()
+        expireOffers()
+    }
+
+    /**
+     * Muddati o'tgan taklif ekran ochilmagan bo'lsa ham o'chiriladi (servis yoki FCM jarayoni) —
+     * keyin ilova ochilganda eski taklif chiqib qolmasin.
+     */
+    private fun expireOffers() = scope.launch {
+        DriverState.offer.collectLatest { offer ->
+            offer ?: return@collectLatest
+            delay(offer.millisLeft(SystemClock.elapsedRealtime()))
+            DriverState.expireOffer(offer)
+            if (DriverState.offer.value == null) OfferNotifier.cancel(this@IbTaxiApp)
+        }
     }
 
     /**

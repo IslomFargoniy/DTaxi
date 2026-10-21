@@ -1,5 +1,6 @@
 package uz.ibtaxi.driver.ui
 
+import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,20 +46,28 @@ import kotlin.math.ceil
  * Operator tayinlagan bo'lsa — rad etish jarimali.
  */
 @Composable
-fun OfferDialog(offer: Offer, onAccept: () -> Unit, onReject: () -> Unit, onExpire: () -> Unit) {
+fun OfferDialog(offer: Offer, onAccept: () -> Unit, onReject: () -> Unit, onExpire: () -> Unit, accepting: Boolean = false) {
     val context = LocalContext.current
     val appColors = LocalAppColors.current
-    var left by remember(offer.offerId) { mutableIntStateOf(offer.expiresIn) }
+    // Qolgan vaqt taklif kelgan paytdan sanaladi — ekran burilsa yoki qayta yaratilsa taymer boshidan boshlanmaydi
+    var left by remember(offer) { mutableIntStateOf(offer.secondsLeft(SystemClock.elapsedRealtime())) }
+    if (left <= 0) {
+        // Muddati o'tgan taklif hech qachon ko'rsatilmaydi
+        LaunchedEffect(offer) { onExpire() }
+        return
+    }
 
     // Ovoz bildirishnoma bilan umumiy (OfferSound) — oyna ochilsa ham ikkinchi signal chalinmaydi
-    DisposableEffect(offer.offerId) {
+    DisposableEffect(offer) {
         OfferSound.start(context, offer.offerId, left)
         onDispose { OfferSound.stop() }
     }
-    LaunchedEffect(offer.offerId) {
-        while (left > 0) {
-            delay(1000)
-            left--
+    LaunchedEffect(offer) {
+        while (true) {
+            val millis = offer.millisLeft(SystemClock.elapsedRealtime())
+            left = ((millis + 999) / 1000).toInt()
+            if (millis <= 0) break
+            delay(millis.coerceAtMost(250))
         }
         onExpire()
     }
@@ -140,18 +149,26 @@ fun OfferDialog(offer: Offer, onAccept: () -> Unit, onReject: () -> Unit, onExpi
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         PlaceRow(PlaceDot.Pickup, offer.pickupText)
-                        offer.stopsText?.let { PlaceRow(PlaceDot.Stop, "${stringResource(R.string.stops)}: $it", bold = false) }
-                        offer.dropoffText?.let { PlaceRow(PlaceDot.Dropoff, it) }
+                        // Bo'sh satr (FCM'da null "" bo'lib keladi) — bo'sh qator chizilmasin
+                        offer.stopsText?.takeIf { it.isNotBlank() }?.let { PlaceRow(PlaceDot.Stop, "${stringResource(R.string.stops)}: $it", bold = false) }
+                        offer.dropoffText?.takeIf { it.isNotBlank() }?.let { PlaceRow(PlaceDot.Dropoff, it) }
                     }
 
-                    offer.comment?.let { Text("${stringResource(R.string.comment)}: $it", color = appColors.muted) }
+                    offer.comment?.takeIf { it.isNotBlank() }?.let { Text("${stringResource(R.string.comment)}: $it", color = appColors.muted) }
 
                     Button(
                         onClick = onAccept,
+                        enabled = !accepting,
                         modifier = Modifier.fillMaxWidth().height(64.dp),
                         shape = RoundedCornerShape(20.dp),
-                    ) { Text(stringResource(R.string.accept), style = MaterialTheme.typography.titleLarge) }
-                    TextButton(onClick = onReject, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                    ) {
+                        if (accepting) {
+                            CircularProgressIndicator(Modifier.size(28.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 3.dp)
+                        } else {
+                            Text(stringResource(R.string.accept), style = MaterialTheme.typography.titleLarge)
+                        }
+                    }
+                    TextButton(onClick = onReject, enabled = !accepting, modifier = Modifier.fillMaxWidth().height(48.dp)) {
                         Text(stringResource(R.string.skip), fontWeight = FontWeight.Bold, color = appColors.muted)
                     }
                 }
