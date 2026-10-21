@@ -88,8 +88,11 @@ export function PhoneInput({
         let caretDigits = raw.slice(0, caret).replace(/\D/g, '').length;
         let next: string;
 
-        if (raw.includes('+') || raw.replace(/\D/g, '').length > 10) {
-            // Avtoto'ldirish yoki to'liq raqam: "+998..." → milliy qism
+        if (
+            raw.includes('+') ||
+            raw.replace(/\D/g, '').length > PHONE_NATIONAL_LENGTH
+        ) {
+            // Avtoto'ldirish, to'liq raqam yoki bittalab yozilgan "998..."/"8 90..." → milliy qism
             next = phoneNational(raw);
             caretDigits = next.length;
         } else {

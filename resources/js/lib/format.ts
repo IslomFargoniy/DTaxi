@@ -10,7 +10,12 @@ export const PHONE_NATIONAL_LENGTH = 9;
  */
 export function phoneNational(raw: string | null | undefined): string {
     let digits = (raw ?? '').replace(/\D/g, '');
-    if (digits.startsWith('998') && digits.length > PHONE_NATIONAL_LENGTH) {
+    // "+998..." — har doim mamlakat kodi (to'liq bo'lmagan qiymat ham: maydon yozish davomida "+9989" beradi)
+    const international = (raw ?? '').trim().startsWith('+998');
+    if (
+        digits.startsWith('998') &&
+        (international || digits.length > PHONE_NATIONAL_LENGTH)
+    ) {
         digits = digits.slice(3);
     } else if (
         digits.startsWith('8') &&
