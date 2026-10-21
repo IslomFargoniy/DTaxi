@@ -331,8 +331,37 @@ class OrderService
             ->get()
             ->filter(fn (Order $order): bool => $order->scheduled_at !== null && $order->scheduled_at->lte(now()->addMinutes($this->preorderLead($order))))
             ->each(function (Order $order) use (&$count) {
-                $this->dispatcher->startSearch($order);
-                $count++;
+                // Ro'yxat oldindan o'qilgan: shu orada bekor qilingan buyurtma efirga chiqmaydi (faqat "yangi" dan)
+                if ($this->dispatcher->startSearch($order, [OrderStatus::New])) {
+                    $count++;
+                }
+            });
+
+        return $count;
+    }
+
+    /**
+     * Uzoq vaqt hech kim olmagan buyurtma cheksiz efirda turmaydi: "haydovchi topilmadi" (mijozga xabar odatdagidek ketadi).
+     */
+    public function expireUnanswered(): int
+    {
+        $count = 0;
+        Order::query()->withoutGlobalScopes()
+            ->where('status', OrderStatus::Searching->value)
+            ->whereNotNull('search_exhausted_at')
+            ->get()
+            ->filter(function (Order $order): bool {
+                $minutes = (int) app(Settings::class)->get('dispatch.rebroadcast_max_minutes', $order->branch_id);
+
+                return $minutes > 0 && $order->searching_at !== null && $order->searching_at->lte(now()->subMinutes($minutes));
+            })
+            ->each(function (Order $order) use (&$count) {
+                try {
+                    $this->cancel($order, OrderStatus::NoDriverFound, __('No driver found'), null, [OrderStatus::Searching]);
+                    $count++;
+                } catch (InvalidArgumentException) {
+                    // Shu orada olingan yoki bekor qilingan
+                }
             });
 
         return $count;
@@ -360,7 +389,15 @@ class OrderService
     public function cancelByDriver(Order $order, Driver $driver, string $reason, bool $excused = false): void
     {
         DB::transaction(function () use ($order, $driver) {
-            $this->transition($order, $driver, [OrderStatus::Assigned, OrderStatus::Arrived], ['driver_id' => null, 'vehicle_id' => null]);
+            // Holat shu UPDATE'da "qidirilmoqda" ga o'tadi: keyin operator bekor qilsa, efir uni qayta tiriltirmaydi
+            $this->transition($order, $driver, [OrderStatus::Assigned, OrderStatus::Arrived], [
+                'status' => OrderStatus::Searching,
+                'driver_id' => null,
+                'vehicle_id' => null,
+                'assigned_at' => null,
+                'arrived_at' => null,
+                'searching_at' => now(),
+            ]);
             $driver->forceFill(['status' => DriverStatus::Free])->save();
             OrderOffer::query()->where('order_id', $order->id)->where('driver_id', $driver->id)
                 ->update(['response' => OfferResponse::Cancelled->value, 'responded_at' => now()]);
@@ -376,12 +413,15 @@ class OrderService
      * Qator qulflanadi: shu paytda haydovchi qabul qilsa yoki yakunlasa ham holat va haydovchi to'g'ri o'qiladi
      * (aks holda haydovchi "band" bo'lib qolib ketishi yoki yakunlangan buyurtma bekor bo'lib qolishi mumkin).
      */
-    private function cancel(Order $order, OrderStatus $status, string $reason, ?User $actor): void
+    /**
+     * @param  list<OrderStatus>|null  $onlyFrom  faqat shu holatlardan (masalan avtomatik "topilmadi" — faqat qidirilayotgan)
+     */
+    private function cancel(Order $order, OrderStatus $status, string $reason, ?User $actor, ?array $onlyFrom = null): void
     {
-        DB::transaction(function () use ($order, $status, $reason) {
+        DB::transaction(function () use ($order, $status, $reason, $onlyFrom) {
             $locked = Order::query()->withoutGlobalScopes()->whereKey($order->id)->lockForUpdate()->firstOrFail();
 
-            if ($locked->status->isFinished()) {
+            if ($locked->status->isFinished() || ($onlyFrom !== null && ! in_array($locked->status, $onlyFrom, true))) {
                 throw new InvalidArgumentException(__('The order is already finished.'));
             }
 
@@ -408,24 +448,9 @@ class OrderService
      */
     private function transition(Order $order, Driver $driver, array $allowed, array $attributes): void
     {
-        $values = array_map(fn ($value) => $value instanceof \BackedEnum ? $value->value : $value, $attributes);
-        foreach (['price_breakdown'] as $json) {
-            if (isset($values[$json]) && is_array($values[$json])) {
-                $values[$json] = json_encode($values[$json]);
-            }
-        }
-
-        $updated = Order::query()->withoutGlobalScopes()
-            ->whereKey($order->id)
-            ->where('driver_id', $driver->id)
-            ->whereIn('status', array_map(fn (OrderStatus $s) => $s->value, $allowed))
-            ->update($values);
-
-        if ($updated !== 1) {
+        if (! OrderTransition::apply($order, $allowed, $attributes, fn ($q) => $q->where('driver_id', $driver->id))) {
             throw new InvalidArgumentException(__('This action is not possible now.'));
         }
-
-        $order->refresh();
     }
 
     private function placeName(string $text, Point $point): string

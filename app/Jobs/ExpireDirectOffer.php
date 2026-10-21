@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Enums\OfferResponse;
-use App\Enums\OrderStatus;
 use App\Models\Driver;
 use App\Models\Order;
 use App\Models\OrderOffer;
@@ -27,21 +26,16 @@ class ExpireDirectOffer implements ShouldQueue
     public function handle(Dispatcher $dispatcher, DriverDiscipline $discipline): void
     {
         $offer = OrderOffer::query()->find($this->offerId);
-        if (! $offer || $offer->response !== null) {
+        // Shartli UPDATE: haydovchi aynan shu soniyada rad etsa, jarima ikki marta yozilmaydi
+        $changed = $offer ? OrderOffer::query()->whereKey($offer->id)->whereNull('response')
+            ->update(['response' => OfferResponse::Ignored->value, 'responded_at' => now()]) : 0;
+        if (! $offer || $changed !== 1) {
             return;
         }
-
-        $offer->forceFill(['response' => OfferResponse::Ignored, 'responded_at' => now()])->save();
 
         $order = Order::query()->withoutGlobalScopes()->findOrFail($offer->order_id);
         $driver = Driver::query()->withoutGlobalScopes()->findOrFail($offer->driver_id);
 
-        // Shu orada buyurtmani boshqasi olgan yoki bekor qilingan — haydovchining aybi yo'q
-        if ($order->status !== OrderStatus::Searching) {
-            return;
-        }
-
-        $discipline->directOfferMissed($driver, $order, 'ignored');
-        $dispatcher->broadcast($order);
+        $dispatcher->directOfferFailed($order, $driver, 'ignored');
     }
 }

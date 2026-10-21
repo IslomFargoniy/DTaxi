@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Services\Drivers\DriverLocator;
 use App\Services\Drivers\StandQueue;
 use App\Services\Orders\OrderEvents;
+use App\Services\Orders\OrderTransition;
 use App\Support\Settings;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -34,22 +35,38 @@ class Dispatcher
         private StandQueue $standQueue,
     ) {}
 
-    public function startSearch(Order $order): void
+    /**
+     * Yangi raund bilan efir. Holat shartli o'zgaradi: shu orada bekor qilingan yoki olingan buyurtma qayta efirga chiqmaydi.
+     *
+     * @param  list<OrderStatus>  $from  qaysi holatlardan efirga chiqarish mumkin
+     * @param  list<int>  $skipDriverIds  shu raundda taklif olmaydiganlar (tayinlangan taklifni rad etgan haydovchi)
+     */
+    public function startSearch(Order $order, array $from = [OrderStatus::New, OrderStatus::Searching], array $skipDriverIds = []): bool
     {
         $steps = $this->radiusSteps($order);
 
-        $order->forceFill([
+        $moved = OrderTransition::apply($order, $from, [
             'status' => OrderStatus::Searching,
             'searching_at' => $order->searching_at ?? now(),
             'search_radius_m' => $steps[0],
-            'search_round' => $order->search_round + 1,
+            'search_round' => DB::raw('search_round + 1'),
             'search_exhausted_at' => null,
-        ])->save();
+        ]);
+        if (! $moved) {
+            return false;
+        }
+
+        if ($skipDriverIds !== []) {
+            OrderOffer::query()->where('order_id', $order->id)->whereIn('driver_id', $skipDriverIds)
+                ->update(['round' => $order->search_round]);
+        }
 
         OrderEvents::record($order, 'searching', payload: ['radius_m' => $steps[0]]);
 
         $this->broadcast($order);
         $this->scheduleExpansion($order, 0);
+
+        return true;
     }
 
     /**
@@ -59,6 +76,8 @@ class Dispatcher
      */
     public function broadcast(Order $order): int
     {
+        // Eskirgan model bilan (job navbatda kutgan paytda olingan/bekor qilingan) taklif yuborilmasin
+        $order->refresh();
         if ($order->status !== OrderStatus::Searching) {
             return 0;
         }
@@ -117,30 +136,30 @@ class Dispatcher
     public function expand(Order $order, int $fromStep, ?int $round = null): void
     {
         $steps = $this->radiusSteps($order);
-
-        if ($order->status !== OrderStatus::Searching || ($round !== null && $round !== $order->search_round)) {
-            return;
-        }
+        $round ??= $order->search_round;
 
         $next = $fromStep + 1;
         if (! isset($steps[$next])) {
-            if ($order->search_radius_m !== end($steps)) {
-                return;
-            }
+            $exhausted = OrderTransition::apply($order, [OrderStatus::Searching], ['search_exhausted_at' => now()], fn ($q) => $q
+                ->where('search_round', $round)
+                ->where('search_radius_m', end($steps))
+                ->whereNull('search_exhausted_at'));
 
-            if (! $order->search_exhausted_at) {
-                $order->forceFill(['search_exhausted_at' => now()])->save();
+            if ($exhausted) {
                 OrderEvents::record($order, 'search_exhausted', payload: ['radius_m' => $order->search_radius_m]);
             }
 
             return;
         }
 
-        if ($order->search_radius_m !== $steps[$fromStep]) {
+        // Shart bazada: shu orada qabul qilingan, bekor qilingan yoki yangi raund boshlangan bo'lsa — hech narsa qilinmaydi
+        $expanded = OrderTransition::apply($order, [OrderStatus::Searching], ['search_radius_m' => $steps[$next]], fn ($q) => $q
+            ->where('search_round', $round)
+            ->where('search_radius_m', $steps[$fromStep]));
+        if (! $expanded) {
             return;
         }
 
-        $order->forceFill(['search_radius_m' => $steps[$next]])->save();
         OrderEvents::record($order, 'radius_expanded', payload: ['radius_m' => $steps[$next]]);
 
         $this->broadcast($order);
@@ -158,8 +177,12 @@ class Dispatcher
             ->where('status', OrderStatus::Searching->value)
             ->whereNotNull('search_exhausted_at')
             ->each(function (Order $order) use (&$count) {
-                $order->forceFill(['search_round' => $order->search_round + 1])->save();
-                $count += $this->broadcast($order);
+                $next = OrderTransition::apply($order, [OrderStatus::Searching], ['search_round' => DB::raw('search_round + 1')], fn ($q) => $q
+                    ->where('search_round', $order->search_round)
+                    ->whereNotNull('search_exhausted_at'));
+                if ($next) {
+                    $count += $this->broadcast($order);
+                }
             });
 
         return $count;
@@ -231,15 +254,26 @@ class Dispatcher
             throw new InvalidArgumentException(__('The order is no longer waiting for a driver.'));
         }
 
+        // Liniyada bo'lmagan, band yoki bloklangan haydovchiga taklif yubormaymiz — javob bera olmaydi, keyin nohaq jarima oladi
+        $driver->refresh();
+        $ttl = (int) $this->settings->get('dispatch.location_ttl_seconds', $order->branch_id);
+        if ($driver->status !== DriverStatus::Free || ! $driver->is_approved || $driver->isBlocked()
+            || $driver->last_seen_at === null || $driver->last_seen_at->lt(now()->subSeconds($ttl))) {
+            throw new InvalidArgumentException(__('The driver is not available for orders right now.'));
+        }
+
         $expiresIn = (int) $this->settings->get('dispatch.direct_offer_seconds', $order->branch_id);
 
         if ($order->status === OrderStatus::New) {
-            $order->forceFill([
+            OrderTransition::apply($order, [OrderStatus::New], [
                 'status' => OrderStatus::Searching,
                 'searching_at' => now(),
                 'search_radius_m' => $order->search_radius_m ?? $this->radiusSteps($order)[0],
-                'search_round' => $order->search_round + 1,
-            ])->save();
+                'search_round' => DB::raw('search_round + 1'),
+            ]);
+        }
+        if ($order->status !== OrderStatus::Searching) {
+            throw new InvalidArgumentException(__('The order is no longer waiting for a driver.'));
         }
 
         $offer = OrderOffer::query()->updateOrCreate(
@@ -257,16 +291,34 @@ class Dispatcher
 
     public function reject(Order $order, Driver $driver): void
     {
-        $offer = OrderOffer::query()->where('order_id', $order->id)->where('driver_id', $driver->id)->whereNull('response')->first();
-        if (! $offer) {
+        $offer = OrderOffer::query()->where('order_id', $order->id)->where('driver_id', $driver->id)->first();
+        // Shartli UPDATE: rad etish va muddat tugashi (ExpireDirectOffer) bir vaqtda kelsa, faqat bittasi o'tadi
+        $changed = $offer ? OrderOffer::query()->whereKey($offer->id)->whereNull('response')
+            ->update(['response' => OfferResponse::Rejected->value, 'responded_at' => now()]) : 0;
+
+        if ($offer && $changed === 1 && $offer->is_direct) {
+            $this->directOfferFailed($order, $driver, 'rejected');
+        }
+    }
+
+    /**
+     * Tayinlangan taklif rad etildi yoki javobsiz qoldi: jarima va buyurtma oddiy efirga qaytadi
+     * (aks holda oldindan buyurtma "qidirilmoqda" da kengayishsiz qotib qolardi).
+     */
+    public function directOfferFailed(Order $order, Driver $driver, string $kind): void
+    {
+        $order->refresh();
+        // Shu orada boshqasi olgan yoki bekor qilingan — haydovchining aybi yo'q
+        if ($order->status !== OrderStatus::Searching) {
             return;
         }
 
-        $offer->forceFill(['response' => OfferResponse::Rejected, 'responded_at' => now()])->save();
-
-        if ($offer->is_direct) {
-            app(DriverDiscipline::class)->directOfferMissed($driver, $order, 'rejected');
+        // Boshqa buyurtmada band haydovchi javob bera olmasdi
+        if ($driver->refresh()->status !== DriverStatus::Busy) {
+            app(DriverDiscipline::class)->directOfferMissed($driver, $order, $kind);
         }
+
+        $this->startSearch($order, [OrderStatus::Searching], [$driver->id]);
     }
 
     public function withdrawOtherOffers(Order $order, ?int $exceptDriverId, string $reason): void
@@ -282,29 +334,21 @@ class Dispatcher
     }
 
     /**
-     * Haydovchi bekor qilgan yoki direct taklif o'tmagan buyurtmani qayta efirga chiqarish.
+     * Haydovchi bekor qilgan buyurtmani qayta efirga chiqarish. Holatni "qidirilmoqda" ga
+     * OrderService::cancelByDriver shartli o'zgartiradi — bu yerda faqat hali qidirilayotgan bo'lsa efir boshlanadi.
      */
-    public function restartSearch(Order $order): void
+    public function restartSearch(Order $order): bool
     {
-        $order->forceFill([
-            'status' => OrderStatus::Searching,
-            'driver_id' => null,
-            'vehicle_id' => null,
-            'assigned_at' => null,
-            'arrived_at' => null,
-            'searching_at' => now(),
-        ])->save();
-
-        $this->startSearch($order);
+        return $this->startSearch($order, [OrderStatus::Searching]);
     }
 
     private function notify(Order $order, OrderOffer $offer, Driver $driver, int $expiresIn): void
     {
         OrderOffered::dispatch($order, $offer, $expiresIn);
-        // Ilova fonda yoki yopiq bo'lsa — FCM uyg'otadi; ilova offer_id bo'yicha takrorni e'tiborsiz qoldiradi
+        // Ilova fonda yoki yopiq bo'lsa — FCM uyg'otadi; ilova offer_id + offered_at bo'yicha takrorni ajratadi
         SendPushNotification::dispatch($driver->user_id, array_filter(
             OrderOffered::payload($order->loadMissing('tariffClass'), $offer, $expiresIn),
-            fn ($value) => $value !== null && ! is_array($value),
+            fn ($value) => is_scalar($value),
         ));
     }
 

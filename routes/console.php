@@ -163,7 +163,12 @@ Schedule::command('locations:prune')->dailyAt('04:00')->withoutOverlapping();
 Schedule::command('queue:prune-failed --hours=720')->daily();
 Schedule::command('auth:clear-resets')->daily();
 
-Artisan::command('orders:rebroadcast', function (Dispatcher $dispatcher) {
+Artisan::command('orders:rebroadcast', function (Dispatcher $dispatcher, OrderService $orders) {
+    $expired = $orders->expireUnanswered();
+    if ($expired > 0) {
+        $this->info("Haydovchi topilmadi: {$expired} ta buyurtma.");
+    }
+
     $offers = $dispatcher->rebroadcastExhausted();
     if ($offers > 0) {
         $this->info("Qayta efir: {$offers} ta taklif.");

@@ -44,6 +44,8 @@ class Settings
         'dispatch.location_ttl_seconds' => 60,
         // Oldindan buyurtma necha daqiqa oldin efirga chiqadi
         'dispatch.preorder_lead_minutes' => 15,
+        // Hech kim olmagan buyurtma necha daqiqadan keyin qayta efirdan "haydovchi topilmadi" ga o'tadi (0 — cheksiz)
+        'dispatch.rebroadcast_max_minutes' => 30,
         // Reytingi shundan past haydovchi eng yaqin radiusda taklif olmaydi (keyingi bosqichda oladi; 0 — o'chiq)
         'dispatch.low_rating_threshold' => 60,
         // Tig'iz soat: koeffitsient (1 — o'chiq) va filial vaqti bo'yicha soatlar (boshi = oxiri — kun bo'yi)
