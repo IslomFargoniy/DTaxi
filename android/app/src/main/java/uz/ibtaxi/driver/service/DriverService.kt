@@ -67,6 +67,9 @@ class DriverService : LifecycleService() {
     private var lastMovedAt = System.currentTimeMillis()
     private var lastMovedLat = 0.0
     private var lastMovedLng = 0.0
+    /** Oxirgi GPS nuqtasi vaqti — tizim qayta tug'dirgan servis joylashuv olmayotganini aniqlash uchun */
+    @Volatile private var lastFixAt = System.currentTimeMillis()
+    private var pausedShown = false
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -100,6 +103,7 @@ class DriverService : LifecycleService() {
             connectRealtime()
             flushJob = launch { flushLoop() }
             launch { syncLoop() }
+            launch { gpsWatchdog() }
             // Liniyaga chiqqanda operator xaritasida darhol ko'rinsin (keyingi siyrak GPS'ni kutmasdan)
             launch {
                 DriverState.profile.map { it?.status }.distinctUntilChanged().drop(1).collect { status ->
@@ -177,6 +181,21 @@ class DriverService : LifecycleService() {
         }
     }
 
+    /**
+     * Android 11-13: tizim servisni fonda qayta tug'dirsa u ishlaydi, lekin joylashuv kelmaydi.
+     * GPS uzoq kelmasa haydovchiga "davom ettirish uchun bosing" chiqadi — ilova ochilganda joylashuv qayta yoqiladi.
+     */
+    private suspend fun gpsWatchdog() {
+        while (lifecycleScope.isActive) {
+            delay(30_000L)
+            val silent = System.currentTimeMillis() - lastFixAt > GPS_SILENCE_MS
+            if (silent && !pausedShown) {
+                showPaused()
+                pausedShown = true
+            }
+        }
+    }
+
     override fun onDestroy() {
         if (foreground) {
             runCatching { LocationServices.getFusedLocationProviderClient(this).removeLocationUpdates(locationCallback) }
@@ -209,6 +228,11 @@ class DriverService : LifecycleService() {
     }
 
     private fun onLocation(location: Location) {
+        lastFixAt = System.currentTimeMillis()
+        if (pausedShown) {
+            pausedShown = false
+            runCatching { getSystemService(NotificationManager::class.java).cancel(PAUSED_NOTIFICATION_ID) }
+        }
         // Soxta GPS ilovasi (mock location): server nuqtani hisobga olmaydi, taksometr ham
         @Suppress("DEPRECATION")
         val mock = if (android.os.Build.VERSION.SDK_INT >= 31) location.isMock else location.isFromMockProvider
@@ -421,6 +445,8 @@ class DriverService : LifecycleService() {
         private const val PAUSED_NOTIFICATION_ID = 1002
         private const val SLOW_INTERVAL_MS = 15_000L
         private const val NAV_INTERVAL_MS = 1_000L
+        // Server 5 daqiqada oflayn qiladi — haydovchi undan oldin ogohlantiriladi
+        private const val GPS_SILENCE_MS = 3 * 60_000L
         private val gson = Gson()
 
         /** Taxminiy (COARSE) ham yetadi — servis ishlaydi; aniq joylashuvni ekran alohida so'raydi */
