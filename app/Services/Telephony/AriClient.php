@@ -2,7 +2,9 @@
 
 namespace App\Services\Telephony;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -10,6 +12,9 @@ use Illuminate\Support\Str;
 
 /**
  * Asterisk REST Interface (andoza: panel.1call.uz AriClient). Hamma qo'ng'iroqlar `ibtaxi` Stasis ilovasida.
+ *
+ * Usullar istisno tashlamaydi: Asterisk javob bermasa false/null qaytadi — chaqiruvchi holatni orqaga qaytara oladi
+ * (aks holda masalan operator "band" bo'lib qolardi) va daemon tsikli to'xtamaydi.
  */
 class AriClient
 {
@@ -21,19 +26,37 @@ class AriClient
             ->timeout(5);
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function send(string $method, string $url, array $data = []): ?Response
+    {
+        try {
+            return match ($method) {
+                'get' => $this->http()->get($url),
+                'delete' => $this->http()->delete($url, $data),
+                default => $this->http()->post($url, $data),
+            };
+        } catch (ConnectionException|RequestException $e) {
+            Log::warning('ARI ulanmadi', ['method' => $method, 'url' => $url, 'error' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
     public function answer(string $channelId): bool
     {
-        return $this->ok($this->http()->post("channels/{$channelId}/answer"));
+        return $this->ok($this->send('post', "channels/{$channelId}/answer"));
     }
 
     public function ring(string $channelId): bool
     {
-        return $this->ok($this->http()->post("channels/{$channelId}/ring"));
+        return $this->ok($this->send('post', "channels/{$channelId}/ring"));
     }
 
     public function hangup(string $channelId, string $reason = 'normal'): bool
     {
-        return $this->ok($this->http()->delete("channels/{$channelId}", ['reason' => $reason]));
+        return $this->ok($this->send('delete', "channels/{$channelId}", ['reason' => $reason]));
     }
 
     /**
@@ -44,31 +67,31 @@ class AriClient
     public function play(string $channelId, array $media, ?string $playbackId = null): ?string
     {
         $playbackId ??= (string) Str::uuid();
-        $response = $this->http()->post("channels/{$channelId}/play/{$playbackId}?".http_build_query(['media' => implode(',', $media)]));
+        $response = $this->send('post', "channels/{$channelId}/play/{$playbackId}?".http_build_query(['media' => implode(',', $media)]));
 
         return $this->ok($response) ? $playbackId : null;
     }
 
     public function stopPlayback(string $playbackId): bool
     {
-        return $this->http()->delete("playbacks/{$playbackId}")->successful();
+        return (bool) $this->send('delete', "playbacks/{$playbackId}")?->successful();
     }
 
     public function startMoh(string $channelId): bool
     {
-        return $this->ok($this->http()->post("channels/{$channelId}/moh"));
+        return $this->ok($this->send('post', "channels/{$channelId}/moh"));
     }
 
     public function stopMoh(string $channelId): bool
     {
-        return $this->ok($this->http()->delete("channels/{$channelId}/moh"));
+        return $this->ok($this->send('delete', "channels/{$channelId}/moh"));
     }
 
     public function createBridge(): ?string
     {
-        $response = $this->http()->post('bridges', ['type' => 'mixing']);
+        $response = $this->send('post', 'bridges', ['type' => 'mixing']);
 
-        return $this->ok($response) ? (string) $response->json('id') : null;
+        return $this->ok($response) ? (string) $response?->json('id') : null;
     }
 
     /**
@@ -76,23 +99,25 @@ class AriClient
      */
     public function addToBridge(string $bridgeId, array $channelIds): bool
     {
-        return $this->ok($this->http()->post("bridges/{$bridgeId}/addChannel?".http_build_query(['channel' => implode(',', $channelIds)])));
+        return $this->ok($this->send('post', "bridges/{$bridgeId}/addChannel?".http_build_query(['channel' => implode(',', $channelIds)])));
     }
 
     public function destroyBridge(string $bridgeId): bool
     {
-        return $this->ok($this->http()->delete("bridges/{$bridgeId}"));
+        return $this->ok($this->send('delete', "bridges/{$bridgeId}"));
     }
 
     /**
      * Ko'prikni yozib olish (qaror #11): /var/spool/asterisk/recording/<name>.wav
+     * $maxSeconds — ko'prik biror sabab bilan yopilmay qolsa ham yozuv cheksiz o'smasin (0 — cheksiz).
      */
-    public function recordBridge(string $bridgeId, string $name): bool
+    public function recordBridge(string $bridgeId, string $name, int $maxSeconds = 0): bool
     {
-        return $this->ok($this->http()->post("bridges/{$bridgeId}/record?".http_build_query([
+        return $this->ok($this->send('post', "bridges/{$bridgeId}/record?".http_build_query([
             'name' => $name,
             'format' => 'wav',
             'ifExists' => 'overwrite',
+            'maxDurationSeconds' => max(0, $maxSeconds),
         ])));
     }
 
@@ -103,7 +128,7 @@ class AriClient
      */
     public function originate(string $endpoint, string $appArgs, string $callerId, int $timeout = 30, array $variables = [], ?string $channelId = null): ?string
     {
-        $response = $this->http()->post('channels?'.http_build_query(array_filter([
+        $response = $this->send('post', 'channels?'.http_build_query(array_filter([
             'endpoint' => $endpoint,
             'app' => config('services.asterisk.app'),
             'appArgs' => $appArgs,
@@ -112,7 +137,7 @@ class AriClient
             'channelId' => $channelId,
         ])), $variables === [] ? [] : ['variables' => $variables]);
 
-        if (! $this->ok($response)) {
+        if (! $response || ! $this->ok($response)) {
             return null;
         }
         $id = $response->json('id');
@@ -125,7 +150,7 @@ class AriClient
      */
     public function ping(): bool
     {
-        return rescue(fn () => $this->http()->get('asterisk/info')->successful(), false, false);
+        return (bool) $this->send('get', 'asterisk/info')?->successful();
     }
 
     /**
@@ -145,8 +170,8 @@ class AriClient
      */
     public function endpointStates(): array
     {
-        $response = $this->http()->get('endpoints/PJSIP');
-        if (! $response->successful()) {
+        $response = $this->send('get', 'endpoints/PJSIP');
+        if (! $response?->successful()) {
             return [];
         }
 
@@ -161,19 +186,45 @@ class AriClient
     }
 
     /**
-     * Joriy kanallar soni — trunk/filial limitlari uchun (qaror #13).
+     * Asterisk'dagi joriy kanallar. null — ro'yxatni olib bo'lmadi (bo'sh ro'yxat bilan adashtirmaslik kerak:
+     * aks holda solishtirish hamma qo'ng'iroqni "tugagan" deb yopardi).
      *
-     * @return list<array<string, mixed>>
+     * @return list<array<string, mixed>>|null
      */
-    public function channels(): array
+    public function channels(): ?array
     {
-        $response = $this->http()->get('channels');
-
-        return $response->successful() ? array_values((array) $response->json()) : [];
+        return $this->list('channels');
     }
 
-    private function ok(Response $response): bool
+    /**
+     * Asterisk'dagi joriy ko'priklar (id, channels, ...). null — ro'yxatni olib bo'lmadi.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    public function bridges(): ?array
     {
+        return $this->list('bridges');
+    }
+
+    /**
+     * @return list<array<string, mixed>>|null
+     */
+    private function list(string $resource): ?array
+    {
+        $response = $this->send('get', $resource);
+        if (! $response?->successful() || ! is_array($response->json())) {
+            return null;
+        }
+
+        /** @var list<array<string, mixed>> */
+        return array_values(array_filter($response->json(), 'is_array'));
+    }
+
+    private function ok(?Response $response): bool
+    {
+        if (! $response) {
+            return false;
+        }
         if (! $response->successful()) {
             Log::warning('ARI', ['status' => $response->status(), 'url' => (string) $response->effectiveUri(), 'body' => $response->body()]);
         }

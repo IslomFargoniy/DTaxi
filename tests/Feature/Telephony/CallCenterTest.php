@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\AriListen;
 use App\Enums\OrderSource;
 use App\Enums\OrderStatus;
 use App\Enums\Role;
@@ -28,6 +29,7 @@ use App\Services\Telephony\Extensions;
 use App\Services\Telephony\OperatorPool;
 use App\Support\Settings;
 use Database\Seeders\RolesSeeder;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
@@ -38,14 +40,23 @@ require_once __DIR__.'/../Orders/helpers.php';
 
 /**
  * ARI soxtalashtiriladi: qaysi operatorlar brauzerda onlayn — $this->online.
+ * $this->ari: 'down' — shu bo'lak bor so'rovlarda ulanish xatosi; 'channels'/'bridges' — GET ro'yxatlari (null — 500).
  */
-function fakeAri(array &$online): void
+function fakeAri(array &$online, array &$ari): void
 {
-    Http::fake(function (Request $request) use (&$online) {
-        $url = $request->url();
+    Http::fake(function (Request $request) use (&$online, &$ari) {
+        $url = urldecode($request->url());
+        foreach ($ari['down'] as $needle) {
+            if (str_contains($url, $needle)) {
+                throw new ConnectionException('cURL error 7: Failed to connect');
+            }
+        }
+        $get = $request->method() === 'GET';
 
         return match (true) {
             str_ends_with($url, '/ari/endpoints/PJSIP') => Http::response(array_map(fn ($e) => ['resource' => $e, 'state' => 'online'], $online)),
+            $get && str_ends_with($url, '/ari/channels') => $ari['channels'] === null ? Http::response(null, 500) : Http::response(array_map(fn ($id) => ['id' => $id], $ari['channels'])),
+            $get && str_ends_with($url, '/ari/bridges') => $ari['bridges'] === null ? Http::response(null, 500) : Http::response($ari['bridges']),
             str_ends_with($url, '/ari/bridges') => Http::response(['id' => 'bridge-1']),
             default => Http::response(null, 204),
         };
@@ -68,7 +79,8 @@ beforeEach(function () {
     $this->seed(RolesSeeder::class);
 
     $this->online = [];
-    fakeAri($this->online);
+    $this->ari = ['down' => [], 'channels' => [], 'bridges' => []];
+    fakeAri($this->online, $this->ari);
 
     $this->branch = Branch::factory()->create();
     $this->trunk = SipTrunk::query()->create(['name' => 'sarkor', 'title' => 'Sarkor', 'host' => 'sip.example.uz', 'max_channels' => 4]);
@@ -362,4 +374,35 @@ test('superadmin without a branch gets an extension and takes queued calls when 
 
     expect($superadmin->sip_extension)->toBe('op'.$superadmin->id)
         ->and(app(OperatorPool::class)->pick([$this->branch->id])?->id)->toBe($superadmin->id);
+});
+
+test('operator is released when Asterisk is unreachable while ringing him', function () {
+    $this->ari['down'] = ['appArgs=operator'];
+
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    expect($call->status)->toBe('waiting')
+        ->and($call->operator_id)->toBeNull()
+        ->and($call->meta['operator_channel'])->toBeNull()
+        ->and(app(OperatorPool::class)->busyOperatorIds())->toBe([]);
+
+    // Asterisk qaytdi — keyingi tick'da qo'ng'iroq operatorga boradi
+    $this->ari['down'] = [];
+    $this->center->tick();
+    expect($call->refresh()->operator_id)->toBe($this->operator->id);
+});
+
+test('a channel whose StasisStart handler crashed is hung up', function () {
+    $this->partialMock(OperatorPool::class, fn ($mock) => $mock->shouldReceive('pick')->andThrow(new RuntimeException('boom')));
+
+    app(CallCenter::class)->handle(stasis('ch-1', ['inbound', '712000000']));
+
+    expect(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-1'))->count())->toBe(1);
+});
+
+test('the listener loop survives any exception', function () {
+    app(AriListen::class)->guard(fn () => throw new RuntimeException('boom'));
+
+    expect(true)->toBeTrue();
 });

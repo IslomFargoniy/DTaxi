@@ -67,6 +67,11 @@ class CallCenter
             };
         } catch (\Throwable $e) {
             Log::error('CallCenter: '.$e->getMessage(), ['event' => data_get($event, 'type'), 'exception' => $e]);
+
+            // Ishlov yarim qolgan kanal Stasis'da abadiy osilib qolmasin (mijoz jimlikni eshitib turardi)
+            if (data_get($event, 'type') === 'StasisStart' && is_string($channelId = data_get($event, 'channel.id'))) {
+                rescue(fn () => $this->ari->hangup($channelId), report: false);
+            }
         }
     }
 
@@ -483,8 +488,10 @@ class CallCenter
         );
 
         if (! $ok) {
+            // Asterisk javob bermadi — operator aybdor emas: keyingi tick'da yana unga taklif qilinishi mumkin
+            Cache::forget("ari:ch:{$channelId}");
             $call->forceFill(['operator_id' => null])->save();
-            $this->updateMeta($call, ['operator_channel' => null]);
+            $this->updateMeta($call, ['operator_channel' => null, 'tried' => $tried]);
 
             return;
         }

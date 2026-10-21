@@ -10,6 +10,7 @@ use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Ratchet\Client\WebSocket;
 use React\EventLoop\Loop;
 
@@ -96,14 +97,19 @@ class AriListen extends Command
 
     /**
      * Baza ulanishi uzilsa (uzoq ishlovchi jarayon) — qayta ulanib bir marta takrorlash.
+     * Boshqa har qanday xato faqat yoziladi: tsikl o'lsa, barcha qo'ng'iroqlar boshqaruvsiz qoladi.
      */
-    private function guard(callable $fn): void
+    public function guard(callable $fn): void
     {
         try {
-            $fn();
-        } catch (QueryException $e) {
-            DB::reconnect();
-            $fn();
+            try {
+                $fn();
+            } catch (QueryException $e) {
+                DB::reconnect();
+                $fn();
+            }
+        } catch (\Throwable $e) {
+            Log::error('ari:listen: '.$e->getMessage(), ['exception' => $e]);
         }
     }
 }
