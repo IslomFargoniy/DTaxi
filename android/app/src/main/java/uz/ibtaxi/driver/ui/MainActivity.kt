@@ -83,6 +83,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val app = application as IbTaxiApp
         val updater = Updater(this, app.repository.client.http)
+        if (savedInstanceState == null) app.scope.launch { updater.deleteInstalled() }
 
         setContent {
             IbTaxiTheme {
