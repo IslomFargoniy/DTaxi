@@ -258,18 +258,25 @@ class DriverService : LifecycleService() {
         }.also { it.connect() }
     }
 
+    /** Pusher oqimida chaqiriladi: noto'g'ri xabar butun servisni yiqitmasin (keyingi sinxronlash holatni tiklaydi) */
     private fun onEvent(name: String, data: JsonObject) {
+        runCatching { handleEvent(name, data) }
+            .onFailure { android.util.Log.w("DriverService", "Reverb xabari o'qilmadi: $name", it) }
+    }
+
+    private fun handleEvent(name: String, data: JsonObject) {
         when (name) {
             "OrderOffered" -> {
-                val offer = gson.fromJson(data, Offer::class.java)
+                val offer = gson.fromJson(data, Offer::class.java) ?: return
                 if (DriverState.offer(offer)) OfferNotifier.show(this, offer)
             }
             "OfferWithdrawn" -> {
-                DriverState.clearOffer(data.get("order_id")?.asInt)
-                OfferNotifier.cancel(this)
+                DriverState.clearOffer(data.get("order_id")?.takeIf { !it.isJsonNull }?.asInt)
+                if (DriverState.offer.value == null) OfferNotifier.cancel(this)
             }
             "OrderUpdated" -> {
-                val order = gson.fromJson(data.getAsJsonObject("order"), Order::class.java)
+                val json = data.get("order")?.takeIf { it.isJsonObject } ?: return
+                val order = gson.fromJson(json, Order::class.java) ?: return
                 DriverState.setOrder(order)
                 if (order.status in DriverState.FINISHED) lifecycleScope.launch { app.repository.refreshProfile() }
             }
