@@ -61,6 +61,9 @@ class UdpRelay(asyncio.DatagramProtocol):
         self.port = port
         self.transport: asyncio.DatagramTransport | None = None
         self.upstreams: dict[tuple, asyncio.DatagramTransport] = {}
+        # Tashxis: qaysi tomonga nechta paket o'tdi (ovoz bir tomonlama bo'lsa ko'rinadi)
+        self.to_vm: dict[tuple, int] = {}
+        self.to_client: dict[tuple, int] = {}
 
     def connection_made(self, transport) -> None:
         self.transport = transport
@@ -68,6 +71,7 @@ class UdpRelay(asyncio.DatagramProtocol):
     def datagram_received(self, data: bytes, client: tuple) -> None:
         upstream = self.upstreams.get(client)
         if upstream is not None:
+            self.to_vm[client] = self.to_vm.get(client, 0) + 1
             upstream.sendto(data)
             return
         asyncio.ensure_future(self._open(client, data))
@@ -78,6 +82,7 @@ class UdpRelay(asyncio.DatagramProtocol):
         class Back(asyncio.DatagramProtocol):
             def datagram_received(self, data: bytes, _addr) -> None:
                 if relay.transport is not None:
+                    relay.to_client[client] = relay.to_client.get(client, 0) + 1
                     relay.transport.sendto(data, client)
 
         loop = asyncio.get_running_loop()
@@ -107,11 +112,27 @@ def configure_asterisk(lan_ip: str) -> None:
         print(f"Asterisk sozlanmadi (ovoz telefonga kelmasligi mumkin): {result.stderr.strip()}", flush=True)
 
 
+RELAYS: list[UdpRelay] = []
+
+
+async def report() -> None:
+    last: dict = {}
+    while True:
+        await asyncio.sleep(3)
+        for relay in RELAYS:
+            for client in list(relay.upstreams):
+                now = (relay.to_vm.get(client, 0), relay.to_client.get(client, 0))
+                if last.get((relay.port, client)) != now:
+                    print(f"ovoz :{relay.port} {client[0]}  → VM {now[0]} paket, VM → {now[1]} paket", flush=True)
+                    last[(relay.port, client)] = now
+
+
 async def main() -> None:
     servers = [await asyncio.start_server(handler(p), "0.0.0.0", p) for p in PORTS]
     loop = asyncio.get_running_loop()
     for port in range(RTP_START, RTP_END + 1):
-        await loop.create_datagram_endpoint(lambda p=port: UdpRelay(p), local_addr=("0.0.0.0", port))
+        _, relay = await loop.create_datagram_endpoint(lambda p=port: UdpRelay(p), local_addr=("0.0.0.0", port))
+        RELAYS.append(relay)
 
     # Mac'ning joriy Wi-Fi manzili — telefondagi ilovaning login ekranida "Server manzili"ga yoziladi
     probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -126,7 +147,7 @@ async def main() -> None:
     print(f"Telefonda server manzili: {lan_ip}  (panel: https://{lan_ip})", flush=True)
     if lan_ip != "?":
         configure_asterisk(lan_ip)
-    await asyncio.gather(*(s.serve_forever() for s in servers))
+    await asyncio.gather(report(), *(s.serve_forever() for s in servers))
 
 
 if __name__ == "__main__":
