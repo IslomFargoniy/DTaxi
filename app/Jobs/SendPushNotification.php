@@ -13,7 +13,7 @@ class SendPushNotification implements ShouldQueue
     public int $tries = 2;
 
     /**
-     * @param  array<string, scalar>  $data
+     * @param  array<string, scalar|null>  $data
      */
     public function __construct(public int $userId, public array $data)
     {

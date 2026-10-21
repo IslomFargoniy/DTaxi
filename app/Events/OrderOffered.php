@@ -45,6 +45,8 @@ class OrderOffered implements ShouldBroadcastNow
             'type' => 'order.offered',
             'offer_id' => $offer->id,
             'order_id' => $order->id,
+            // Qayta taklifda ham shu qator ishlatiladi — ilova takrorni offer_id emas, shu vaqt (unix ms) bo'yicha ajratadi
+            'offered_at' => $offer->offered_at->getTimestampMs(),
             'is_direct' => $offer->is_direct,
             'distance_m' => $offer->distance_m,
             'pickup_text' => $order->pickup_text,
