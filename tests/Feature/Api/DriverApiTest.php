@@ -9,6 +9,7 @@ use App\Events\OfferWithdrawn;
 use App\Events\OrderOffered;
 use App\Events\OrderUpdated;
 use App\Models\Branch;
+use App\Models\Call;
 use App\Models\DeviceToken;
 use App\Models\Driver;
 use App\Models\DriverLocation;
@@ -194,4 +195,17 @@ test('going online or offline updates the operator map right away', function () 
 
     $this->postJson('/api/driver/v1/shift', ['online' => false])->assertOk();
     Event::assertDispatched(DriverLocationUpdated::class, fn ($e) => $e->driver->id === $driver->id && $e->broadcastWith()['status'] === 'offline');
+});
+
+test('driver app sees when the dispatcher actually answers the call', function () {
+    $driver = actingDriver(driverNear($this->branch, 0));
+    $call = Call::query()->create([
+        'channel_id' => 'ch-dr', 'branch_id' => $this->branch->id, 'direction' => 'internal', 'kind' => 'driver',
+        'caller' => 'dr'.$driver->id, 'callee' => 'dispatcher', 'driver_id' => $driver->id, 'status' => 'waiting', 'started_at' => now(),
+    ]);
+
+    $this->getJson('/api/driver/v1/phone/call')->assertOk()->assertJsonPath('status', 'waiting')->assertJsonPath('answered_at', null);
+
+    $call->forceFill(['status' => 'answered', 'answered_at' => now()])->save();
+    $this->getJson('/api/driver/v1/phone/call')->assertOk()->assertJsonPath('status', 'answered');
 });

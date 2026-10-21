@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Middleware\SetLocale;
 use App\Http\Resources\DriverProfileResource;
 use App\Http\Resources\OrderResource;
+use App\Models\Call;
 use App\Models\DeviceToken;
 use App\Models\Driver;
 use App\Models\DriverTransaction;
@@ -111,6 +112,27 @@ class DriverController extends Controller
         $driver = $this->driver($request);
 
         return response()->json(['shift' => $shifts->summary($driver), 'stand' => $queue->position($driver)]);
+    }
+
+    /**
+     * Dispetcherga qo'ng'iroq holati: Asterisk navbat musiqasi uchun darhol javob beradi —
+     * ilova vaqtni operator haqiqatan javob bergandan keyin sanashi uchun.
+     */
+    public function callStatus(Request $request): JsonResponse
+    {
+        $driver = $this->driver($request);
+        $call = Call::query()->withoutGlobalScopes()
+            ->where('driver_id', $driver->id)
+            ->where('kind', 'driver')
+            ->where('caller', 'dr'.$driver->id)
+            ->where('started_at', '>=', now()->subMinutes(30))
+            ->latest('id')->first();
+
+        return response()->json([
+            'status' => $call?->status,
+            'answered_at' => $call?->answered_at?->toIso8601String(),
+            'ended' => $call?->ended_at !== null,
+        ]);
     }
 
     /**
