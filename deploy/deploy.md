@@ -77,7 +77,7 @@ Git uchun: serverda `ibtaxi` foydalanuvchisiga **faqat o'qish huquqli deploy key
 9. **`ibtaxi:init`**: rollar, bitta filial ("Asosiy filial"), superadmin `admin@<domen>` tasodifiy parol bilan (superadmin bor bo'lsa hech narsa o'zgarmaydi).
 10. Let's Encrypt (`certbot --nginx --redirect`), yangilanish — certbot timer. Qayta ishga tushirilganda mavjud sertifikat nginx'ga qayta ulanadi. **Olinmasa o'rnatish to'xtamaydi** — ogohlantirish va qayta urinish buyrug'i chiqadi.
 11. SIP firewall cron'i (5060 faqat trunk IP'lariga), logrotate, supervisor dasturlari, cron (`schedule:run` har daqiqada).
-12. Xarita (`--skip-maps` bo'lmasa, **bir necha soat**, eng oxirida): OSM → tile'lar → OSRM (Docker, `ibtaxi-osrm`) → hududlar, mo'ljallar, ko'cha/uy raqamlari. To'xtab qolsa ham sayt va telefoniya ishlaydi; `install.sh` ni qayta ishga tushirish tayyor qismlarni o'tkazib yuboradi.
+12. Xarita (`--skip-maps` bo'lmasa, **bir necha soat**, eng oxirida): OSM → tile'lar → OSRM (Docker, `ibtaxi-osrm`) → hududlar, mo'ljallar, ko'cha/uy raqamlari → ochiq joylar (`places-prepare.sh`: Overture Maps va Wikidata, BBOX bo'yicha; yuklanmasa o'rnatish to'xtamaydi). To'xtab qolsa ham sayt va telefoniya ishlaydi; `install.sh` ni qayta ishga tushirish tayyor qismlarni o'tkazib yuboradi.
 13. Yakunda: panel manzili, SIP provayderga beriladigan IP va **superadmin login/paroli**.
 
 ### O'rnatishdan so'ng darhol
@@ -243,9 +243,11 @@ sudo ./deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz --
 sudo -u ibtaxi php artisan ibtaxi:restore /root/<sana>_daily.dump --files=/root/<sana>_daily.files.tar.gz
 ```
 
+Ochiq joylarni yangilash (mavjud serverda ham): `sudo ./deploy/places-prepare.sh`, so'ng `php artisan landmarks:import --source=overture` va `--source=wikidata`. OSM'dagi mo'ljaldan 150 m ichidagi o'xshash nomlilar takror sifatida o'tkazib yuboriladi; Overture litsenziya eslatmasi `storage/app/osm/places-overture.NOTICE.txt` (to'plam bilan birga tarqatiladi).
+
 To'plamni o'rnatilgan serverga alohida tiklash: `sudo ./deploy/map-restore.sh /root/<sana>_map.tar` (tile'lar, OSM fayllari, OSRM ma'lumoti va `ibtaxi-osrm` xizmati).
 
-> Xarita fayllari va mo'ljallar faqat **ochiq manbalardan** (OpenStreetMap, Protomaps) yoki firmaning o'z xodimlari kiritgan ma'lumotdan bo'lishi kerak.
+> Xarita fayllari va mo'ljallar faqat **ochiq manbalardan** (OpenStreetMap, Protomaps; mo'ljallar uchun Overture Maps places — CDLA-Permissive-2.0/Apache-2.0/CC0, Wikidata — CC0, qaror #60) yoki firmaning o'z xodimlari kiritgan ma'lumotdan bo'lishi kerak.
 > Yandex, Google, 2GIS kabi xaritalardan nom yoki koordinata ko'chirilgan bo'lsa — bu mualliflik huquqini buzadi; bunday ma'lumot to'plamga ham, firmaga sotiladigan serverga ham tushmasligi kerak.
 
 ---

@@ -442,6 +442,15 @@ if [[ "$MODE" == "--prod" && "$SKIP_MAPS" == 0 ]]; then
     systemctl is-active --quiet ibtaxi-osrm || bash "${APP_DIR}/deploy/osrm-prepare.sh"
     chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/storage/app/osm" "${APP_DIR}/public/map"
     as_app "php artisan regions:import && php artisan landmarks:import && php artisan landmarks:import --file=storage/app/osm/streets.geojsonseq && php artisan landmarks:import --file=storage/app/osm/addresses.geojsonseq"
+    # Ochiq joylar (Overture, Wikidata — qaror #60): qo'shimcha, yuklab bo'lmasa o'rnatish to'xtamaydi
+    [[ -f "${APP_DIR}/storage/app/osm/places-overture.geojsonseq" ]] || bash "${APP_DIR}/deploy/places-prepare.sh" \
+        || warn "Ochiq joylar yuklanmadi — keyinroq: deploy/places-prepare.sh va landmarks:import --source=..."
+    chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/storage/app/osm"
+    for source in overture wikidata; do
+        if [[ -f "${APP_DIR}/storage/app/osm/places-${source}.geojsonseq" ]]; then
+            as_app "php artisan landmarks:import --source=${source}" || warn "landmarks:import --source=${source} xato bilan tugadi"
+        fi
+    done
 fi
 
 log "Tayyor"
