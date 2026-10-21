@@ -166,7 +166,11 @@ export default function Stands({
         draw();
     };
 
-    const center = branches[0]?.center ?? { lat: 40.3864, lng: 71.7864 };
+    // Firma filiali markazi (sozlamada); u yo'q bo'lsa — birinchi bekat, oxirgi chora — mamlakat markazi
+    const located =
+        branches.find((b) => b.center)?.center ??
+        (stands[0] ? { lat: stands[0].lat, lng: stands[0].lng } : null);
+    const center = located ?? { lat: 41.3, lng: 64.6 };
 
     const submit = () => {
         const options = {
@@ -357,6 +361,7 @@ export default function Stands({
                     <TaxiMap
                         tilesUrl={tiles}
                         center={center}
+                        zoom={located ? 13 : 6}
                         className="absolute inset-0"
                         onReady={onReady}
                         onClick={(point) => {
