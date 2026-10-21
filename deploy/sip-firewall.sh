@@ -3,13 +3,21 @@
 # Operator va haydovchilar WSS (443) orqali ulanadi, ularga 5060 kerak emas.
 # install.sh --prod cron'ga qo'yadi (har 5 daqiqada); trunk panelda o'zgarsa qoidalar o'zi yangilanadi.
 set -euo pipefail
+# cron PATH'ida /usr/sbin yo'q — ufw topilmay, 5060 trunk'larga hech qachon ochilmasdi
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 APP_DIR="${APP_DIR:-/var/www/ibtaxi}"
 APP_USER="${APP_USER:-www-data}"
 STATE=/var/lib/ibtaxi/sip-ips
 
 mkdir -p "$(dirname "$STATE")"
-WANT=$(sudo -u "$APP_USER" php "$APP_DIR/artisan" telephony:trunk-ips 2>/dev/null | grep -E '^[0-9a-fA-F:.]+$' || true)
+# Baza yoki kod vaqtincha ishlamasa (yangilanish paytida) — mavjud qoidalarga tegilmaydi,
+# aks holda barcha trunk'lar uzilib qolardi
+if ! RAW=$(sudo -u "$APP_USER" php "$APP_DIR/artisan" telephony:trunk-ips 2>/dev/null); then
+    logger -t ibtaxi-sip "telephony:trunk-ips ishlamadi — qoidalar o'zgartirilmadi"
+    exit 0
+fi
+WANT=$(echo "$RAW" | grep -E '^[0-9a-fA-F:.]+$' || true)
 HAVE=$(cat "$STATE" 2>/dev/null || true)
 
 [[ "$WANT" == "$HAVE" ]] && exit 0

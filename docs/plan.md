@@ -66,7 +66,7 @@ Holat: **v5.0 — tasdiqlangan reja** · Sana: 2026-10-17
 | 54  | **Ko'cha va uy raqami** OSM'dan `landmarks` ga (category `address`/`street`), alohida jadval emas — bitta qidiruv; qidiruv so'zlar bo'yicha                                                                                                                                                   | 2026-10-22 |
 | 55  | **Mijoz bahosi**: operator kiritadi yoki safardan keyingi IVR qo'ng'iroqda 1–5 (standart o'chiq — qo'ng'iroq pulli); shikoyat/unutilgan buyum jurnali buyurtma va yozuvga bog'lanadi                                                                                                          | 2026-10-22 |
 | 56  | **Mahsulot nomi — Dtaxi**, logo: qora "D" ichida lokatsiya belgisi (teshik), sariq #FFC800 fonda. Foydalanuvchiga ko'rinadigan nomlar almashtirildi; ichki `ibtaxi` nomlari (Android paketi, artisan buyruqlari, baza, VM) — o'rnatilgan ilovalar va serverlar buzilmasligi uchun o'zgarmaydi | 2026-10-21 |
-| 57  | **Ovozli navigatsiya** — telefonning TTS dvigateli (Samsung/Google), internetsiz; o'zbekcha ovoz yo'q, shuning uchun ko'rsatmalar ruscha (bo'lmasa inglizcha) aytiladi, banner ilova tilida. Haydovchi sozlamalarda ovozni tanlaydi. SpeechKit bilan o'zbekcha iboralar kerak emas | 2026-10-21 |
+| 57  | **Ovozli navigatsiya** — telefonning TTS dvigateli (Samsung/Google), internetsiz; o'zbekcha ovoz yo'q, shuning uchun ko'rsatmalar ruscha (bo'lmasa inglizcha) aytiladi, banner ilova tilida. Haydovchi sozlamalarda ovozni tanlaydi. SpeechKit bilan o'zbekcha iboralar kerak emas            | 2026-10-21 |
 
 ---
 
