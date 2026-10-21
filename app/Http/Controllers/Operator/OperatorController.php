@@ -7,7 +7,6 @@ use App\Http\Resources\OrderResource;
 use App\Models\Branch;
 use App\Models\Driver;
 use App\Models\Order;
-use App\Models\Region;
 use App\Models\TariffClass;
 use App\Models\User;
 use App\Support\Settings;
@@ -56,7 +55,8 @@ class OperatorController extends Controller
 
     /**
      * Xarita markazi filial markazi yo'q bo'lsa: koddagi biror shahar emas (mahsulot har firmaga sotiladi) —
-     * filial hududi (viloyat/shahar) markazi, boshqa filial markazi yoki import qilingan istalgan hudud markazi.
+     * filial hududi (viloyat/shahar) markazi yoki boshqa filial markazi. Topilmasa null — panel xarita fayli
+     * qamragan hududni ko'rsatadi (istalgan import qilingan viloyat xarita tayyorlanmagan joy bo'lishi mumkin).
      *
      * @param  list<Branch>  $branches
      * @return array{lat: float, lng: float}|null
@@ -64,8 +64,7 @@ class OperatorController extends Controller
     private function fallbackCenter(array $branches): ?array
     {
         $point = collect($branches)->map(fn (Branch $b) => $b->center ?? $b->region()->first()?->center)->filter()->first()
-            ?? Branch::query()->whereNotNull('center')->orderBy('id')->first()->center
-            ?? Region::query()->whereNotNull('center')->orderBy('id')->first()?->center;
+            ?? Branch::query()->whereNotNull('center')->orderBy('id')->first()?->center;
 
         return $point instanceof Point ? ['lat' => $point->getLatitude(), 'lng' => $point->getLongitude()] : null;
     }

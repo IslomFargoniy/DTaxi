@@ -9,7 +9,7 @@ import {
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import type { MapMouseEvent, StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Protocol } from 'pmtiles';
+import { PMTiles, Protocol } from 'pmtiles';
 import { useEffect, useRef, useState } from 'react';
 import { useTrans } from '@/hooks/use-trans';
 import { mapLang } from '@/lib/locales';
@@ -53,7 +53,8 @@ export type MapPoint = { lat: number; lng: number };
 
 type Props = {
     tilesUrl: string;
-    center: MapPoint;
+    /** null — markaz noma'lum (filialga kiritilmagan): xarita fayli qamragan hudud ko'rsatiladi */
+    center: MapPoint | null;
     zoom?: number;
     className?: string;
     onReady?: (map: MapLibreMap) => void;
@@ -142,8 +143,8 @@ export function TaxiMap({
         const map = new MapLibreMap({
             container: container.current,
             style: mapStyle(tilesUrl, dark, lang),
-            center: [center.lng, center.lat],
-            zoom,
+            center: center ? [center.lng, center.lat] : [0, 0],
+            zoom: center ? zoom : 1,
             attributionControl: { compact: true },
         });
 
@@ -155,6 +156,20 @@ export function TaxiMap({
             clickRef.current?.({ lat: e.lngLat.lat, lng: e.lngLat.lng }),
         );
         map.on('load', () => onReady?.(map));
+        if (!center) {
+            // Koddagi biror shahar emas (mahsulot har firmaga sotiladi) — tile fayli qaysi hudud uchun yasalgan bo'lsa o'sha
+            void new PMTiles(new URL(tilesUrl, window.location.origin).href)
+                .getHeader()
+                .then((h) => {
+                    const lng = h.centerLon || (h.minLon + h.maxLon) / 2;
+                    const lat = h.centerLat || (h.minLat + h.maxLat) / 2;
+                    map.jumpTo({
+                        center: [lng, lat],
+                        zoom: Math.min(Math.max(h.centerZoom || 9, 9), 12),
+                    });
+                })
+                .catch(() => undefined);
+        }
         mapRef.current = map;
 
         return () => {

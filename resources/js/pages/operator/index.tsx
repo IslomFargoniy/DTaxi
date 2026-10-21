@@ -137,9 +137,8 @@ export default function OperatorIndex({
         setOrders(initialOrders);
     }, [initialOrders]);
 
-    // Filial markazi kiritilmagan bo'lsa — butun mamlakat ko'rinadi
-    const located = branches[0]?.center ?? mapConfig.center;
-    const center = located ?? { lat: 41.3, lng: 64.6 };
+    // Filial markazi kiritilmagan bo'lsa — xarita fayli qamragan hudud
+    const center = branches[0]?.center ?? mapConfig.center;
 
     const onOrder = useCallback(
         (order: Order) =>
@@ -330,7 +329,6 @@ export default function OperatorIndex({
                     <TaxiMap
                         tilesUrl={mapConfig.tiles}
                         center={center}
-                        zoom={located ? 13 : 6}
                         className="absolute inset-0"
                         onReady={onReady}
                         onClick={(point) =>
