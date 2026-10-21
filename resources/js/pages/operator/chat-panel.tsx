@@ -41,6 +41,23 @@ type Message = {
 };
 
 const CHAT_WIDTH = 680;
+const BUTTON_SIZE = 56;
+
+type Point = { x: number; y: number };
+
+/** Oyna ekran ichida qolsin; ekran tor bo'lsa — chap/yuqori chetga yopishadi */
+function fit(point: Point, width: number, height: number): Point {
+    const w = Math.min(width, window.innerWidth - 16);
+    const next = {
+        x: Math.max(8, Math.min(point.x, window.innerWidth - w - 8)),
+        y: Math.max(8, Math.min(point.y, window.innerHeight - height - 8)),
+    };
+
+    return next.x === point.x && next.y === point.y ? point : next;
+}
+
+const fitChat = (p: Point) => fit(p, CHAT_WIDTH, 112);
+const fitButton = (p: Point) => fit(p, BUTTON_SIZE, BUTTON_SIZE);
 /** Serverdagi sahifa hajmi (ChatController::PAGE) — shuncha kelsa, yana bor */
 const PAGE = 30;
 
@@ -133,7 +150,15 @@ export function ChatPanel({
     const [active, setActive] = useState<number | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState('');
+    const [sending, setSending] = useState(false);
+    const [sendError, setSendError] = useState(false);
     const [query, setQuery] = useState('');
+    // Ochiq suhbat — kechikkan javob boshqa suhbatga yozilmasligi uchun
+    const activeRef = useRef<number | null>(null);
+    useEffect(() => {
+        activeRef.current = active;
+        setSendError(false);
+    }, [active]);
     // Oyna joyi (sudrab ko'chiriladi, brauzerda eslab qolinadi); null — o'ng pastda
     const [position, setPosition] = useState<{ x: number; y: number } | null>(
         () => {
@@ -192,10 +217,7 @@ export function ChatPanel({
             return;
         }
         d.moved = true;
-        setButtonPos({
-            x: Math.min(Math.max(8, e.clientX - d.dx), window.innerWidth - 64),
-            y: Math.min(Math.max(8, e.clientY - d.dy), window.innerHeight - 64),
-        });
+        setButtonPos(fitButton({ x: e.clientX - d.dx, y: e.clientY - d.dy }));
     };
     const onButtonUp = () => {
         const d = buttonDrag.current;
@@ -215,10 +237,17 @@ export function ChatPanel({
         setOpen((value) => !value);
     };
 
-    const clamp = (x: number, y: number) => ({
-        x: Math.min(Math.max(8, x), window.innerWidth - CHAT_WIDTH - 8),
-        y: Math.min(Math.max(8, y), window.innerHeight - 120),
-    });
+    // Saqlangan joy kichikroq ekranda yoki oyna o'lchami o'zgarganda ekrandan chiqib qolmasin
+    useEffect(() => {
+        const refit = () => {
+            setPosition((p) => (p ? fitChat(p) : p));
+            setButtonPos((p) => (p ? fitButton(p) : p));
+        };
+        refit();
+        window.addEventListener('resize', refit);
+
+        return () => window.removeEventListener('resize', refit);
+    }, []);
 
     const startDrag = (e: React.PointerEvent<HTMLDivElement>) => {
         if ((e.target as HTMLElement).closest('button')) {
@@ -234,7 +263,10 @@ export function ChatPanel({
     const moveDrag = (e: React.PointerEvent<HTMLDivElement>) => {
         if (drag.current) {
             setPosition(
-                clamp(e.clientX - drag.current.dx, e.clientY - drag.current.dy),
+                fitChat({
+                    x: e.clientX - drag.current.dx,
+                    y: e.clientY - drag.current.dy,
+                }),
             );
         }
     };
@@ -306,6 +338,10 @@ export function ChatPanel({
         (driverId: number, initial = false) => {
             getJson<Message[]>(messagesRoute.url(driverId))
                 .then((list) => {
+                    // Operator bu orada boshqa suhbatga o'tgan — eski javob tashlanadi
+                    if (activeRef.current !== driverId) {
+                        return;
+                    }
                     if (initial) {
                         stickBottom.current = true;
                         setMessages(list);
@@ -315,7 +351,12 @@ export function ChatPanel({
                     }
                     loadThreads();
                 })
-                .catch(() => initial && setMessages([]));
+                .catch(
+                    () =>
+                        initial &&
+                        activeRef.current === driverId &&
+                        setMessages([]),
+                );
         },
         [loadThreads],
     );
@@ -326,10 +367,14 @@ export function ChatPanel({
             return;
         }
         loadingOlder.current = true;
+        const driverId = active;
         getJson<Message[]>(
-            messagesRoute.url(active, { query: { before_id: first.id } }),
+            messagesRoute.url(driverId, { query: { before_id: first.id } }),
         )
             .then((list) => {
+                if (activeRef.current !== driverId) {
+                    return;
+                }
                 const el = scroller.current;
                 restore.current = el
                     ? { height: el.scrollHeight, top: el.scrollTop }
@@ -391,19 +436,32 @@ export function ChatPanel({
         [active, open, userId, loadThreads, loadMessages],
     );
 
+    // Matn faqat yuborilgach tozalanadi; xatoda maydonda qoladi va qayta yuborish mumkin
     const send = (body: string) => {
-        if (!active || !body.trim()) {
+        if (!active || !body.trim() || sending) {
             return;
         }
+        const driverId = active;
         stickBottom.current = true;
-        postJson<Message>(sendRoute.url(active), { body })
-            .then((m) =>
-                setMessages((list) =>
-                    list.some((x) => x.id === m.id) ? list : [...list, m],
-                ),
-            )
-            .catch(() => undefined);
-        setText('');
+        setSending(true);
+        setSendError(false);
+        postJson<Message>(sendRoute.url(driverId), { body })
+            .then((m) => {
+                if (activeRef.current === driverId) {
+                    setMessages((list) =>
+                        list.some((x) => x.id === m.id) ? list : [...list, m],
+                    );
+                }
+                setText((current) => (current === body ? '' : current));
+            })
+            .catch(() => {
+                if (activeRef.current === driverId) {
+                    setSendError(true);
+                    // Tezkor javob ham yo'qolmasin — maydonga qo'yiladi
+                    setText((current) => (current.trim() ? current : body));
+                }
+            })
+            .finally(() => setSending(false));
     };
 
     const unread = threads.reduce((sum, th) => sum + th.unread, 0);
@@ -712,12 +770,32 @@ export function ChatPanel({
                                                 size="sm"
                                                 variant="outline"
                                                 className="h-7 shrink-0 rounded-full text-xs"
+                                                disabled={sending}
                                                 onClick={() => send(t(reply))}
                                             >
                                                 {t(reply)}
                                             </Button>
                                         ))}
                                     </div>
+                                    {sendError && (
+                                        <div
+                                            role="alert"
+                                            className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
+                                        >
+                                            <span className="flex-1">
+                                                {t(
+                                                    'Message not sent. Check the connection and try again.',
+                                                )}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                className="font-semibold underline-offset-2 hover:underline"
+                                                onClick={() => send(text)}
+                                            >
+                                                {t('Retry')}
+                                            </button>
+                                        </div>
+                                    )}
                                     <form
                                         className="flex gap-2"
                                         onSubmit={(e) => {
@@ -727,16 +805,17 @@ export function ChatPanel({
                                     >
                                         <Input
                                             value={text}
-                                            onChange={(e) =>
-                                                setText(e.target.value)
-                                            }
+                                            onChange={(e) => {
+                                                setText(e.target.value);
+                                                setSendError(false);
+                                            }}
                                             placeholder={t('Message')}
                                             className="rounded-full"
                                         />
                                         <Button
                                             size="icon"
                                             className="shrink-0 rounded-full"
-                                            disabled={!text.trim()}
+                                            disabled={!text.trim() || sending}
                                         >
                                             <Send />
                                         </Button>
