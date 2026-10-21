@@ -10,6 +10,8 @@
 #       Server IP'si domen DNS'ida ko'rsatilgan bo'lishi kerak (Let's Encrypt tekshiradi).
 #       Xizmat hududi: BBOX=lon1,lat1,lon2,lat2 (standart — Farg'ona vodiysi), xarita va marshrutlar shu hudud uchun.
 #       Xarita (bir necha soat) eng oxirida — undan oldin sayt to'liq ishlaydi.
+#       --map-bundle=/yo'l/..._map.tar — boshqa serverdan ko'chirishda xarita to'plami (php artisan ibtaxi:map-export):
+#       tile'lar, OSM va OSRM qayta yasalmaydi, admin tuzatgan mo'ljallar esa baza zaxirasidan tiklanadi.
 #
 # Skript qayta ishga tushirilsa ham xavfsiz (idempotent): mavjud parollar, .env, sertifikat va superadmin saqlanadi.
 set -euo pipefail
@@ -20,6 +22,7 @@ EMAIL=""
 COMPANY=""
 SKIP_SSL=0
 SKIP_MAPS=0
+MAP_BUNDLE=""
 for arg in "$@"; do
     case "$arg" in
         --dev | --prod) MODE="$arg" ;;
@@ -31,6 +34,7 @@ for arg in "$@"; do
         --skip-ssl) SKIP_SSL=1 ;;
         # Xarita/OSRM/hududlar keyinroq tayyorlanadi (deploy/osm-prepare.sh va boshqalar)
         --skip-maps) SKIP_MAPS=1 ;;
+        --map-bundle=*) MAP_BUNDLE="${arg#*=}" ;;
         *) echo "Noma'lum parametr: $arg" >&2; exit 1 ;;
     esac
 done
@@ -422,6 +426,12 @@ SUPERVISOR
 echo "* * * * * ${APP_USER} php ${APP_DIR}/artisan schedule:run >> /dev/null 2>&1" > /etc/cron.d/ibtaxi
 supervisorctl reread
 supervisorctl update
+
+# Boshqa serverdan ko'chirish: xarita to'plami (ibtaxi:map-export) — internetdan qayta yasalmaydi
+if [[ -n "$MAP_BUNDLE" ]]; then
+    log "Xarita to'plamidan tiklash: $MAP_BUNDLE"
+    APP_DIR="$APP_DIR" APP_USER="$APP_USER" bash "${APP_DIR}/deploy/map-restore.sh" "$MAP_BUNDLE"
+fi
 
 if [[ "$MODE" == "--prod" && "$SKIP_MAPS" == 0 ]]; then
     # Eng uzoq bosqich (bir necha soat) — oxirida: to'xtab qolsa ham sayt va telefoniya ishlaydi,

@@ -218,6 +218,36 @@ sudo -u ibtaxi php artisan ibtaxi:restore /path/<sana>_daily.dump \
 Yangi serverning `.env` i saqlanadi (baza paroli, domen boshqa), faqat **APP_KEY** zaxiradagisiga almashtiriladi — integratsiya kalitlari shu bilan shifrlangan. Eski `.env` to'liq nusxasi `.env.restored` ga tushadi (taqqoslash uchun).
 Tiklangan bazada eski superadmin bo'ladi — `ibtaxi:init` yaratgan login ishlamay qoladi.
 
+### Xarita ma'lumotlari (boshqa serverga ko'chirishda yo'qolmasligi uchun)
+
+Xarita ikki joyda turadi:
+
+| Nima                                                                                          | Qayerda                          | Zaxirasi            |
+| --------------------------------------------------------------------------------------------- | -------------------------------- | ------------------- |
+| Mo'ljallar, ko'chalar, manzillar, hududlar; admin tuzatgan nomlar va operator qo'shgan joylar | baza                             | har kuni (`*.dump`) |
+| Xarita tile'lari va shriftlar                                                                 | `public/map` (~200 MB)           | **xarita to'plami** |
+| OSM eksportlari                                                                               | `storage/app/osm` (~350 MB)      | **xarita to'plami** |
+| OSRM marshrut ma'lumoti                                                                       | `/var/lib/ibtaxi/osrm` (~350 MB) | **xarita to'plami** |
+
+Xarita to'plami — `php artisan ibtaxi:map-export` (har yakshanba 03:00 avtomatik, SFTP sozlangan bo'lsa u yerga ham yuboriladi; mahalliy faqat oxirgisi saqlanadi):
+
+```bash
+sudo -u ibtaxi php artisan ibtaxi:map-export --upload     # qo'lda: storage/app/private/backups/<sana>_map.tar
+```
+
+Yangi serverga ko'chirish — xarita internetdan qayta yasalmaydi (bir necha soat va Protomaps/Geofabrik'ga bog'liqlik yo'q):
+
+```bash
+# eski serverdan <sana>_map.tar, <sana>_daily.dump, <sana>_daily.files.tar.gz ni yangi serverga ko'chiring
+sudo ./deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz --map-bundle=/root/<sana>_map.tar
+sudo -u ibtaxi php artisan ibtaxi:restore /root/<sana>_daily.dump --files=/root/<sana>_daily.files.tar.gz
+```
+
+To'plamni o'rnatilgan serverga alohida tiklash: `sudo ./deploy/map-restore.sh /root/<sana>_map.tar` (tile'lar, OSM fayllari, OSRM ma'lumoti va `ibtaxi-osrm` xizmati).
+
+> Xarita fayllari va mo'ljallar faqat **ochiq manbalardan** (OpenStreetMap, Protomaps) yoki firmaning o'z xodimlari kiritgan ma'lumotdan bo'lishi kerak.
+> Yandex, Google, 2GIS kabi xaritalardan nom yoki koordinata ko'chirilgan bo'lsa — bu mualliflik huquqini buzadi; bunday ma'lumot to'plamga ham, firmaga sotiladigan serverga ham tushmasligi kerak.
+
 ---
 
 ## 8. Ma'lum muammolar va yechimlar

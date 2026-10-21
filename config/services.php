@@ -38,6 +38,8 @@ return [
     // O'z serverimizdagi xizmatlar (firmaga xos emas — har serverda bir xil manzil)
     'osrm' => [
         'url' => env('OSRM_URL', 'http://127.0.0.1:5000'),
+        // Marshrut ma'lumoti (deploy/osrm-prepare.sh) — xarita to'plamiga (ibtaxi:map-export) kiradi
+        'data_dir' => env('OSRM_DIR', '/var/lib/ibtaxi/osrm'),
     ],
 
     'tiles' => [

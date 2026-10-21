@@ -199,6 +199,47 @@ class Backup
     }
 
     /**
+     * Xarita to'plami: tile'lar va shriftlar (public/map), OSM eksportlari (storage/app/osm) va OSRM marshrut
+     * ma'lumoti — yangi serverda internetdan bir necha soat qayta yasamasdan tiklash uchun (install.sh --map-bundle).
+     * Fayllar allaqachon siqilgan — gzip'siz. Xarita tayyorlanmagan bo'lsa — null.
+     */
+    public function createMap(?string $root = null): ?string
+    {
+        $root ??= base_path();
+        if (! File::exists($root.'/public/map/region.pmtiles')) {
+            return null;
+        }
+
+        File::ensureDirectoryExists($this->directory());
+        $file = $this->directory().'/'.now()->format('Y-m-d_His').'_map.tar';
+        // .bak — qo'lda almashtirishdan oldingi nusxalar, to'plamga kirmaydi
+        $args = ['tar', '--create', '--file='.$file, '--exclude=*.bak', '-C', $root, 'public/map'];
+        if (File::isDirectory($root.'/storage/app/osm')) {
+            $args[] = 'storage/app/osm';
+        }
+        $osrm = (string) config('services.osrm.data_dir');
+        if ($osrm !== '' && File::isDirectory($osrm) && basename($osrm) === 'osrm') {
+            array_push($args, '-C', dirname($osrm), 'osrm');
+        }
+
+        $result = Process::timeout(3600)->run($args);
+        if ($result->failed()) {
+            File::delete($file);
+            throw new RuntimeException('tar: '.$result->errorOutput());
+        }
+        @chmod($file, 0600);
+
+        // Katta fayl (~1 GB) — mahalliy faqat eng oxirgisi
+        foreach (File::glob($this->directory().'/*_map.tar') as $old) {
+            if ($old !== $file) {
+                File::delete($old);
+            }
+        }
+
+        return $file;
+    }
+
+    /**
      * Muddati o'tgan zaxiralarni o'chirish. Oxirgi yangilanishdan oldingi zaxira (--rollback uchun) keyingi yangilanishgacha saqlanadi.
      */
     public function prune(int $keepDays = 14): int

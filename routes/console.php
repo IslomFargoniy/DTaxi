@@ -136,6 +136,31 @@ Artisan::command('ari:restart', function () {
 
 Schedule::command('ibtaxi:backup')->dailyAt('02:30')->withoutOverlapping();
 
+Artisan::command('ibtaxi:map-export {--upload : Zaxira serveriga (SFTP) ham yuborish}', function (Backup $backup) {
+    $file = $backup->createMap();
+    if ($file === null) {
+        $this->warn('Xarita tayyorlanmagan (public/map/region.pmtiles yo\'q) — to\'plam yaratilmadi.');
+
+        return;
+    }
+    $this->info('Xarita to\'plami: '.$file.' ('.round(File::size($file) / 1048576).' MB)');
+    $this->line('Yangi serverda: sudo ./deploy/install.sh --prod ... --map-bundle='.$file);
+
+    if ($this->option('upload')) {
+        try {
+            if ($backup->upload($file)) {
+                $this->info('Zaxira serveriga yuborildi.');
+            }
+        } catch (Throwable $e) {
+            Cache::forever('backup.upload_error', $e->getMessage());
+            $this->error('Zaxira serveriga yuborilmadi: '.$e->getMessage());
+        }
+    }
+})->purpose('Xarita to\'plami (tile, OSM, OSRM) — boshqa serverga ko\'chirishda xarita qayta yasalmaydi');
+
+// Har hafta: xarita deyarli o'zgarmaydi, lekin admin tuzatgan nomlar va yangilangan tile'lar ham saqlansin
+Schedule::command('ibtaxi:map-export --upload')->weeklyOn(0, '03:00')->withoutOverlapping();
+
 Artisan::command('orders:dispatch-scheduled', function (OrderService $orders) {
     $count = $orders->dispatchScheduled();
     if ($count > 0) {
