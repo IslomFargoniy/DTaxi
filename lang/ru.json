@@ -683,5 +683,11 @@
     "Order not found.": "Заказ не найден.",
     "Enter a phone number in the format +998 90 123 45 67.": "Введите номер телефона в формате +998 90 123 45 67.",
     "Plate number format: 01 A 123 BC or 01 123 ABC.": "Формат госномера: 01 A 123 BC или 01 123 ABC.",
-    "Callsign must contain digits only.": "Позывной должен состоять только из цифр."
+    "Callsign must contain digits only.": "Позывной должен состоять только из цифр.",
+    "Chat quick replies": "Быстрые ответы в чате",
+    "Buttons above the message box in the operator chat with drivers.": "Кнопки над полем ввода в чате оператора с водителями.",
+    "Quick reply": "Быстрый ответ",
+    "Move up": "Вверх",
+    "Move down": "Вниз",
+    "Add reply": "Добавить ответ"
 }

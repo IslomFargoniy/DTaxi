@@ -56,6 +56,10 @@ class HandleInertiaRequests extends Middleware
             'chatBranchIds' => fn () => $request->user()?->can('chat.drivers')
                 ? ($request->user()->isSuperadmin() ? Branch::query()->pluck('id')->all() : $request->user()->branchIds())
                 : [],
+            // Chatdagi tezkor javoblar (firma sozlamasi) — faqat chat ko'radiganlarga
+            'chatQuickReplies' => fn () => $request->user()?->can('chat.drivers')
+                ? app(Settings::class)->get('chat.quick_replies')
+                : [],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

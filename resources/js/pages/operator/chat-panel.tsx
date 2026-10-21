@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import { useEcho } from '@laravel/echo-react';
 import { MessageSquare, Search, Send, X } from 'lucide-react';
 import {
@@ -113,13 +114,6 @@ function shortTime(iso: string | null): string {
         : date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
 }
 
-const QUICK_REPLIES = [
-    'Client is coming out',
-    'Please wait 2 minutes',
-    'Client cancelled',
-    'Call the client',
-];
-
 function BranchChat({
     branchId,
     onMessage,
@@ -145,6 +139,10 @@ export function ChatPanel({
     userId: number;
 }) {
     const { t } = useTrans();
+    // Tezkor javoblar — firma sozlamasi (chat.quick_replies); standart matnlar t() bilan tarjima bo'ladi
+    const quickReplies = (
+        usePage<{ chatQuickReplies?: string[] }>().props.chatQuickReplies ?? []
+    ).map((reply) => t(reply));
     const [open, setOpen] = useState(false);
     const [threads, setThreads] = useState<Thread[]>([]);
     const [active, setActive] = useState<number | null>(null);
@@ -763,17 +761,17 @@ export function ChatPanel({
                                     ))}
                                 </div>
                                 <div className="grid gap-2 border-t p-2">
-                                    <div className="flex gap-1 overflow-x-auto">
-                                        {QUICK_REPLIES.map((reply) => (
+                                    <div className="flex gap-1 overflow-x-auto empty:hidden">
+                                        {quickReplies.map((reply, i) => (
                                             <Button
-                                                key={reply}
+                                                key={i}
                                                 size="sm"
                                                 variant="outline"
                                                 className="h-7 shrink-0 rounded-full text-xs"
                                                 disabled={sending}
-                                                onClick={() => send(t(reply))}
+                                                onClick={() => send(reply)}
                                             >
-                                                {t(reply)}
+                                                {reply}
                                             </Button>
                                         ))}
                                     </div>

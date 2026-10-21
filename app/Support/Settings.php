@@ -73,6 +73,13 @@ class Settings
         'drivers.rating_complete_bonus' => 1,
         'drivers.max_cancels_per_shift' => 3,
         'drivers.block_minutes' => 30,
+        // Operator chatidagi tezkor javoblar (firma tahrirlaydi); standart matnlar panel tilida tarjima qilinadi
+        'chat.quick_replies' => [
+            'Client is coming out',
+            'Please wait 2 minutes',
+            'Client cancelled',
+            'Call the client',
+        ],
     ];
 
     /** @var array<string, mixed> */

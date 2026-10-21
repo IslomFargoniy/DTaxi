@@ -683,5 +683,11 @@
     "Order not found.": "Buyurtma topilmadi.",
     "Enter a phone number in the format +998 90 123 45 67.": "Telefon raqamini +998 90 123 45 67 ko'rinishida kiriting.",
     "Plate number format: 01 A 123 BC or 01 123 ABC.": "Davlat raqami ko'rinishi: 01 A 123 BC yoki 01 123 ABC.",
-    "Callsign must contain digits only.": "Pozivnoy faqat raqamlardan iborat bo'lishi kerak."
+    "Callsign must contain digits only.": "Pozivnoy faqat raqamlardan iborat bo'lishi kerak.",
+    "Chat quick replies": "Chatdagi tezkor javoblar",
+    "Buttons above the message box in the operator chat with drivers.": "Operatorning haydovchilar bilan chatida xabar maydoni ustidagi tugmalar.",
+    "Quick reply": "Tezkor javob",
+    "Move up": "Yuqoriga",
+    "Move down": "Pastga",
+    "Add reply": "Javob qo'shish"
 }

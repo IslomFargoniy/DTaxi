@@ -1,4 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
+import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import CompanySettingsController from '@/actions/App/Http/Controllers/Admin/CompanySettingsController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -18,7 +20,108 @@ import { LOCALES } from '@/lib/locales';
 import { useTrans } from '@/hooks/use-trans';
 import { edit } from '@/routes/admin/company-settings';
 
-type Settings = Record<string, string | number>;
+type Settings = Record<string, string | number | string[]>;
+
+// Chegaralar CompanySettingsController bilan bir xil
+const MAX_QUICK_REPLIES = 20;
+const MAX_QUICK_REPLY_LENGTH = 200;
+
+/** Chatdagi tezkor javoblar ro'yxati: qo'shish, o'chirish, tartibini o'zgartirish */
+function QuickRepliesEditor({
+    value,
+    onChange,
+    errors,
+}: {
+    value: string[];
+    onChange: (next: string[]) => void;
+    errors: Record<string, string>;
+}) {
+    const { t } = useTrans();
+    const move = (from: number, to: number) => {
+        const next = [...value];
+        const [item] = next.splice(from, 1);
+        next.splice(to, 0, item);
+        onChange(next);
+    };
+
+    return (
+        <fieldset className="grid gap-2">
+            <legend className="mb-2 text-sm font-medium">
+                {t('Chat quick replies')}
+            </legend>
+            <p className="text-xs text-muted-foreground">
+                {t(
+                    'Buttons above the message box in the operator chat with drivers.',
+                )}
+            </p>
+            {value.map((reply, i) => (
+                <div key={i} className="grid gap-1">
+                    <div className="flex gap-1">
+                        <Input
+                            aria-label={`${t('Quick reply')} ${i + 1}`}
+                            maxLength={MAX_QUICK_REPLY_LENGTH}
+                            value={reply}
+                            onChange={(e) =>
+                                onChange(
+                                    value.map((r, j) =>
+                                        j === i ? e.target.value : r,
+                                    ),
+                                )
+                            }
+                        />
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            title={t('Move up')}
+                            aria-label={t('Move up')}
+                            disabled={i === 0}
+                            onClick={() => move(i, i - 1)}
+                        >
+                            <ArrowUp />
+                        </Button>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            title={t('Move down')}
+                            aria-label={t('Move down')}
+                            disabled={i === value.length - 1}
+                            onClick={() => move(i, i + 1)}
+                        >
+                            <ArrowDown />
+                        </Button>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            title={t('Delete')}
+                            aria-label={t('Delete')}
+                            onClick={() =>
+                                onChange(value.filter((_, j) => j !== i))
+                            }
+                        >
+                            <Trash2 />
+                        </Button>
+                    </div>
+                    <InputError message={errors[`chat.quick_replies.${i}`]} />
+                </div>
+            ))}
+            <InputError message={errors['chat.quick_replies']} />
+            <div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={value.length >= MAX_QUICK_REPLIES}
+                    onClick={() => onChange([...value, ''])}
+                >
+                    <Plus /> {t('Add reply')}
+                </Button>
+            </div>
+        </fieldset>
+    );
+}
 
 // Nuqtali kalitlar formada `__` bilan yuboriladi (company.name → company__name)
 const toField = (key: string) => key.replaceAll('.', '__');
@@ -50,13 +153,22 @@ const ROUNDING_STEPS = [1, 100, 500, 1000];
 
 export default function CompanySettings({ settings }: { settings: Settings }) {
     const { t } = useTrans();
-    const { data, setData, put, processing, errors } = useForm<
+    const { data, setData, put, processing, errors, transform } = useForm<
         Record<string, string>
     >(
         Object.fromEntries(
-            Object.entries(settings).map(([k, v]) => [toField(k), String(v)]),
+            Object.entries(settings)
+                .filter(([, v]) => !Array.isArray(v))
+                .map(([k, v]) => [toField(k), String(v)]),
         ),
     );
+    // Standart javoblar inglizcha kalit — tahrirlashda firma tilidagi matn ko'rinadi (va shunday saqlanadi)
+    const [quickReplies, setQuickReplies] = useState<string[]>(() => {
+        const list = settings['chat.quick_replies'];
+
+        return Array.isArray(list) ? list.map((reply) => t(reply)) : [];
+    });
+    transform((form) => ({ ...form, chat__quick_replies: quickReplies }));
     const fieldErrors = errors as Record<string, string>;
 
     return (
@@ -177,6 +289,12 @@ export default function CompanySettings({ settings }: { settings: Settings }) {
                             <InputError message={fieldErrors[key]} />
                         </div>
                     ))}
+
+                    <QuickRepliesEditor
+                        value={quickReplies}
+                        onChange={setQuickReplies}
+                        errors={fieldErrors}
+                    />
 
                     <div>
                         <Button disabled={processing}>{t('Save')}</Button>

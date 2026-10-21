@@ -31,13 +31,25 @@ class CompanySettingsController extends Controller
             'drivers.min_balance' => ['required', 'integer', 'min:0'],
             'tariffs.rounding_step' => ['required', 'integer', Rule::in([1, 100, 500, 1000])],
             'calls.recordings_retention_days' => ['required', 'integer', 'min:1', 'max:3650'],
+            'chat.quick_replies' => ['sometimes', 'array', 'max:20'],
+            'chat.quick_replies.*' => ['required', 'string', 'max:200', 'distinct'],
         ];
+    }
+
+    /**
+     * Sozlama kalitlari (`.*` — ro'yxat elementlari qoidasi, alohida kalit emas).
+     *
+     * @return list<string>
+     */
+    private function keys(): array
+    {
+        return array_values(array_filter(array_keys($this->rules()), fn (string $key) => ! str_ends_with($key, '.*')));
     }
 
     public function edit(Settings $settings): Response
     {
         return Inertia::render('admin/company-settings', [
-            'settings' => collect(array_keys($this->rules()))
+            'settings' => collect($this->keys())
                 ->mapWithKeys(fn (string $key) => [$key => $settings->get($key)])
                 ->all(),
         ]);
@@ -47,10 +59,19 @@ class CompanySettingsController extends Controller
     {
         // Nuqtali kalitlar formada `company__name` ko'rinishida keladi
         $input = collect($request->all())->mapWithKeys(fn ($v, $k) => [str_replace('__', '.', $k) => $v]);
-        $data = Arr::dot(validator(Arr::undot($input->all()), $this->rules())->validate());
+        $data = validator(Arr::undot($input->all()), $this->rules())->validate();
 
-        foreach ($data as $key => $value) {
-            $settings->set($key, is_numeric($value) ? $value + 0 : $value);
+        // Ro'yxatli sozlama (tezkor javoblar) butunligicha saqlanadi — Arr::dot uni bo'lib yuborardi
+        foreach ($this->keys() as $key) {
+            if (! Arr::has($data, $key)) {
+                continue;
+            }
+            $value = Arr::get($data, $key);
+            $settings->set($key, match (true) {
+                is_array($value) => array_values($value),
+                is_numeric($value) => $value + 0,
+                default => $value,
+            });
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Settings saved.')]);
