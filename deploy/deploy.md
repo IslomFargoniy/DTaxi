@@ -275,6 +275,8 @@ sudo ./deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz --
 sudo -u ibtaxi php artisan ibtaxi:restore /root/<sana>_daily.dump --files=/root/<sana>_daily.files.tar.gz
 ```
 
+Qayta nomlangan ko'chalar (admin → "Ko'cha nomlari") OSM importidan keyin avtomatik qayta qo'llanadi — `landmarks:import` ni qayta ishga tushirish ularni bekor qilmaydi.
+
 Ochiq joylarni yangilash (mavjud serverda ham): `sudo ./deploy/places-prepare.sh`, so'ng `php artisan landmarks:import --source=overture` va `--source=wikidata`. OSM'dagi mo'ljaldan 150 m ichidagi o'xshash nomlilar takror sifatida o'tkazib yuboriladi; Overture litsenziya eslatmasi `storage/app/osm/places-overture.NOTICE.txt` (to'plam bilan birga tarqatiladi).
 
 To'plamni o'rnatilgan serverga alohida tiklash: `sudo ./deploy/map-restore.sh /root/<sana>_map.tar` (tile'lar, OSM fayllari, OSRM ma'lumoti va `ibtaxi-osrm` xizmati).
