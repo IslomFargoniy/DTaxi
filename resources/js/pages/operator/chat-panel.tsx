@@ -447,7 +447,7 @@ export function ChatPanel({
             >
                 <MessageSquare className="size-6" />
                 {unread > 0 && (
-                    <span className="absolute -top-1 -right-1 flex size-6 items-center justify-center rounded-full bg-background text-xs font-bold text-red-600 ring-2 ring-red-600">
+                    <span className="absolute -top-1 -right-1 flex size-6 items-center justify-center rounded-full bg-white text-xs font-bold text-red-600 shadow-sm ring-2 ring-red-600">
                         {unread > 99 ? '99+' : unread}
                     </span>
                 )}

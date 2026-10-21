@@ -254,7 +254,7 @@ export default function Stands({
                                 className={cn(
                                     'text-xs',
                                     form.data.lat === null
-                                        ? 'text-amber-600'
+                                        ? 'text-amber-600 dark:text-amber-400'
                                         : 'text-muted-foreground',
                                 )}
                             >

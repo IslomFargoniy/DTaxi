@@ -657,7 +657,7 @@ export function OrderForm({
                 Ctrl+Enter — {t('create')}, Esc — {t('stop picking')}
             </p>
             {form.data.scheduled_at && (
-                <p className="text-xs text-amber-600">
+                <p className="text-xs text-amber-600 dark:text-amber-400">
                     {t(
                         'Pre-order: the order goes on air shortly before the chosen time.',
                     )}

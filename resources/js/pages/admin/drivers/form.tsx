@@ -514,7 +514,7 @@ export default function DriverForm({
                                                     className={
                                                         r.amount < 0
                                                             ? 'text-destructive'
-                                                            : 'text-emerald-600'
+                                                            : 'text-emerald-600 dark:text-emerald-400'
                                                     }
                                                 >
                                                     {r.amount.toLocaleString(

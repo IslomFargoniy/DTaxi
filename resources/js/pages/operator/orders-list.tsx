@@ -141,7 +141,7 @@ function OrderRow({
                 </Badge>
                 {order.status === 'new' && order.scheduled_at ? (
                     <span
-                        className="ml-auto text-xs font-medium text-amber-600"
+                        className="ml-auto text-xs font-medium text-amber-600 dark:text-amber-400"
                         title={t('Pre-order')}
                     >
                         ⏰{' '}
@@ -159,7 +159,7 @@ function OrderRow({
                 )}
             </div>
             {exhausted && (
-                <div className="mt-1 text-xs font-medium text-red-600">
+                <div className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">
                     {t(
                         'Nobody took the order — assign a driver, add an extra or call the client.',
                     )}
@@ -185,7 +185,7 @@ function OrderRow({
                     </span>
                 )}
                 {order.price_bonus ? (
-                    <span className="font-medium text-emerald-600">
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400">
                         +{order.price_bonus.toLocaleString('ru-RU')}
                     </span>
                 ) : null}

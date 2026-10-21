@@ -106,7 +106,7 @@ fun BalanceScreen(onBack: () -> Unit) {
                     }
                     Text(
                         (if (t.amount > 0) "+" else "") + formatMoney(t.amount),
-                        color = if (t.amount < 0) MaterialTheme.colorScheme.error else Color(0xFF16A34A),
+                        color = if (t.amount < 0) MaterialTheme.colorScheme.error else LocalAppColors.current.success,
                         fontWeight = FontWeight.Bold,
                     )
                 }
@@ -215,7 +215,7 @@ fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
                 onDispose { lifecycle.removeObserver(observer) }
             }
             if (batteryExempt) {
-                Text("✓ " + stringResource(R.string.battery_ok), color = Color(0xFF1FA463), fontWeight = FontWeight.Bold)
+                Text("✓ " + stringResource(R.string.battery_ok), color = LocalAppColors.current.success, fontWeight = FontWeight.Bold)
             }
             OutlinedButton(onClick = { openBatterySettings(context) }) { Text(stringResource(R.string.open_settings)) }
 

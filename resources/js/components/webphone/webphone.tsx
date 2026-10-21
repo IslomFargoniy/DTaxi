@@ -412,7 +412,7 @@ export function WebPhone({
                         )}
                     />
                     {missed.length > 0 && (
-                        <span className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-background text-[11px] font-bold text-red-600 ring-2 ring-red-600">
+                        <span className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-white text-[11px] font-bold text-red-600 shadow-sm ring-2 ring-red-600">
                             {missed.length}
                         </span>
                     )}
@@ -683,7 +683,7 @@ export function WebPhone({
                                             </span>
                                         )}
                                         {card?.client?.note && (
-                                            <span className="text-center text-xs text-amber-600">
+                                            <span className="text-center text-xs text-amber-600 dark:text-amber-400">
                                                 {card.client.note}
                                             </span>
                                         )}

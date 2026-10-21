@@ -192,7 +192,7 @@ export default function OrderShow({
                                             'text-xl',
                                             clientRating !== null &&
                                                 n <= clientRating
-                                                ? 'text-amber-500'
+                                                ? 'text-amber-500 dark:text-amber-400'
                                                 : 'text-muted-foreground/40',
                                         )}
                                         onClick={() =>

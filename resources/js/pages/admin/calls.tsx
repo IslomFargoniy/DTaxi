@@ -179,7 +179,7 @@ export default function Calls({
                                 )}
                             />
                             {!live.daemon && (
-                                <span className="text-xs text-red-600">
+                                <span className="text-xs text-red-600 dark:text-red-400">
                                     {t(
                                         'Call service (ari:listen) is not running',
                                     )}
@@ -283,7 +283,7 @@ export default function Calls({
                                     </span>
                                     {!o.registered &&
                                         o.status !== 'offline' && (
-                                            <span className="text-xs text-red-600">
+                                            <span className="text-xs text-red-600 dark:text-red-400">
                                                 {t('phone offline')}
                                             </span>
                                         )}
