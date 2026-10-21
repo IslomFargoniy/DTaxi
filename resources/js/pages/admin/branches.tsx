@@ -141,7 +141,7 @@ function AreaPicker({
     );
 
     return (
-        <div className="relative h-64 overflow-hidden rounded-md border">
+        <div className="relative h-80 overflow-hidden rounded-md border">
             <TaxiMap
                 tilesUrl={tiles}
                 center={initial}
@@ -296,6 +296,14 @@ function ScheduleEditor({
     );
 }
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+    return (
+        <h3 className="border-b pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            {children}
+        </h3>
+    );
+}
+
 const settingLabels: Record<string, string> = {
     'drivers.commission_percent': 'Driver commission, %',
     'drivers.min_balance': "Minimum driver balance, so'm",
@@ -369,6 +377,7 @@ function BranchDialog({
             open
             onOpenChange={(open) => !open && onClose()}
             title={existing ? 'Edit branch' : 'New branch'}
+            className="sm:max-w-6xl"
             processing={form.processing}
             onSubmit={() =>
                 existing
@@ -380,182 +389,203 @@ function BranchDialog({
                       })
             }
         >
-            <div className="grid gap-1.5">
-                <Label htmlFor="name">{t('Name')}</Label>
-                <Input
-                    id="name"
-                    value={form.data.name}
-                    onChange={(e) => form.setData('name', e.target.value)}
-                />
-                <InputError message={errors.name} />
-            </div>
-            <div className="grid grid-cols-2 items-start gap-2">
-                <div className="grid gap-1.5">
-                    <Label>{t('Region')}</Label>
-                    <select
-                        className="h-9 rounded-md border bg-transparent px-2 text-sm"
-                        value={parent}
-                        onChange={(e) =>
-                            setParent(Number(e.target.value) || '')
-                        }
-                    >
-                        <option value="">—</option>
-                        {regions.map((r) => (
-                            <option key={r.id} value={r.id}>
-                                {r.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-                <div className="grid gap-1.5">
-                    <Label>{t('City or district')}</Label>
-                    <select
-                        className="h-9 rounded-md border bg-transparent px-2 text-sm"
-                        value={form.data.region_id}
-                        onChange={(e) =>
-                            form.setData(
-                                'region_id',
-                                Number(e.target.value) || '',
-                            )
-                        }
-                    >
-                        <option value="">—</option>
-                        {children.map((r) => (
-                            <option key={r.id} value={r.id}>
-                                {r.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-                {t(
-                    'The service area is filled from the boundary of the chosen city or district.',
-                )}
-            </p>
-            <div className="grid gap-1.5">
-                <Label>{t('Location and service radius')}</Label>
-                <AreaPicker
-                    tiles={tiles}
-                    center={
-                        form.data.center_lat !== null &&
-                        form.data.center_lng !== null
-                            ? {
-                                  lat: form.data.center_lat,
-                                  lng: form.data.center_lng,
-                              }
-                            : null
-                    }
-                    radiusKm={Number(form.data.service_radius_km) || null}
-                    onCenter={(p) =>
-                        form.setData((data) => ({
-                            ...data,
-                            center_lat: Number(p.lat.toFixed(6)),
-                            center_lng: Number(p.lng.toFixed(6)),
-                        }))
-                    }
-                />
-                <p className="text-xs text-muted-foreground">
-                    {t(
-                        'Click on the map to set the branch center. With a radius, the service area is this circle instead of the city boundary.',
-                    )}
-                </p>
-                <InputError message={errors.center_lat} />
-                <div className="grid grid-cols-[1fr_140px] items-center gap-2">
-                    <Label htmlFor="radius" className="font-normal">
-                        {t('Service radius, km')}
-                    </Label>
-                    <Input
-                        id="radius"
-                        type="number"
-                        min={0.5}
-                        step={0.5}
-                        placeholder="—"
-                        value={form.data.service_radius_km}
-                        onChange={(e) =>
-                            form.setData(
-                                'service_radius_km',
-                                e.target.value === ''
-                                    ? ''
-                                    : Number(e.target.value),
-                            )
-                        }
+            <div className="grid items-start gap-6 lg:grid-cols-3">
+                <section className="grid content-start gap-3">
+                    <SectionTitle>{t('Main')}</SectionTitle>
+                    <div className="grid gap-1.5">
+                        <Label htmlFor="name">{t('Name')}</Label>
+                        <Input
+                            id="name"
+                            value={form.data.name}
+                            onChange={(e) =>
+                                form.setData('name', e.target.value)
+                            }
+                        />
+                        <InputError message={errors.name} />
+                    </div>
+                    <div className="grid gap-1.5">
+                        <Label htmlFor="service_name">
+                            {t('Service name (IVR greeting)')}
+                        </Label>
+                        <Input
+                            id="service_name"
+                            placeholder="Ibrat taksi"
+                            value={form.data.service_name}
+                            onChange={(e) =>
+                                form.setData('service_name', e.target.value)
+                            }
+                        />
+                    </div>
+                    <div className="grid gap-1.5">
+                        <Label htmlFor="greeting">{t('Greeting text')}</Label>
+                        <Input
+                            id="greeting"
+                            placeholder={t(
+                                'Assalomu alaykum, … xizmatiga xush kelibsiz',
+                            )}
+                            value={form.data.greeting_text}
+                            onChange={(e) =>
+                                form.setData('greeting_text', e.target.value)
+                            }
+                        />
+                    </div>
+                    <label className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                            checked={form.data.is_active}
+                            onCheckedChange={(v) =>
+                                form.setData('is_active', v === true)
+                            }
+                        />
+                        {t('Active')}
+                    </label>
+                    <ScheduleEditor
+                        schedule={form.data.work_schedule}
+                        holidays={form.data.holidays}
+                        onChange={(v) => form.setData('work_schedule', v)}
+                        onHolidays={(v) => form.setData('holidays', v)}
+                        errors={errors}
                     />
-                </div>
-                <InputError message={errors.service_radius_km} />
-            </div>
-            <div className="grid gap-1.5">
-                <Label htmlFor="service_name">
-                    {t('Service name (IVR greeting)')}
-                </Label>
-                <Input
-                    id="service_name"
-                    placeholder="Ibrat taksi"
-                    value={form.data.service_name}
-                    onChange={(e) =>
-                        form.setData('service_name', e.target.value)
-                    }
-                />
-            </div>
-            <div className="grid gap-1.5">
-                <Label htmlFor="greeting">{t('Greeting text')}</Label>
-                <Input
-                    id="greeting"
-                    placeholder={t(
-                        'Assalomu alaykum, … xizmatiga xush kelibsiz',
-                    )}
-                    value={form.data.greeting_text}
-                    onChange={(e) =>
-                        form.setData('greeting_text', e.target.value)
-                    }
-                />
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                    checked={form.data.is_active}
-                    onCheckedChange={(v) =>
-                        form.setData('is_active', v === true)
-                    }
-                />
-                {t('Active')}
-            </label>
-            <ScheduleEditor
-                schedule={form.data.work_schedule}
-                holidays={form.data.holidays}
-                onChange={(v) => form.setData('work_schedule', v)}
-                onHolidays={(v) => form.setData('holidays', v)}
-                errors={errors}
-            />
-            <div className="grid gap-2 border-t pt-3">
-                <p className="text-xs text-muted-foreground">
-                    {t('Leave empty to use the company-wide value.')}
-                </p>
-                {Object.entries(settingLabels).map(([key, label]) => {
-                    const field = key.replaceAll('.', '__');
-
-                    return (
-                        <div
-                            key={key}
-                            className="grid grid-cols-[1fr_140px] items-center gap-2"
-                        >
-                            <Label htmlFor={field} className="font-normal">
-                                {t(label)}
+                </section>
+                <section className="grid content-start gap-3">
+                    <SectionTitle>
+                        {t('Location and service radius')}
+                    </SectionTitle>
+                    <div className="grid grid-cols-2 items-start gap-2">
+                        <div className="grid gap-1.5">
+                            <Label>{t('Region')}</Label>
+                            <select
+                                className="h-9 rounded-md border bg-transparent px-2 text-sm"
+                                value={parent}
+                                onChange={(e) =>
+                                    setParent(Number(e.target.value) || '')
+                                }
+                            >
+                                <option value="">—</option>
+                                {regions.map((r) => (
+                                    <option key={r.id} value={r.id}>
+                                        {r.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="grid gap-1.5">
+                            <Label>{t('City or district')}</Label>
+                            <select
+                                className="h-9 rounded-md border bg-transparent px-2 text-sm"
+                                value={form.data.region_id}
+                                onChange={(e) =>
+                                    form.setData(
+                                        'region_id',
+                                        Number(e.target.value) || '',
+                                    )
+                                }
+                            >
+                                <option value="">—</option>
+                                {children.map((r) => (
+                                    <option key={r.id} value={r.id}>
+                                        {r.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        {t(
+                            'The service area is filled from the boundary of the chosen city or district.',
+                        )}
+                    </p>
+                    <div className="grid gap-1.5">
+                        <AreaPicker
+                            tiles={tiles}
+                            center={
+                                form.data.center_lat !== null &&
+                                form.data.center_lng !== null
+                                    ? {
+                                          lat: form.data.center_lat,
+                                          lng: form.data.center_lng,
+                                      }
+                                    : null
+                            }
+                            radiusKm={
+                                Number(form.data.service_radius_km) || null
+                            }
+                            onCenter={(p) =>
+                                form.setData((data) => ({
+                                    ...data,
+                                    center_lat: Number(p.lat.toFixed(6)),
+                                    center_lng: Number(p.lng.toFixed(6)),
+                                }))
+                            }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            {t(
+                                'Click on the map to set the branch center. With a radius, the service area is this circle instead of the city boundary.',
+                            )}
+                        </p>
+                        <InputError message={errors.center_lat} />
+                        <div className="grid grid-cols-[1fr_140px] items-center gap-2">
+                            <Label htmlFor="radius" className="font-normal">
+                                {t('Service radius, km')}
                             </Label>
                             <Input
-                                id={field}
+                                id="radius"
                                 type="number"
-                                placeholder={String(defaults[key] ?? '')}
-                                value={form.data.settings[field]}
+                                min={0.5}
+                                step={0.5}
+                                placeholder="—"
+                                value={form.data.service_radius_km}
                                 onChange={(e) =>
-                                    form.setData('settings', {
-                                        ...form.data.settings,
-                                        [field]: e.target.value,
-                                    })
+                                    form.setData(
+                                        'service_radius_km',
+                                        e.target.value === ''
+                                            ? ''
+                                            : Number(e.target.value),
+                                    )
                                 }
                             />
                         </div>
-                    );
-                })}
+                        <InputError message={errors.service_radius_km} />
+                    </div>
+                </section>
+                <section className="grid content-start gap-3">
+                    <SectionTitle>{t('Branch settings')}</SectionTitle>
+                    <div className="grid gap-2">
+                        <p className="text-xs text-muted-foreground">
+                            {t('Leave empty to use the company-wide value.')}
+                        </p>
+                        {Object.entries(settingLabels).map(([key, label]) => {
+                            const field = key.replaceAll('.', '__');
+
+                            return (
+                                <div
+                                    key={key}
+                                    className="grid grid-cols-[1fr_100px] items-center gap-2"
+                                >
+                                    <Label
+                                        htmlFor={field}
+                                        className="font-normal"
+                                    >
+                                        {t(label)}
+                                    </Label>
+                                    <Input
+                                        id={field}
+                                        type="number"
+                                        placeholder={String(
+                                            defaults[key] ?? '',
+                                        )}
+                                        value={form.data.settings[field]}
+                                        onChange={(e) =>
+                                            form.setData('settings', {
+                                                ...form.data.settings,
+                                                [field]: e.target.value,
+                                            })
+                                        }
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+                </section>
             </div>
         </EditDialog>
     );

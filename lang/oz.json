@@ -675,5 +675,7 @@
     "Service radius, km": "Хизмат радиуси, км",
     "Enter your login and password below to log in": "Кириш учун логин ва паролингизни киритинг",
     "Or continue with login": "Ёки логин билан давом этинг",
-    "Email (optional)": "Эмаил (ихтиёрий)"
+    "Email (optional)": "Эмаил (ихтиёрий)",
+    "Main": "Асосий",
+    "Branch settings": "Филиал созламалари"
 }

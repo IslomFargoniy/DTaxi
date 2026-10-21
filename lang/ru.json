@@ -675,5 +675,7 @@
     "Service radius, km": "Радиус обслуживания, км",
     "Enter your login and password below to log in": "Введите логин и пароль для входа",
     "Or continue with login": "Или войдите по логину",
-    "Email (optional)": "Email (необязательно)"
+    "Email (optional)": "Email (необязательно)",
+    "Main": "Основное",
+    "Branch settings": "Настройки филиала"
 }

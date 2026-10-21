@@ -8,6 +8,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { useTrans } from '@/hooks/use-trans';
+import { cn } from '@/lib/utils';
 
 /**
  * Ro'yxatdagi yozuvni qo'shish/tahrirlash oynasi.
@@ -18,6 +19,7 @@ export function EditDialog({
     title,
     onSubmit,
     processing,
+    className,
     children,
 }: {
     open: boolean;
@@ -25,13 +27,20 @@ export function EditDialog({
     title: string;
     onSubmit: () => void;
     processing?: boolean;
+    /** Keng shakllar uchun (masalan, ustunli filial oynasi) */
+    className?: string;
     children: ReactNode;
 }) {
     const { t } = useTrans();
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
+            <DialogContent
+                className={cn(
+                    'max-h-[90svh] overflow-y-auto sm:max-w-lg',
+                    className,
+                )}
+            >
                 <DialogHeader>
                     <DialogTitle>{t(title)}</DialogTitle>
                 </DialogHeader>

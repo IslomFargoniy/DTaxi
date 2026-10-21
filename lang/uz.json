@@ -675,5 +675,7 @@
     "Service radius, km": "Xizmat radiusi, km",
     "Enter your login and password below to log in": "Kirish uchun login va parolingizni kiriting",
     "Or continue with login": "Yoki login bilan davom eting",
-    "Email (optional)": "Email (ixtiyoriy)"
+    "Email (optional)": "Email (ixtiyoriy)",
+    "Main": "Asosiy",
+    "Branch settings": "Filial sozlamalari"
 }
