@@ -150,4 +150,8 @@
     <string name="hide_password">Parolni yashirish</string>
     <string name="no_app_found">Bu amalni bajaradigan ilova topilmadi</string>
     <string name="update_allow_install">Bu manbadan o\'rnatishga ruxsat bering — o\'rnatish o\'zi davom etadi</string>
+    <string name="finish_confirm_title">Safarni yakunlaysizmi?</string>
+    <string name="finish_confirm_text">Mijozdan olinadigan summa: %1$s so\'m. Masofa: %2$s km.</string>
+    <string name="offer_sound">Yangi buyurtma ovozi</string>
+    <string name="offer_sound_default">Standart</string>
 </resources>

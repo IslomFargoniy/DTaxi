@@ -150,4 +150,8 @@
     <string name="hide_password">Скрыть пароль</string>
     <string name="no_app_found">Не найдено приложение для этого действия</string>
     <string name="update_allow_install">Разрешите установку из этого источника — установка продолжится автоматически</string>
+    <string name="finish_confirm_title">Завершить поездку?</string>
+    <string name="finish_confirm_text">К оплате: %1$s сум. Расстояние: %2$s км.</string>
+    <string name="offer_sound">Звук нового заказа</string>
+    <string name="offer_sound_default">По умолчанию</string>
 </resources>

@@ -318,6 +318,7 @@ private fun OrderCard(order: Order, passedStops: Int, onChat: () -> Unit, onPass
     val profile by DriverState.profile.collectAsState()
     var busy by remember { mutableStateOf(false) }
     var cancelling by remember { mutableStateOf(false) }
+    var confirmFinish by remember { mutableStateOf(false) }
     val pendingComplete by DriverState.pendingComplete.collectAsState()
     val sending = pendingComplete == order.id
     var waitingSeconds by remember { mutableLongStateOf(0L) }
@@ -417,19 +418,8 @@ private fun OrderCard(order: Order, passedStops: Int, onChat: () -> Unit, onPass
                 Text(stringResource(R.string.passenger_in), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
             }
             "in_progress" -> Button(
-                onClick = {
-                    busy = true
-                    IbTaxiApp.instance.scope.launch {
-                        when (val result = repository.complete(order.id, meters.first, meters.second)) {
-                            is Result.Ok -> if (order.company == null) DriverState.receipt(result.value?.priceFinal)
-                            // Internet yo'q — natija saqlangan, servis o'zi qayta yuboradi
-                            is Result.Error -> if (result.code != -1) {
-                                DriverState.toast(result.message ?: context.getString(R.string.network_error))
-                            }
-                        }
-                        busy = false
-                    }
-                },
+                // Tasodifiy bosilsa safar yopilib, mijozdan noto'g'ri summa olinardi — avval tasdiq
+                onClick = { confirmFinish = true },
                 enabled = !busy && !sending,
                 shape = RoundedCornerShape(18.dp),
                 // "Yakunlash" — qora (yorug'da) / oq (qorong'ida), sariq taksometrdan ajralib turadi
@@ -439,10 +429,53 @@ private fun OrderCard(order: Order, passedStops: Int, onChat: () -> Unit, onPass
         }
     }
 
+    val finish = {
+        busy = true
+        IbTaxiApp.instance.scope.launch {
+            when (val result = repository.complete(order.id, meters.first, meters.second)) {
+                is Result.Ok -> if (order.company == null) DriverState.receipt(result.value?.priceFinal)
+                // Internet yo'q — natija saqlangan, servis o'zi qayta yuboradi
+                is Result.Error -> if (result.code != -1) {
+                    DriverState.toast(result.message ?: context.getString(R.string.network_error))
+                }
+            }
+            busy = false
+        }
+    }
+
+    if (confirmFinish) FinishDialog(
+        total = tariff?.let { taximeterTotal(order, it, meters, profile?.config?.timezone) } ?: order.priceEstimate,
+        distanceMeters = meters.first,
+        onDismiss = { confirmFinish = false },
+    ) {
+        confirmFinish = false
+        finish()
+    }
+
     if (cancelling) CancelDialog(onDismiss = { cancelling = false }) { reason ->
         cancelling = false
         act { repository.cancel(order.id, reason) }
     }
+}
+
+/** "Safarni yakunlaysizmi?" — taksometrdagi summa va masofa bilan */
+@Composable
+private fun FinishDialog(total: Long?, distanceMeters: Long, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.finish_confirm_title)) },
+        text = {
+            Text(
+                stringResource(
+                    R.string.finish_confirm_text,
+                    formatMoney(total),
+                    "%.1f".format(java.util.Locale.ROOT, distanceMeters / 1000.0),
+                ),
+            )
+        },
+        confirmButton = { Button(onClick = onConfirm) { Text(stringResource(R.string.finish)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 @Composable
@@ -558,6 +591,25 @@ private fun WaitingPanel(order: Order, tariff: Tariff?, waitingSeconds: Long) {
             )
         }
     }
+}
+
+/** Taksometr summasi (operator ustamasi bilan) — panel va "Yakunlash" tasdig'ida bir xil */
+private fun taximeterTotal(order: Order, tariff: Tariff, meters: Pair<Long, Long>, timezone: String?): Long {
+    val zone = timezone?.let { runCatching { java.time.ZoneId.of(it) }.getOrNull() } ?: java.time.ZoneId.systemDefault()
+    val started = order.startedAt?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }
+    val arrived = order.arrivedAt?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }
+    val waitingSeconds = if (started != null && arrived != null) Duration.between(arrived, started).seconds.coerceAtLeast(0) else 0L
+    val fare = Fare.calculate(
+        tariff,
+        meters.first,
+        meters.second,
+        waitingSeconds = waitingSeconds,
+        startedAt = started?.atZoneSameInstant(zone)?.toLocalTime() ?: LocalTime.now(zone),
+        surgeCoeff = order.surgeCoeff ?: 1.0,
+        discountPercent = order.discountPercent ?: 0,
+    )
+
+    return fare.total + (order.priceBonus ?: 0)
 }
 
 @Composable

@@ -74,6 +74,11 @@ class Session(context: Context) {
         get() = prefs.getBoolean("voice_guidance", true)
         set(value) = prefs.edit().putBoolean("voice_guidance", value).apply()
 
+    /** Yangi buyurtma signali (RingtoneManager URI); null — telefonning standart budilnik ovozi */
+    var offerSound: String?
+        get() = prefs.getString("offer_sound", null)
+        set(value) = prefs.edit().putString("offer_sound", value).apply()
+
     /** Navigatsiya ovozi (TTS Voice nomi); null — dvigatel standarti */
     var navVoice: String?
         get() = prefs.getString("nav_voice", null)

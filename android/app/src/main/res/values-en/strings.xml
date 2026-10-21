@@ -150,4 +150,8 @@
     <string name="hide_password">Hide password</string>
     <string name="no_app_found">No app found for this action</string>
     <string name="update_allow_install">Allow installs from this source — installation will continue automatically</string>
+    <string name="finish_confirm_title">Finish the trip?</string>
+    <string name="finish_confirm_text">Amount to collect: %1$s som. Distance: %2$s km.</string>
+    <string name="offer_sound">New order sound</string>
+    <string name="offer_sound_default">Default</string>
 </resources>

@@ -186,6 +186,7 @@ fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
                 })
             }
             if (voice) VoicePicker()
+            OfferSoundPicker()
             Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
             LanguageRow(app.session.locale, onSelect = onLocaleChange)
             Text(stringResource(R.string.theme), style = MaterialTheme.typography.titleMedium)

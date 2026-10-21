@@ -151,4 +151,8 @@
     <string name="hide_password">Паролни яшириш</string>
     <string name="no_app_found">Бу амални бажарадиган илова топилмади</string>
     <string name="update_allow_install">Бу манбадан ўрнатишга рухсат беринг — ўрнатиш ўзи давом этади</string>
+    <string name="finish_confirm_title">Сафарни якунлайсизми?</string>
+    <string name="finish_confirm_text">Мижоздан олинадиган сумма: %1$s сўм. Масофа: %2$s км.</string>
+    <string name="offer_sound">Янги буюртма овози</string>
+    <string name="offer_sound_default">Стандарт</string>
 </resources>

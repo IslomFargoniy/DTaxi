@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.Ringtone
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -30,13 +31,24 @@ object OfferSound {
         }
         stop()
         this.offerId = offerId
-        ringtone = RingtoneManager.getRingtone(context.applicationContext, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))?.apply {
+        ringtone = RingtoneManager.getRingtone(context.applicationContext, soundUri(context))?.apply {
             audioAttributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) isLooping = true
             play()
         }
         handler.postDelayed(autoStop, expiresInSeconds.coerceAtLeast(1) * 1000L)
     }
+
+    /** Haydovchi sozlamalarda tanlagan ovoz (o'chirilgan/yo'q fayl bo'lsa — standart budilnik) */
+    fun soundUri(context: Context): Uri {
+        val chosen = uz.ibtaxi.driver.IbTaxiApp.instance.session.offerSound?.let(Uri::parse)
+            ?.takeIf { uri -> runCatching { context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { true } }.getOrNull() == true }
+
+        return chosen ?: defaultUri()
+    }
+
+    fun defaultUri(): Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 
     @Synchronized
     fun stop() {
