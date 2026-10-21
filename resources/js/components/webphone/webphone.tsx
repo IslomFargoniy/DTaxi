@@ -21,7 +21,7 @@ import {
     show as showRoute,
     status as statusRoute,
 } from '@/routes/operator/phone';
-import { globalSip } from './sip-state';
+import { globalSip, iceExpiringSoon } from './sip-state';
 import type { CallCard, SipCredentials } from './sip-state';
 import {
     resignLeadership,
@@ -263,6 +263,37 @@ export function WebPhone({
             .catch(() => undefined);
         loadMissed();
     }, [loadMissed, userId]);
+
+    // TURN paroli vaqtinchalik (12 soat): muddati yaqinlashsa serverdan yangisi olinadi.
+    // Interval uyqudan keyin ham tekshiradi (setTimeout kechikib qoladi)
+    useEffect(() => {
+        if (!sip?.ice_expires_at) {
+            return;
+        }
+        const refresh = () => {
+            getJson<{ sip: SipCredentials | null }>(showRoute.url())
+                .then((r) => {
+                    if (r.sip) {
+                        globalSip.updateIceServers(r.sip);
+                        setSip(r.sip);
+                    }
+                })
+                .catch(() => undefined);
+        };
+        globalSip.refreshIce = refresh;
+        const id = window.setInterval(() => {
+            if (iceExpiringSoon(globalSip.credentials ?? sip)) {
+                refresh();
+            }
+        }, 10 * 60_000);
+
+        return () => {
+            window.clearInterval(id);
+            if (globalSip.refreshIce === refresh) {
+                globalSip.refreshIce = null;
+            }
+        };
+    }, [sip]);
 
     // Bir nechta varaq: telefon faqat bittasida ro'yxatdan o'tadi
     useEffect(() => {

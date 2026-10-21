@@ -25,7 +25,21 @@ export type SipCredentials = {
     uri: string;
     password: string;
     ws: string;
+    /** STUN doim; TURN — server coturn bilan o'rnatilgan bo'lsa (vaqtinchalik login/parol) */
+    ice_servers: RTCIceServer[];
+    /** TURN paroli muddati (unix soniya); TURN yo'q bo'lsa null */
+    ice_expires_at: number | null;
 };
+
+/** TURN paroli muddati tugashiga 1 soatdan kam qolsa yangilanadi */
+const ICE_REFRESH_MARGIN_MS = 60 * 60_000;
+
+export function iceExpiringSoon(sip: SipCredentials | null): boolean {
+    return (
+        !!sip?.ice_expires_at &&
+        sip.ice_expires_at * 1000 - Date.now() < ICE_REFRESH_MARGIN_MS
+    );
+}
 
 /** Kiruvchi qo'ng'iroq kartochkasi (server OperatorCallEvent) — buyurtma formasi shundan to'ldiriladi */
 export type CallCard = {
@@ -73,6 +87,8 @@ export type GlobalSipState = {
     /** Ulangan foydalanuvchi — boshqa foydalanuvchi kirsa eski ulanish yopiladi */
     userId: number | null;
     credentials: SipCredentials | null;
+    /** Webfon komponenti beradi: serverdan yangi TURN login/paroli olinadi */
+    refreshIce: (() => void) | null;
     displayName: string;
     /** destroyUA chaqirilgan — uzilish kutilgan, qayta ulanilmaydi */
     stopped: boolean;
@@ -96,6 +112,7 @@ export type GlobalSipState = {
         userId?: number | null,
     ) => void;
     register: () => void;
+    updateIceServers: (sip: SipCredentials) => void;
     scheduleReconnect: () => void;
     reconnectNow: () => void;
     setCard: (card: CallCard | null) => void;
@@ -164,6 +181,7 @@ export const globalSip: GlobalSipState = existing ?? {
     answering: false,
     userId: null,
     credentials: null,
+    refreshIce: null,
     displayName: '',
     stopped: false,
     reconnectTimer: null,
@@ -278,6 +296,8 @@ export const globalSip: GlobalSipState = existing ?? {
                 this.registeredExtension === sip.extension &&
                 this.userId === userId
             ) {
+                // Yangilangan TURN paroli bo'lsa — keyingi suhbatdan ishlatiladi
+                this.updateIceServers(sip);
                 // Uzilib qolgan bo'lsa — darhol qayta urinish
                 if (this.status !== 'connected') {
                     this.reconnectNow();
@@ -314,9 +334,11 @@ export const globalSip: GlobalSipState = existing ?? {
             authorizationUsername: sip.extension,
             authorizationPassword: sip.password,
             displayName,
-            // Asterisk shu tarmoqda — STUN/TURN shart emas
+            // Server NAT ortida yoki ofis tarmog'i UDP'ni yopsa ovoz TURN orqali o'tadi
             sessionDescriptionHandlerFactoryOptions: {
-                peerConnectionConfiguration: { iceServers: [] },
+                peerConnectionConfiguration: { iceServers: sip.ice_servers },
+                // TURN (TLS) ajratishi ~1 s; STUN javob bermasa ham qo'ng'iroq kutib qolmasin
+                iceGatheringTimeout: 3000,
             },
             gracefulShutdown: true,
             logBuiltinEnabled: false,
@@ -335,6 +357,10 @@ export const globalSip: GlobalSipState = existing ?? {
                 }
                 this.status = 'connecting';
                 this.notify();
+                // Kompyuter uxlab qolgan bo'lsa TURN paroli eskirgan bo'lishi mumkin
+                if (iceExpiringSoon(this.credentials)) {
+                    this.refreshIce?.();
+                }
                 // Har ulanishda (birinchi va qayta) ichki raqam qayta ro'yxatdan o'tadi
                 this.register();
             },
@@ -400,6 +426,23 @@ export const globalSip: GlobalSipState = existing ?? {
             this.status = 'registration_failed';
             this.notify();
         });
+    },
+
+    updateIceServers(sip) {
+        if (!this.credentials || sip.extension !== this.registeredExtension) {
+            return;
+        }
+        this.credentials = sip;
+        // sip.js har yangi suhbatda shu sozlamani o'qiydi — qayta ro'yxatdan o'tish shart emas
+        const options = this.ua?.configuration
+            .sessionDescriptionHandlerFactoryOptions as
+            | Web.SessionDescriptionHandlerFactoryOptions
+            | undefined;
+        if (options) {
+            options.peerConnectionConfiguration = {
+                iceServers: sip.ice_servers,
+            };
+        }
     },
 
     scheduleReconnect() {

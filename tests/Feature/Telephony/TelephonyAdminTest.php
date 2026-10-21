@@ -11,7 +11,9 @@ use App\Models\SipTrunk;
 use App\Models\SoundClip;
 use App\Models\User;
 use App\Services\Telephony\Extensions;
+use App\Services\Telephony\IceServers;
 use App\Support\Settings;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\DB;
@@ -138,6 +140,50 @@ test('driver app gets WebRTC credentials to call the dispatcher', function () {
         ->assertJsonPath('sip.extension', 'dr'.$driver->id)
         ->assertJsonPath('target', 'dispatcher');
     $this->get(route('driver-app.call'))->assertOk()->assertSee('Dispetcher');
+});
+
+test('without TURN configured only the STUN server is given to WebRTC clients', function () {
+    config(['services.webrtc.stun' => 'stun:stun.example.org:19302', 'services.webrtc.turn_url' => null, 'services.webrtc.turn_secret' => null]);
+    $operator = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+
+    $this->actingAs($operator)->getJson(route('operator.phone.show'))->assertOk()
+        ->assertJsonPath('sip.ice_servers', [['urls' => ['stun:stun.example.org:19302']]])
+        ->assertJsonPath('sip.ice_expires_at', null);
+});
+
+test('with TURN configured operator and driver get time-limited TURN credentials', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-10-21 10:00:00', 'UTC'));
+    config([
+        'services.webrtc.stun' => 'stun:stun.example.org:19302',
+        'services.webrtc.turn_url' => 'turn:taxi.example.uz:3478?transport=udp, turns:taxi.example.uz:5349?transport=tcp',
+        'services.webrtc.turn_secret' => 'coturn-secret',
+        'services.webrtc.turn_ttl' => 43200,
+    ]);
+    $expires = now()->getTimestamp() + 43200;
+    $operator = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+
+    $sip = $this->actingAs($operator)->getJson(route('operator.phone.show'))->assertOk()->json('sip');
+
+    expect($sip['ice_expires_at'])->toBe($expires)
+        ->and($sip['ice_servers'][0])->toBe(['urls' => ['stun:stun.example.org:19302']])
+        ->and($sip['ice_servers'][1]['urls'])->toBe(['turn:taxi.example.uz:3478?transport=udp', 'turns:taxi.example.uz:5349?transport=tcp'])
+        ->and($sip['ice_servers'][1]['username'])->toBe($expires.':'.$operator->id)
+        // coturn use-auth-secret: base64(hmac-sha1(secret, username))
+        ->and($sip['ice_servers'][1]['credential'])
+        ->toBe(base64_encode(hash_hmac('sha1', $expires.':'.$operator->id, 'coturn-secret', true)));
+
+    $driver = Driver::factory()->create(['branch_id' => $this->branch->id]);
+    Sanctum::actingAs($driver->user, ['driver']);
+    $this->getJson('/api/driver/v1/phone')->assertOk()
+        ->assertJsonPath('sip.ice_servers.1.username', $expires.':'.$driver->user_id)
+        ->assertJsonPath('sip.ice_expires_at', $expires);
+});
+
+test('TURN credential matches the coturn REST API reference value', function () {
+    // RFC 2104 / coturn: echo -n "1700000000:5" | openssl dgst -sha1 -hmac secret -binary | base64
+    expect(IceServers::credential('secret', '1700000000:5'))
+        ->toBe(base64_encode(hash_hmac('sha1', '1700000000:5', 'secret', true)))
+        ->toHaveLength(28);
 });
 
 test('asterisk is shown as online even when no PJSIP endpoints exist yet', function () {
