@@ -158,22 +158,20 @@ async function start(): Promise<void> {
     });
 
     const host = sip.uri.split('@')[1];
+    // JsSIP chiquvchi qo'ng'iroqda RTCPeerConnection'ni ua.call() ichida yaratadi: keyin ulangan
+    // session.on('peerconnection') hech qachon ishlamaydi — shuning uchun ovoz <audio>ga ulanmay qolardi.
     session = ua.call(`sip:${target}@${host}`, {
         mediaConstraints: { audio: true, video: false },
+        eventHandlers: {
+            peerconnection: ({ peerconnection }) =>
+                attachRemote(peerconnection),
+        },
     });
+    if (session.connection) {
+        attachRemote(session.connection);
+    }
     status(t.ringing);
 
-    session.on('peerconnection', ({ peerconnection }) => {
-        diagnose(peerconnection);
-        peerconnection.addEventListener('track', (e: RTCTrackEvent) => {
-            const remote = $('remote') as HTMLAudioElement;
-            remote.srcObject = e.streams[0];
-            // Ba'zi Android WebView'larda autoplay o'zi boshlanmaydi — operator ovozi eshitilmay qolardi
-            void remote.play().catch((err: unknown) => {
-                playError = String(err);
-            });
-        });
-    });
     // Asterisk navbat musiqasi uchun darhol javob beradi — bu hali operator emas
     session.on('confirmed', () => {
         $('avatar').classList.add('live');
@@ -223,6 +221,38 @@ $('mute').addEventListener('click', () => {
 });
 
 let playError = '';
+let attached: RTCPeerConnection | null = null;
+
+function playRemote(stream: MediaStream): void {
+    const remote = $('remote') as HTMLAudioElement;
+    if (remote.srcObject === stream) {
+        return;
+    }
+    remote.srcObject = stream;
+    // Ba'zi Android WebView'larda autoplay o'zi boshlanmaydi
+    void remote.play().catch((err: unknown) => {
+        playError = String(err);
+    });
+}
+
+function attachRemote(pc: RTCPeerConnection): void {
+    if (attached === pc) {
+        return;
+    }
+    attached = pc;
+    diagnose(pc);
+    pc.addEventListener('track', (e: RTCTrackEvent) => {
+        playRemote(e.streams[0] ?? new MediaStream([e.track]));
+    });
+    // Trek ulanishdan oldin kelgan bo'lsa
+    const tracks = pc
+        .getReceivers()
+        .map((r) => r.track)
+        .filter((tr) => tr.kind === 'audio');
+    if (tracks.length > 0) {
+        playRemote(new MediaStream(tracks));
+    }
+}
 
 /**
  * Faqat lokal tarmoqda (sinov): telefonga ovoz kelyaptimi-yo'qmi ekranning pastida ko'rinadi.
