@@ -1,3 +1,5 @@
+import type { MultiPolygon, Polygon } from 'geojson';
+
 export type OrderStatus =
     | 'new'
     | 'searching'
@@ -58,6 +60,8 @@ export type MapDriver = {
 };
 
 export type Branch = {
+    /** Xizmat hududi (radius aylanasi yoki shahar chegarasi), soddalashtirilgan */
+    area?: Polygon | MultiPolygon | null;
     id: number;
     name: string;
     center: { lat: number; lng: number } | null;

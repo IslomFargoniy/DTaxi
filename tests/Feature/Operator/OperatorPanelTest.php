@@ -15,6 +15,7 @@ use App\Services\Orders\OrderService;
 use Carbon\CarbonImmutable;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Database\Seeders\RolesSeeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -54,6 +55,14 @@ test('without any branch center the map centers on recent pickups', function () 
         ->assertInertia(fn ($page) => $page
             ->where('map.center.lat', fn ($lat) => abs($lat - 40.42) < 0.001)
             ->where('map.center.lng', fn ($lng) => abs($lng - 71.75) < 0.001));
+});
+
+test('operator map gets the branch service area to draw', function () {
+    $this->branch->forceFill(['center' => Point::makeGeodetic(40.3864, 71.7864)])->save();
+    DB::update('UPDATE branches SET service_area = ST_Multi(ST_Buffer(center, 5000)::geometry)::geography WHERE id = ?', [$this->branch->id]);
+
+    $this->actingAs($this->operator)->get(route('operator.index'))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('branches.0.area.type', fn ($type) => in_array($type, ['Polygon', 'MultiPolygon'], true))->has('branches.0.area.coordinates.0'));
 });
 
 test('cashier cannot open the operator panel', function () {

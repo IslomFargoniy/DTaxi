@@ -31,11 +31,18 @@ class OperatorController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Xizmat hududi xaritada chiziladi (filialda belgilangan radius yoki shahar chegarasi)
+        $areas = DB::table('branches')->whereIn('id', $branches->pluck('id'))->whereNotNull('service_area')
+            ->selectRaw('id, ST_AsGeoJSON(ST_SimplifyPreserveTopology(service_area::geometry, 0.0003), 5) as geojson')
+            ->pluck('geojson', 'id')
+            ->map(fn (mixed $json) => is_string($json) ? json_decode($json, true) : null);
+
         return Inertia::render('operator/index', [
             'branches' => $branches->map(fn (Branch $branch) => [
                 'id' => $branch->id,
                 'name' => $branch->name,
                 'center' => $branch->center ? ['lat' => $branch->center->getLatitude(), 'lng' => $branch->center->getLongitude()] : null,
+                'area' => $areas[$branch->id] ?? null,
             ]),
             'tariffClasses' => TariffClass::query()->whereIn('branch_id', $branches->pluck('id'))->where('is_active', true)
                 ->orderBy('sort')->get(['id', 'branch_id', 'name', 'icon', 'is_delivery', 'is_default']),

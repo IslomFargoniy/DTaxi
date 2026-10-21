@@ -200,6 +200,55 @@ export default function OperatorIndex({
     const onReady = useCallback(
         (map: MapLibreMap) => {
             mapRef.current = map;
+            // Filiallar xizmat hududi — haydovchi va buyurtma qatlamlari ostida
+            const areas = branches.flatMap((b) =>
+                b.area
+                    ? [
+                          {
+                              type: 'Feature' as const,
+                              properties: { id: b.id },
+                              geometry: b.area,
+                          },
+                      ]
+                    : [],
+            );
+            map.addSource('branch-areas', {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: areas },
+            });
+            map.addLayer({
+                id: 'branch-areas-fill',
+                type: 'fill',
+                source: 'branch-areas',
+                paint: { 'fill-color': '#FFC800', 'fill-opacity': 0.08 },
+            });
+            map.addLayer({
+                id: 'branch-areas-line',
+                type: 'line',
+                source: 'branch-areas',
+                paint: {
+                    'line-color': '#E0A800',
+                    'line-width': 2,
+                    'line-dasharray': [2, 2],
+                },
+            });
+            const first = branches.find((b) => b.area)?.area;
+            if (first) {
+                const points = (
+                    first.type === 'Polygon'
+                        ? first.coordinates
+                        : first.coordinates.flat()
+                ).flat();
+                const lngs = points.map((p) => p[0]);
+                const lats = points.map((p) => p[1]);
+                map.fitBounds(
+                    [
+                        [Math.min(...lngs), Math.min(...lats)],
+                        [Math.max(...lngs), Math.max(...lats)],
+                    ],
+                    { padding: 24, duration: 0 },
+                );
+            }
             map.addSource('drivers', {
                 type: 'geojson',
                 data: driversGeoJson(drivers, locationTtlSeconds),
