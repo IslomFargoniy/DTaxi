@@ -3,9 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTrans } from '@/hooks/use-trans';
-import { getJson, postJson } from '@/lib/http';
+import { getJson, isAbort, postJson } from '@/lib/http';
 import { landmarks as searchLandmarks } from '@/routes/operator/lookup';
 import { store as storeLandmark } from '@/routes/operator/landmarks';
+import { cn } from '@/lib/utils';
 import type { Landmark } from '@/types/operator';
 
 export type PickedPlace = {
@@ -45,19 +46,27 @@ export function PlacePicker({
     const { t } = useTrans();
     const [results, setResults] = useState<Landmark[]>([]);
     const [open, setOpen] = useState(false);
-    const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+    // Klaviatura bilan tanlanayotgan taklif (↑/↓), -1 — hech biri
+    const [highlight, setHighlight] = useState(-1);
+    const [saving, setSaving] = useState(false);
     const blurTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+    // Mo'ljal saqlanayotganda operator maydonni o'zgartirsa — javob eski qiymat ustidan yozilmasin
+    const latest = useRef(value);
+    useEffect(() => {
+        latest.current = value;
+    }, [value]);
 
     useEffect(() => {
-        clearTimeout(timer.current);
-
         if (!open || value.text.trim().length < 2 || value.landmarkId) {
             setResults([]);
+            setHighlight(-1);
 
             return;
         }
 
-        timer.current = setTimeout(() => {
+        // Har yangi harfda oldingi so'rov bekor — kechikkan eski javob yangi natijalarni almashtirmaydi
+        const controller = new AbortController();
+        const id = setTimeout(() => {
             getJson<Landmark[]>(
                 searchLandmarks.url({
                     query: {
@@ -65,11 +74,76 @@ export function PlacePicker({
                         ...(near ? { lat: near.lat, lng: near.lng } : {}),
                     },
                 }),
+                { signal: controller.signal },
             )
-                .then(setResults)
-                .catch(() => setResults([]));
+                .then((list) => {
+                    setResults(list);
+                    setHighlight(-1);
+                })
+                .catch((e) => !isAbort(e) && setResults([]));
         }, 200);
+
+        return () => {
+            clearTimeout(id);
+            controller.abort();
+        };
     }, [value.text, value.landmarkId, open, near]);
+
+    const choose = (landmark: Landmark) => {
+        onChange({
+            text: landmark.name,
+            lat: landmark.lat,
+            lng: landmark.lng,
+            landmarkId: landmark.id,
+        });
+        setOpen(false);
+        setHighlight(-1);
+    };
+
+    const saveLandmark = () => {
+        const saved = value;
+        if (saving || saved.lat === null) {
+            return;
+        }
+        setSaving(true);
+        postJson<{ id: number }>(storeLandmark.url(), {
+            name: saved.text,
+            lat: saved.lat,
+            lng: saved.lng,
+        })
+            .then(({ id: landmarkId }) => {
+                const now = latest.current;
+                if (
+                    now.text === saved.text &&
+                    now.lat === saved.lat &&
+                    now.lng === saved.lng
+                ) {
+                    onChange({ ...now, landmarkId });
+                }
+            })
+            .catch(() => undefined)
+            .finally(() => setSaving(false));
+    };
+
+    const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        const listed = open && results.length > 0;
+        if (e.key === 'ArrowDown' && listed) {
+            e.preventDefault();
+            setHighlight((h) => (h + 1) % results.length);
+        } else if (e.key === 'ArrowUp' && listed) {
+            e.preventDefault();
+            setHighlight((h) => (h <= 0 ? results.length - 1 : h - 1));
+        } else if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+            // Enter taklifni tanlaydi, buyurtmani hech qachon yubormaydi (yuborish — Ctrl+Enter)
+            e.preventDefault();
+            if (listed) {
+                choose(results[highlight >= 0 ? highlight : 0]);
+            }
+        } else if (e.key === 'Escape' && listed) {
+            setOpen(false);
+            setHighlight(-1);
+        }
+    };
 
     const hasValue = value.text !== '' || value.lat !== null;
 
@@ -91,6 +165,15 @@ export function PlacePicker({
                         autoComplete="off"
                         className={hasValue ? 'pr-8' : undefined}
                         placeholder={t('Landmark or address')}
+                        role="combobox"
+                        aria-expanded={open && results.length > 0}
+                        aria-controls={`${id}-suggestions`}
+                        aria-activedescendant={
+                            highlight >= 0
+                                ? `${id}-option-${highlight}`
+                                : undefined
+                        }
+                        onKeyDown={onKeyDown}
                         onFocus={() => {
                             // Kechikkan "yopish" (blur'dan) qayta fokusda ro'yxatni yopib qo'ymasin
                             clearTimeout(blurTimer.current);
@@ -154,18 +237,9 @@ export function PlacePicker({
                     {canSaveLandmark && (
                         <button
                             type="button"
-                            className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
-                            onClick={() =>
-                                postJson<{ id: number }>(storeLandmark.url(), {
-                                    name: value.text,
-                                    lat: value.lat,
-                                    lng: value.lng,
-                                })
-                                    .then(({ id: landmarkId }) =>
-                                        onChange({ ...value, landmarkId }),
-                                    )
-                                    .catch(() => undefined)
-                            }
+                            disabled={saving}
+                            className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline disabled:opacity-50"
+                            onClick={saveLandmark}
                         >
                             <Plus className="size-3" />
                             {t('Save as landmark')}
@@ -175,22 +249,33 @@ export function PlacePicker({
             )}
 
             {open && results.length > 0 && (
-                <ul className="absolute top-full z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
-                    {results.map((landmark) => (
-                        <li key={landmark.id}>
+                <ul
+                    id={`${id}-suggestions`}
+                    role="listbox"
+                    className="absolute top-full z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                >
+                    {results.map((landmark, index) => (
+                        <li
+                            key={landmark.id}
+                            id={`${id}-option-${index}`}
+                            role="option"
+                            aria-selected={index === highlight}
+                            ref={(el) => {
+                                if (index === highlight) {
+                                    el?.scrollIntoView({ block: 'nearest' });
+                                }
+                            }}
+                        >
                             <button
                                 type="button"
-                                className="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                tabIndex={-1}
+                                className={cn(
+                                    'w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent',
+                                    index === highlight && 'bg-accent',
+                                )}
                                 onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => {
-                                    onChange({
-                                        text: landmark.name,
-                                        lat: landmark.lat,
-                                        lng: landmark.lng,
-                                        landmarkId: landmark.id,
-                                    });
-                                    setOpen(false);
-                                }}
+                                onMouseEnter={() => setHighlight(index)}
+                                onClick={() => choose(landmark)}
                             >
                                 {landmark.name}
                                 {landmark.aliases.length > 0 && (

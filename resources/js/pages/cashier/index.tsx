@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useTrans } from '@/hooks/use-trans';
-import { getJson } from '@/lib/http';
+import { getJson, isAbort } from '@/lib/http';
 import { index } from '@/routes/cashier';
 import { search } from '@/routes/cashier/drivers';
 
@@ -67,13 +67,20 @@ export default function CashierIndex({
 
             return;
         }
+        // Eski qidiruv javobi yangisidan keyin kelsa — ro'yxatni buzmasin
+        const controller = new AbortController();
         const id = setTimeout(() => {
-            getJson<FoundDriver[]>(search.url({ query: { q } }))
+            getJson<FoundDriver[]>(search.url({ query: { q } }), {
+                signal: controller.signal,
+            })
                 .then(setFound)
-                .catch(() => setFound([]));
+                .catch((e) => !isAbort(e) && setFound([]));
         }, 250);
 
-        return () => clearTimeout(id);
+        return () => {
+            clearTimeout(id);
+            controller.abort();
+        };
     }, [q]);
 
     return (
