@@ -424,13 +424,8 @@
     "Which branches each number serves.": "Har bir raqam qaysi filiallarga xizmat qiladi.",
     "phone offline": "telefon uzilgan",
     ":count clips generated.": ":count ta bo'lak generatsiya qilindi.",
-    "Setup": "Sozlash",
     "Company": "Firma",
-    "Service name (e.g. Ibrat taksi)": "Xizmat nomi (masalan, Ibrat taksi)",
-    "First branch": "Birinchi filial",
     "Branch name": "Filial nomi",
-    "Finish setup": "Sozlashni yakunlash",
-    "Set up your company: a few details and you are ready to work.": "Firmangizni sozlang: bir nechta ma'lumot — va ishga tayyor.",
     "All lines were busy at peak time. Consider getting more channels from the SIP provider.": "Eng band vaqtda barcha liniyalar band bo'lgan. SIP provayderdan qo'shimcha kanal olishni o'ylab ko'ring.",
     "Average fare": "O'rtacha narx",
     "Avg. assign time, s": "O'rtacha tayinlash, s",
@@ -579,7 +574,6 @@
     "Select a chat to start messaging": "Yozishish uchun suhbatni tanlang",
     "No branch is assigned to you.": "Sizga filial biriktirilmagan.",
     "Loading…": "Yuklanmoqda…",
-    "Welcome to Dtaxi": "Dtaxi'ga xush kelibsiz",
     "Active call": "Suhbat",
     "Number, extension or callsign": "Raqam, ichki raqam yoki pozivnoy",
     "Call": "Qo'ng'iroq qilish",
@@ -593,5 +587,6 @@
     "Disconnected": "Uzilgan",
     "Decline": "Rad etish",
     "The microphone works only on a secure (https) address.": "Mikrofon faqat xavfsiz (https) manzilda ishlaydi.",
-    "Open the https version": "https manzilni ochish"
+    "Open the https version": "https manzilni ochish",
+    "No administrator yet. Run on the server:": "Administrator hali yo'q. Serverda ishga tushiring:"
 }

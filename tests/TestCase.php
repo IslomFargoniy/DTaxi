@@ -3,7 +3,6 @@
 namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
-use Illuminate\Support\Facades\Cache;
 use Laravel\Fortify\Features;
 
 abstract class TestCase extends BaseTestCase
@@ -21,8 +20,6 @@ abstract class TestCase extends BaseTestCase
 
         // Testlar frontend build'iga bog'liq bo'lmasin
         $this->withoutVite();
-        // Sozlash ustasi o'tilgan deb hisoblanadi (alohida SetupTest'da tekshiriladi)
-        Cache::forever('setup.complete', true);
     }
 
     protected function skipUnlessFortifyHas(string $feature, ?string $message = null): void

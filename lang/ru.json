@@ -424,13 +424,8 @@
     "Which branches each number serves.": "Какие филиалы обслуживает каждый номер.",
     "phone offline": "телефон отключён",
     ":count clips generated.": "Сгенерировано фрагментов: :count.",
-    "Setup": "Настройка",
     "Company": "Компания",
-    "Service name (e.g. Ibrat taksi)": "Название службы (например, Ibrat taksi)",
-    "First branch": "Первый филиал",
     "Branch name": "Название филиала",
-    "Finish setup": "Завершить настройку",
-    "Set up your company: a few details and you are ready to work.": "Настройте компанию: несколько данных — и можно работать.",
     "All lines were busy at peak time. Consider getting more channels from the SIP provider.": "В пиковое время все линии были заняты. Рассмотрите покупку дополнительных каналов у SIP-провайдера.",
     "Average fare": "Средний чек",
     "Avg. assign time, s": "Ср. время назначения, с",
@@ -579,7 +574,6 @@
     "Select a chat to start messaging": "Выберите чат, чтобы начать переписку",
     "No branch is assigned to you.": "Вам не назначен филиал.",
     "Loading…": "Загрузка…",
-    "Welcome to Dtaxi": "Добро пожаловать в Dtaxi",
     "Active call": "Разговор",
     "Number, extension or callsign": "Номер, внутренний или позывной",
     "Call": "Позвонить",
@@ -593,5 +587,6 @@
     "Disconnected": "Отключено",
     "Decline": "Отклонить",
     "The microphone works only on a secure (https) address.": "Микрофон работает только на защищённом адресе (https).",
-    "Open the https version": "Открыть https-версию"
+    "Open the https version": "Открыть https-версию",
+    "No administrator yet. Run on the server:": "Администратора ещё нет. Выполните на сервере:"
 }

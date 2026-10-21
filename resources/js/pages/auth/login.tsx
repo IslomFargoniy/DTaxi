@@ -15,9 +15,10 @@ import { useTrans } from '@/hooks/use-trans';
 type Props = {
     status?: string;
     canResetPassword: boolean;
+    needsInit?: boolean;
 };
 
-export default function Login({ status, canResetPassword }: Props) {
+export default function Login({ status, canResetPassword, needsInit }: Props) {
     const { t } = useTrans();
 
     return (
@@ -25,6 +26,15 @@ export default function Login({ status, canResetPassword }: Props) {
             <Head title={t('Log in')} />
 
             <PasskeyVerify />
+
+            {needsInit && (
+                <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+                    {t('No administrator yet. Run on the server:')}
+                    <code className="mt-1 block font-mono">
+                        php artisan ibtaxi:init
+                    </code>
+                </div>
+            )}
 
             <Form
                 {...store.form()}

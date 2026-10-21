@@ -11,7 +11,7 @@ use Illuminate\Database\Seeder;
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Lokal ishlab chiqish uchun boshlang'ich ma'lumotlar. Production'da superadmin sozlash ustasida yaratiladi.
+     * Lokal ishlab chiqish uchun boshlang'ich ma'lumotlar. Production'da superadmin `ibtaxi:init` bilan yaratiladi (FirstRunSeeder).
      */
     public function run(): void
     {

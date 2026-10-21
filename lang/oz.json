@@ -424,13 +424,8 @@
     "Which branches each number serves.": "Ҳар бир рақам қайси филиалларга хизмат қилади.",
     "phone offline": "телефон узилган",
     ":count clips generated.": ":count та бўлак генератсия қилинди.",
-    "Setup": "Созлаш",
     "Company": "Фирма",
-    "Service name (e.g. Ibrat taksi)": "Хизмат номи (масалан, Ибрат такси)",
-    "First branch": "Биринчи филиал",
     "Branch name": "Филиал номи",
-    "Finish setup": "Созлашни якунлаш",
-    "Set up your company: a few details and you are ready to work.": "Фирмангизни созланг: бир нечта маълумот — ва ишга тайёр.",
     "All lines were busy at peak time. Consider getting more channels from the SIP provider.": "Энг банд вақтда барча линиялар банд бўлган. SIP провайдердан қўшимча канал олишни ўйлаб кўринг.",
     "Average fare": "Ўртача нарх",
     "Avg. assign time, s": "Ўртача тайинлаш, с",
@@ -579,7 +574,6 @@
     "Select a chat to start messaging": "Ёзишиш учун суҳбатни танланг",
     "No branch is assigned to you.": "Сизга филиал бириктирилмаган.",
     "Loading…": "Юкланмоқда…",
-    "Welcome to Dtaxi": "Dtaxi'ga хуш келибсиз",
     "Active call": "Суҳбат",
     "Number, extension or callsign": "Рақам, ички рақам ёки позивной",
     "Call": "Қўнғироқ қилиш",
@@ -593,5 +587,6 @@
     "Disconnected": "Узилган",
     "Decline": "Рад этиш",
     "The microphone works only on a secure (https) address.": "Микрофон фақат хавфсиз (ҳттпс) манзилда ишлайди.",
-    "Open the https version": "ҳттпс манзилни очиш"
+    "Open the https version": "ҳттпс манзилни очиш",
+    "No administrator yet. Run on the server:": "Администратор ҳали йўқ. Серверда ишга туширинг:"
 }
