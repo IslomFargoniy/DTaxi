@@ -101,6 +101,9 @@ class AriListen extends Command
      */
     public function guard(callable $fn): void
     {
+        // Daemon bitta uzun "so'rov": scoped xizmatlar (Settings keshi) har hodisada yangidan — panel o'zgarishlari ko'rinsin
+        app()->forgetScopedInstances();
+
         try {
             try {
                 $fn();

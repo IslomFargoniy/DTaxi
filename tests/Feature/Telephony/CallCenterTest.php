@@ -15,6 +15,7 @@ use App\Models\Client;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\PhoneNumber;
+use App\Models\Setting;
 use App\Models\SipTrunk;
 use App\Models\SoundClip;
 use App\Models\User;
@@ -399,6 +400,20 @@ test('a channel whose StasisStart handler crashed is hung up', function () {
     app(CallCenter::class)->handle(stasis('ch-1', ['inbound', '712000000']));
 
     expect(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-1'))->count())->toBe(1);
+});
+
+test('the listener sees settings changed in the panel without a restart', function () {
+    $this->operator->forceFill(['operator_status' => 'paused'])->save();
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $listener = app(AriListen::class);
+    $listener->guard(fn () => $this->center->tick());
+    $this->travel(100)->seconds();
+
+    // Panel boshqa jarayonda saqlaydi — daemon'ning Settings keshi bilmaydi
+    Setting::query()->updateOrCreate(['branch_id' => null, 'key' => 'calls.max_wait_seconds'], ['value' => 60]);
+    $listener->guard(fn () => $this->center->tick());
+
+    expect(Call::query()->withoutGlobalScopes()->sole()->meta)->toMatchArray(['closing' => true, 'reason' => 'timeout']);
 });
 
 test('the listener loop survives any exception', function () {

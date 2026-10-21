@@ -47,7 +47,6 @@ class CallCenter
         private AriClient $ari,
         private OperatorPool $operators,
         private ChannelLimits $limits,
-        private Settings $settings,
     ) {}
 
     /**
@@ -86,7 +85,7 @@ class CallCenter
             ->orderBy('started_at')
             ->get();
 
-        $maxWait = (int) $this->settings->get('calls.max_wait_seconds');
+        $maxWait = (int) $this->settings()->get('calls.max_wait_seconds');
 
         foreach ($waiting as $call) {
             if (data_get($call->meta, 'ivr') || data_get($call->meta, 'closing')) {
@@ -222,7 +221,7 @@ class CallCenter
      */
     private function autoOrderCandidate(Call $call, ?Client $client): ?Order
     {
-        if (! $client || ! $call->branch_id || ! $this->settings->get('calls.ivr_auto_order', $call->branch_id)
+        if (! $client || ! $call->branch_id || ! $this->settings()->get('calls.ivr_auto_order', $call->branch_id)
             || $this->composer()->phrase('ivr', 'auto-order-offer') === []) {
             return null;
         }
@@ -483,7 +482,7 @@ class CallCenter
             "PJSIP/{$operator->sip_extension}",
             "operator,{$call->id}",
             $callerId,
-            (int) $this->settings->get('calls.operator_ring_seconds'),
+            (int) $this->settings()->get('calls.operator_ring_seconds'),
             channelId: $channelId,
         );
 
@@ -581,7 +580,7 @@ class CallCenter
 
             if ($operatorId) {
                 OperatorCallEvent::dispatch($operatorId, 'missed', ['call_id' => $call->id]);
-                if ($this->settings->get('calls.pause_on_missed_ring') && ($user = User::query()->find($operatorId))) {
+                if ($this->settings()->get('calls.pause_on_missed_ring') && ($user = User::query()->find($operatorId))) {
                     $this->operators->setStatus($user, 'paused');
                 }
             }
@@ -882,6 +881,12 @@ class CallCenter
         $composer = $this->composer();
 
         return ($branchId ? $composer->phrase('greeting', "branch-{$branchId}") : []) ?: $composer->phrase('ivr', 'welcome');
+    }
+
+    private function settings(): Settings
+    {
+        // Settings — scoped: ari:listen har hodisada yangilaydi, panelda o'zgargan qiymat darhol amal qiladi
+        return app(Settings::class);
     }
 
     private function composer(): MessageComposer
