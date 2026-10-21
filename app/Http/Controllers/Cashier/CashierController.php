@@ -15,8 +15,10 @@ use App\Services\Drivers\DriverBalance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 /**
  * Kassir (qaror #25): haydovchi balansini naqd to'ldirish va kassa smenasi.
@@ -113,6 +115,7 @@ class CashierController extends Controller
         $data = $request->validate([
             'driver_id' => ['required', 'integer'],
             'amount' => ['required', 'integer', 'min:1000', 'max:10000000'],
+            'request_id' => ['nullable', 'uuid'],
         ]);
         /** @var User $cashier */
         $cashier = $request->user();
@@ -123,7 +126,25 @@ class CashierController extends Controller
         }
 
         $driver = Driver::query()->whereKey($data['driver_id'])->firstOrFail();
-        $balance->topUp($driver, (int) $data['amount'], TransactionSource::Cash, $cashier, $shift, __('Cash desk'));
+
+        // Ikki marta bosish / sekin internetda qayta yuborish pulni ikki marta qo'shmasin: forma har to'ldirishga
+        // yangi request_id beradi; u bo'lmasa — bir xil haydovchi va summa qisqa vaqt ichida bir marta
+        $key = isset($data['request_id'])
+            ? "cashier-topup:{$cashier->id}:{$data['request_id']}"
+            : "cashier-topup:{$cashier->id}:{$driver->id}:{$data['amount']}";
+        if (! Cache::add($key, true, isset($data['request_id']) ? now()->addDay() : now()->addSeconds(10))) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => __('This top-up has already been made.')]);
+
+            return back();
+        }
+
+        try {
+            $balance->topUp($driver, (int) $data['amount'], TransactionSource::Cash, $cashier, $shift, __('Cash desk'));
+        } catch (Throwable $e) {
+            Cache::forget($key);
+
+            throw $e;
+        }
 
         SendPushNotification::dispatch($driver->user_id, [
             'type' => 'balance.topup',

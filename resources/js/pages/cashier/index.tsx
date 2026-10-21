@@ -45,6 +45,20 @@ type ClosedShift = {
     confirmed: boolean;
 };
 
+// Har to'ldirishga yangi id: ikki marta bosilsa server pulni bir marta qo'shadi.
+// crypto.randomUUID faqat https/localhost'da bor — http'da oddiy generator.
+function newRequestId(): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+        return crypto.randomUUID();
+    }
+
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
+}
+
 /**
  * Kassir paneli (qaror #25): haydovchini topish, naqd to'ldirish, smena.
  */
@@ -59,7 +73,11 @@ export default function CashierIndex({
     const [q, setQ] = useState('');
     const [found, setFound] = useState<FoundDriver[]>([]);
     const [driver, setDriver] = useState<FoundDriver | null>(null);
-    const form = useForm({ driver_id: 0, amount: '' });
+    const form = useForm({
+        driver_id: 0,
+        amount: '',
+        request_id: newRequestId(),
+    });
 
     useEffect(() => {
         if (q.trim().length < 2) {
@@ -154,6 +172,10 @@ export default function CashierIndex({
                                             setDriver(null);
                                             setQ('');
                                             form.reset();
+                                            form.setData(
+                                                'request_id',
+                                                newRequestId(),
+                                            );
                                         },
                                     });
                                 }}
