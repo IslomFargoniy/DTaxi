@@ -29,6 +29,8 @@ import uz.ibtaxi.driver.IbTaxiApp
 class CallActivity : ComponentActivity() {
     private lateinit var web: WebView
     private val audio by lazy { getSystemService(AUDIO_SERVICE) as AudioManager }
+    private var wantSpeaker = true
+    private var routeListener: Any? = null
 
     // WebRTC uchun xavfsiz kontekst kerak: dev server http bo'lsa ham sahifa https orqali ochiladi
     private val callUrl = IbTaxiApp.instance.session.serverUrl.replaceFirst("http://", "https://") + "/driver-app/call"
@@ -46,6 +48,15 @@ class CallActivity : ComponentActivity() {
         audio.mode = AudioManager.MODE_IN_COMMUNICATION
         // Mashinada odatda karnay orqali gaplashiladi
         setSpeaker(true)
+        // WebView ichidagi Chromium mikrofon ochilganda ovozni o'zi karnayga qaytaradi —
+        // haydovchi tanlagan yo'nalish qayta qo'yiladi (aks holda quloq dinamigiga o'tib bo'lmasdi)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val listener = AudioManager.OnCommunicationDeviceChangedListener { device ->
+                if (device?.type != wantedType()) web.postDelayed({ applyRoute() }, 150)
+            }
+            audio.addOnCommunicationDeviceChangedListener(mainExecutor, listener)
+            routeListener = listener
+        }
 
         // Lokal sinov build'ida qo'ng'iroq sahifasini Mac'dagi Chrome'dan kuzatish (chrome://inspect) — ovoz tashxisi
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG || BuildConfig.SERVER_EDITABLE)
@@ -98,13 +109,8 @@ class CallActivity : ComponentActivity() {
      * ko'p telefonlarda (Samsung) ishlamaydi — ovoz kichik dinamikka ketib, "jim" bo'lib qolardi.
      */
     private fun setSpeaker(on: Boolean) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val type = if (on) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
-            audio.availableCommunicationDevices.firstOrNull { it.type == type }?.let { audio.setCommunicationDevice(it) }
-        } else {
-            @Suppress("DEPRECATION")
-            audio.isSpeakerphoneOn = on
-        }
+        wantSpeaker = on
+        applyRoute()
         // Ovoz balandligi: chaqiruv oqimi juda past bo'lsa — o'rtachaga
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
         if (audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL) < max / 2) {
@@ -112,9 +118,38 @@ class CallActivity : ComponentActivity() {
         }
     }
 
+    private fun wantedType() = if (wantSpeaker) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+
+    private fun applyRoute() {
+        if (isDestroyed) return
+        if (audio.mode != AudioManager.MODE_IN_COMMUNICATION) audio.mode = AudioManager.MODE_IN_COMMUNICATION
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (audio.communicationDevice?.type != wantedType()) {
+                audio.availableCommunicationDevices.firstOrNull { it.type == wantedType() }?.let { audio.setCommunicationDevice(it) }
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            audio.isSpeakerphoneOn = wantSpeaker
+        }
+    }
+
+    /** Tashxis uchun: ovoz hozir qayerga chiqyapti */
+    private fun route(): String = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        when (audio.communicationDevice?.type) {
+            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "speaker"
+            AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "earpiece"
+            null -> "none"
+            else -> "type ${audio.communicationDevice?.type}"
+        } + " mode ${audio.mode}"
+    } else {
+        @Suppress("DEPRECATION")
+        (if (audio.isSpeakerphoneOn) "speaker" else "earpiece") + " mode ${audio.mode}"
+    }
+
     override fun onDestroy() {
         web.destroy()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (routeListener as? AudioManager.OnCommunicationDeviceChangedListener)?.let { audio.removeOnCommunicationDeviceChangedListener(it) }
             audio.clearCommunicationDevice()
         } else {
             @Suppress("DEPRECATION")
@@ -137,5 +172,8 @@ class CallActivity : ComponentActivity() {
         /** Sahifadagi karnay tugmasi */
         @JavascriptInterface
         fun speaker(on: Boolean) = runOnUiThread { setSpeaker(on) }
+
+        @JavascriptInterface
+        fun route(): String = this@CallActivity.route()
     }
 }

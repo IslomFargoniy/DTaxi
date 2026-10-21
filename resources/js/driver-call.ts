@@ -10,6 +10,7 @@ type Bridge = {
     locale(): string;
     close(): void;
     speaker?(on: boolean): void;
+    route?(): string;
 };
 type Phone = {
     sip: { uri: string; password: string; ws: string };
@@ -289,6 +290,9 @@ function diagnose(pc: RTCPeerConnection): void {
                 `audio ${remote.paused ? 'paused' : 'playing'} vol ${remote.volume}`,
                 `track ${track ? `${track.readyState}${track.muted ? ' muted' : ''}` : 'none'}`,
             );
+            if (bridge?.route) {
+                parts.push(`route ${bridge.route()}`);
+            }
             if (playError) {
                 parts.push(`play: ${playError}`);
             }
