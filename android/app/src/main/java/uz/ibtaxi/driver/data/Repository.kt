@@ -33,6 +33,9 @@ class Repository(val client: ApiClient, val session: Session) {
     suspend fun logout() {
         unitCall { api.logout() }
         session.clear()
+        // Keyingi haydovchiga eski buyurtmaning "Yakunlash"i qayta yuborilmasin
+        session.pendingComplete = null
+        DriverState.setPendingComplete(null)
         DriverState.setProfile(null)
         DriverState.setOrder(null)
     }

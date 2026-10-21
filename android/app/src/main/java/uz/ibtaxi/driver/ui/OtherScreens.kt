@@ -47,11 +47,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import uz.ibtaxi.driver.data.PaymentsConfig
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -71,7 +69,7 @@ import uz.ibtaxi.driver.service.DriverService
 private fun ScreenScaffold(title: String, onBack: () -> Unit, content: @Composable (Modifier) -> Unit) {
     Scaffold(topBar = {
         TopAppBar(title = { Text(title) }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
         })
     }) { padding -> content(Modifier.padding(padding)) }
 }
@@ -106,7 +104,7 @@ fun BalanceScreen(onBack: () -> Unit) {
                     }
                     Text(
                         (if (t.amount > 0) "+" else "") + formatMoney(t.amount),
-                        color = if (t.amount < 0) MaterialTheme.colorScheme.error else Color(0xFF16A34A),
+                        color = if (t.amount < 0) MaterialTheme.colorScheme.error else LocalAppColors.current.success,
                         fontWeight = FontWeight.Bold,
                     )
                 }
@@ -134,7 +132,7 @@ private fun TopUpCard(callsign: String, payments: PaymentsConfig?) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     var amount by remember { mutableStateOf(50_000L) }
-    val open = { url: String -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+    val open = { url: String -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }; Unit }
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -176,7 +174,6 @@ private fun TopUpCard(callsign: String, payments: PaymentsConfig?) {
 fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
     val context = LocalContext.current
     val app = IbTaxiApp.instance
-    val scope = rememberCoroutineScope()
 
     ScreenScaffold(stringResource(R.string.settings), onBack) { modifier ->
         Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -215,7 +212,7 @@ fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
                 onDispose { lifecycle.removeObserver(observer) }
             }
             if (batteryExempt) {
-                Text("✓ " + stringResource(R.string.battery_ok), color = Color(0xFF1FA463), fontWeight = FontWeight.Bold)
+                Text("✓ " + stringResource(R.string.battery_ok), color = LocalAppColors.current.success, fontWeight = FontWeight.Bold)
             }
             OutlinedButton(onClick = { openBatterySettings(context) }) { Text(stringResource(R.string.open_settings)) }
 
@@ -230,14 +227,19 @@ fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
                         Button(
                             onClick = {
                                 confirmLogout = false
-                                scope.launch {
+                                // Ilova scope'ida: chiqqach ekran yopiladi, tozalash yarim yo'lda uzilmasin
+                                app.scope.launch {
                                     app.repository.setOnline(false)
                                     DriverService.stop(context)
                                     delay(200)
                                     app.repository.logout()
+                                    DriverService.clearLocalData(context)
                                 }
                             },
-                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White),
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError,
+                            ),
                         ) { Text(stringResource(R.string.logout)) }
                     },
                     dismissButton = {
@@ -249,7 +251,10 @@ fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
             Button(
                 onClick = { confirmLogout = true },
                 modifier = Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally).height(52.dp),
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                ),
                 shape = RoundedCornerShape(16.dp),
             ) {
                 Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
