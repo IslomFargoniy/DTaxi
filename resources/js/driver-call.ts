@@ -31,6 +31,8 @@ const TEXT = {
         talking: 'Gaplashmoqda',
         ended: 'Qo’ng’iroq tugadi',
         failed: 'Ulanib bo’lmadi',
+        mute: 'Ovozni o‘chirish',
+        speaker: 'Karnay',
     },
     oz: {
         title: 'Диспетчер',
@@ -40,6 +42,8 @@ const TEXT = {
         talking: 'Гаплашмоқда',
         ended: 'Қўнғироқ тугади',
         failed: 'Уланиб бўлмади',
+        mute: 'Овозни ўчириш',
+        speaker: 'Карнай',
     },
     ru: {
         title: 'Диспетчер',
@@ -49,6 +53,8 @@ const TEXT = {
         talking: 'Разговор',
         ended: 'Звонок завершён',
         failed: 'Не удалось подключиться',
+        mute: 'Без звука',
+        speaker: 'Динамик',
     },
     en: {
         title: 'Dispatcher',
@@ -58,6 +64,8 @@ const TEXT = {
         talking: 'Talking',
         ended: 'Call ended',
         failed: 'Could not connect',
+        mute: 'Mute',
+        speaker: 'Speaker',
     },
 };
 
@@ -102,6 +110,7 @@ function waitForOperator(): void {
                 ) {
                     window.clearInterval(poll);
                     startTimer();
+                    $('avatar').classList.remove('live');
                 }
             })
             .catch(() => undefined);
@@ -121,6 +130,8 @@ const close = (delay = 1200) =>
 
 async function start(): Promise<void> {
     $('title').textContent = t.title;
+    $('mute-label').textContent = t.mute;
+    $('speaker-label').textContent = t.speaker;
     status(t.connecting);
 
     const response = await fetch('/api/driver/v1/phone', {
@@ -153,17 +164,24 @@ async function start(): Promise<void> {
     status(t.ringing);
 
     session.on('peerconnection', ({ peerconnection }) => {
+        diagnose(peerconnection);
         peerconnection.addEventListener('track', (e: RTCTrackEvent) => {
             const remote = $('remote') as HTMLAudioElement;
             remote.srcObject = e.streams[0];
             // Ba'zi Android WebView'larda autoplay o'zi boshlanmaydi — operator ovozi eshitilmay qolardi
-            void remote.play().catch(() => undefined);
+            void remote.play().catch((err: unknown) => {
+                playError = String(err);
+            });
         });
     });
     // Asterisk navbat musiqasi uchun darhol javob beradi — bu hali operator emas
-    session.on('confirmed', () => waitForOperator());
+    session.on('confirmed', () => {
+        $('avatar').classList.add('live');
+        waitForOperator();
+    });
     session.on('ended', () => {
         stopAll();
+        $('avatar').classList.remove('live');
         status(t.ended);
         close();
     });
@@ -203,6 +221,51 @@ $('mute').addEventListener('click', () => {
     }
     $('mute').classList.toggle('on', !muted);
 });
+
+let playError = '';
+
+/**
+ * Faqat lokal tarmoqda (sinov): telefonga ovoz kelyaptimi-yo'qmi ekranning pastida ko'rinadi.
+ * Telefon USB'ga ulanmaganda bir tomonlama ovozni boshqa yo'l bilan aniqlab bo'lmaydi.
+ */
+function diagnose(pc: RTCPeerConnection): void {
+    if (!/^(192\.168|10)\./.test(location.hostname)) {
+        return;
+    }
+    const line = $('diag');
+    window.setInterval(() => {
+        void pc.getStats().then((stats) => {
+            const parts: string[] = [
+                `ice ${pc.iceConnectionState}`,
+                `pc ${pc.connectionState}`,
+            ];
+            stats.forEach((r: Record<string, unknown> & { type: string }) => {
+                if (r.type === 'inbound-rtp' && r.kind === 'audio') {
+                    parts.push(
+                        `in ${String(r.packetsReceived)}p lost ${String(r.packetsLost)}`,
+                        `lvl ${Number(r.audioLevel ?? 0).toFixed(3)}`,
+                        `energy ${Number(r.totalAudioEnergy ?? 0).toFixed(3)}`,
+                    );
+                }
+                if (r.type === 'outbound-rtp' && r.kind === 'audio') {
+                    parts.push(`out ${String(r.packetsSent)}p`);
+                }
+            });
+            const remote = $('remote') as HTMLAudioElement;
+            const track = (
+                remote.srcObject as MediaStream | null
+            )?.getAudioTracks()[0];
+            parts.push(
+                `audio ${remote.paused ? 'paused' : 'playing'} vol ${remote.volume}`,
+                `track ${track ? `${track.readyState}${track.muted ? ' muted' : ''}` : 'none'}`,
+            );
+            if (playError) {
+                parts.push(`play: ${playError}`);
+            }
+            line.textContent = parts.join(' · ');
+        });
+    }, 2000);
+}
 
 start().catch((e: unknown) => {
     console.error('call start failed', String(e));
