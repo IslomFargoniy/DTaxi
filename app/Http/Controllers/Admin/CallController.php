@@ -6,6 +6,7 @@ use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Call;
+use App\Models\Client;
 use App\Models\SipTrunk;
 use App\Models\User;
 use App\Services\Telephony\ChannelLimits;
@@ -39,7 +40,7 @@ class CallController extends Controller
             ->when($request->filled('kind'), fn ($q) => $q->where('kind', $request->string('kind')->toString()))
             ->when($request->filled('operator_id'), fn ($q) => $q->where('operator_id', $request->integer('operator_id')))
             ->when($request->filled('phone'), function ($q) use ($request) {
-                $digits = (string) preg_replace('/\D/', '', $request->string('phone')->toString());
+                $digits = Client::phoneSearchDigits($request->string('phone')->toString());
                 $q->where(fn ($w) => $w->where('caller', 'like', "%{$digits}%")->orWhere('callee', 'like', "%{$digits}%"));
             })
             ->with(['operator:id,name', 'client:id,name'])

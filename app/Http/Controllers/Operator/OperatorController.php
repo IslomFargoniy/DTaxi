@@ -9,6 +9,7 @@ use App\Models\Driver;
 use App\Models\Order;
 use App\Models\TariffClass;
 use App\Models\User;
+use App\Models\Vehicle;
 use App\Support\Settings;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Http\Request;
@@ -116,7 +117,7 @@ class OperatorController extends Controller
                 'status' => $driver->status->value,
                 'lat' => $driver->last_location?->getLatitude(),
                 'lng' => $driver->last_location?->getLongitude(),
-                'vehicle' => $driver->vehicle ? trim("{$driver->vehicle->color} {$driver->vehicle->model} {$driver->vehicle->plate_number}") : null,
+                'vehicle' => $driver->vehicle ? trim($driver->vehicle->color.' '.$driver->vehicle->model.' '.Vehicle::formatPlate($driver->vehicle->plate_number)) : null,
                 'last_seen_at' => $driver->last_seen_at?->toIso8601String(),
             ])
             ->all());

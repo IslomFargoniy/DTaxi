@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\SendPushNotification;
 use App\Models\Branch;
 use App\Models\CashShift;
+use App\Models\Client;
 use App\Models\Driver;
 use App\Models\DriverTransaction;
 use App\Models\User;
@@ -62,13 +63,13 @@ class CashierController extends Controller
     public function search(Request $request): JsonResponse
     {
         $q = trim($request->validate(['q' => ['required', 'string', 'min:2', 'max:30']])['q']);
-        $digits = preg_replace('/\D/', '', $q);
+        $digits = Client::phoneSearchDigits($q);
 
         $drivers = Driver::query()
             ->with(['user', 'vehicle'])
             ->where(fn ($w) => $w
                 ->where('callsign', $q)
-                ->when(strlen((string) $digits) >= 4, fn ($w) => $w->orWhereHas('user', fn ($u) => $u->where('phone', 'like', "%{$digits}%")))
+                ->when(strlen($digits) >= 4, fn ($w) => $w->orWhereHas('user', fn ($u) => $u->where('phone', 'like', "%{$digits}%")))
                 ->orWhereHas('vehicles', fn ($v) => $v->where('plate_number', 'like', '%'.Vehicle::normalizePlate($q).'%'))
                 ->orWhereHas('user', fn ($u) => $u->where('name', 'ilike', "%{$q}%")))
             ->limit(10)
@@ -80,7 +81,7 @@ class CashierController extends Controller
             'name' => $d->user->name,
             'phone' => $d->user->phone,
             'balance' => $d->balance,
-            'vehicle' => $d->vehicle ? trim("{$d->vehicle->color} {$d->vehicle->model} {$d->vehicle->plate_number}") : null,
+            'vehicle' => $d->vehicle ? trim($d->vehicle->color.' '.$d->vehicle->model.' '.Vehicle::formatPlate($d->vehicle->plate_number)) : null,
         ]));
     }
 

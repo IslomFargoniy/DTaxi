@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\Order;
 use App\Models\User;
+use App\Rules\UzPhone;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -106,13 +108,16 @@ class CompanyController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        return $request->validate([
+        $data = $request->validate([
             'branch_id' => ['required', 'integer', Rule::in($user->isSuperadmin() ? Branch::query()->pluck('id')->all() : $user->branchIds())],
             'name' => ['required', 'string', 'max:150'],
-            'contact_phone' => ['nullable', 'string', 'max:20'],
+            'contact_phone' => ['nullable', 'string', 'max:25', new UzPhone],
             'discount_percent' => ['required', 'integer', 'min:0', 'max:100'],
             'note' => ['nullable', 'string', 'max:1000'],
             'is_active' => ['boolean'],
         ]);
+        $data['contact_phone'] = ! empty($data['contact_phone']) ? Client::normalizePhone($data['contact_phone']) : null;
+
+        return $data;
     }
 }

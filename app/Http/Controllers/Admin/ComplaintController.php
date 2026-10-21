@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\ComplaintType;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Client;
 use App\Models\Complaint;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,7 +39,7 @@ class ComplaintController extends Controller
                     'text' => $c->text,
                     'status' => $c->status,
                     'resolution' => $c->resolution,
-                    'client' => $c->client ? trim("{$c->client->phone} {$c->client->name}") : null,
+                    'client' => $c->client ? trim(Client::formatPhone($c->client->phone).' '.$c->client->name) : null,
                     'driver' => $c->driver?->callsign,
                     'author' => $c->author?->name,
                     'created_at' => $c->created_at->toIso8601String(),
@@ -49,7 +51,7 @@ class ComplaintController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'order_id' => ['nullable', 'integer'],
+            'order_id' => ['nullable', 'integer', 'min:1'],
             'type' => ['required', Rule::enum(ComplaintType::class)],
             'text' => ['required', 'string', 'max:2000'],
         ]);
@@ -57,7 +59,10 @@ class ComplaintController extends Controller
         $user = $request->user();
 
         // Buyurtma filial chegarasi bilan topiladi — boshqa filial buyurtmasiga yozib bo'lmaydi
-        $order = isset($data['order_id']) ? Order::query()->whereKey((int) $data['order_id'])->firstOrFail() : null;
+        $order = isset($data['order_id']) ? Order::query()->whereKey((int) $data['order_id'])->first() : null;
+        if (isset($data['order_id']) && $order === null) {
+            throw ValidationException::withMessages(['order_id' => __('Order not found.')]);
+        }
         $branchId = $order->branch_id ?? $user->branch_id ?? Branch::query()->value('id');
 
         Complaint::query()->create([

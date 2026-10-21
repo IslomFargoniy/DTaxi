@@ -16,6 +16,7 @@ use App\Models\DriverTransaction;
 use App\Models\TariffClass;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Rules\UzPhone;
 use App\Services\Dispatch\DriverDiscipline;
 use App\Services\Drivers\DriverBalance;
 use App\Services\Drivers\ShiftTracker;
@@ -49,7 +50,8 @@ class DriverController extends Controller
             ->with(['user', 'vehicle.tariffClasses:id', 'branch:id,name'])
             ->when($filters['q'] ?? null, fn ($q, $term) => $q->where(fn ($w) => $w
                 ->where('callsign', 'ilike', "%{$term}%")
-                ->orWhereHas('user', fn ($u) => $u->where('name', 'ilike', "%{$term}%")->orWhere('phone', 'ilike', "%{$term}%"))
+                ->orWhereHas('user', fn ($u) => $u->where('name', 'ilike', "%{$term}%")
+                    ->when(strlen(Client::phoneSearchDigits($term)) >= 4, fn ($u) => $u->orWhere('phone', 'like', '%'.Client::phoneSearchDigits($term).'%')))
                 ->orWhereHas('vehicles', fn ($v) => $v->where('plate_number', 'ilike', '%'.Vehicle::normalizePlate($term).'%'))))
             ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->when($request->boolean('pending'), fn ($q) => $q->where('is_approved', false))
@@ -203,30 +205,42 @@ class DriverController extends Controller
         $branchIds = $this->branchIds($actor);
         $userId = $driver?->user_id;
         $vehicleId = $driver?->vehicle?->id;
+        $oldPlate = $driver?->vehicle?->plate_number;
 
         $data = $request->validate([
             'branch_id' => ['required', Rule::in($branchIds)],
             'name' => ['required', 'string', 'max:100'],
-            'phone' => ['required', 'string', 'max:20'],
+            'phone' => ['required', 'string', 'max:25', new UzPhone],
             'password' => [$driver ? 'nullable' : 'required', Password::min(6)],
-            'callsign' => ['required', 'string', 'max:16', Rule::unique('drivers')->ignore($driver?->id)],
+            // Pozivnoy faqat raqamlardan (haydovchi ichki raqami ham shu); eski qiymat o'zgarmasa tekshirilmaydi
+            'callsign' => ['required', 'string', 'max:16', Rule::unique('drivers')->ignore($driver?->id),
+                ...($driver !== null && $driver->callsign === $request->input('callsign') ? [] : ['regex:/^\d{1,6}$/'])],
             'license_no' => ['nullable', 'string', 'max:50'],
             'license_expires_at' => ['nullable', 'date'],
             'vehicle.brand' => ['required', 'string', 'max:50'],
             'vehicle.model' => ['required', 'string', 'max:50'],
             'vehicle.color' => ['required', 'string', 'max:30'],
-            'vehicle.plate_number' => ['required', 'string', 'max:16'],
-            'vehicle.year' => ['nullable', 'integer', 'between:1980,2100'],
+            'vehicle.plate_number' => ['required', 'string', 'max:16',
+                // Eski yozuvlar (boshqa format) saqlashda buzilmasin — faqat yangi/o'zgargan raqam tekshiriladi
+                function (string $attribute, mixed $value, \Closure $fail) use ($oldPlate) {
+                    if (is_string($value) && Vehicle::normalizePlate($value) !== $oldPlate && ! Vehicle::plateIsValid($value)) {
+                        $fail(__('Plate number format: 01 A 123 BC or 01 123 ABC.'));
+                    }
+                },
+            ],
+            'vehicle.year' => ['nullable', 'integer', 'min:1980', 'max:'.(now()->year + 1)],
             'vehicle.tech_passport_no' => ['nullable', 'string', 'max:50'],
             'vehicle.tariff_class_ids' => ['array'],
             'vehicle.tariff_class_ids.*' => [Rule::exists('tariff_classes', 'id')->where('branch_id', $request->integer('branch_id'))],
+        ], [
+            'callsign.regex' => __('Callsign must contain digits only.'),
         ]);
 
         $phone = Client::normalizePhone($data['phone']);
         $plate = Vehicle::normalizePlate($data['vehicle']['plate_number']);
-        validator(['phone' => $phone, 'plate' => $plate], [
+        validator(['phone' => $phone, 'vehicle' => ['plate_number' => $plate]], [
             'phone' => [Rule::unique('users', 'phone')->ignore($userId)],
-            'plate' => [Rule::unique('vehicles', 'plate_number')->ignore($vehicleId)],
+            'vehicle.plate_number' => [Rule::unique('vehicles', 'plate_number')->ignore($vehicleId)],
         ])->validate();
 
         return DB::transaction(function () use ($data, $driver, $phone, $plate) {

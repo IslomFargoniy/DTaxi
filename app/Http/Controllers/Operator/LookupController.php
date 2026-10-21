@@ -9,6 +9,7 @@ use App\Models\Landmark;
 use App\Models\Order;
 use App\Models\Region;
 use App\Models\User;
+use App\Models\Vehicle;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -58,7 +59,7 @@ class LookupController extends Controller
                     'price_final' => $o->price_final,
                     'created_at' => $o->created_at->toIso8601String(),
                     'driver' => $o->driver?->callsign,
-                    'vehicle' => $o->vehicle ? trim("{$o->vehicle->color} {$o->vehicle->model} {$o->vehicle->plate_number}") : null,
+                    'vehicle' => $o->vehicle ? trim($o->vehicle->color.' '.$o->vehicle->model.' '.Vehicle::formatPlate($o->vehicle->plate_number)) : null,
                 ]),
             // Oxirgi borilgan joylar — "qayerga" uchun bir bosishda
             'dropoffs' => $client->orders()->whereNotNull('dropoff_location')->latest()->limit(20)->get()

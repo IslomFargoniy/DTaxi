@@ -3,7 +3,9 @@
 namespace App\Http\Requests\Operator;
 
 use App\Models\Branch;
+use App\Models\Client;
 use App\Models\User;
+use App\Rules\UzPhone;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -26,7 +28,7 @@ class StoreOrderRequest extends FormRequest
 
         return [
             'branch_id' => ['required', 'integer', $user->isSuperadmin() ? Rule::exists('branches', 'id') : Rule::in($user->branchIds())],
-            'phone' => ['required', 'string', 'regex:/^[\d\s()+-]{7,20}$/'],
+            'phone' => ['required', 'string', 'max:25', new UzPhone],
             'client_name' => ['nullable', 'string', 'max:100'],
             'tariff_class_id' => ['nullable', 'integer', Rule::exists('tariff_classes', 'id')->where('branch_id', $this->integer('branch_id'))],
             'pickup_text' => ['required', 'string', 'max:255'],
@@ -44,9 +46,9 @@ class StoreOrderRequest extends FormRequest
             'stops.*.lng' => ['required', 'numeric', 'between:55,74'],
             'delivery' => ['nullable', 'array'],
             'delivery.sender_name' => ['nullable', 'string', 'max:100'],
-            'delivery.sender_phone' => ['nullable', 'string', 'max:20'],
+            'delivery.sender_phone' => ['nullable', 'string', 'max:25', new UzPhone],
             'delivery.recipient_name' => ['nullable', 'string', 'max:100'],
-            'delivery.recipient_phone' => ['nullable', 'string', 'max:20'],
+            'delivery.recipient_phone' => ['nullable', 'string', 'max:25', new UzPhone],
             'delivery.description' => ['nullable', 'string', 'max:500'],
             // Buyurtma qaysi qo'ng'iroqdan yaratildi (pop-up orqali) — yozuv va raqam statistikasi uchun
             'call_id' => ['nullable', 'integer', Rule::exists('calls', 'id')],
@@ -82,7 +84,7 @@ class StoreOrderRequest extends FormRequest
 
         return [
             'branch_id' => $this->integer('branch_id'),
-            'phone' => $this->string('phone')->toString(),
+            'phone' => Client::normalizePhone($this->string('phone')->toString()),
             'client_name' => $this->filled('client_name') ? $this->string('client_name')->toString() : null,
             'tariff_class_id' => $this->filled('tariff_class_id') ? $this->integer('tariff_class_id') : null,
             'pickup_text' => $this->string('pickup_text')->toString(),
@@ -94,9 +96,29 @@ class StoreOrderRequest extends FormRequest
             'dropoff_lng' => $this->filled('dropoff_lng') ? $this->float('dropoff_lng') : null,
             'comment' => $this->filled('comment') ? $this->string('comment')->toString() : null,
             'stops' => self::stops($this->input('stops')),
-            'delivery' => is_array($delivery) ? array_map(fn ($v) => is_string($v) ? $v : null, $delivery) : null,
+            'delivery' => is_array($delivery) ? self::delivery($delivery) : null,
             'scheduled_at' => $this->scheduledAt(),
         ];
+    }
+
+    /**
+     * Yetkazish ma'lumotlari: matnlar qisqartiriladi, telefonlar E.164 ga keltiriladi.
+     *
+     * @param  array<mixed>  $delivery
+     * @return array<string, string|null>
+     */
+    private static function delivery(array $delivery): array
+    {
+        $result = [];
+        foreach ($delivery as $key => $value) {
+            $value = is_string($value) && trim($value) !== '' ? trim($value) : null;
+            if ($value !== null && str_ends_with((string) $key, '_phone')) {
+                $value = Client::normalizePhone($value);
+            }
+            $result[(string) $key] = $value;
+        }
+
+        return $result;
     }
 
     /**

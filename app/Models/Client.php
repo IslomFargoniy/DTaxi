@@ -57,17 +57,48 @@ class Client extends Model
     }
 
     /**
-     * Telefon raqamini E.164 ko'rinishiga keltiradi: "90 123 45 67" → "+998901234567".
+     * Telefon raqamini E.164 ko'rinishiga keltiradi: "90 123 45 67", "8 90 123 45 67",
+     * "00998901234567" → "+998901234567". Boshqa (chet el, ichki) raqamlar faqat raqamlarga qisqaradi.
      */
     public static function normalizePhone(string $phone): string
     {
         $digits = (string) preg_replace('/\D/', '', $phone);
 
+        if (str_starts_with($digits, '00')) {
+            $digits = substr($digits, 2);
+        }
+        if (strlen($digits) === 10 && str_starts_with($digits, '8')) {
+            // Eski "8 90 ..." yozuvi (8 — shaharlararo prefiks)
+            $digits = substr($digits, 1);
+        }
         if (strlen($digits) === 9) {
             $digits = '998'.$digits;
         }
 
         return '+'.$digits;
+    }
+
+    /**
+     * Qidiruv uchun raqamlar: "90 123 45 67", "8 90 ...", "+998 90 ..." → "998901234567";
+     * qisman yozilgani ("90 123") o'zgarishsiz raqamlarga qisqaradi.
+     */
+    public static function phoneSearchDigits(string $query): string
+    {
+        $digits = (string) preg_replace('/\D/', '', $query);
+
+        return $digits === '' ? '' : substr(self::normalizePhone($digits), 1);
+    }
+
+    /**
+     * Ko'rsatish uchun: "+998901234567" → "+998 90 123 45 67"; boshqa raqamlar o'zgarishsiz.
+     */
+    public static function formatPhone(string $phone): string
+    {
+        if (preg_match('/^\+998(\d{2})(\d{3})(\d{2})(\d{2})$/', $phone, $m) !== 1) {
+            return $phone;
+        }
+
+        return "+998 {$m[1]} {$m[2]} {$m[3]} {$m[4]}";
     }
 
     protected function setPhoneAttribute(string $value): void

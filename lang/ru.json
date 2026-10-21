@@ -677,5 +677,10 @@
     "Or continue with login": "Или войдите по логину",
     "Email (optional)": "Email (необязательно)",
     "Main": "Основное",
-    "Branch settings": "Настройки филиала"
+    "Branch settings": "Настройки филиала",
+    "Phone (optional)": "Телефон (необязательно)",
+    "Order not found.": "Заказ не найден.",
+    "Enter a phone number in the format +998 90 123 45 67.": "Введите номер телефона в формате +998 90 123 45 67.",
+    "Plate number format: 01 A 123 BC or 01 123 ABC.": "Формат госномера: 01 A 123 BC или 01 123 ABC.",
+    "Callsign must contain digits only.": "Позывной должен состоять только из цифр."
 }

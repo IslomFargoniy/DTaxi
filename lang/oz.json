@@ -677,5 +677,10 @@
     "Or continue with login": "Ёки логин билан давом этинг",
     "Email (optional)": "Эмаил (ихтиёрий)",
     "Main": "Асосий",
-    "Branch settings": "Филиал созламалари"
+    "Branch settings": "Филиал созламалари",
+    "Phone (optional)": "Телефон (ихтиёрий)",
+    "Order not found.": "Буюртма топилмади.",
+    "Enter a phone number in the format +998 90 123 45 67.": "Телефон рақамини +998 90 123 45 67 кўринишида киритинг.",
+    "Plate number format: 01 A 123 BC or 01 123 ABC.": "Давлат рақами кўриниши: 01 А 123 BC ёки 01 123 ABC.",
+    "Callsign must contain digits only.": "Позивной фақат рақамлардан иборат бўлиши керак."
 }

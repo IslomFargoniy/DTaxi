@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\User;
+use App\Rules\UzPhone;
 use App\Services\Telephony\Extensions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -82,7 +83,7 @@ class StaffController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'username' => ['required', 'string', 'min:3', 'max:50', 'regex:/^[a-z0-9._-]+$/', Rule::unique('users')->ignore($user->id)],
             'email' => ['nullable', 'email', 'max:150', Rule::unique('users')->ignore($user->id)],
-            'phone' => ['nullable', 'string', 'max:20'],
+            'phone' => ['nullable', 'string', 'max:25', new UzPhone],
             'password' => [$user->exists ? 'nullable' : 'required', Password::defaults()],
             'role' => ['required', Rule::in($this->manageableRoles($actor))],
             'branch_id' => ['nullable', 'required_unless:role,superadmin', Rule::in($branchIds)],

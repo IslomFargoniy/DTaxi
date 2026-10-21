@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
 use App\Models\Branch;
 use App\Models\Call;
+use App\Models\Client;
 use App\Models\Complaint;
 use App\Models\Order;
 use App\Models\OrderEvent;
@@ -44,7 +45,7 @@ class OrderHistoryController extends Controller
             ->when($filters['to'] ?? null, fn ($q, $to) => $q->where('created_at', '<', CarbonImmutable::parse($to, $tz)->startOfDay()->addDay()->utc()))
             ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->when($filters['q'] ?? null, function ($q, $term) {
-                $digits = preg_replace('/\D/', '', $term);
+                $digits = Client::phoneSearchDigits($term);
                 $q->where(fn ($w) => $w
                     ->when(ctype_digit($term), fn ($w) => $w->orWhere('id', (int) $term))
                     ->orWhere('pickup_text', 'ilike', "%{$term}%")

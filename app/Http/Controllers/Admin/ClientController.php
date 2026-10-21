@@ -19,7 +19,7 @@ class ClientController extends Controller
     public function index(Request $request): Response
     {
         $q = $request->string('q')->toString();
-        $digits = preg_replace('/\D/', '', $q);
+        $digits = Client::phoneSearchDigits($q);
 
         $clients = Client::query()
             ->when($q !== '', fn ($query) => $query->where(fn ($w) => $w

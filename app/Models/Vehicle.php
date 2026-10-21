@@ -57,6 +57,29 @@ class Vehicle extends Model
         return mb_strtoupper((string) preg_replace('/[^0-9A-Za-z]/', '', $plate));
     }
 
+    /**
+     * O'zbekiston davlat raqami (normalizePlate'dan keyin): "01A123BC" (jismoniy shaxs)
+     * yoki "01123ABC" (yuridik shaxs).
+     */
+    public static function plateIsValid(string $plate): bool
+    {
+        return preg_match('/^(\d{2}[A-Z]\d{3}[A-Z]{2}|\d{5}[A-Z]{3})$/', self::normalizePlate($plate)) === 1;
+    }
+
+    /**
+     * Ko'rsatish uchun: "01A123BC" → "01 A 123 BC", "01123ABC" → "01 123 ABC"; boshqa format — o'zgarishsiz.
+     */
+    public static function formatPlate(string $plate): string
+    {
+        $compact = self::normalizePlate($plate);
+        if (preg_match('/^(\d{2})([A-Z])(\d{3})([A-Z]{2})$/', $compact, $m) === 1
+            || preg_match('/^(\d{2})(\d{3})([A-Z]{3})$/', $compact, $m) === 1) {
+            return implode(' ', array_slice($m, 1));
+        }
+
+        return $plate;
+    }
+
     protected function setPlateNumberAttribute(string $value): void
     {
         $this->attributes['plate_number'] = self::normalizePlate($value);
