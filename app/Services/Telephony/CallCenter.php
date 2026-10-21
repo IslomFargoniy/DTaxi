@@ -18,6 +18,7 @@ use App\Services\Sounds\MessageComposer;
 use App\Support\Settings;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
 /**
@@ -38,22 +39,18 @@ class CallCenter
     /** Chaqiruv ohangi (gudok): Asterisk indications.conf, ru zonasi — O'zbekistondagi bilan bir xil */
     private const RINGBACK = 'tone:ring;tonezone=ru';
 
-    /**
-     * Haydovchiga boradigan ovoz kuchaytiriladi: telefon karnayi mashinada shovqin ichida,
-     * brauzer mikrofonidan kelgan operator ovozi esa past (WebView'da 0.01 atrofida).
-     */
-    private const DRIVER_GAIN = '4';
-
     private const CHANNEL_TTL = 14400;
 
     /** Avto-qo'ng'iroq xabari necha marta takrorlanadi (§5.4) */
     private const TTS_REPEATS = 2;
 
+    /** Solishtirishda shundan yangi qo'ng'iroqlar yopilmaydi (kanal hali yaratilayotgan bo'lishi mumkin) */
+    private const RECONCILE_GRACE_SECONDS = 10;
+
     public function __construct(
         private AriClient $ari,
         private OperatorPool $operators,
         private ChannelLimits $limits,
-        private Settings $settings,
     ) {}
 
     /**
@@ -73,6 +70,11 @@ class CallCenter
             };
         } catch (\Throwable $e) {
             Log::error('CallCenter: '.$e->getMessage(), ['event' => data_get($event, 'type'), 'exception' => $e]);
+
+            // Ishlov yarim qolgan kanal Stasis'da abadiy osilib qolmasin (mijoz jimlikni eshitib turardi)
+            if (data_get($event, 'type') === 'StasisStart' && is_string($channelId = data_get($event, 'channel.id'))) {
+                rescue(fn () => $this->ari->hangup($channelId), report: false);
+            }
         }
     }
 
@@ -81,13 +83,13 @@ class CallCenter
      */
     public function tick(): void
     {
+        // Operator jiringlayotgan qo'ng'iroq ham olinadi: kutish chegarasi unga ham tegishli
         $waiting = Call::query()->withoutGlobalScopes()
             ->where('status', 'waiting')
-            ->whereNull('operator_id')
             ->orderBy('started_at')
             ->get();
 
-        $maxWait = (int) $this->settings->get('calls.max_wait_seconds');
+        $maxWait = (int) $this->settings()->get('calls.max_wait_seconds');
 
         foreach ($waiting as $call) {
             if (data_get($call->meta, 'ivr') || data_get($call->meta, 'closing')) {
@@ -110,6 +112,99 @@ class CallCenter
             }
 
             $this->offerToOperator($call);
+        }
+    }
+
+    /**
+     * ARI'ga (qayta) ulanganda va har daqiqada: bazadagi ochiq qo'ng'iroqlarni Asterisk'dagi haqiqiy kanallar bilan solishtirish.
+     * Uzilish yoki daemon qayta ishga tushishi paytida yo'qolgan hodisalar sababli osilib qolgan qo'ng'iroqlar yopiladi
+     * (operator bo'shaydi), tirik kanallar bog'lanishi tiklanadi, hech bir ochiq qo'ng'iroqqa tegishli bo'lmagan ko'priklar yopiladi.
+     */
+    public function reconcile(): void
+    {
+        // Avval baza, keyin Asterisk: ro'yxat olingach yaratilgan qo'ng'iroq "kanalsiz" deb yopilmasin
+        $calls = Call::query()->withoutGlobalScopes()->whereNull('ended_at')->orderBy('id')->get();
+        $channels = $this->ari->channels();
+        if ($channels === null) {
+            return;
+        }
+
+        $live = [];
+        foreach ($channels as $channel) {
+            $live[(string) ($channel['id'] ?? '')] = true;
+        }
+        // Kanal yaratilishi (originate) bilan qator yozilishi orasida — bunday yangi qo'ng'iroqlarga tegilmaydi
+        $settled = now()->subSeconds(self::RECONCILE_GRACE_SECONDS);
+
+        foreach ($calls as $call) {
+            $this->reconcileCall($call, $live, $call->started_at->lessThan($settled));
+        }
+
+        $this->reconcileBridges();
+    }
+
+    /**
+     * @param  array<string, true>  $live
+     */
+    private function reconcileCall(Call $call, array $live, bool $settled): void
+    {
+        /** @var array<string, string> $roles kanal => rol (remember() dagidek) */
+        $roles = [];
+        foreach ([
+            [$call->channel_id, data_get($call->meta, 'peer_channel') ? 'operator' : 'client'],
+            [data_get($call->meta, 'operator_channel'), 'operator'],
+            [data_get($call->meta, 'peer_channel'), 'peer'],
+        ] as [$channel, $role]) {
+            if (is_string($channel) && $channel !== '') {
+                $roles[$channel] = $role;
+            }
+        }
+
+        $dead = null;
+        foreach ($roles as $channel => $role) {
+            $channel = (string) $channel;
+            if (isset($live[$channel])) {
+                $this->remember($channel, $call, $role);
+            } else {
+                $dead ??= $channel;
+            }
+        }
+        if (! $settled || ($dead === null && $roles !== [])) {
+            return;
+        }
+
+        Log::info("CallCenter: Asterisk'da kanali yo'q qo'ng'iroq yopiladi", ['call' => $call->id, 'channel' => $dead]);
+        if ($dead === null) {
+            $this->finish($call, $this->endStatus($call, 0));
+
+            return;
+        }
+
+        // Yo'qolgan ChannelDestroyed hodisasi o'rniga: rolga qarab yopiladi yoki (operator jiringlashi bo'lsa) keyingi operatorga
+        $this->remember($dead, $call, $roles[$dead]);
+        $this->onChannelDestroyed($dead, 0);
+    }
+
+    /**
+     * Asterisk'da qolib ketgan bizning (Stasis) ko'priklarimiz — ochiq qo'ng'iroqqa tegishli bo'lmasa yopiladi.
+     */
+    private function reconcileBridges(): void
+    {
+        $bridges = $this->ari->bridges();
+        if ($bridges === null) {
+            return;
+        }
+
+        $inUse = Call::query()->withoutGlobalScopes()->whereNull('ended_at')->get()
+            ->map(fn (Call $call) => data_get($call->meta, 'bridge'))->filter()->map(fn ($id) => (string) $id)->all();
+
+        foreach ($bridges as $bridge) {
+            $id = (string) ($bridge['id'] ?? '');
+            $ours = strtolower((string) ($bridge['bridge_class'] ?? '')) === 'stasis' || ($bridge['creator'] ?? null) === 'Stasis';
+            if ($id !== '' && $ours && ! in_array($id, $inUse, true)) {
+                Log::info("CallCenter: egasiz ko'prik yopiladi", ['bridge' => $id]);
+                $this->ari->destroyBridge($id);
+            }
         }
     }
 
@@ -223,7 +318,7 @@ class CallCenter
      */
     private function autoOrderCandidate(Call $call, ?Client $client): ?Order
     {
-        if (! $client || ! $call->branch_id || ! $this->settings->get('calls.ivr_auto_order', $call->branch_id)
+        if (! $client || ! $call->branch_id || ! $this->settings()->get('calls.ivr_auto_order', $call->branch_id)
             || $this->composer()->phrase('ivr', 'auto-order-offer') === []) {
             return null;
         }
@@ -370,7 +465,11 @@ class CallCenter
         $this->remember($channelId, $call, 'client');
 
         $this->ari->answer($channelId);
-        $this->ari->setVariable($channelId, 'VOLUME(TX)', self::DRIVER_GAIN);
+        // Haydovchiga boradigan ovoz kuchaytiriladi: telefon karnayi mashinada shovqin ichida,
+        // brauzer mikrofonidan kelgan operator ovozi esa past (WebView'da 0.01 atrofida). 0 — o'zgartirilmaydi
+        if (($gain = (int) $this->settings()->get('calls.driver_gain', $driver->branch_id)) !== 0) {
+            $this->ari->setVariable($channelId, 'VOLUME(TX)', (string) $gain);
+        }
         // Haydovchi oddiy telefondagidek gudok eshitadi (425 Hz, 1/4 s) — operator javob berganda to'xtaydi
         $this->playFor($call, $channelId, [self::RINGBACK], 'ringback');
         $this->offerToOperator($call);
@@ -394,6 +493,15 @@ class CallCenter
 
         $toDriver = (bool) preg_match('/^dr(\d+)$/', $exten, $dm);
         $phone = $toDriver ? $exten : Client::normalizePhone($exten);
+
+        // Trunk pulli: o'g'irlangan operator paroli bilan xalqaro/pullik raqamlarga qo'ng'iroq qilinmasin
+        if (! $toDriver && (! $this->outboundAllowed($phone) || ! $this->outboundWithinLimit($operator))) {
+            Log::warning("CallCenter: chiquvchi qo'ng'iroq rad etildi", ['operator' => $operator->id, 'dialed' => $exten]);
+            $this->ari->hangup($channelId, 'congestion');
+
+            return;
+        }
+
         $number = $toDriver ? null : PhoneNumber::forBranch($operator->branch_id);
 
         if (! $toDriver && ! $number) {
@@ -448,12 +556,49 @@ class CallCenter
     }
 
     /**
+     * Raqam (+998901234567 ko'rinishida) ruxsat ro'yxatidagi andozalardan biriga mosmi (calls.outbound_allowed_patterns).
+     */
+    private function outboundAllowed(string $phone): bool
+    {
+        $digits = ltrim($phone, '+');
+
+        foreach ((array) $this->settings()->get('calls.outbound_allowed_patterns') as $pattern) {
+            // Panelda xato yozilgan andoza butun chiquvchi aloqani yiqitmasin — u shunchaki mos kelmaydi
+            $regex = '/'.str_replace('/', '\/', (string) $pattern).'/';
+            if (rescue(fn () => preg_match($regex, $digits) === 1, false, false)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Operator uchun chiquvchi qo'ng'iroqlar chastotasi (calls.operator_outbound_limit / _window_minutes; 0 — cheksiz).
+     */
+    private function outboundWithinLimit(User $operator): bool
+    {
+        $max = (int) $this->settings()->get('calls.operator_outbound_limit');
+        if ($max <= 0) {
+            return true;
+        }
+
+        $key = "telephony:outbound:{$operator->id}";
+        if (RateLimiter::tooManyAttempts($key, $max)) {
+            return false;
+        }
+        RateLimiter::hit($key, max(1, (int) $this->settings()->get('calls.operator_outbound_window_minutes')) * 60);
+
+        return true;
+    }
+
+    /**
      * Navbatdagi qo'ng'iroqqa bo'sh operator topib, uning brauzerini jiringlatish.
      */
     private function offerToOperator(Call $call): void
     {
         $call->refresh();
-        if ($call->status !== 'waiting' || $call->operator_id) {
+        if ($call->status !== 'waiting' || $call->operator_id || data_get($call->meta, 'closing')) {
             return;
         }
 
@@ -485,13 +630,15 @@ class CallCenter
             "PJSIP/{$operator->sip_extension}",
             "operator,{$call->id}",
             $callerId,
-            (int) $this->settings->get('calls.operator_ring_seconds'),
+            (int) $this->settings()->get('calls.operator_ring_seconds'),
             channelId: $channelId,
         );
 
         if (! $ok) {
+            // Asterisk javob bermadi — operator aybdor emas: keyingi tick'da yana unga taklif qilinishi mumkin
+            Cache::forget("ari:ch:{$channelId}");
             $call->forceFill(['operator_id' => null])->save();
-            $this->updateMeta($call, ['operator_channel' => null]);
+            $this->updateMeta($call, ['operator_channel' => null, 'tried' => $tried]);
 
             return;
         }
@@ -568,7 +715,13 @@ class CallCenter
     {
         $ref = Cache::pull("ari:ch:{$channelId}");
         $call = is_array($ref) ? $this->findCall($ref['call']) : Call::query()->withoutGlobalScopes()->where('channel_id', $channelId)->first();
-        if (! $call || $call->ended_at) {
+        if (! $call) {
+            return;
+        }
+        if ($call->ended_at) {
+            // Yakunlashda ko'prik yopilmay qolgan bo'lsa (Asterisk javob bermagan) — endi yopiladi
+            $this->closeBridge($call);
+
             return;
         }
         $role = is_array($ref) ? $ref['role'] : 'client';
@@ -581,7 +734,7 @@ class CallCenter
 
             if ($operatorId) {
                 OperatorCallEvent::dispatch($operatorId, 'missed', ['call_id' => $call->id]);
-                if ($this->settings->get('calls.pause_on_missed_ring') && ($user = User::query()->find($operatorId))) {
+                if ($this->settings()->get('calls.pause_on_missed_ring') && ($user = User::query()->find($operatorId))) {
                     $this->operators->setStatus($user, 'paused');
                 }
             }
@@ -590,19 +743,23 @@ class CallCenter
             return;
         }
 
-        $status = match ($call->status) {
+        $status = $this->endStatus($call, $cause);
+        $this->finish($call, $status, [], $channelId);
+
+        if ($call->kind === 'tts' && $status !== 'completed') {
+            app(ClientNotifier::class)->retry($call);
+        }
+    }
+
+    private function endStatus(Call $call, int $cause): string
+    {
+        return match ($call->status) {
             'answered' => 'completed',
             'blocked', 'rejected' => $call->status,
             // Navbatda kutib, operator javob berguncha qo'yib qo'ydi — "javobsiz" ro'yxati (callback)
             'waiting' => 'missed',
             default => $cause === 17 ? 'busy' : 'no_answer',
         };
-
-        $this->finish($call, $status, [], $channelId);
-
-        if ($call->kind === 'tts' && $status !== 'completed') {
-            app(ClientNotifier::class)->retry($call);
-        }
     }
 
     private function onPlaybackFinished(string $playbackId): void
@@ -765,6 +922,17 @@ class CallCenter
     {
         $this->updateMeta($call, ['closing' => true, 'reason' => 'timeout']);
         $channelId = (string) $call->channel_id;
+
+        // Jiringlayotgan operator xabar paytida javob berib qo'ymasin; uning kanali yopilishi qayta taklifga olib kelmasin
+        if ($operatorChannel = data_get($call->meta, 'operator_channel')) {
+            Cache::forget("ari:ch:{$operatorChannel}");
+            $this->ari->hangup((string) $operatorChannel);
+        }
+        if ($operatorId = $call->operator_id) {
+            $call->forceFill(['operator_id' => null])->save();
+            $this->updateMeta($call, ['operator_channel' => null]);
+            OperatorCallEvent::dispatch($operatorId, 'ended', ['call_id' => $call->id, 'status' => 'missed']);
+        }
         $this->ari->stopMoh($channelId);
 
         $media = $this->composer()->phrase('ivr', $phrase);
@@ -803,10 +971,25 @@ class CallCenter
             return;
         }
 
-        $this->ari->addToBridge($bridgeId, [$a, $b]);
         $recording = "call-{$call->id}";
-        $this->ari->recordBridge($bridgeId, $recording);
         $this->updateMeta($call, ['bridge' => $bridgeId, 'recording' => $recording]);
+        $this->ari->addToBridge($bridgeId, [$a, $b]);
+        $this->ari->recordBridge($bridgeId, $recording, (int) $this->settings()->get('calls.max_recording_seconds'));
+    }
+
+    /**
+     * Ko'prikni bir marta yopish (keyingi kanal hodisalari 404 so'rov yubormasin).
+     */
+    private function closeBridge(Call $call): void
+    {
+        $bridge = data_get($call->meta, 'bridge');
+        if (! $bridge || data_get($call->meta, 'bridge_closed')) {
+            return;
+        }
+
+        if ($this->ari->destroyBridge((string) $bridge)) {
+            $this->updateMeta($call, ['bridge_closed' => true]);
+        }
     }
 
     /**
@@ -827,14 +1010,16 @@ class CallCenter
             $this->updateMeta($call, $meta);
         }
 
-        foreach (array_filter([$call->channel_id, data_get($call->meta, 'operator_channel'), data_get($call->meta, 'peer_channel')]) as $channel) {
-            if ($channel !== $destroyedChannel) {
-                Cache::forget("ari:ch:{$channel}");
-                $this->ari->hangup((string) $channel);
+        try {
+            foreach (array_filter([$call->channel_id, data_get($call->meta, 'operator_channel'), data_get($call->meta, 'peer_channel')]) as $channel) {
+                // Kanal bog'lanishi keshda qoladi: uning yopilish hodisasi qo'ng'iroqni topib, ochiq ko'prikni yopa olsin
+                if ($channel !== $destroyedChannel) {
+                    $this->ari->hangup((string) $channel);
+                }
             }
-        }
-        if ($bridge = data_get($call->meta, 'bridge')) {
-            $this->ari->destroyBridge((string) $bridge);
+        } finally {
+            // Ko'prik har holda yopiladi — aks holda yozuv davom etib, disk to'lib boradi
+            $this->closeBridge($call);
         }
         if (data_get($call->meta, 'recording') && $call->answered_at) {
             ProcessRecording::dispatch($call->id)->delay(now()->addSeconds(5));
@@ -882,6 +1067,12 @@ class CallCenter
         $composer = $this->composer();
 
         return ($branchId ? $composer->phrase('greeting', "branch-{$branchId}") : []) ?: $composer->phrase('ivr', 'welcome');
+    }
+
+    private function settings(): Settings
+    {
+        // Settings — scoped: ari:listen har hodisada yangilaydi, panelda o'zgargan qiymat darhol amal qiladi
+        return app(Settings::class);
     }
 
     private function composer(): MessageComposer

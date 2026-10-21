@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\AriListen;
 use App\Enums\OrderSource;
 use App\Enums\OrderStatus;
 use App\Enums\Role;
@@ -14,6 +15,7 @@ use App\Models\Client;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\PhoneNumber;
+use App\Models\Setting;
 use App\Models\SipTrunk;
 use App\Models\SoundClip;
 use App\Models\User;
@@ -28,6 +30,7 @@ use App\Services\Telephony\Extensions;
 use App\Services\Telephony\OperatorPool;
 use App\Support\Settings;
 use Database\Seeders\RolesSeeder;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
@@ -38,14 +41,23 @@ require_once __DIR__.'/../Orders/helpers.php';
 
 /**
  * ARI soxtalashtiriladi: qaysi operatorlar brauzerda onlayn — $this->online.
+ * $this->ari: 'down' — shu bo'lak bor so'rovlarda ulanish xatosi; 'channels'/'bridges' — GET ro'yxatlari (null — 500).
  */
-function fakeAri(array &$online): void
+function fakeAri(array &$online, array &$ari): void
 {
-    Http::fake(function (Request $request) use (&$online) {
-        $url = $request->url();
+    Http::fake(function (Request $request) use (&$online, &$ari) {
+        $url = urldecode($request->url());
+        foreach ($ari['down'] as $needle) {
+            if (str_contains($url, $needle)) {
+                throw new ConnectionException('cURL error 7: Failed to connect');
+            }
+        }
+        $get = $request->method() === 'GET';
 
         return match (true) {
             str_ends_with($url, '/ari/endpoints/PJSIP') => Http::response(array_map(fn ($e) => ['resource' => $e, 'state' => 'online'], $online)),
+            $get && str_ends_with($url, '/ari/channels') => $ari['channels'] === null ? Http::response(null, 500) : Http::response(array_map(fn ($id) => ['id' => $id], $ari['channels'])),
+            $get && str_ends_with($url, '/ari/bridges') => $ari['bridges'] === null ? Http::response(null, 500) : Http::response($ari['bridges']),
             str_ends_with($url, '/ari/bridges') => Http::response(['id' => 'bridge-1']),
             default => Http::response(null, 204),
         };
@@ -68,7 +80,8 @@ beforeEach(function () {
     $this->seed(RolesSeeder::class);
 
     $this->online = [];
-    fakeAri($this->online);
+    $this->ari = ['down' => [], 'channels' => [], 'bridges' => []];
+    fakeAri($this->online, $this->ari);
 
     $this->branch = Branch::factory()->create();
     $this->trunk = SipTrunk::query()->create(['name' => 'sarkor', 'title' => 'Sarkor', 'host' => 'sip.example.uz', 'max_channels' => 4]);
@@ -179,6 +192,18 @@ test('driver calling the dispatcher waits in his branch queue', function () {
         ->and(ariRequests('media=tone:ring;tonezone=ru'))->toHaveCount(1)
         // Operator ovozi haydovchiga kuchaytirilib boradi
         ->and(ariRequests('/ari/channels/ch-d/variable?variable=VOLUME(TX)&value=4'))->toHaveCount(1);
+});
+
+test('driver call gain comes from settings and can be turned off', function () {
+    $driver = driverNear($this->branch, 100);
+    app(Settings::class)->set('calls.driver_gain', 2);
+    $this->center->handle(stasis('ch-d', ['internal', 'dispatcher'], "PJSIP/dr{$driver->id}-0001", "dr{$driver->id}"));
+
+    app(Settings::class)->set('calls.driver_gain', 0);
+    $this->center->handle(stasis('ch-e', ['internal', 'dispatcher'], "PJSIP/dr{$driver->id}-0002", "dr{$driver->id}"));
+
+    expect(ariRequests('/ari/channels/ch-d/variable?variable=VOLUME(TX)&value=2'))->toHaveCount(1)
+        ->and(ariRequests('/ari/channels/ch-e/variable'))->toBeEmpty();
 });
 
 test('operator callback goes out through the trunk and bridges when answered', function () {
@@ -364,4 +389,247 @@ test('superadmin without a branch gets an extension and takes queued calls when 
 
     expect($superadmin->sip_extension)->toBe('op'.$superadmin->id)
         ->and(app(OperatorPool::class)->pick([$this->branch->id])?->id)->toBe($superadmin->id);
+});
+
+test('operator is released when Asterisk is unreachable while ringing him', function () {
+    $this->ari['down'] = ['appArgs=operator'];
+
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    expect($call->status)->toBe('waiting')
+        ->and($call->operator_id)->toBeNull()
+        ->and($call->meta['operator_channel'])->toBeNull()
+        ->and(app(OperatorPool::class)->busyOperatorIds())->toBe([]);
+
+    // Asterisk qaytdi — keyingi tick'da qo'ng'iroq operatorga boradi
+    $this->ari['down'] = [];
+    $this->center->tick();
+    expect($call->refresh()->operator_id)->toBe($this->operator->id);
+});
+
+test('a channel whose StasisStart handler crashed is hung up', function () {
+    $this->partialMock(OperatorPool::class, fn ($mock) => $mock->shouldReceive('pick')->andThrow(new RuntimeException('boom')));
+
+    app(CallCenter::class)->handle(stasis('ch-1', ['inbound', '712000000']));
+
+    expect(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-1'))->count())->toBe(1);
+});
+
+test('the listener sees settings changed in the panel without a restart', function () {
+    $this->operator->forceFill(['operator_status' => 'paused'])->save();
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $listener = app(AriListen::class);
+    $listener->guard(fn () => $this->center->tick());
+    $this->travel(100)->seconds();
+
+    // Panel boshqa jarayonda saqlaydi — daemon'ning Settings keshi bilmaydi
+    Setting::query()->updateOrCreate(['branch_id' => null, 'key' => 'calls.max_wait_seconds'], ['value' => 60]);
+    $listener->guard(fn () => $this->center->tick());
+
+    expect(Call::query()->withoutGlobalScopes()->sole()->meta)->toMatchArray(['closing' => true, 'reason' => 'timeout']);
+});
+
+test('max wait also ends a call that is still ringing an operator', function () {
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    $operatorChannel = $call->meta['operator_channel'];
+    expect($call->operator_id)->toBe($this->operator->id);
+
+    $this->travel(181)->seconds();
+    $this->center->tick();
+
+    expect($call->refresh()->meta)->toMatchArray(['closing' => true, 'reason' => 'timeout', 'operator_channel' => null])
+        ->and($call->operator_id)->toBeNull()
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), "/ari/channels/{$operatorChannel}"))->count())->toBe(1);
+
+    // Operator kanali yopilgani qo'ng'iroqni qayta navbatga qo'ymaydi
+    $this->center->handle(['type' => 'ChannelDestroyed', 'channel' => ['id' => $operatorChannel], 'cause' => 16]);
+    $this->center->tick();
+    expect($call->refresh()->operator_id)->toBeNull()
+        ->and(ariRequests('appArgs=operator'))->toHaveCount(1);
+});
+
+function answeredCall($test): Call
+{
+    $test->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    $test->center->handle(stasis($call->meta['operator_channel'], ['operator', (string) $call->id], 'PJSIP/op1-0001'));
+
+    return $call->refresh();
+}
+
+function bridgeDeletes(): int
+{
+    return Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/bridges/bridge-1'))->count();
+}
+
+test('bridge recording has a maximum duration', function () {
+    answeredCall($this);
+
+    expect(ariRequests('/ari/bridges/bridge-1/record?name=call-'))->toHaveCount(1)
+        ->and(ariRequests('maxDurationSeconds=10800'))->toHaveCount(1);
+});
+
+test('the bridge is destroyed even if hanging up the other channels fails', function () {
+    $call = answeredCall($this);
+    $this->partialMock(AriClient::class, fn ($mock) => $mock->shouldReceive('hangup')->andThrow(new RuntimeException('boom')));
+
+    app(CallCenter::class)->handle(['type' => 'ChannelDestroyed', 'channel' => ['id' => 'ch-1'], 'cause' => 16]);
+
+    expect($call->refresh()->ended_at)->not->toBeNull()
+        ->and(bridgeDeletes())->toBe(1);
+});
+
+test('a bridge left open at finish is closed by the next channel event, once', function () {
+    $call = answeredCall($this);
+    $operatorChannel = $call->meta['operator_channel'];
+
+    $this->ari['down'] = ['/ari/bridges/bridge-1'];
+    $this->center->handle(['type' => 'ChannelDestroyed', 'channel' => ['id' => 'ch-1'], 'cause' => 16]);
+    expect($call->refresh()->status)->toBe('completed')
+        ->and($call->meta)->not->toHaveKey('bridge_closed');
+
+    $this->ari['down'] = [];
+    $this->center->handle(['type' => 'StasisEnd', 'channel' => ['id' => $operatorChannel]]);
+    $this->center->handle(['type' => 'ChannelDestroyed', 'channel' => ['id' => $operatorChannel], 'cause' => 16]);
+
+    expect(bridgeDeletes())->toBe(1)
+        ->and($call->refresh()->meta['bridge_closed'])->toBeTrue();
+});
+
+test('reconnect keeps calls whose channels are still alive and handles their later events', function () {
+    $call = answeredCall($this);
+    $operatorChannel = $call->meta['operator_channel'];
+    // Daemon qayta ishga tushdi, kesh bog'lanishlari ham yo'qoldi
+    Cache::flush();
+    $this->travel(30)->seconds();
+    $this->ari['channels'] = ['ch-1', $operatorChannel];
+
+    $this->center->reconcile();
+
+    expect($call->refresh()->status)->toBe('answered')
+        ->and($call->ended_at)->toBeNull()
+        ->and(Cache::get("ari:ch:{$operatorChannel}"))->toBe(['call' => $call->id, 'role' => 'operator']);
+
+    $this->center->handle(['type' => 'StasisEnd', 'channel' => ['id' => $operatorChannel]]);
+    expect($call->refresh()->status)->toBe('completed')
+        ->and(bridgeDeletes())->toBe(1);
+});
+
+test('reconnect finishes calls whose channels vanished and releases the operator', function () {
+    $call = answeredCall($this);
+    $this->travel(30)->seconds();
+    $this->ari['channels'] = [];
+
+    $this->center->reconcile();
+
+    expect($call->refresh()->status)->toBe('completed')
+        ->and($call->ended_at)->not->toBeNull()
+        ->and(app(OperatorPool::class)->busyOperatorIds())->toBe([])
+        ->and(bridgeDeletes())->toBe(1);
+});
+
+test('a queued call whose client vanished becomes missed, one whose operator ring vanished goes on', function () {
+    $other = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+    $other->forceFill(['sip_extension' => 'op'.$other->id, 'operator_status' => 'ready', 'operator_status_at' => now()])->save();
+    $this->online[] = $other->sip_extension;
+    $this->operator->forceFill(['operator_status_at' => now()->subHour()])->save();
+
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $this->center->handle(stasis('ch-2', ['inbound', '712000000'], caller: '998907654321'));
+    $first = Call::query()->withoutGlobalScopes()->where('channel_id', 'ch-1')->sole();
+    $second = Call::query()->withoutGlobalScopes()->where('channel_id', 'ch-2')->sole();
+    expect($first->operator_id)->toBe($this->operator->id)->and($second->operator_id)->toBe($other->id);
+
+    $this->travel(30)->seconds();
+    Cache::forget('telephony:online-endpoints');
+    // Birinchi mijoz ham, uning operator jiringlashi ham yo'q; ikkinchi mijoz tirik, uning operator jiringlashi yo'q
+    $this->ari['channels'] = ['ch-2'];
+    $this->center->reconcile();
+
+    expect($first->refresh()->status)->toBe('missed')
+        ->and($second->refresh()->status)->toBe('waiting')
+        ->and($second->ended_at)->toBeNull()
+        // Bo'shagan birinchi operatorga o'tdi
+        ->and($second->operator_id)->toBe($this->operator->id);
+});
+
+test('reconciliation does nothing when Asterisk cannot list channels, and spares brand-new calls', function () {
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+
+    $this->ari['channels'] = [];
+    $this->center->reconcile();
+    expect($call->refresh()->ended_at)->toBeNull();
+
+    $this->travel(30)->seconds();
+    $this->ari['channels'] = null;
+    $this->center->reconcile();
+    expect($call->refresh()->ended_at)->toBeNull();
+});
+
+test('orphan Stasis bridges are destroyed, bridges of live calls are kept', function () {
+    $call = answeredCall($this);
+    $this->ari['channels'] = ['ch-1', $call->meta['operator_channel']];
+    $this->ari['bridges'] = [
+        ['id' => 'bridge-1', 'bridge_class' => 'stasis', 'channels' => ['ch-1']],
+        ['id' => 'orphan', 'bridge_class' => 'stasis', 'channels' => []],
+        ['id' => 'foreign', 'bridge_class' => 'base', 'channels' => []],
+    ];
+
+    $this->center->reconcile();
+
+    $deleted = Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_contains($r->url(), '/ari/bridges/'))
+        ->map(fn ($pair) => basename($pair[0]->url()))->values()->all();
+    expect($deleted)->toBe(['orphan']);
+});
+
+function operatorDials($test, string $exten, string $channel = 'ch-op'): void
+{
+    $test->center->handle(stasis($channel, ['internal', $exten], "PJSIP/{$test->operator->sip_extension}-0001", $test->operator->sip_extension));
+}
+
+test('operator cannot dial numbers outside the allow-list', function (string $exten) {
+    operatorDials($this, $exten);
+
+    expect(Call::query()->withoutGlobalScopes()->count())->toBe(0)
+        ->and(ariRequests('/ari/channels?endpoint='))->toBeEmpty()
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-op'))->count())->toBe(1);
+})->with(['international' => '0088216123456', 'plus international' => '+79161234567', 'premium short' => '0900', 'too long' => '99890123456789']);
+
+test('operator can dial local numbers in any common form', function (string $exten) {
+    operatorDials($this, $exten);
+
+    expect(ariRequests('endpoint=PJSIP/998901234567@trunk-sarkor'))->toHaveCount(1);
+})->with(['9 digits' => '901234567', 'full' => '998901234567', 'plus' => '+998901234567']);
+
+test('allowed outbound patterns come from settings', function () {
+    app(Settings::class)->set('calls.outbound_allowed_patterns', ['^998\d{9}$', '^7\d{10}$', '(broken']);
+
+    operatorDials($this, '79161234567');
+
+    expect(ariRequests('endpoint=PJSIP/79161234567@trunk-sarkor'))->toHaveCount(1);
+});
+
+test('outbound calls per operator are rate limited', function () {
+    app(Settings::class)->set('calls.operator_outbound_limit', 2);
+
+    foreach (['ch-a', 'ch-b', 'ch-c'] as $channel) {
+        operatorDials($this, '901234567', $channel);
+    }
+
+    expect(ariRequests('@trunk-sarkor'))->toHaveCount(2)
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-c'))->count())->toBe(1);
+
+    // Haydovchiga qo'ng'iroq bepul — chegaraga kirmaydi
+    $driver = driverNear($this->branch, 0, ['callsign' => '777']);
+    operatorDials($this, '777', 'ch-d');
+    expect(ariRequests("endpoint=PJSIP/dr{$driver->id}"))->toHaveCount(1);
+});
+
+test('the listener loop survives any exception', function () {
+    app(AriListen::class)->guard(fn () => throw new RuntimeException('boom'));
+
+    expect(true)->toBeTrue();
 });

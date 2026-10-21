@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Call;
 use App\Models\SipTrunk;
 use App\Services\Telephony\CallCenter;
 use App\Services\Telephony\TrunkSync;
@@ -10,6 +9,7 @@ use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Ratchet\Client\WebSocket;
 use React\EventLoop\Loop;
 
@@ -27,10 +27,15 @@ class AriListen extends Command
     public function handle(CallCenter $center, TrunkSync $trunks): int
     {
         DB::disableQueryLog();
-        $this->recoverAfterRestart($trunks);
+        // Trunklarni Realtime'ga qayta yozish. Ochiq qo'ng'iroqlar bu yerda yopilmaydi: ular ulanishda
+        // Asterisk kanallari bilan solishtiriladi — yangilanish (ari:restart) davom etayotgan suhbatni uzmasin
+        $this->guard(fn () => SipTrunk::query()->each(fn (SipTrunk $trunk) => $trunks->sync($trunk)));
 
         $loop = Loop::get();
         $started = time();
+
+        // Hodisa yo'qolgan bo'lsa ham (tarmoq uzilishi) osilib qolgan qo'ng'iroq bir daqiqada yopiladi
+        $loop->addPeriodicTimer(60, fn () => $this->guard(fn () => $center->reconcile()));
 
         // Navbatni taqsimlash va heartbeat (monitoring "daemon ishlayaptimi" ko'rsatadi)
         $loop->addPeriodicTimer(2, function () use ($center, $started) {
@@ -60,6 +65,8 @@ class AriListen extends Command
 
         connect($url)->then(function (WebSocket $conn) use ($center) {
             $this->info('ARI ulandi');
+            // Uzilish paytida o'tib ketgan hodisalar o'rniga — ochiq qo'ng'iroqlarni haqiqiy kanallar bilan solishtirish
+            $this->guard(fn () => $center->reconcile());
 
             $conn->on('message', function ($message) use ($center) {
                 $event = json_decode((string) $message, true);
@@ -82,28 +89,23 @@ class AriListen extends Command
     }
 
     /**
-     * Daemon qayta ishga tushganda: "faol" bo'lib qolgan qo'ng'iroqlarni yopish, trunklarni Realtime'ga qayta yozish.
-     */
-    private function recoverAfterRestart(TrunkSync $trunks): void
-    {
-        Call::query()->withoutGlobalScopes()->whereIn('status', Call::ACTIVE)->update([
-            'status' => DB::raw("CASE WHEN status = 'answered' THEN 'completed' WHEN direction = 'inbound' THEN 'missed' ELSE 'no_answer' END"),
-            'ended_at' => now(),
-        ]);
-
-        SipTrunk::query()->each(fn (SipTrunk $trunk) => $trunks->sync($trunk));
-    }
-
-    /**
      * Baza ulanishi uzilsa (uzoq ishlovchi jarayon) — qayta ulanib bir marta takrorlash.
+     * Boshqa har qanday xato faqat yoziladi: tsikl o'lsa, barcha qo'ng'iroqlar boshqaruvsiz qoladi.
      */
-    private function guard(callable $fn): void
+    public function guard(callable $fn): void
     {
+        // Daemon bitta uzun "so'rov": scoped xizmatlar (Settings keshi) har hodisada yangidan — panel o'zgarishlari ko'rinsin
+        app()->forgetScopedInstances();
+
         try {
-            $fn();
-        } catch (QueryException $e) {
-            DB::reconnect();
-            $fn();
+            try {
+                $fn();
+            } catch (QueryException $e) {
+                DB::reconnect();
+                $fn();
+            }
+        } catch (\Throwable $e) {
+            Log::error('ari:listen: '.$e->getMessage(), ['exception' => $e]);
         }
     }
 }

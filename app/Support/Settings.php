@@ -23,10 +23,19 @@ class Settings
         'drivers.min_balance' => 5000,
         'tariffs.rounding_step' => 500,
         'calls.recordings_retention_days' => 90,
+        // Bitta yozuvning eng uzun davomiyligi (soniya): ko'prik yopilmay qolsa ham fayl cheksiz o'smaydi
+        'calls.max_recording_seconds' => 10800,
         // Qo'ng'iroq markazi (§5): kutish, operator jiringlashi
         'calls.max_wait_seconds' => 180,
         'calls.operator_ring_seconds' => 20,
         'calls.pause_on_missed_ring' => true,
+        // Haydovchi ↔ dispetcher: haydovchiga boradigan ovoz kuchaytirgichi, VOLUME(TX) (0 — o'zgartirilmaydi)
+        'calls.driver_gain' => 4,
+        // Operator trunk orqali qo'ng'iroq qila oladigan raqamlar (raqamlar, + siz; 9 xonali → 998…): standart — faqat O'zbekiston
+        'calls.outbound_allowed_patterns' => ['^998\d{9}$'],
+        // Bitta operatorning chiquvchi qo'ng'iroqlari chegarasi (0 — cheksiz)
+        'calls.operator_outbound_limit' => 30,
+        'calls.operator_outbound_window_minutes' => 10,
         // IVR avto-buyurtma: doimiy mijoz "1" ni bosib oxirgi manziliga taksi chaqiradi (Bosqich 5)
         'calls.ivr_auto_order' => false,
         // Avto-qo'ng'iroqlar (§5.4)
