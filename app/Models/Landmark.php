@@ -120,7 +120,9 @@ class Landmark extends Model
             SELECT name FROM (
                 SELECT name, ST_Distance(location, p.g) AS d,
                        CASE WHEN category = 'address' THEN 100 WHEN category = 'street' THEN 250 ELSE 120 END AS max_d,
-                       CASE WHEN category = 'address' THEN 0 WHEN category = 'street' THEN 2 ELSE 1 END AS rank
+                       -- Bosilgan joyda nomli joy (bank, do'kon) bo'lsa — uning nomi; aks holda uy manzili, so'ng ko'cha
+                       CASE WHEN category NOT IN ('address', 'street') AND category NOT LIKE 'place:%' AND ST_Distance(location, p.g) <= 30 THEN 0
+                            WHEN category = 'address' THEN 1 WHEN category = 'street' THEN 3 ELSE 2 END AS rank
                 FROM landmarks, p
                 WHERE ST_DWithin(location, p.g, 250)
             ) AS near

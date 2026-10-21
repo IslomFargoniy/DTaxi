@@ -262,6 +262,19 @@ test('a point on the map gets the nearest house address as its name', function (
     expect($order->pickup_text)->toBe("Mustaqillik ko'chasi, 22");
 });
 
+test('clicking right on a named place gives its name, not the neighbouring house address', function () {
+    Landmark::query()->create(['name' => "Al Fargoniy ko'chasi, 37a", 'category' => 'address', 'location' => Point::makeGeodetic(40.38428, 71.78048)]);
+    Landmark::query()->create(['name' => 'Халк банк', 'category' => 'amenity:bank', 'location' => Point::makeGeodetic(40.38424, 71.78045)]);
+
+    $this->actingAs($this->operator)
+        ->getJson(route('operator.lookup.reverse', ['lat' => 40.38421, 'lng' => 71.78042]))
+        ->assertJsonPath('name', 'Халк банк');
+
+    // 60 m narida — joy emas, eng yaqin uy manzili
+    $this->getJson(route('operator.lookup.reverse', ['lat' => 40.38470, 'lng' => 71.78090]))
+        ->assertJsonPath('name', "Al Fargoniy ko'chasi, 37a");
+});
+
 test('client lookup returns the last order for one-click repeat', function () {
     $orders = app(OrderService::class);
     $orders->create(orderData($this->branch, ['pickup_text' => 'Eski joy']), dispatch: false);
