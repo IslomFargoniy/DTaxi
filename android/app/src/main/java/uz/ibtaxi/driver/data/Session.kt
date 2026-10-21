@@ -41,6 +41,11 @@ class Session(context: Context) {
         get() = prefs.getBoolean("voice_guidance", true)
         set(value) = prefs.edit().putBoolean("voice_guidance", value).apply()
 
+    /** Navigatsiya ovozi (TTS Voice nomi); null — dvigatel standarti */
+    var navVoice: String?
+        get() = prefs.getString("nav_voice", null)
+        set(value) = prefs.edit().putString("nav_voice", value).apply()
+
     /** Server manzili: firma konfiguratsiyasidan; sinov ilovasida (SERVER_EDITABLE) login ekranida o'zgartiriladi */
     var serverUrl: String
         get() = prefs.getString("server_url", null)?.takeIf { BuildConfig.SERVER_EDITABLE && it.isNotBlank() } ?: BuildConfig.SERVER_URL

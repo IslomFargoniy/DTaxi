@@ -130,4 +130,12 @@
     <string name="logout_confirm_title">Chiqasizmi?</string>
     <string name="logout_confirm_text">Hisobdan chiqasiz va liniyadan tushasiz. Qayta kirish uchun telefon raqami va parol kerak bo\'ladi.</string>
     <string name="cancel">Bekor qilish</string>
+    <string name="nav_voice">Navigatsiya ovozi</string>
+    <string name="nav_voice_default">Standart</string>
+    <string name="nav_voice_n">Ovoz %1$d</string>
+    <string name="nav_voice_online">internet orqali</string>
+    <string name="nav_voice_none">Telefonda mos ovoz topilmadi</string>
+    <string name="nav_voice_more">Boshqa ovozlar (telefon sozlamalari)</string>
+    <string name="nav_voice_listen">Eshitish</string>
+    <string name="done">Tayyor</string>
 </resources>

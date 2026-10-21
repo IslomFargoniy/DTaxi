@@ -131,4 +131,12 @@
     <string name="logout_confirm_title">Чиқасизми?</string>
     <string name="logout_confirm_text">Ҳисобдан чиқасиз ва линиядан тушасиз. Қайта кириш учун телефон рақами ва парол керак бўлади.</string>
     <string name="cancel">Бекор қилиш</string>
+    <string name="nav_voice">Навигатсия овози</string>
+    <string name="nav_voice_default">Стандарт</string>
+    <string name="nav_voice_n">Овоз %1$d</string>
+    <string name="nav_voice_online">интернет орқали</string>
+    <string name="nav_voice_none">Телефонда мос овоз топилмади</string>
+    <string name="nav_voice_more">Бошқа овозлар (телефон созламалари)</string>
+    <string name="nav_voice_listen">Эшитиш</string>
+    <string name="done">Тайёр</string>
 </resources>

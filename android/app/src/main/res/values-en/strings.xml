@@ -130,4 +130,12 @@
     <string name="logout_confirm_title">Log out?</string>
     <string name="logout_confirm_text">You will log out and go offline. You will need your phone number and password to log in again.</string>
     <string name="cancel">Cancel</string>
+    <string name="nav_voice">Navigation voice</string>
+    <string name="nav_voice_default">Default</string>
+    <string name="nav_voice_n">Voice %1$d</string>
+    <string name="nav_voice_online">online</string>
+    <string name="nav_voice_none">No suitable voice on this phone</string>
+    <string name="nav_voice_more">More voices (phone settings)</string>
+    <string name="nav_voice_listen">Listen</string>
+    <string name="done">Done</string>
 </resources>

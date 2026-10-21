@@ -130,4 +130,12 @@
     <string name="logout_confirm_title">Выйти?</string>
     <string name="logout_confirm_text">Вы выйдете из аккаунта и линии. Для повторного входа понадобятся номер телефона и пароль.</string>
     <string name="cancel">Отмена</string>
+    <string name="nav_voice">Голос навигации</string>
+    <string name="nav_voice_default">По умолчанию</string>
+    <string name="nav_voice_n">Голос %1$d</string>
+    <string name="nav_voice_online">через интернет</string>
+    <string name="nav_voice_none">На телефоне нет подходящего голоса</string>
+    <string name="nav_voice_more">Другие голоса (настройки телефона)</string>
+    <string name="nav_voice_listen">Прослушать</string>
+    <string name="done">Готово</string>
 </resources>

@@ -107,7 +107,7 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
     var banner by remember { mutableStateOf<Pair<NavStep, Int?>?>(null) }
     var reroute by remember { mutableStateOf(0) }
     val session = IbTaxiApp.instance.session
-    val voice = remember(session.locale) { VoiceGuide(context, session.locale) }
+    val voice = remember(session.locale) { VoiceGuide(context, session.locale, session.navVoice) }
     DisposableEffect(voice) { onDispose { voice.shutdown() } }
     var info by remember { mutableStateOf<String?>(null) }
     val realtimeConnected by DriverState.realtimeConnected.collectAsState()
