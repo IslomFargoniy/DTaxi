@@ -23,6 +23,8 @@ class Settings
         'drivers.min_balance' => 5000,
         'tariffs.rounding_step' => 500,
         'calls.recordings_retention_days' => 90,
+        // Bitta yozuvning eng uzun davomiyligi (soniya): ko'prik yopilmay qolsa ham fayl cheksiz o'smaydi
+        'calls.max_recording_seconds' => 10800,
         // Qo'ng'iroq markazi (§5): kutish, operator jiringlashi
         'calls.max_wait_seconds' => 180,
         'calls.operator_ring_seconds' => 20,

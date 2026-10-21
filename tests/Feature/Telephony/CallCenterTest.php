@@ -436,6 +436,54 @@ test('max wait also ends a call that is still ringing an operator', function () 
         ->and(ariRequests('appArgs=operator'))->toHaveCount(1);
 });
 
+function answeredCall($test): Call
+{
+    $test->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    $test->center->handle(stasis($call->meta['operator_channel'], ['operator', (string) $call->id], 'PJSIP/op1-0001'));
+
+    return $call->refresh();
+}
+
+function bridgeDeletes(): int
+{
+    return Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/bridges/bridge-1'))->count();
+}
+
+test('bridge recording has a maximum duration', function () {
+    answeredCall($this);
+
+    expect(ariRequests('/ari/bridges/bridge-1/record?name=call-'))->toHaveCount(1)
+        ->and(ariRequests('maxDurationSeconds=10800'))->toHaveCount(1);
+});
+
+test('the bridge is destroyed even if hanging up the other channels fails', function () {
+    $call = answeredCall($this);
+    $this->partialMock(AriClient::class, fn ($mock) => $mock->shouldReceive('hangup')->andThrow(new RuntimeException('boom')));
+
+    app(CallCenter::class)->handle(['type' => 'ChannelDestroyed', 'channel' => ['id' => 'ch-1'], 'cause' => 16]);
+
+    expect($call->refresh()->ended_at)->not->toBeNull()
+        ->and(bridgeDeletes())->toBe(1);
+});
+
+test('a bridge left open at finish is closed by the next channel event, once', function () {
+    $call = answeredCall($this);
+    $operatorChannel = $call->meta['operator_channel'];
+
+    $this->ari['down'] = ['/ari/bridges/bridge-1'];
+    $this->center->handle(['type' => 'ChannelDestroyed', 'channel' => ['id' => 'ch-1'], 'cause' => 16]);
+    expect($call->refresh()->status)->toBe('completed')
+        ->and($call->meta)->not->toHaveKey('bridge_closed');
+
+    $this->ari['down'] = [];
+    $this->center->handle(['type' => 'StasisEnd', 'channel' => ['id' => $operatorChannel]]);
+    $this->center->handle(['type' => 'ChannelDestroyed', 'channel' => ['id' => $operatorChannel], 'cause' => 16]);
+
+    expect(bridgeDeletes())->toBe(1)
+        ->and($call->refresh()->meta['bridge_closed'])->toBeTrue();
+});
+
 test('the listener loop survives any exception', function () {
     app(AriListen::class)->guard(fn () => throw new RuntimeException('boom'));
 

@@ -567,7 +567,13 @@ class CallCenter
     {
         $ref = Cache::pull("ari:ch:{$channelId}");
         $call = is_array($ref) ? $this->findCall($ref['call']) : Call::query()->withoutGlobalScopes()->where('channel_id', $channelId)->first();
-        if (! $call || $call->ended_at) {
+        if (! $call) {
+            return;
+        }
+        if ($call->ended_at) {
+            // Yakunlashda ko'prik yopilmay qolgan bo'lsa (Asterisk javob bermagan) — endi yopiladi
+            $this->closeBridge($call);
+
             return;
         }
         $role = is_array($ref) ? $ref['role'] : 'client';
@@ -813,10 +819,25 @@ class CallCenter
             return;
         }
 
-        $this->ari->addToBridge($bridgeId, [$a, $b]);
         $recording = "call-{$call->id}";
-        $this->ari->recordBridge($bridgeId, $recording);
         $this->updateMeta($call, ['bridge' => $bridgeId, 'recording' => $recording]);
+        $this->ari->addToBridge($bridgeId, [$a, $b]);
+        $this->ari->recordBridge($bridgeId, $recording, (int) $this->settings()->get('calls.max_recording_seconds'));
+    }
+
+    /**
+     * Ko'prikni bir marta yopish (keyingi kanal hodisalari 404 so'rov yubormasin).
+     */
+    private function closeBridge(Call $call): void
+    {
+        $bridge = data_get($call->meta, 'bridge');
+        if (! $bridge || data_get($call->meta, 'bridge_closed')) {
+            return;
+        }
+
+        if ($this->ari->destroyBridge((string) $bridge)) {
+            $this->updateMeta($call, ['bridge_closed' => true]);
+        }
     }
 
     /**
@@ -837,14 +858,16 @@ class CallCenter
             $this->updateMeta($call, $meta);
         }
 
-        foreach (array_filter([$call->channel_id, data_get($call->meta, 'operator_channel'), data_get($call->meta, 'peer_channel')]) as $channel) {
-            if ($channel !== $destroyedChannel) {
-                Cache::forget("ari:ch:{$channel}");
-                $this->ari->hangup((string) $channel);
+        try {
+            foreach (array_filter([$call->channel_id, data_get($call->meta, 'operator_channel'), data_get($call->meta, 'peer_channel')]) as $channel) {
+                // Kanal bog'lanishi keshda qoladi: uning yopilish hodisasi qo'ng'iroqni topib, ochiq ko'prikni yopa olsin
+                if ($channel !== $destroyedChannel) {
+                    $this->ari->hangup((string) $channel);
+                }
             }
-        }
-        if ($bridge = data_get($call->meta, 'bridge')) {
-            $this->ari->destroyBridge((string) $bridge);
+        } finally {
+            // Ko'prik har holda yopiladi — aks holda yozuv davom etib, disk to'lib boradi
+            $this->closeBridge($call);
         }
         if (data_get($call->meta, 'recording') && $call->answered_at) {
             ProcessRecording::dispatch($call->id)->delay(now()->addSeconds(5));
