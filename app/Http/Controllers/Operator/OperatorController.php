@@ -47,7 +47,7 @@ class OperatorController extends Controller
             'drivers' => fn () => $this->drivers(array_values($branches->map(fn (Branch $branch): int => $branch->id)->all())),
             'map' => [
                 'tiles' => config('services.tiles.url'),
-                'center' => $this->fallbackCenter($branches->all()),
+                'center' => $this->fallbackCenter(array_values($branches->all())),
             ],
             // Shundan eski GPS'li haydovchi "bo'sh" deb sanalmaydi va tayinlash ro'yxatida chiqmaydi
             'locationTtlSeconds' => (int) app(Settings::class)->get('dispatch.location_ttl_seconds'),
@@ -64,7 +64,7 @@ class OperatorController extends Controller
     private function fallbackCenter(array $branches): ?array
     {
         $point = collect($branches)->map(fn (Branch $b) => $b->center ?? $b->region()->first()?->center)->filter()->first()
-            ?? Branch::query()->whereNotNull('center')->orderBy('id')->first()?->center
+            ?? Branch::query()->whereNotNull('center')->orderBy('id')->first()->center
             ?? Region::query()->whereNotNull('center')->orderBy('id')->first()?->center;
 
         return $point instanceof Point ? ['lat' => $point->getLatitude(), 'lng' => $point->getLongitude()] : null;
