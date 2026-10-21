@@ -112,6 +112,38 @@ class DriverBalance
         );
     }
 
+    /**
+     * Tungi tekshiruv: balans oxirgi harakatdagi "balance_after" ga teng va harakatlar zanjiri uzilmagan
+     * (birinchi harakatdan oldingi balans + summalar = oxirgi balans). Farq — balans tarixsiz o'zgargan.
+     *
+     * @return list<array{driver_id: int, callsign: string, balance: int, expected: int}>
+     */
+    public function mismatches(): array
+    {
+        $rows = DB::select(<<<'SQL'
+            SELECT d.id, d.callsign, d.balance,
+                   CASE WHEN d.balance <> x.last_after THEN x.last_after ELSE x.first_before + x.total END AS expected
+            FROM drivers d
+            JOIN (
+                SELECT driver_id,
+                       (array_agg(balance_after ORDER BY id DESC))[1] AS last_after,
+                       (array_agg(balance_after - amount ORDER BY id ASC))[1] AS first_before,
+                       SUM(amount) AS total
+                FROM driver_transactions
+                GROUP BY driver_id
+            ) x ON x.driver_id = d.id
+            WHERE d.balance <> x.last_after OR x.first_before + x.total <> x.last_after
+            ORDER BY d.id
+            SQL);
+
+        return array_values(array_map(fn (\stdClass $row) => [
+            'driver_id' => (int) $row->id,
+            'callsign' => (string) $row->callsign,
+            'balance' => (int) $row->balance,
+            'expected' => (int) $row->expected,
+        ], $rows));
+    }
+
     public function canTakeOrders(Driver $driver): bool
     {
         return $driver->balance >= (int) $this->settings->get('drivers.min_balance', $driver->branch_id);

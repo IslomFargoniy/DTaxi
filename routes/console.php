@@ -7,6 +7,8 @@ use App\Models\Driver;
 use App\Models\SipTrunk;
 use App\Models\User;
 use App\Services\Dispatch\Dispatcher;
+use App\Services\Drivers\DriverBalance;
+use App\Services\Drivers\DriverHeartbeat;
 use App\Services\Landmarks\OsmLandmarkImporter;
 use App\Services\Orders\OrderService;
 use App\Services\Regions\OsmRegionImporter;
@@ -16,6 +18,7 @@ use App\Services\Telephony\TrunkSync;
 use App\Support\Backup;
 use App\Support\HealthCheck;
 use App\Support\Settings;
+use App\Support\TelegramAlert;
 use App\Support\UzbekCyrillic;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -145,6 +148,32 @@ Artisan::command('drivers:release-stuck', function () {
 })->purpose("Faol buyurtmasiz \"band\" qolib ketgan haydovchilarni bo'shatish");
 
 Schedule::command('drivers:release-stuck')->everyFiveMinutes()->withoutOverlapping();
+
+Artisan::command('drivers:mark-offline', function (DriverHeartbeat $heartbeat) {
+    $count = $heartbeat->markSilentOffline();
+    if ($count > 0) {
+        $this->info("Oflayn qilindi: {$count}");
+    }
+})->purpose("GPS yubormay qo'ygan \"bo'sh\" haydovchilarni oflayn qilish");
+
+Schedule::command('drivers:mark-offline')->everyMinute()->withoutOverlapping();
+
+Artisan::command('drivers:balance-check', function (DriverBalance $balance) {
+    $mismatches = $balance->mismatches();
+    if ($mismatches === []) {
+        $this->info('Balanslar tarix bilan mos');
+
+        return;
+    }
+
+    // Balans tarixsiz o'zgargan (qo'lda SQL, xato yoki poyga) — pul masalasi, firma darhol bilishi kerak
+    Log::error('Haydovchi balansi tarix bilan mos emas', ['drivers' => $mismatches]);
+    $lines = array_map(fn (array $m) => "#{$m['callsign']}: {$m['balance']} ≠ {$m['expected']}", array_slice($mismatches, 0, 20));
+    TelegramAlert::send('⚠️ Haydovchi balansi tarix bilan mos emas ('.count($mismatches)." ta):\n".implode("\n", $lines));
+    array_map(fn (string $line) => $this->warn($line), $lines);
+})->purpose('Haydovchi balanslarini harakatlar tarixi bilan solishtirish');
+
+Schedule::command('drivers:balance-check')->dailyAt('03:00')->withoutOverlapping();
 
 Artisan::command('locations:prune', function (Settings $settings) {
     $days = (int) $settings->get('drivers.locations_retention_days');

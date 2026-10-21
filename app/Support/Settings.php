@@ -54,6 +54,8 @@ class Settings
         'pricing.surge_to_hour' => 0,
         // GPS treki necha kun saqlanadi (masofa bahslari uchun)
         'drivers.locations_retention_days' => 30,
+        // Shuncha daqiqa GPS kelmasa "bo'sh" haydovchi oflayn qilinadi (0 — o'chiq)
+        'drivers.offline_after_minutes' => 5,
         // Jarima va reyting (qaror #29)
         'drivers.cancel_penalty' => 2000,
         'drivers.rating_cancel_penalty' => 5,
