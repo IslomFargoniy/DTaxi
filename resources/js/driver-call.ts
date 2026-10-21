@@ -18,7 +18,13 @@ type Bridge = {
     caller?(): string;
 };
 type Phone = {
-    sip: { uri: string; password: string; ws: string };
+    sip: {
+        uri: string;
+        password: string;
+        ws: string;
+        /** STUN doim; TURN — server coturn bilan o'rnatilgan bo'lsa (login/parol har qo'ng'iroqqa yangi) */
+        ice_servers: RTCIceServer[];
+    };
     target: string;
 };
 
@@ -173,11 +179,15 @@ async function start(): Promise<void> {
     const host = sip.uri.split('@')[1];
     // JsSIP chiquvchi qo'ng'iroqda RTCPeerConnection'ni ua.call() ichida yaratadi: keyin ulangan
     // session.on('peerconnection') hech qachon ishlamaydi — shuning uchun ovoz <audio>ga ulanmay qolardi.
+    const iceReady = iceGathering(sip.ice_servers);
     session = ua.call(`sip:${target}@${host}`, {
         mediaConstraints: { audio: true, video: false },
+        // Server NAT ortida yoki mobil/ofis tarmog'i UDP'ni yopsa ovoz TURN orqali o'tadi
+        pcConfig: { iceServers: sip.ice_servers },
         eventHandlers: {
             peerconnection: ({ peerconnection }) =>
                 attachRemote(peerconnection),
+            icecandidate: iceReady,
         },
     });
     if (session.connection) {
@@ -237,6 +247,26 @@ $('mute').addEventListener('click', () => {
     }
     $('mute').classList.toggle('on', !muted);
 });
+
+/**
+ * JsSIP INVITE'ni ICE yig'ish to'liq tugaguncha ushlab turadi: STUN/TURN javob bermasa bu o'nlab
+ * soniya. Kerakli nomzod kelsa (TURN bo'lsa relay, aks holda srflx) yoki 3 s o'tsa — darhol yuboriladi.
+ */
+function iceGathering(
+    servers: RTCIceServer[],
+): (e: { candidate: RTCIceCandidate; ready: () => void }) => void {
+    const wanted = servers.some((s) => s.username) ? 'relay' : 'srflx';
+    let timeout = 0;
+
+    return ({ candidate, ready }) => {
+        if (candidate.type === wanted) {
+            window.clearTimeout(timeout);
+            ready();
+        } else if (!timeout) {
+            timeout = window.setTimeout(ready, 3000);
+        }
+    };
+}
 
 let attached: RTCPeerConnection | null = null;
 
