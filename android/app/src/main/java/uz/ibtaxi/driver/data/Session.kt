@@ -10,13 +10,46 @@ import androidx.security.crypto.MasterKey
  * Token va til — shifrlangan saqlash.
  */
 class Session(context: Context) {
-    private val prefs: SharedPreferences = EncryptedSharedPreferences.create(
-        context,
-        "session",
-        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-    )
+    private val prefs: SharedPreferences = open(context)
+
+    private companion object {
+        const val FILE = "session"
+        const val PLAIN_FILE = "session_plain"
+
+        fun encrypted(context: Context): SharedPreferences = EncryptedSharedPreferences.create(
+            context,
+            FILE,
+            MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+        )
+
+        /**
+         * Ba'zi telefonlarda (OEM keystore) kalit buziladi va har ochilishda ilova yiqilardi. Buzilgan fayl va kalit
+         * o'chiriladi (haydovchi qayta kiradi); baribir ishlamasa — oddiy saqlash, keyingi ochilishlarda ham shu.
+         */
+        fun open(context: Context): SharedPreferences {
+            val plain = context.getSharedPreferences(PLAIN_FILE, Context.MODE_PRIVATE)
+            if (plain.getBoolean("fallback", false)) return plain
+            return try {
+                encrypted(context)
+            } catch (e: Exception) {
+                android.util.Log.w("Session", "Shifrlangan saqlash ochilmadi — tozalanadi", e)
+                context.deleteSharedPreferences(FILE)
+                runCatching {
+                    java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                        .deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+                }
+                try {
+                    encrypted(context)
+                } catch (e: Exception) {
+                    android.util.Log.w("Session", "Shifrlangan saqlash ishlamaydi — oddiy saqlash", e)
+                    plain.edit().putBoolean("fallback", true).commit()
+                    plain
+                }
+            }
+        }
+    }
 
     var token: String?
         get() = prefs.getString("token", null)
