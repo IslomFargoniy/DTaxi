@@ -157,4 +157,4 @@ fun mapStyleFor(url: String, dark: Boolean): String {
     return base + (if (base.contains('?')) "&" else "?") + "flavor=dark"
 }
 
-fun formatMoney(value: Long?): String = value?.let { "%,d".format(it).replace(',', ' ') } ?: "—"
+fun formatMoney(value: Long?): String = uz.ibtaxi.driver.data.Formats.formatMoney(value)

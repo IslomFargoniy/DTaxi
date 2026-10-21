@@ -74,6 +74,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import uz.ibtaxi.driver.IbTaxiApp
 import uz.ibtaxi.driver.R
+import uz.ibtaxi.driver.data.Formats
 import uz.ibtaxi.driver.data.DriverState
 import uz.ibtaxi.driver.data.Order
 import uz.ibtaxi.driver.data.Result
@@ -634,7 +635,7 @@ private fun TopBar(p: uz.ibtaxi.driver.data.DriverProfile, unread: Int, onOpen: 
                 Text(p.callsign, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimary, maxLines = 1)
             }
             Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                Text(p.vehicle?.plateNumber ?: p.name, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                Text(p.vehicle?.plateNumber?.let(Formats::formatPlate) ?: p.name, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                 Text(
                     listOfNotNull(p.vehicle?.model, p.vehicle?.color, "★ ${p.rating}").joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,

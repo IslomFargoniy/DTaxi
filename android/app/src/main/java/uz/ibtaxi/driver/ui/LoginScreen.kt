@@ -36,7 +36,11 @@ import kotlinx.coroutines.launch
 import uz.ibtaxi.driver.BuildConfig
 import uz.ibtaxi.driver.IbTaxiApp
 import uz.ibtaxi.driver.R
+import uz.ibtaxi.driver.data.Formats
 import uz.ibtaxi.driver.data.Result
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
 
 /**
  * Kirish: telefon + admin bergan parol (SMS yo'q — qaror #4).
@@ -79,11 +83,14 @@ fun LoginScreen(onLocaleChange: (String) -> Unit = {}) {
             )
         }
         OutlinedTextField(
+            // Holatda faqat milliy qism (9 raqam); "+998" va bo'shliqlar faqat ko'rinishda
             value = phone,
-            onValueChange = { phone = it },
+            onValueChange = { phone = Formats.phoneInput(it) },
             label = { Text(stringResource(R.string.phone)) },
+            prefix = { Text("+998 ") },
             placeholder = { Text("90 123 45 67") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            visualTransformation = PhoneVisualTransformation,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, autoCorrectEnabled = false),
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -113,17 +120,33 @@ fun LoginScreen(onLocaleChange: (String) -> Unit = {}) {
                     session.serverUrl = if (server.startsWith("http")) server else "http://$server"
                 }
                 scope.launch {
-                    when (val result = repository.login(phone, password)) {
+                    when (val result = repository.login("+998$phone", password)) {
                         is Result.Ok -> Unit
                         is Result.Error -> error = if (result.code == -1) network else (result.message ?: failed)
                     }
                     loading = false
                 }
             },
-            enabled = !loading && phone.isNotBlank() && password.isNotBlank(),
+            enabled = !loading && phone.length == Formats.PHONE_NATIONAL_LENGTH && password.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (loading) CircularProgressIndicator() else Text(stringResource(R.string.login))
         }
+    }
+}
+
+/** "901234567" → "90 123 45 67": kursor raqamlar orasida to'g'ri siljiydi */
+object PhoneVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val digits = text.text
+        val out = Formats.formatPhoneNational(digits)
+        val mapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int =
+                offset + listOf(2, 5, 7).count { offset > it }
+
+            override fun transformedToOriginal(offset: Int): Int =
+                (offset - out.take(offset).count { it == ' ' }).coerceIn(0, digits.length)
+        }
+        return TransformedText(AnnotatedString(out), mapping)
     }
 }
