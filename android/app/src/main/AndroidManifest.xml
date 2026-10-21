@@ -17,6 +17,13 @@
     <!-- Dispetcherga qo'ng'iroq (WebRTC, qaror #47) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Android 11+: bularsiz telefondagi TTS dvigatellari (Samsung, Google) ko'rinmaydi — ovozli navigatsiya jim qolardi -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
 
     <application
         android:name=".IbTaxiApp"
