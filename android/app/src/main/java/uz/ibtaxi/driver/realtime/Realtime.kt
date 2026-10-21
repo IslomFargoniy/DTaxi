@@ -91,6 +91,9 @@ class Realtime(
                 "App\\Events\\OfferWithdrawn",
                 "App\\Events\\OrderUpdated",
                 "App\\Events\\ChatMessageSent",
+                // Operator qo'ng'irog'i — ro'yxatda bo'lmasa Pusher xabarni umuman uzatmaydi
+                "App\\Events\\IncomingCall",
+                "App\\Events\\IncomingCallEnded",
             )
         }
     }
