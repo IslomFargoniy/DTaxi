@@ -96,7 +96,6 @@ import java.time.OffsetDateTime
 fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Unit) {
     val context = LocalContext.current
     val repository = IbTaxiApp.instance.repository
-    val scope = rememberCoroutineScope()
     val profile by DriverState.profile.collectAsState()
     val order by DriverState.order.collectAsState()
     val location by DriverState.location.collectAsState()
@@ -255,10 +254,17 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
                         modifier = Modifier.scale(1.25f).padding(end = 6.dp),
                         onCheckedChange = { goOnline ->
                             val toggle: () -> Unit = {
-                                scope.launch {
+                                // Servis tarmoq so'rovidan oldin, ilova hali oldinda turganda: javobni kutib turganda
+                                // haydovchi ilovadan chiqsa, Android 12+ fonda foreground servisga ruxsat bermaydi
+                                if (goOnline) DriverService.start(context)
+                                // Ilova scope'ida: ekran yopilsa ham servis va server holati ajralib qolmasin
+                                IbTaxiApp.instance.scope.launch {
                                     when (val result = repository.setOnline(goOnline)) {
-                                        is Result.Ok -> if (goOnline) DriverService.start(context) else DriverService.stop(context)
-                                        is Result.Error -> info = result.message ?: context.getString(R.string.network_error)
+                                        is Result.Ok -> if (!goOnline) DriverService.stop(context)
+                                        is Result.Error -> {
+                                            if (goOnline) DriverService.stop(context)
+                                            info = result.message ?: context.getString(R.string.network_error)
+                                        }
                                     }
                                 }
                             }
