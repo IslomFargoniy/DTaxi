@@ -244,13 +244,14 @@ class PaymeController extends Controller
     }
 
     /**
-     * Basic auth: login "Paycom", parol — kassa kaliti (yoki test kaliti, sandbox uchun).
+     * Basic auth: login "Paycom", parol — kassa kaliti. Test kaliti faqat integratsiya "sandbox" rejimida bo'lsa.
      */
     private function authorized(Request $request): bool
     {
+        $sandbox = Integration::credential(IntegrationProvider::Payme, 'mode') === 'sandbox';
         $keys = array_filter([
             Integration::credential(IntegrationProvider::Payme, 'key'),
-            Integration::credential(IntegrationProvider::Payme, 'test_key'),
+            $sandbox ? Integration::credential(IntegrationProvider::Payme, 'test_key') : null,
         ]);
         $header = (string) $request->header('Authorization');
         if ($keys === [] || ! str_starts_with($header, 'Basic ')) {

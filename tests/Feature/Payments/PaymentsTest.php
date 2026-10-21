@@ -96,6 +96,21 @@ test('payme errors: auth, unknown driver, bad amount, missing transaction', func
     payme('Unknown', [])->assertJsonPath('error.code', -32601);
 });
 
+test('payme test key works only when the integration is in sandbox mode', function () {
+    $check = fn () => payme('CheckPerformTransaction', ['amount' => 5_000_000, 'account' => ['driver_id' => '101']], 'payme-test');
+    $integration = Integration::for(IntegrationProvider::Payme);
+
+    $integration->fill(['credentials' => ['merchant_id' => 'm1', 'key' => 'payme-key', 'test_key' => 'payme-test']])->save();
+    $check()->assertJsonPath('error.code', -32504);
+
+    $integration->fill(['credentials' => [...$integration->credentials, 'mode' => 'production']])->save();
+    $check()->assertJsonPath('error.code', -32504);
+
+    $integration->fill(['credentials' => [...$integration->credentials, 'mode' => 'sandbox']])->save();
+    $check()->assertJsonPath('result.allow', true);
+    payme('CheckPerformTransaction', ['amount' => 5_000_000, 'account' => ['driver_id' => '101']])->assertJsonPath('result.allow', true);
+});
+
 test('payme cancels a created transaction without a balance change', function () {
     payme('CreateTransaction', ['id' => 'pm-2', 'time' => 1792212000000, 'amount' => 2_000_000, 'account' => ['driver_id' => '101']]);
     payme('CancelTransaction', ['id' => 'pm-2', 'reason' => 3])->assertJsonPath('result.state', -1);

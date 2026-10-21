@@ -44,6 +44,8 @@ enum IntegrationProvider: string
                 ['key' => 'merchant_id', 'label' => 'Merchant ID', 'secret' => false],
                 ['key' => 'key', 'label' => 'Key', 'secret' => true],
                 ['key' => 'test_key', 'label' => 'Test key', 'secret' => true],
+                // Test kaliti faqat sandbox rejimida qabul qilinadi — aks holda u bilan soxta to'lov qilish mumkin edi
+                ['key' => 'mode', 'label' => 'Mode', 'secret' => false, 'type' => 'select', 'options' => ['production', 'sandbox']],
             ],
             self::SpeechKit => [
                 ['key' => 'api_key', 'label' => 'API key', 'secret' => true],
