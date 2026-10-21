@@ -416,6 +416,26 @@ test('the listener sees settings changed in the panel without a restart', functi
     expect(Call::query()->withoutGlobalScopes()->sole()->meta)->toMatchArray(['closing' => true, 'reason' => 'timeout']);
 });
 
+test('max wait also ends a call that is still ringing an operator', function () {
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    $operatorChannel = $call->meta['operator_channel'];
+    expect($call->operator_id)->toBe($this->operator->id);
+
+    $this->travel(181)->seconds();
+    $this->center->tick();
+
+    expect($call->refresh()->meta)->toMatchArray(['closing' => true, 'reason' => 'timeout', 'operator_channel' => null])
+        ->and($call->operator_id)->toBeNull()
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), "/ari/channels/{$operatorChannel}"))->count())->toBe(1);
+
+    // Operator kanali yopilgani qo'ng'iroqni qayta navbatga qo'ymaydi
+    $this->center->handle(['type' => 'ChannelDestroyed', 'channel' => ['id' => $operatorChannel], 'cause' => 16]);
+    $this->center->tick();
+    expect($call->refresh()->operator_id)->toBeNull()
+        ->and(ariRequests('appArgs=operator'))->toHaveCount(1);
+});
+
 test('the listener loop survives any exception', function () {
     app(AriListen::class)->guard(fn () => throw new RuntimeException('boom'));
 

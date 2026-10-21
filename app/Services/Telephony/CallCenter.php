@@ -79,9 +79,9 @@ class CallCenter
      */
     public function tick(): void
     {
+        // Operator jiringlayotgan qo'ng'iroq ham olinadi: kutish chegarasi unga ham tegishli
         $waiting = Call::query()->withoutGlobalScopes()
             ->where('status', 'waiting')
-            ->whereNull('operator_id')
             ->orderBy('started_at')
             ->get();
 
@@ -450,7 +450,7 @@ class CallCenter
     private function offerToOperator(Call $call): void
     {
         $call->refresh();
-        if ($call->status !== 'waiting' || $call->operator_id) {
+        if ($call->status !== 'waiting' || $call->operator_id || data_get($call->meta, 'closing')) {
             return;
         }
 
@@ -764,6 +764,17 @@ class CallCenter
     {
         $this->updateMeta($call, ['closing' => true, 'reason' => 'timeout']);
         $channelId = (string) $call->channel_id;
+
+        // Jiringlayotgan operator xabar paytida javob berib qo'ymasin; uning kanali yopilishi qayta taklifga olib kelmasin
+        if ($operatorChannel = data_get($call->meta, 'operator_channel')) {
+            Cache::forget("ari:ch:{$operatorChannel}");
+            $this->ari->hangup((string) $operatorChannel);
+        }
+        if ($operatorId = $call->operator_id) {
+            $call->forceFill(['operator_id' => null])->save();
+            $this->updateMeta($call, ['operator_channel' => null]);
+            OperatorCallEvent::dispatch($operatorId, 'ended', ['call_id' => $call->id, 'status' => 'missed']);
+        }
         $this->ari->stopMoh($channelId);
 
         $media = $this->composer()->phrase('ivr', $phrase);
