@@ -189,7 +189,21 @@ test('driver calling the dispatcher waits in his branch queue', function () {
 
     // Kutish paytida "kuting" xabari emas, oddiy gudok
     expect(ariRequests('/ari/channels/ch-d/play/'))->toHaveCount(1)
-        ->and(ariRequests('media=tone:ring;tonezone=ru'))->toHaveCount(1);
+        ->and(ariRequests('media=tone:ring;tonezone=ru'))->toHaveCount(1)
+        // Operator ovozi haydovchiga kuchaytirilib boradi
+        ->and(ariRequests('/ari/channels/ch-d/variable?variable=VOLUME(TX)&value=4'))->toHaveCount(1);
+});
+
+test('driver call gain comes from settings and can be turned off', function () {
+    $driver = driverNear($this->branch, 100);
+    app(Settings::class)->set('calls.driver_gain', 2);
+    $this->center->handle(stasis('ch-d', ['internal', 'dispatcher'], "PJSIP/dr{$driver->id}-0001", "dr{$driver->id}"));
+
+    app(Settings::class)->set('calls.driver_gain', 0);
+    $this->center->handle(stasis('ch-e', ['internal', 'dispatcher'], "PJSIP/dr{$driver->id}-0002", "dr{$driver->id}"));
+
+    expect(ariRequests('/ari/channels/ch-d/variable?variable=VOLUME(TX)&value=2'))->toHaveCount(1)
+        ->and(ariRequests('/ari/channels/ch-e/variable'))->toBeEmpty();
 });
 
 test('operator callback goes out through the trunk and bridges when answered', function () {

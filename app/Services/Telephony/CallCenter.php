@@ -465,6 +465,11 @@ class CallCenter
         $this->remember($channelId, $call, 'client');
 
         $this->ari->answer($channelId);
+        // Haydovchiga boradigan ovoz kuchaytiriladi: telefon karnayi mashinada shovqin ichida,
+        // brauzer mikrofonidan kelgan operator ovozi esa past (WebView'da 0.01 atrofida). 0 — o'zgartirilmaydi
+        if (($gain = (int) $this->settings()->get('calls.driver_gain', $driver->branch_id)) !== 0) {
+            $this->ari->setVariable($channelId, 'VOLUME(TX)', (string) $gain);
+        }
         // Haydovchi oddiy telefondagidek gudok eshitadi (425 Hz, 1/4 s) — operator javob berganda to'xtaydi
         $this->playFor($call, $channelId, [self::RINGBACK], 'ringback');
         $this->offerToOperator($call);

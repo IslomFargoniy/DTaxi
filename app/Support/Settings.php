@@ -29,6 +29,8 @@ class Settings
         'calls.max_wait_seconds' => 180,
         'calls.operator_ring_seconds' => 20,
         'calls.pause_on_missed_ring' => true,
+        // Haydovchi ↔ dispetcher: haydovchiga boradigan ovoz kuchaytirgichi, VOLUME(TX) (0 — o'zgartirilmaydi)
+        'calls.driver_gain' => 4,
         // Operator trunk orqali qo'ng'iroq qila oladigan raqamlar (raqamlar, + siz; 9 xonali → 998…): standart — faqat O'zbekiston
         'calls.outbound_allowed_patterns' => ['^998\d{9}$'],
         // Bitta operatorning chiquvchi qo'ng'iroqlari chegarasi (0 — cheksiz)
