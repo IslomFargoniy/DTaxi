@@ -107,8 +107,8 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
     var banner by remember { mutableStateOf<Pair<NavStep, Int?>?>(null) }
     var reroute by remember { mutableStateOf(0) }
     val session = IbTaxiApp.instance.session
-    val voice = remember { VoiceGuide(context, session.locale) }
-    DisposableEffect(Unit) { onDispose { voice.shutdown() } }
+    val voice = remember(session.locale) { VoiceGuide(context, session.locale) }
+    DisposableEffect(voice) { onDispose { voice.shutdown() } }
     var info by remember { mutableStateOf<String?>(null) }
     val realtimeConnected by DriverState.realtimeConnected.collectAsState()
     var problem by remember { mutableStateOf<Int?>(null) }
@@ -161,8 +161,8 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
         banner = nav.upcoming?.let { it to meters }
         when (event) {
             is Navigator.Event.OffRoute -> reroute++
-            is Navigator.Event.Prepare -> if (session.voiceGuidance) voice.say(Instructions.text(event.step, session.locale, event.meters))
-            is Navigator.Event.Now -> if (session.voiceGuidance) voice.say(Instructions.text(event.step, session.locale))
+            is Navigator.Event.Prepare -> if (session.voiceGuidance) voice.say { Instructions.text(event.step, it, event.meters) }
+            is Navigator.Event.Now -> if (session.voiceGuidance) voice.say { Instructions.text(event.step, it) }
             null -> Unit
         }
     }
