@@ -158,7 +158,7 @@ class MainActivity : ComponentActivity() {
                             OfferNotifier.cancel(this)
                             scope.launch { app.repository.reject(current.orderId) }
                         },
-                        onExpire = { DriverState.clearOffer(current.orderId) },
+                        onExpire = { DriverState.expireOffer(current) },
                     )
                 }
 

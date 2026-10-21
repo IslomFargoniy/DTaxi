@@ -1,5 +1,6 @@
 package uz.ibtaxi.driver.data
 
+import android.os.SystemClock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,7 +50,7 @@ object DriverState {
     val pendingComplete: StateFlow<Int?> = _pendingComplete.asStateFlow()
 
     /** Takrorni e'tiborsiz qoldirish: Reverb va FCM bir xil taklifni yuboradi */
-    private val seenOffers = LinkedHashSet<Int>()
+    private val seenOffers = LinkedHashSet<String>()
 
     fun setProfile(profile: DriverProfile?) = _profile.update { profile }
 
@@ -74,12 +75,26 @@ object DriverState {
         _order.update { if (order != null && order.status in FINISHED) null else order }
     }
 
-    fun offer(offer: Offer): Boolean {
-        if (!seenOffers.add(offer.offerId)) return false
-        if (seenOffers.size > 200) seenOffers.remove(seenOffers.first())
+    /** [now] — SystemClock.elapsedRealtime (testlarda qo'lda beriladi) */
+    fun offer(offer: Offer, now: Long = SystemClock.elapsedRealtime()): Boolean {
+        // Reverb (OkHttp oqimi) va FCM (o'z oqimi) bir vaqtda yozadi
+        synchronized(seenOffers) {
+            if (!seenOffers.add(offer.dedupKey)) return false
+            if (seenOffers.size > 200) seenOffers.remove(seenOffers.first())
+        }
         if (_order.value != null) return false
-        _offer.update { offer }
+        _offer.update { offer.copy(receivedAt = now) }
         return true
+    }
+
+    /** Muddati o'tdi — faqat aynan shu taklif (o'rniga kelgan yangisi yoki qayta yuborilgani qoladi) */
+    fun expireOffer(offer: Offer) = _offer.update {
+        if (it == offer) {
+            OfferSound.stop()
+            null
+        } else {
+            it
+        }
     }
 
     fun clearOffer(orderId: Int? = null) = _offer.update {
