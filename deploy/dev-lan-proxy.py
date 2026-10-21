@@ -92,6 +92,21 @@ class UdpRelay(asyncio.DatagramProtocol):
         upstream.sendto(first)
 
 
+def lan_network(lan_ip: str) -> str:
+    """Wi-Fi tarmog'i niqobi Mac'ning o'zidan (ofis tarmoqlari ko'pincha /22, /16) — taxminiy /24 emas."""
+    import ipaddress
+    import re
+    try:
+        out = subprocess.run(["ifconfig"], capture_output=True, text=True).stdout
+        m = re.search(rf"inet {re.escape(lan_ip)} netmask (0x[0-9a-f]+)", out)
+        if m:
+            prefix = bin(int(m.group(1), 16)).count("1")
+            return str(ipaddress.ip_network(f"{lan_ip}/{prefix}", strict=False))
+    except OSError:
+        pass
+    return lan_ip.rsplit(".", 1)[0] + ".0/24"
+
+
 def configure_asterisk(lan_ip: str) -> None:
     """VM'dagi Asterisk ICE nomzodida ichki manzil o'rniga Mac'ning Wi-Fi manzilini e'lon qiladi."""
     conf = (
@@ -108,7 +123,7 @@ def configure_asterisk(lan_ip: str) -> None:
         "[ice_host_candidates]\n"
         f"{VM_IP} => {lan_ip}\n"
     )
-    lan_net = lan_ip.rsplit(".", 1)[0] + ".0/24"
+    lan_net = lan_network(lan_ip)
     # multipass exec argumentlarni qo'shtirnoqsiz birlashtiradi — sozlama va buyruq fayl sifatida uzatiladi
     import tempfile
     with tempfile.TemporaryDirectory() as tmp:
