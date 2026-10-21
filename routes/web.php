@@ -21,6 +21,7 @@ use App\Http\Controllers\Cashier\CashierController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DriverAppController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\LandmarkTileController;
 use App\Http\Controllers\MapStyleController;
 use App\Http\Controllers\Operator\ChatController;
 use App\Http\Controllers\Operator\LookupController;
@@ -35,6 +36,7 @@ Route::get('/', fn () => to_route('dashboard'))->name('home');
 
 Route::put('locale', [LocaleController::class, 'update'])->name('locale.update');
 Route::get('map/style.json', MapStyleController::class)->name('map.style');
+Route::get('map/landmarks/{z}/{x}/{y}.pbf', LandmarkTileController::class)->whereNumber(['z', 'x', 'y'])->name('map.landmarks');
 
 // Haydovchi ilovasi — Google Play'siz (qaror #37)
 Route::get('driver-app', [DriverAppController::class, 'page'])->name('driver-app.page');

@@ -40,13 +40,37 @@ export function mapStyle(
                 attribution:
                     '© OpenStreetMap · Overture Maps Foundation · Foursquare',
             },
+            dtaxi: {
+                type: 'vector',
+                tiles: [
+                    `${window.location.origin}/map/landmarks/{z}/{x}/{y}.pbf`,
+                ],
+                minzoom: 13,
+                maxzoom: 16,
+            },
         },
-        // Uy raqamlari 18 o'rniga 17-zoom'dan (resources/map/generate-layers.mjs bilan bir xil)
+        // Uy raqamlari 18 o'rniga 17-zoom'dan (resources/map/generate-layers.mjs bilan bir xil).
+        // Joy yozuvlari — bizning bazadan (MapStyleController bilan bir xil): tuzatilgan nomlar darhol ko'rinadi
         layers: layers('protomaps', namedFlavor(flavor), { lang }).map(
-            (layer) =>
-                layer.id === 'address_label'
-                    ? { ...layer, minzoom: 17 }
-                    : layer,
+            (layer) => {
+                if (layer.id === 'address_label') {
+                    return { ...layer, minzoom: 17 };
+                }
+                if (layer.id === 'pois' && layer.type === 'symbol') {
+                    return {
+                        ...layer,
+                        source: 'dtaxi',
+                        'source-layer': 'pois',
+                        filter: ['>=', ['zoom'], ['get', 'min_zoom']],
+                        layout: {
+                            ...layer.layout,
+                            'text-field': ['get', 'name'],
+                        },
+                    };
+                }
+
+                return layer;
+            },
         ),
     };
 }
