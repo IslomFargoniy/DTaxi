@@ -161,9 +161,15 @@ class OsmLandmarkImporter
                 SELECT id FROM regions WHERE parent_id IS NOT NULL AND ST_Covers(boundary, p.geog) LIMIT 1
             ) AS r ON TRUE
             ON CONFLICT (osm_id) DO UPDATE SET
-                name = EXCLUDED.name, aliases = EXCLUDED.aliases, search = EXCLUDED.search,
-                category = EXCLUDED.category, location = EXCLUDED.location, region_id = EXCLUDED.region_id, updated_at = NOW()';
+                name = CASE WHEN landmarks.edited_at IS NULL THEN EXCLUDED.name ELSE landmarks.name END,
+                aliases = CASE WHEN landmarks.edited_at IS NULL THEN EXCLUDED.aliases ELSE landmarks.aliases END,
+                search = CASE WHEN landmarks.edited_at IS NULL THEN EXCLUDED.search ELSE landmarks.search END,
+                category = CASE WHEN landmarks.edited_at IS NULL THEN EXCLUDED.category ELSE landmarks.category END,
+                location = CASE WHEN landmarks.edited_at IS NULL THEN EXCLUDED.location ELSE landmarks.location END,
+                region_id = CASE WHEN landmarks.edited_at IS NULL THEN EXCLUDED.region_id ELSE landmarks.region_id END,
+                updated_at = NOW()';
 
+        // Admin qo'lda tuzatgan mo'ljallar (edited_at) importda o'zgarmaydi
         return DB::affectingStatement($sql, $bindings);
     }
 }

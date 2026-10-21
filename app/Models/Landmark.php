@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -23,6 +24,7 @@ use Illuminate\Support\Facades\DB;
  * @property Point $location
  * @property string|null $category
  * @property int|null $osm_id
+ * @property Carbon|null $edited_at
  * @property int $usage_count
  */
 #[Fillable(['region_id', 'name', 'aliases', 'location', 'category', 'osm_id', 'usage_count', 'created_by'])]
@@ -33,7 +35,7 @@ class Landmark extends Model
 
     protected function casts(): array
     {
-        return ['aliases' => 'array', 'location' => Point::class, 'usage_count' => 'integer'];
+        return ['aliases' => 'array', 'location' => Point::class, 'usage_count' => 'integer', 'edited_at' => 'datetime'];
     }
 
     protected static function booted(): void

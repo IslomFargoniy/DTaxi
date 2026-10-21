@@ -50,9 +50,16 @@ class LandmarkController extends Controller
             'lng' => ['required', 'numeric', 'between:55,74'],
         ]);
 
+        $aliases = array_values(array_filter($data['aliases'] ?? []));
+        // Eski (OSM) nom muqobil nom bo'lib qoladi — mijozlar ko'pincha eski nom bilan aytadi
+        if ($landmark->name !== $data['name'] && ! in_array($landmark->name, $aliases, true)) {
+            $aliases[] = $landmark->name;
+        }
+
+        $landmark->forceFill(['edited_at' => now()]);
         $landmark->update([
             'name' => $data['name'],
-            'aliases' => array_values(array_filter($data['aliases'] ?? [])),
+            'aliases' => array_slice($aliases, 0, 20),
             'category' => $data['category'] ?? null,
             'location' => Point::makeGeodetic((float) $data['lat'], (float) $data['lng']),
         ]);

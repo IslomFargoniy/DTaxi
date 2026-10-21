@@ -1,9 +1,12 @@
 <?php
 
+use App\Enums\Role;
 use App\Models\Landmark;
 use App\Models\Region;
+use App\Models\User;
 use App\Services\Landmarks\OsmLandmarkImporter;
 use App\Services\Regions\OsmRegionImporter;
+use Database\Seeders\RolesSeeder;
 use Illuminate\Support\Facades\File;
 
 test('house addresses and streets are imported and found by street and house number', function () {
@@ -39,4 +42,38 @@ test('house addresses and streets are imported and found by street and house num
     // Ko'cha va uy raqami bilan, kirillda ham — aniq uy birinchi
     expect(Landmark::query()->search('mustaqillik 12')->first()?->name)->toBe("Mustaqillik ko'chasi, 12")
         ->and(Landmark::query()->search('Мустакиллик 12')->first()?->name)->toBe("Mustaqillik ko'chasi, 12");
+});
+
+test('a landmark renamed by the admin keeps its new name after the next OSM import', function () {
+    app(OsmRegionImporter::class)->import(base_path('tests/fixtures/boundaries.geojsonseq'));
+    $city = Region::query()->whereNotNull('parent_id')->orderBy('name_uz')->firstOrFail();
+    $file = storage_path('app/rename-test.geojsonseq');
+    File::put($file, json_encode([
+        'type' => 'Feature',
+        'geometry' => ['type' => 'Point', 'coordinates' => [$city->center->getLongitude(), $city->center->getLatitude()]],
+        'properties' => ['@type' => 'node', '@id' => 77, 'name' => 'Kirov bozori', 'amenity' => 'marketplace'],
+    ]));
+
+    try {
+        app(OsmLandmarkImporter::class)->import($file);
+        $landmark = Landmark::query()->where('name', 'Kirov bozori')->sole();
+
+        $admin = User::factory()->create();
+        $this->seed(RolesSeeder::class);
+        $admin->assignRole(Role::Superadmin);
+        $this->actingAs($admin)->put(route('admin.landmarks.update', $landmark), [
+            'name' => 'Yangi bozor', 'aliases' => [], 'lat' => $landmark->location->getLatitude(), 'lng' => $landmark->location->getLongitude(),
+        ])->assertSessionHasNoErrors();
+
+        app(OsmLandmarkImporter::class)->import($file);
+    } finally {
+        File::delete($file);
+    }
+
+    $landmark->refresh();
+    expect($landmark->name)->toBe('Yangi bozor')
+        ->and($landmark->aliases)->toContain('Kirov bozori')
+        ->and($landmark->edited_at)->not->toBeNull()
+        // Eski nom bilan qidirganda ham topiladi
+        ->and(Landmark::query()->search('kirov bozori')->first()?->id)->toBe($landmark->id);
 });
