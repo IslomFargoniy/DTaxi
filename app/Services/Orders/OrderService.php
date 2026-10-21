@@ -38,6 +38,7 @@ class OrderService
         private Router $router,
         private DriverBalance $balance,
         private DriverDiscipline $discipline,
+        private RideTrack $track,
     ) {}
 
     /**
@@ -142,11 +143,15 @@ class OrderService
         OrderEvents::record($order, 'arrived', $driver->user);
     }
 
-    public function start(Order $order, Driver $driver): void
+    /**
+     * @param  Point|null  $at  ilova yuborgan joy; bo'lmasa — haydovchining oxirgi GPS nuqtasi
+     */
+    public function start(Order $order, Driver $driver, ?Point $at = null): void
     {
         $this->transition($order, $driver, [OrderStatus::Assigned, OrderStatus::Arrived], [
             'status' => OrderStatus::InProgress,
             'started_at' => now(),
+            'start_location' => $this->positionOf($driver, $at),
             // Kutish: "Yetib keldim" dan "Yo'lovchi o'tirdi" gacha (qaror #33)
             'waiting_s' => $order->arrived_at ? (int) $order->arrived_at->diffInSeconds(now()) : 0,
         ]);
@@ -158,7 +163,7 @@ class OrderService
      * server esa GPS treki bo'yicha tekshiradi: trek ancha uzun bo'lsa komissiya trek bo'yicha olinadi.
      * Ilova internet uzilganda qayta yuborishi mumkin — takroriy so'rov ikkinchi marta hisoblanmaydi.
      */
-    public function complete(Order $order, Driver $driver, int $insideMeters, int $outsideMeters = 0): Order
+    public function complete(Order $order, Driver $driver, int $insideMeters, int $outsideMeters = 0, ?Point $at = null): Order
     {
         if ($order->status === OrderStatus::Completed && $order->driver_id === $driver->id) {
             return $order;
@@ -181,10 +186,11 @@ class OrderService
         $breakdown = $bonus > 0 ? [...$fare->breakdown, 'bonus' => $bonus] : $fare->breakdown;
         $commissionBase = $commissionBase !== null ? $commissionBase + $bonus : null;
 
-        DB::transaction(function () use ($order, $driver, $total, $breakdown, $reported, $commissionBase) {
+        DB::transaction(function () use ($order, $driver, $total, $breakdown, $reported, $commissionBase, $at) {
             $this->transition($order, $driver, [OrderStatus::InProgress], [
                 'status' => OrderStatus::Completed,
                 'completed_at' => now(),
+                'finish_location' => $this->positionOf($driver, $at),
                 'price_final' => $total,
                 'price_breakdown' => $breakdown,
                 'distance_m' => $reported,
@@ -453,6 +459,21 @@ class OrderService
         }
     }
 
+    /**
+     * Haydovchining hozirgi joyi (EWKT/EWKB — geography ustuni o'zi o'qiydi): ilova yuborgan nuqta,
+     * bo'lmasa drivers.last_location — so'rovda koordinata kelmasa ham tarixda joy qoladi.
+     */
+    private function positionOf(Driver $driver, ?Point $at): ?string
+    {
+        if ($at === null) {
+            $raw = Driver::query()->withoutGlobalScopes()->whereKey($driver->id)->toBase()->value('last_location');
+
+            return is_string($raw) ? $raw : null;
+        }
+
+        return sprintf('SRID=4326;POINT(%F %F)', $at->getLongitude(), $at->getLatitude());
+    }
+
     private function placeName(string $text, Point $point): string
     {
         $generic = trim($text) === '' || in_array(trim($text), ['Point on the map', 'Xaritadagi nuqta', 'Точка на карте'], true);
@@ -535,26 +556,9 @@ class OrderService
 
     /**
      * Server tomonidagi tekshiruv: yo'lda (started_at dan hozirgacha) GPS nuqtalari bo'yicha masofa.
-     * Imkonsiz sakrashlar (soatiga ~200 km dan tez — GPS xatosi yoki bitta akkaunt ikki telefonda) hisobga olinmaydi,
-     * aks holda bitta sakrash yuzlab km "trek" va noto'g'ri komissiya beradi.
      */
     private function trackLength(Driver $driver, Order $order): ?int
     {
-        if (! $order->started_at) {
-            return null;
-        }
-
-        $length = DB::scalar(<<<'SQL'
-            SELECT SUM(d) FROM (
-                SELECT ST_Distance(location, LAG(location) OVER w) AS d,
-                       EXTRACT(EPOCH FROM recorded_at - LAG(recorded_at) OVER w) AS dt
-                FROM driver_locations
-                WHERE driver_id = ? AND recorded_at BETWEEN ? AND ?
-                WINDOW w AS (ORDER BY recorded_at)
-            ) AS segments
-            WHERE dt > 0 AND d <= 55 * dt + 30
-            SQL, [$driver->id, $order->started_at, now()]);
-
-        return $length === null ? null : (int) round((float) $length);
+        return $order->started_at ? $this->track->length($driver->id, $order->started_at, now()) : null;
     }
 }

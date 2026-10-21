@@ -2,12 +2,18 @@
 
 namespace App\Http\Controllers\Api\Driver;
 
+use App\Enums\OfferResponse;
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
 use App\Models\Driver;
+use App\Models\Landmark;
 use App\Models\Order;
 use App\Services\Dispatch\Dispatcher;
 use App\Services\Orders\OrderService;
+use App\Services\Orders\RideTrack;
+use Clickbar\Magellan\Data\Geometries\Point;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
@@ -49,7 +55,9 @@ class OrderController extends Controller
 
     public function start(Request $request, int $order): JsonResponse
     {
-        return $this->transition($request, $order, fn (Order $o, Driver $d) => $this->orders->start($o, $d));
+        $at = $this->position($request);
+
+        return $this->transition($request, $order, fn (Order $o, Driver $d) => $this->orders->start($o, $d, $at));
     }
 
     /**
@@ -61,8 +69,9 @@ class OrderController extends Controller
             'inside_m' => ['required', 'integer', 'min:0', 'max:1000000'],
             'outside_m' => ['nullable', 'integer', 'min:0', 'max:1000000'],
         ]);
+        $at = $this->position($request);
 
-        return $this->transition($request, $order, fn (Order $o, Driver $d) => $this->orders->complete($o, $d, $data['inside_m'], $data['outside_m'] ?? 0));
+        return $this->transition($request, $order, fn (Order $o, Driver $d) => $this->orders->complete($o, $d, $data['inside_m'], $data['outside_m'] ?? 0, $at));
     }
 
     public function cancel(Request $request, int $order): JsonResponse
@@ -70,6 +79,100 @@ class OrderController extends Controller
         $data = $request->validate(['reason' => ['required', 'string', 'max:255']]);
 
         return $this->transition($request, $order, fn (Order $o, Driver $d) => $this->orders->cancelByDriver($o, $d, $data['reason']));
+    }
+
+    /**
+     * Buyurtmalar tarixi: yakunlangan va tayinlangandan keyin bekor qilinganlar, eng yangisi birinchi.
+     * Haydovchi o'zi voz kechgan buyurtma ham ko'rinadi (lekin keyingi haydovchining narxi va yo'li emas).
+     */
+    public function history(Request $request): JsonResponse
+    {
+        $driver = $this->driver($request);
+        $finished = [OrderStatus::Completed, OrderStatus::CancelledByClient, OrderStatus::CancelledByOperator, OrderStatus::CancelledByDriver];
+
+        $page = Order::query()->withoutGlobalScopes()
+            ->where(fn (Builder $q) => $q
+                ->where(fn (Builder $own) => $own->where('driver_id', $driver->id)->whereIn('status', array_map(fn (OrderStatus $s) => $s->value, $finished)))
+                ->orWhereHas('offers', fn (Builder $o) => $o->where('driver_id', $driver->id)->where('response', OfferResponse::Cancelled->value)))
+            ->orderByDesc('created_at')->orderByDesc('id')
+            ->simplePaginate(20);
+
+        return response()->json([
+            'items' => collect($page->items())->map(fn (Order $o) => $this->historyItem($o, $driver))->values(),
+            'next_page' => $page->hasMorePages() ? $page->currentPage() + 1 : null,
+        ]);
+    }
+
+    /**
+     * Tarixdagi buyurtmaning haqiqiy yo'li (xaritada chizish uchun). GPS nuqtalari o'chirilgan bo'lsa
+     * (drivers.locations_retention_days) — bo'sh, ilova boshlanish va tugash nuqtasini to'g'ri chiziq bilan ulaydi.
+     */
+    public function track(Request $request, int $order, RideTrack $track): JsonResponse
+    {
+        $driver = $this->driver($request);
+        $model = Order::query()->withoutGlobalScopes()->where('driver_id', $driver->id)->findOrFail($order);
+        $end = $model->completed_at ?? $model->cancelled_at ?? now();
+
+        return response()->json([
+            'points' => $model->started_at ? $track->polyline($driver->id, $model->started_at, $end) : [],
+            'start' => $this->latLng($model->start_location),
+            'finish' => $this->latLng($model->finish_location),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function historyItem(Order $order, Driver $driver): array
+    {
+        $mine = $order->driver_id === $driver->id;
+        // Voz kechgan buyurtma: haydovchi uchun bu "siz bekor qildingiz", keyingi taqdiri unga tegishli emas
+        $status = $mine ? $order->status : OrderStatus::CancelledByDriver;
+        $start = $mine ? $order->start_location : null;
+        $finish = $mine ? $order->finish_location : null;
+
+        return [
+            'id' => $order->id,
+            'status' => $status->value,
+            'created_at' => $order->created_at->toIso8601String(),
+            'started_at' => $mine ? $order->started_at?->toIso8601String() : null,
+            'completed_at' => $mine ? $order->completed_at?->toIso8601String() : null,
+            'cancelled_at' => $mine ? $order->cancelled_at?->toIso8601String() : null,
+            'pickup_text' => $order->pickup_text,
+            'pickup' => $this->latLng($order->pickup_location),
+            'dropoff_text' => $order->dropoff_text,
+            'dropoff' => $this->latLng($order->dropoff_location),
+            'start' => $this->latLng($start),
+            'start_name' => $start ? Landmark::nameAt($start) : null,
+            'finish' => $this->latLng($finish),
+            'finish_name' => $finish ? Landmark::nameAt($finish) : null,
+            'distance_m' => $mine ? $order->distance_m : null,
+            'duration_s' => $mine ? $order->duration_s : null,
+            'price' => $mine ? $order->price_final : null,
+            'commission' => $mine ? $order->commission : null,
+            'cashless' => $order->company_id !== null,
+        ];
+    }
+
+    /**
+     * @return array{lat: float, lng: float}|null
+     */
+    private function latLng(?Point $point): ?array
+    {
+        return $point ? ['lat' => $point->getLatitude(), 'lng' => $point->getLongitude()] : null;
+    }
+
+    /**
+     * Ilova yuborgan joriy joy (ixtiyoriy): yo'lovchi qayerda olingani/tushirilgani tarixda ko'rinadi.
+     */
+    private function position(Request $request): ?Point
+    {
+        $data = $request->validate([
+            'lat' => ['nullable', 'numeric', 'between:-90,90', 'required_with:lng'],
+            'lng' => ['nullable', 'numeric', 'between:-180,180', 'required_with:lat'],
+        ]);
+
+        return isset($data['lat'], $data['lng']) ? Point::makeGeodetic((float) $data['lat'], (float) $data['lng']) : null;
     }
 
     /**
