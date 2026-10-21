@@ -130,4 +130,15 @@
     <string name="logout_confirm_title">Log out?</string>
     <string name="logout_confirm_text">You will log out and go offline. You will need your phone number and password to log in again.</string>
     <string name="cancel">Cancel</string>
+    <string name="location_precise_title">Precise location required</string>
+    <string name="location_precise_text">You allowed only approximate location. For the taximeter and orders to work correctly, turn on \"Precise location\" in Settings → Permissions → Location.</string>
+    <string name="location_denied_text">Location access is not granted. To go online, choose \"Allow only while using the app\" in Settings → Permissions → Location.</string>
+    <string name="service_paused_title">Line paused</string>
+    <string name="service_paused_text">Location is unavailable. Tap to resume</string>
+    <string name="ok">OK</string>
+    <string name="back">Back</string>
+    <string name="show_password">Show password</string>
+    <string name="hide_password">Hide password</string>
+    <string name="no_app_found">No app found for this action</string>
+    <string name="update_allow_install">Allow installs from this source — installation will continue automatically</string>
 </resources>

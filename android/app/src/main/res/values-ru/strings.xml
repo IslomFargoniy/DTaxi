@@ -130,4 +130,15 @@
     <string name="logout_confirm_title">Выйти?</string>
     <string name="logout_confirm_text">Вы выйдете из аккаунта и линии. Для повторного входа понадобятся номер телефона и пароль.</string>
     <string name="cancel">Отмена</string>
+    <string name="location_precise_title">Нужна точная геолокация</string>
+    <string name="location_precise_text">Вы разрешили только приблизительную геолокацию. Чтобы таксометр и заказы работали правильно, включите «Точное местоположение» в Настройки → Разрешения → Местоположение.</string>
+    <string name="location_denied_text">Доступ к геолокации не предоставлен. Чтобы выйти на линию, выберите «Только во время использования приложения» в Настройки → Разрешения → Местоположение.</string>
+    <string name="service_paused_title">Линия приостановлена</string>
+    <string name="service_paused_text">Местоположение не определяется. Нажмите, чтобы продолжить</string>
+    <string name="ok">OK</string>
+    <string name="back">Назад</string>
+    <string name="show_password">Показать пароль</string>
+    <string name="hide_password">Скрыть пароль</string>
+    <string name="no_app_found">Не найдено приложение для этого действия</string>
+    <string name="update_allow_install">Разрешите установку из этого источника — установка продолжится автоматически</string>
 </resources>

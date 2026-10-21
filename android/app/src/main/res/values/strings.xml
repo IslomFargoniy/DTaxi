@@ -130,4 +130,15 @@
     <string name="logout_confirm_title">Chiqasizmi?</string>
     <string name="logout_confirm_text">Hisobdan chiqasiz va liniyadan tushasiz. Qayta kirish uchun telefon raqami va parol kerak bo\'ladi.</string>
     <string name="cancel">Bekor qilish</string>
+    <string name="location_precise_title">Aniq joylashuv kerak</string>
+    <string name="location_precise_text">Siz faqat taxminiy joylashuvga ruxsat berdingiz. Taksometr va buyurtmalar to\'g\'ri ishlashi uchun Sozlamalar → Ruxsatlar → Joylashuv bo\'limida \"Aniq joylashuv\"ni yoqing.</string>
+    <string name="location_denied_text">Joylashuvga ruxsat berilmagan. Liniyaga chiqish uchun Sozlamalar → Ruxsatlar → Joylashuv bo\'limida \"Ilovadan foydalanayotganda\"ni tanlang.</string>
+    <string name="service_paused_title">Liniya to\'xtatildi</string>
+    <string name="service_paused_text">Joylashuv olinmayapti. Davom ettirish uchun bosing</string>
+    <string name="ok">OK</string>
+    <string name="back">Orqaga</string>
+    <string name="show_password">Parolni ko\'rsatish</string>
+    <string name="hide_password">Parolni yashirish</string>
+    <string name="no_app_found">Bu amalni bajaradigan ilova topilmadi</string>
+    <string name="update_allow_install">Bu manbadan o\'rnatishga ruxsat bering — o\'rnatish o\'zi davom etadi</string>
 </resources>

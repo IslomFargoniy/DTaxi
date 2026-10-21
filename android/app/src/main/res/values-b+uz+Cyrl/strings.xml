@@ -131,4 +131,15 @@
     <string name="logout_confirm_title">Чиқасизми?</string>
     <string name="logout_confirm_text">Ҳисобдан чиқасиз ва линиядан тушасиз. Қайта кириш учун телефон рақами ва парол керак бўлади.</string>
     <string name="cancel">Бекор қилиш</string>
+    <string name="location_precise_title">Аниқ жойлашув керак</string>
+    <string name="location_precise_text">Сиз фақат тахминий жойлашувга рухсат бердингиз. Таксометр ва буюртмалар тўғри ишлаши учун Созламалар → Рухсатлар → Жойлашув бўлимида \"Аниқ жойлашув\"ни ёқинг.</string>
+    <string name="location_denied_text">Жойлашувга рухсат берилмаган. Линияга чиқиш учун Созламалар → Рухсатлар → Жойлашув бўлимида \"Иловадан фойдаланаётганда\"ни танланг.</string>
+    <string name="service_paused_title">Линия тўхтатилди</string>
+    <string name="service_paused_text">Жойлашув олинмаяпти. Давом эттириш учун босинг</string>
+    <string name="ok">OK</string>
+    <string name="back">Орқага</string>
+    <string name="show_password">Паролни кўрсатиш</string>
+    <string name="hide_password">Паролни яшириш</string>
+    <string name="no_app_found">Бу амални бажарадиган илова топилмади</string>
+    <string name="update_allow_install">Бу манбадан ўрнатишга рухсат беринг — ўрнатиш ўзи давом этади</string>
 </resources>

@@ -17,6 +17,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -51,9 +53,18 @@ enum class Screen { Home, Chat, Balance, Settings, Call }
 class MainActivity : ComponentActivity() {
     private var afterPermissions: (() -> Unit)? = null
 
-    private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result[Manifest.permission.ACCESS_FINE_LOCATION] == true) afterPermissions?.invoke()
+    /** Joylashuv ruxsati yetarli emas — tushuntirish va "Sozlamalarni ochish" oynasi (matn resursi) */
+    private var locationProblem by mutableStateOf<Int?>(null)
+
+    private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        val then = afterPermissions
         afterPermissions = null
+        // Android 12+: haydovchi "Taxminiy" ni tanlashi mumkin — taksometr va xaritada ~km xato, liniyaga chiqmaydi
+        when {
+            hasLocationPermission() -> then?.invoke()
+            DriverService.hasLocationPermission(this) -> locationProblem = R.string.location_precise_text
+            else -> locationProblem = R.string.location_denied_text
+        }
     }
 
     private val micLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -162,6 +173,23 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+                locationProblem?.let { text ->
+                    AlertDialog(
+                        onDismissRequest = { locationProblem = null },
+                        title = {
+                            Text(stringResource(if (text == R.string.location_precise_text) R.string.location_precise_title else R.string.location_permission))
+                        },
+                        text = { Text(stringResource(text)) },
+                        confirmButton = {
+                            Button(onClick = {
+                                locationProblem = null
+                                openAppSettings()
+                            }) { Text(stringResource(R.string.open_settings)) }
+                        },
+                        dismissButton = { TextButton(onClick = { locationProblem = null }) { Text(stringResource(R.string.cancel)) } },
+                    )
+                }
+
                 // Ilova ochiq turganda ham yangi versiya chiqsa bilinsin — har 30 daqiqada /android/version.json
                 LaunchedEffect(Unit) {
                     // Kirishdan oldin ham (eski ilova login ekranida qolib ketmasin), keyin har 30 daqiqada
@@ -217,7 +245,11 @@ class MainActivity : ComponentActivity() {
 
     private fun withPermissions(then: () -> Unit) {
         val needed = buildList {
-            if (!hasLocationPermission()) add(Manifest.permission.ACCESS_FINE_LOCATION)
+            // Android 12+ da FINE yolg'iz so'ralsa tizim e'tiborsiz qoldiradi — COARSE bilan birga
+            if (!hasLocationPermission()) {
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
             if (Build.VERSION.SDK_INT >= 33 &&
                 ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
             ) {
@@ -243,6 +275,12 @@ class MainActivity : ComponentActivity() {
             startActivity(Intent(this, CallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
         } else {
             micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun openAppSettings() {
+        runCatching {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
         }
     }
 

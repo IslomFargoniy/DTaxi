@@ -3,9 +3,13 @@ package uz.ibtaxi.driver.service
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Notification
+import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -53,6 +57,8 @@ class DriverService : LifecycleService() {
     private var taximeter: Taximeter? = null
     private var meterOrderId: Int? = null
     private var flushJob: Job? = null
+    /** Foreground holatiga o'tdi va joylashuvga ruxsat bor — aks holda servis darhol to'xtaydi */
+    private var foreground = false
     /** Server /orders/current javobini bergunga qadar "buyurtma yo'q" (null) taksometrni o'chirmasin */
     private var orderSynced = false
     /** Turgan bo'sh haydovchi uchun siyrak GPS (batareya) */
@@ -75,7 +81,13 @@ class DriverService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+        foreground = enterForeground()
+        if (!foreground) {
+            // Joylashuvsiz liniyada turish ma'nosiz — haydovchi bildirishnomani bosib ilovani ochadi va davom etadi
+            showPaused()
+            stopSelf()
+            return
+        }
         loadBuffer()
         lifecycleScope.launch {
             // Tizim servisni o'zi qayta ishga tushirsa ekran ochilmagan — profilni servis o'zi yuklaydi
@@ -96,6 +108,45 @@ class DriverService : LifecycleService() {
             }
             DriverState.order.collectLatest(::onOrderChanged)
         }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
+        if (!foreground) return START_NOT_STICKY
+        // Ilova ochilib servis qayta chaqirildi (oldinda) — fonda qayta tug'ilgan servis joylashuvni endi oladi
+        if (intent != null && startId > 1 && enterForeground() && DriverState.profile.value != null) startLocation()
+        return START_STICKY
+    }
+
+    /**
+     * Android 14: fonda (START_STICKY qayta ishga tushirish) yoki ruxsatsiz location turidagi servis SecurityException
+     * beradi; 11-13 da esa joylashuv kelmaydi — ruxsat yo'q bo'lsa servis to'xtaydi.
+     */
+    private fun enterForeground(): Boolean {
+        val result = runCatching {
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+        }
+        result.exceptionOrNull()?.let { android.util.Log.w("DriverService", "Foreground servis ishga tushmadi", it) }
+        return result.isSuccess && hasLocationPermission(this)
+    }
+
+    /** "Liniya to'xtatildi — davom ettirish uchun bosing" */
+    private fun showPaused() {
+        val paused = NotificationCompat.Builder(this, IbTaxiApp.CHANNEL_MESSAGES)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.service_paused_title))
+            .setContentText(getString(R.string.service_paused_text))
+            .setAutoCancel(true)
+            .setContentIntent(
+                PendingIntent.getActivity(
+                    this,
+                    2,
+                    Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
+            .build()
+        runCatching { getSystemService(NotificationManager::class.java).notify(PAUSED_NOTIFICATION_ID, paused) }
     }
 
     private suspend fun ensureProfile(): Boolean {
@@ -127,11 +178,14 @@ class DriverService : LifecycleService() {
     }
 
     override fun onDestroy() {
-        LocationServices.getFusedLocationProviderClient(this).removeLocationUpdates(locationCallback)
-        realtime?.disconnect()
-        DriverState.setRealtimeConnected(true)
-        flushJob?.cancel()
-        saveBuffer()
+        if (foreground) {
+            runCatching { LocationServices.getFusedLocationProviderClient(this).removeLocationUpdates(locationCallback) }
+            realtime?.disconnect()
+            DriverState.setRealtimeConnected(true)
+            flushJob?.cancel()
+            // Ishga tushmagan servis diskdagi bufferni bo'sh ro'yxat bilan o'chirib yubormasin
+            saveBuffer()
+        }
         super.onDestroy()
     }
 
@@ -364,12 +418,31 @@ class DriverService : LifecycleService() {
 
     companion object {
         private const val NOTIFICATION_ID = 1001
+        private const val PAUSED_NOTIFICATION_ID = 1002
         private const val SLOW_INTERVAL_MS = 15_000L
         private const val NAV_INTERVAL_MS = 1_000L
         private val gson = Gson()
 
-        fun start(context: Context) = context.startForegroundService(Intent(context, DriverService::class.java))
+        /** Taxminiy (COARSE) ham yetadi — servis ishlaydi; aniq joylashuvni ekran alohida so'raydi */
+        fun hasLocationPermission(context: Context) =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        /**
+         * Ilova fonda bo'lsa (Android 12+) startForegroundService ForegroundServiceStartNotAllowedException beradi —
+         * ilova yiqilmasin; false — servis ishga tushmadi.
+         */
+        fun start(context: Context): Boolean = runCatching {
+            ContextCompat.startForegroundService(context, Intent(context, DriverService::class.java))
+        }.onFailure { android.util.Log.w("DriverService", "Servis ishga tushmadi", it) }.isSuccess
 
         fun stop(context: Context) = context.stopService(Intent(context, DriverService::class.java))
+
+        /** Hisobdan chiqishda: boshqa haydovchi kirsa eski trek va taksometr unga o'tmasin */
+        fun clearLocalData(context: Context) {
+            runCatching { File(context.filesDir, "gps-buffer.json").delete() }
+            context.getSharedPreferences("taximeter", Context.MODE_PRIVATE).edit().clear().apply()
+            DriverState.setMeters(0, 0)
+        }
     }
 }
