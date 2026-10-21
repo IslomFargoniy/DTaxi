@@ -33,6 +33,8 @@ class TrunkSync
             $registered = (bool) $trunk->username;
 
             if ($registered) {
+                // Trunk paroli ochiq qoladi: bu outbound_auth — Asterisk provayderga o'zi ro'yxatdan o'tadi va
+                // har xil realm'li challenge'ga javob beradi; md5_cred faqat kiruvchi (bizning realm) uchun ishlaydi
                 PsAuth::query()->updateOrCreate(['id' => "auth-{$id}"], [
                     'auth_type' => 'userpass',
                     'username' => $trunk->username,

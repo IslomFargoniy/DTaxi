@@ -20,6 +20,12 @@ class Extensions
 {
     private const CODECS = 'alaw,ulaw,opus';
 
+    /**
+     * Digest realm — md5_cred shu realm bilan hisoblanadi, shuning uchun ps_auths.realm va pjsip.conf
+     * (global default_realm) ga aniq yoziladi; o'zgarsa barcha ichki raqamlar telephony:sync bilan qayta yozilishi kerak.
+     */
+    public const REALM = 'asterisk';
+
     public function syncFor(User $user): void
     {
         $extension = $this->extensionFor($user);
@@ -50,10 +56,14 @@ class Extensions
                 // OPTIONS ping (JsSIP javob beradi): ARI endpoint holati "online" bo'ladi, yopilgan brauzer ~25 s da "offline"
                 'qualify_frequency' => 25,
             ]);
+            // Bazada ochiq parol saqlanmaydi: Asterisk faqat digest tekshiradi (md5), ochiq parol
+            // users.sip_password da shifrlangan holda — brauzer/ilova credentials() orqali oladi
             PsAuth::query()->updateOrCreate(['id' => $extension], [
-                'auth_type' => 'userpass',
+                'auth_type' => 'md5',
                 'username' => $extension,
-                'password' => $password,
+                'realm' => self::REALM,
+                'md5_cred' => md5($extension.':'.self::REALM.':'.$password),
+                'password' => null,
             ]);
             PsEndpoint::query()->updateOrCreate(['id' => $extension], [
                 'transport' => 'transport-ws',

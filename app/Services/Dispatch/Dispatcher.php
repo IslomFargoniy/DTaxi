@@ -20,6 +20,7 @@ use App\Services\Drivers\StandQueue;
 use App\Services\Orders\OrderEvents;
 use App\Services\Orders\OrderTransition;
 use App\Support\Settings;
+use Closure;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -109,23 +110,50 @@ class Dispatcher
             $candidates = $candidates->filter(fn (array $c) => $c['driver']->rating >= $threshold)->values();
         }
 
-        foreach ($candidates as ['driver' => $driver, 'distance_m' => $distance]) {
-            $offer = OrderOffer::query()->updateOrCreate(
-                ['order_id' => $order->id, 'driver_id' => $driver->id],
-                [
-                    'round' => $order->search_round,
-                    'distance_m' => $distance,
-                    'is_direct' => false,
-                    'response' => null,
-                    'responded_at' => null,
-                    'offered_at' => now(),
-                ],
-            );
+        /** @var list<array{OrderOffer, Driver}> $offers */
+        $offers = $this->whileSearching($order, function () use ($order, $candidates) {
+            $offers = [];
+            foreach ($candidates as ['driver' => $driver, 'distance_m' => $distance]) {
+                $offers[] = [OrderOffer::query()->updateOrCreate(
+                    ['order_id' => $order->id, 'driver_id' => $driver->id],
+                    [
+                        'round' => $order->search_round,
+                        'distance_m' => $distance,
+                        'is_direct' => false,
+                        'response' => null,
+                        'responded_at' => null,
+                        'offered_at' => now(),
+                    ],
+                ), $driver];
+            }
 
+            return $offers;
+        }) ?? [];
+
+        foreach ($offers as [$offer, $driver]) {
             $this->notify($order, $offer, $driver, $expiresIn);
         }
 
-        return $candidates->count();
+        return count($offers);
+    }
+
+    /**
+     * Takliflar faqat buyurtma hali "qidirilmoqda" bo'lsa yoziladi: qator qulflanib holat qayta tekshiriladi.
+     * Aks holda bekor qilish (OrderService::cancel) shu orada withdrawOtherOffers'dan o'tib ketsa,
+     * bekor qilingan buyurtmada ochiq takliflar qolardi — haydovchilar ekranida osilib turardi.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $write
+     * @return T|null null — buyurtma endi qidirilmayapti
+     */
+    private function whileSearching(Order $order, Closure $write): mixed
+    {
+        return DB::transaction(function () use ($order, $write) {
+            $status = Order::query()->withoutGlobalScopes()->whereKey($order->id)->lockForUpdate()->value('status');
+
+            return $status === OrderStatus::Searching ? $write() : null;
+        });
     }
 
     /**
@@ -276,10 +304,13 @@ class Dispatcher
             throw new InvalidArgumentException(__('The order is no longer waiting for a driver.'));
         }
 
-        $offer = OrderOffer::query()->updateOrCreate(
+        $offer = $this->whileSearching($order, fn () => OrderOffer::query()->updateOrCreate(
             ['order_id' => $order->id, 'driver_id' => $driver->id],
             ['is_direct' => true, 'round' => $order->search_round, 'response' => null, 'responded_at' => null, 'offered_at' => now(), 'distance_m' => null],
-        );
+        ));
+        if ($offer === null) {
+            throw new InvalidArgumentException(__('The order is no longer waiting for a driver.'));
+        }
 
         OrderEvents::record($order, 'direct_offer', $operator, ['driver_id' => $driver->id]);
         $this->notify($order, $offer, $driver, $expiresIn);
