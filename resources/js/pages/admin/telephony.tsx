@@ -515,7 +515,8 @@ function LimitsForm({ branches }: { branches: BranchLimit[] }) {
 const SETTING_FIELDS: {
     key: string;
     label: string;
-    kind: 'number' | 'bool';
+    kind: 'number' | 'bool' | 'list';
+    hint?: string;
 }[] = [
     {
         key: 'calls.max_wait_seconds',
@@ -572,11 +573,37 @@ const SETTING_FIELDS: {
         label: 'Keep recordings, days',
         kind: 'number',
     },
+    {
+        key: 'calls.max_recording_seconds',
+        label: 'Max recording length, seconds',
+        kind: 'number',
+    },
+    {
+        key: 'calls.driver_gain',
+        label: 'Operator voice boost for drivers (0 — off)',
+        kind: 'number',
+    },
+    {
+        key: 'calls.operator_outbound_limit',
+        label: 'Outgoing calls per operator (0 — no limit)',
+        kind: 'number',
+    },
+    {
+        key: 'calls.operator_outbound_window_minutes',
+        label: 'Outgoing call limit period, minutes',
+        kind: 'number',
+    },
+    {
+        key: 'calls.outbound_allowed_patterns',
+        label: 'Allowed outgoing numbers',
+        kind: 'list',
+        hint: 'One pattern per line (regular expression on digits, e.g. ^998\\d{9}$ — Uzbekistan only). Protects against calls abroad at the firm’s expense.',
+    },
 ];
 
 function SettingsForm({ settings }: { settings: Props['settings'] }) {
     const { t } = useTrans();
-    const form = useForm<Record<string, number | boolean>>(
+    const form = useForm<Record<string, number | boolean | string[]>>(
         Object.fromEntries(
             SETTING_FIELDS.map((f) => [
                 f.key.replace('.', '_'),
@@ -591,6 +618,15 @@ function SettingsForm({ settings }: { settings: Props['settings'] }) {
             className="grid items-start gap-3 sm:grid-cols-2"
             onSubmit={(ev) => {
                 ev.preventDefault();
+                // Bo'sh qatorlar shablon emas
+                form.transform((data) => ({
+                    ...data,
+                    calls_outbound_allowed_patterns: (
+                        (data.calls_outbound_allowed_patterns as string[]) ?? []
+                    )
+                        .map((p) => p.trim())
+                        .filter(Boolean),
+                }));
                 form.put(TelephonyController.updateSettings.url(), {
                     preserveScroll: true,
                 });
@@ -598,6 +634,37 @@ function SettingsForm({ settings }: { settings: Props['settings'] }) {
         >
             {SETTING_FIELDS.map((f) => {
                 const key = f.key.replace('.', '_');
+
+                if (f.kind === 'list') {
+                    const lines =
+                        (form.data[key] as string[] | undefined) ?? [];
+                    const error =
+                        e[key] ??
+                        Object.entries(e).find(([k]) =>
+                            k.startsWith(`${key}.`),
+                        )?.[1];
+
+                    return (
+                        <Field key={key} label={f.label} error={error}>
+                            <textarea
+                                rows={3}
+                                className="rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-xs"
+                                value={lines.join('\n')}
+                                onChange={(ev) =>
+                                    form.setData(
+                                        key,
+                                        ev.target.value.split('\n'),
+                                    )
+                                }
+                            />
+                            {f.hint && (
+                                <p className="text-xs text-muted-foreground">
+                                    {t(f.hint)}
+                                </p>
+                            )}
+                        </Field>
+                    );
+                }
 
                 return f.kind === 'bool' ? (
                     <label

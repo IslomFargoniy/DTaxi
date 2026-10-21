@@ -33,6 +33,12 @@ class TelephonyController extends Controller
         'calls.rating_call_enabled' => ['boolean'],
         'calls.rating_call_delay_minutes' => ['integer', 'min:0', 'max:60'],
         'calls.recordings_retention_days' => ['integer', 'min:1', 'max:3650'],
+        'calls.max_recording_seconds' => ['integer', 'min:60', 'max:86400'],
+        'calls.driver_gain' => ['integer', 'min:0', 'max:10'],
+        'calls.operator_outbound_limit' => ['integer', 'min:0', 'max:1000'],
+        'calls.operator_outbound_window_minutes' => ['integer', 'min:1', 'max:1440'],
+        // Operator qaysi raqamlarga tashqariga qo'ng'iroq qila oladi (toll fraud himoyasi)
+        'calls.outbound_allowed_patterns' => ['array', 'min:1', 'max:20'],
     ];
 
     public function index(AriClient $ari, Settings $settings): Response
@@ -137,11 +143,20 @@ class TelephonyController extends Controller
         foreach (self::SETTINGS as $key => $rule) {
             $rules[str_replace('.', '_', $key)] = ['required', ...$rule];
         }
+        $rules['calls_outbound_allowed_patterns.*'] = ['required', 'string', 'max:200', function (string $attribute, mixed $value, \Closure $fail): void {
+            if (! is_string($value) || @preg_match('/'.str_replace('/', '\\/', $value).'/', '') === false) {
+                $fail(__('Invalid number pattern.'));
+            }
+        }];
         $data = $request->validate($rules);
 
-        foreach (array_keys(self::SETTINGS) as $key) {
+        foreach (self::SETTINGS as $key => $rule) {
             $value = $data[str_replace('.', '_', $key)];
-            $settings->set($key, in_array('boolean', self::SETTINGS[$key], true) ? (bool) $value : (int) $value);
+            $settings->set($key, match (true) {
+                in_array('boolean', $rule, true) => (bool) $value,
+                in_array('array', $rule, true) => array_values(array_map(fn (mixed $v): string => trim((string) $v), (array) $value)),
+                default => (int) $value,
+            });
         }
 
         return back();

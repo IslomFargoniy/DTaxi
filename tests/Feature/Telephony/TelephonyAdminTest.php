@@ -58,13 +58,31 @@ test('superadmin changes call center settings and branch limits', function () {
         'calls_auto_calls_enabled' => true, 'calls_auto_call_attempts' => 2, 'calls_auto_call_retry_seconds' => 60,
         'calls_still_waiting_minutes' => 0, 'calls_recordings_retention_days' => 30,
         'calls_rating_call_enabled' => true, 'calls_rating_call_delay_minutes' => 5,
+        'calls_max_recording_seconds' => 3600, 'calls_driver_gain' => 2,
+        'calls_operator_outbound_limit' => 10, 'calls_operator_outbound_window_minutes' => 5,
+        'calls_outbound_allowed_patterns' => ['^998\\d{9}$', ' ^7\\d{10}$ '],
     ])->assertSessionHasNoErrors();
     $this->actingAs($this->superadmin)->put(route('admin.telephony.limits.update'), [
         'branches' => [['id' => $this->branch->id, 'max_channels' => 3, 'max_auto_calls' => 1]],
     ])->assertSessionHasNoErrors();
 
     expect(app(Settings::class)->get('calls.max_wait_seconds'))->toBe(120)
+        ->and(app(Settings::class)->get('calls.driver_gain'))->toBe(2)
+        ->and(app(Settings::class)->get('calls.outbound_allowed_patterns'))->toBe(['^998\\d{9}$', '^7\\d{10}$'])
         ->and($this->branch->refresh()->max_channels)->toBe(3);
+});
+
+test('broken outbound number pattern is rejected', function () {
+    $valid = collect([
+        'calls.max_wait_seconds', 'calls.operator_ring_seconds', 'calls.pause_on_missed_ring', 'calls.ivr_auto_order',
+        'calls.auto_calls_enabled', 'calls.auto_call_attempts', 'calls.auto_call_retry_seconds', 'calls.still_waiting_minutes',
+        'calls.recordings_retention_days', 'calls.rating_call_enabled', 'calls.rating_call_delay_minutes',
+        'calls.max_recording_seconds', 'calls.driver_gain', 'calls.operator_outbound_limit', 'calls.operator_outbound_window_minutes',
+    ])->mapWithKeys(fn (string $k) => [str_replace('.', '_', $k) => app(Settings::class)->get($k)])->all();
+
+    $this->actingAs($this->superadmin)->put(route('admin.telephony.settings.update'), [
+        ...$valid, 'calls_outbound_allowed_patterns' => ['^998(\\d{9}$'],
+    ])->assertSessionHasErrors('calls_outbound_allowed_patterns.0');
 });
 
 test('branch admin cannot manage telephony but sees calls of own branch', function () {
