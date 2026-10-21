@@ -106,7 +106,7 @@ Tekshirish: `systemctl status coturn`, `journalctl -u coturn`; brauzerda `chrome
 9. **`ibtaxi:init`**: rollar, bitta filial ("Asosiy filial"), superadmin `admin@<domen>` tasodifiy parol bilan (superadmin bor bo'lsa hech narsa o'zgarmaydi).
 10. Let's Encrypt (`certbot --nginx --redirect`), yangilanish — certbot timer. Qayta ishga tushirilganda mavjud sertifikat nginx'ga qayta ulanadi. **Olinmasa o'rnatish to'xtamaydi** — ogohlantirish va qayta urinish buyrug'i chiqadi.
 11. SIP firewall cron'i (5060 faqat trunk IP'lariga); `--turn` bo'lsa coturn (§2.1); logrotate, supervisor dasturlari, cron (`schedule:run` har daqiqada).
-12. Xarita (`--skip-maps` bo'lmasa, **bir necha soat**, eng oxirida): OSM → tile'lar → OSRM (Docker, `ibtaxi-osrm`) → hududlar, mo'ljallar, ko'cha/uy raqamlari → ochiq joylar (`places-prepare.sh`: Overture Maps va Wikidata, BBOX bo'yicha; yuklanmasa o'rnatish to'xtamaydi). To'xtab qolsa ham sayt va telefoniya ishlaydi; `install.sh` ni qayta ishga tushirish tayyor qismlarni o'tkazib yuboradi.
+12. Xarita (`--skip-maps` bo'lmasa, **bir necha soat**, eng oxirida): OSM → tile'lar → OSRM (Docker, `ibtaxi-osrm`) → hududlar, mo'ljallar, ko'cha/uy raqamlari → ochiq joylar (`places-prepare.sh`: Overture Maps, Wikidata va GeoNames, BBOX bo'yicha; yuklanmasa o'rnatish to'xtamaydi). To'xtab qolsa ham sayt va telefoniya ishlaydi; `install.sh` ni qayta ishga tushirish tayyor qismlarni o'tkazib yuboradi.
 13. Yakunda: panel manzili, SIP provayderga beriladigan IP va **superadmin login/paroli**.
 
 ### O'rnatishdan so'ng darhol
@@ -277,11 +277,11 @@ sudo -u ibtaxi php artisan ibtaxi:restore /root/<sana>_daily.dump --files=/root/
 
 Qayta nomlangan ko'chalar (admin → "Ko'cha nomlari") OSM importidan keyin avtomatik qayta qo'llanadi — `landmarks:import` ni qayta ishga tushirish ularni bekor qilmaydi.
 
-Ochiq joylarni yangilash (mavjud serverda ham): `sudo ./deploy/places-prepare.sh`, so'ng `php artisan landmarks:import --source=overture` va `--source=wikidata`. OSM'dagi mo'ljaldan 150 m ichidagi o'xshash nomlilar takror sifatida o'tkazib yuboriladi; Overture litsenziya eslatmasi `storage/app/osm/places-overture.NOTICE.txt` (to'plam bilan birga tarqatiladi).
+Ochiq joylarni yangilash (mavjud serverda ham): `sudo ./deploy/places-prepare.sh`, so'ng `php artisan landmarks:import --source=overture`, `--source=wikidata` va `--source=geonames`. OSM'dagi mo'ljaldan 150 m ichidagi o'xshash nomlilar takror sifatida o'tkazib yuboriladi (GeoNames qishloq/mahallalari — boshqa qishloq/mahalladan 2 km ichida); litsenziya eslatmalari `storage/app/osm/places-overture.NOTICE.txt` va `places-geonames.NOTICE.txt` (to'plam bilan birga tarqatiladi). GeoNames CC-BY 4.0 — xaritadagi "GeoNames" atributsiyasini olib tashlamang (qaror #64).
 
 To'plamni o'rnatilgan serverga alohida tiklash: `sudo ./deploy/map-restore.sh /root/<sana>_map.tar` (tile'lar, OSM fayllari, OSRM ma'lumoti va `ibtaxi-osrm` xizmati).
 
-> Xarita fayllari va mo'ljallar faqat **ochiq manbalardan** (OpenStreetMap, Protomaps; mo'ljallar uchun Overture Maps places — CDLA-Permissive-2.0/Apache-2.0/CC0, Wikidata — CC0, qaror #60) yoki firmaning o'z xodimlari kiritgan ma'lumotdan bo'lishi kerak.
+> Xarita fayllari va mo'ljallar faqat **ochiq manbalardan** (OpenStreetMap, Protomaps; mo'ljallar uchun Overture Maps places — CDLA-Permissive-2.0/Apache-2.0/CC0, Wikidata — CC0, qaror #60; GeoNames — CC-BY 4.0, qaror #64) yoki firmaning o'z xodimlari kiritgan ma'lumotdan bo'lishi kerak.
 > Yandex, Google, 2GIS kabi xaritalardan nom yoki koordinata ko'chirilgan bo'lsa — bu mualliflik huquqini buzadi; bunday ma'lumot to'plamga ham, firmaga sotiladigan serverga ham tushmasligi kerak.
 
 ---
