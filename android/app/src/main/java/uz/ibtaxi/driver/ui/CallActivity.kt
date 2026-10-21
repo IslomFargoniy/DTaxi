@@ -34,6 +34,10 @@ class CallActivity : ComponentActivity() {
     private val callUrl = IbTaxiApp.instance.session.serverUrl.replaceFirst("http://", "https://") + "/driver-app/call"
     private val host = Uri.parse(callUrl).host
 
+    /** Hozir ochiq sahifa (asosiy freym) — JS ko'prik oqimidan o'qiladi, WebView.url esa faqat UI oqimida */
+    @Volatile
+    private var pageUrl: Uri? = null
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun attachBaseContext(base: android.content.Context) {
         super.attachBaseContext(uz.ibtaxi.driver.data.AppLocale.wrap(base, uz.ibtaxi.driver.IbTaxiApp.instance.session.locale))
@@ -65,6 +69,14 @@ class CallActivity : ComponentActivity() {
             webViewClient = object : WebViewClient() {
                 // Boshqa saytga o'tish taqiqlanadi (token sizib chiqmasligi uchun)
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = request.url.host != host
+
+                override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                    pageUrl = url?.let(Uri::parse)
+                }
+
+                override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+                    pageUrl = url?.let(Uri::parse)
+                }
 
                 @SuppressLint("WebViewClientOnReceivedSslError")
                 override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
@@ -126,7 +138,12 @@ class CallActivity : ComponentActivity() {
 
     private inner class Bridge {
         @JavascriptInterface
-        fun token(): String = IbTaxiApp.instance.session.token ?: ""
+        fun token(): String {
+            // Token faqat o'z serverimiz sahifasiga (https) — boshqa sahifa ochilib qolsa ham bermaydi
+            val page = pageUrl
+            if (page?.scheme != "https" || page.host != host) return ""
+            return IbTaxiApp.instance.session.token ?: ""
+        }
 
         @JavascriptInterface
         fun locale(): String = IbTaxiApp.instance.session.locale
