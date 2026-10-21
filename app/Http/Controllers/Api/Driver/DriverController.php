@@ -19,6 +19,7 @@ use App\Services\Drivers\DriverLocator;
 use App\Services\Drivers\ShiftTracker;
 use App\Services\Drivers\StandQueue;
 use App\Services\Routing\Router;
+use App\Services\Telephony\CallCenter;
 use App\Services\Telephony\Extensions;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Http\JsonResponse;
@@ -231,5 +232,19 @@ class DriverController extends Controller
         abort_unless($sip !== null, 404);
 
         return response()->json(['sip' => $sip, 'target' => 'dispatcher']);
+    }
+
+    /**
+     * Operator qo'ng'irog'ini rad etish (ilovadagi qizil tugma): operator band signalini eshitadi.
+     */
+    public function declineCall(Request $request, int $call, CallCenter $center): JsonResponse
+    {
+        $model = Call::query()->withoutGlobalScopes()
+            ->whereKey($call)
+            ->where('driver_id', $this->driver($request)->id)
+            ->firstOrFail();
+        $center->driverDeclined($model);
+
+        return response()->json(['ok' => true]);
     }
 }

@@ -380,6 +380,7 @@
     "New phone number": "Новый номер",
     "No active calls": "Нет активных звонков",
     "No answer": "Не ответил",
+    "Declined": "Отклонил",
     "No branch selected — the number serves all branches. IVR: the client presses the key to choose a branch.": "Если филиал не выбран — номер обслуживает все филиалы. IVR: клиент нажимает клавишу для выбора филиала.",
     "No missed calls": "Нет пропущенных",
     "Not connected": "Не подключён",

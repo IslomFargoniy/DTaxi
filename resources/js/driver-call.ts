@@ -1,6 +1,7 @@
 /**
  * Haydovchi → dispetcher qo'ng'irog'i (qaror #47): ilova WebView'ida ochiladi.
  * Token va yopish Android JS ko'prigi (window.IbTaxi) orqali; SIP ma'lumotlari API'dan.
+ * Operator qo'ng'irog'iga javob (qaror #59): ilova target() = answer-{callId} beradi — darhol suhbat.
  */
 import { UA, WebSocketInterface } from 'jssip';
 import type { RTCSession } from 'jssip/lib/RTCSession';
@@ -11,6 +12,10 @@ type Bridge = {
     close(): void;
     speaker?(on: boolean): void;
     route?(): string;
+    /** Kiruvchi qo'ng'iroqqa javob: answer-{callId}; bo'sh — dispetcher navbati */
+    target?(): string;
+    /** Kiruvchi qo'ng'iroqda operator ismi */
+    caller?(): string;
 };
 type Phone = {
     sip: { uri: string; password: string; ws: string };
@@ -141,7 +146,14 @@ async function start(): Promise<void> {
     if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
     }
-    const { sip, target } = (await response.json()) as Phone;
+    const phone = (await response.json()) as Phone;
+    const { sip } = phone;
+    const target = bridge?.target?.() || phone.target;
+    const answering = target.startsWith('answer-');
+    const caller = bridge?.caller?.();
+    if (answering && caller) {
+        $('title').textContent = caller;
+    }
 
     ua = new UA({
         sockets: [new WebSocketInterface(sip.ws)],
@@ -173,10 +185,15 @@ async function start(): Promise<void> {
     }
     status(t.ringing);
 
-    // Asterisk navbat musiqasi uchun darhol javob beradi — bu hali operator emas
+    // Asterisk navbat musiqasi uchun darhol javob beradi — bu hali operator emas.
+    // Operator qo'ng'irog'iga javobda esa u allaqachon kutib turibdi
     session.on('confirmed', () => {
-        $('avatar').classList.add('live');
-        waitForOperator();
+        if (answering) {
+            startTimer();
+        } else {
+            $('avatar').classList.add('live');
+            waitForOperator();
+        }
     });
     session.on('ended', () => {
         stopAll();

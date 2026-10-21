@@ -87,6 +87,7 @@ const STATUS: Record<string, { label: string; className: string }> = {
     blocked: { label: 'Blacklisted', className: 'bg-gray-600' },
     no_answer: { label: 'No answer', className: 'bg-gray-500' },
     busy: { label: 'Busy', className: 'bg-gray-500' },
+    declined: { label: 'Declined', className: 'bg-gray-500' },
     failed: { label: 'Failed', className: 'bg-gray-500' },
 };
 

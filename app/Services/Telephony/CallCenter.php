@@ -2,13 +2,18 @@
 
 namespace App\Services\Telephony;
 
+use App\Enums\DriverStatus;
 use App\Enums\OrderSource;
 use App\Events\CallUpdated;
+use App\Events\IncomingCall;
+use App\Events\IncomingCallEnded;
 use App\Events\OperatorCallEvent;
 use App\Jobs\ProcessRecording;
+use App\Jobs\SendPushNotification;
 use App\Models\Branch;
 use App\Models\Call;
 use App\Models\Client;
+use App\Models\DeviceToken;
 use App\Models\Driver;
 use App\Models\Order;
 use App\Models\PhoneNumber;
@@ -28,6 +33,7 @@ use Illuminate\Support\Str;
  * Stasis argumentlari:
  *   inbound,<DID>   — trunkdan kiruvchi (mijoz)
  *   internal,<exten> — operator/haydovchi brauzer/ilovadan tergan raqam
+ *                      (haydovchi ilovasi answer-<callId> — operator qo'ng'irog'iga javob)
  *   operator,<callId> — navbatdagi qo'ng'iroq uchun operatorga yuborilgan kanal javob berdi
  *   peer,<callId>   — operator chaqirgan tomon (mijoz/haydovchi) javob berdi
  *   tts,<callId>    — avto-qo'ng'iroqda mijoz javob berdi
@@ -112,6 +118,27 @@ class CallCenter
             }
 
             $this->offerToOperator($call);
+        }
+
+        $this->expireDriverRings();
+    }
+
+    /**
+     * Haydovchi ilovada javob bermagan operator qo'ng'iroqlari (calls.driver_ring_seconds) — operatorga "javob yo'q".
+     */
+    private function expireDriverRings(): void
+    {
+        $ringing = Call::query()->withoutGlobalScopes()
+            ->where('status', 'ringing')
+            ->where('kind', 'driver')
+            ->whereNull('ended_at')
+            ->get();
+
+        foreach ($ringing as $call) {
+            $until = data_get($call->meta, 'driver_ring_until');
+            if ($until && now()->getTimestamp() >= (int) $until) {
+                $this->endDriverRing($call, 'no_answer', 'no_answer', 'timeout');
+            }
         }
     }
 
@@ -419,7 +446,9 @@ class CallCenter
         $endpoint = $m[1] ?? (string) data_get($channel, 'caller.number', '');
 
         if (str_starts_with($endpoint, 'dr')) {
-            $this->driverToDispatcher($channelId, $endpoint);
+            preg_match('/^answer-(\d+)$/', $exten, $am)
+                ? $this->driverAnswers($channelId, (int) substr($endpoint, 2), (int) $am[1])
+                : $this->driverToDispatcher($channelId, $endpoint);
 
             return;
         }
@@ -477,7 +506,62 @@ class CallCenter
     }
 
     /**
-     * Operator tergan raqam: dr{N} — haydovchiga (WebRTC), boshqasi — trunk orqali mijozga (callback).
+     * Haydovchi ilovada "Javob berish"ni bosdi: ilova answer-{callId} ga qo'ng'iroq qildi — operator bilan ulanadi.
+     * Boshqa haydovchining yoki tugagan qo'ng'iroq bo'lsa rad etiladi.
+     */
+    private function driverAnswers(string $channelId, int $driverId, int $callId): void
+    {
+        $call = Call::query()->withoutGlobalScopes()->find($callId);
+        if (! $call || $call->kind !== 'driver' || $call->driver_id !== $driverId || $call->status !== 'ringing'
+            || $call->ended_at || ! data_get($call->meta, 'driver_ring_until')) {
+            $this->ari->hangup($channelId);
+
+            return;
+        }
+
+        $operatorChannel = (string) $call->channel_id;
+        $this->remember($channelId, $call, 'peer');
+        $this->updateMeta($call, ['peer_channel' => $channelId]);
+
+        $this->ari->answer($channelId);
+        $this->ari->answer($operatorChannel);
+        if (($gain = (int) $this->settings()->get('calls.driver_gain', $call->branch_id)) !== 0) {
+            $this->ari->setVariable($channelId, 'VOLUME(TX)', (string) $gain);
+        }
+        $this->bridge($call, $operatorChannel, $channelId);
+        $call->forceFill([
+            'status' => 'answered',
+            'answered_at' => now(),
+            'wait_seconds' => (int) $call->started_at->diffInSeconds(now()),
+        ])->save();
+
+        CallUpdated::dispatch($call);
+    }
+
+    /**
+     * Haydovchi ilovada "Rad etish"ni bosdi (API) — operator band signalini eshitadi.
+     */
+    public function driverDeclined(Call $call): void
+    {
+        $call->refresh();
+        if ($call->status === 'ringing' && ! $call->ended_at && data_get($call->meta, 'driver_ring_until')) {
+            $this->endDriverRing($call, 'declined', 'busy', 'declined');
+        }
+    }
+
+    /**
+     * Javob berilmagan operator → haydovchi qo'ng'irog'ini yakunlash: operator kanali sabab bilan uziladi
+     * (brauzer "band"/"javob yo'q" ko'rsatadi), ilova ekrani finish() dagi IncomingCallEnded bilan yopiladi.
+     */
+    private function endDriverRing(Call $call, string $status, string $hangupReason, string $reason): void
+    {
+        $operatorChannel = (string) $call->channel_id;
+        $this->ari->hangup($operatorChannel, $hangupReason);
+        $this->finish($call, $status, ['reason' => $reason], $operatorChannel);
+    }
+
+    /**
+     * Operator tergan raqam: dr{N} yoki pozivnoy — haydovchi ilovasiga, boshqasi — trunk orqali mijozga (callback).
      */
     private function operatorDials(string $channelId, User $operator, string $exten): void
     {
@@ -491,20 +575,25 @@ class CallCenter
             }
         }
 
-        $toDriver = (bool) preg_match('/^dr(\d+)$/', $exten, $dm);
-        $phone = $toDriver ? $exten : Client::normalizePhone($exten);
+        if (preg_match('/^dr(\d+)$/', $exten, $dm)) {
+            $this->ringDriver($channelId, $operator, (int) $dm[1]);
+
+            return;
+        }
+
+        $phone = Client::normalizePhone($exten);
 
         // Trunk pulli: o'g'irlangan operator paroli bilan xalqaro/pullik raqamlarga qo'ng'iroq qilinmasin
-        if (! $toDriver && (! $this->outboundAllowed($phone) || ! $this->outboundWithinLimit($operator))) {
+        if (! $this->outboundAllowed($phone) || ! $this->outboundWithinLimit($operator)) {
             Log::warning("CallCenter: chiquvchi qo'ng'iroq rad etildi", ['operator' => $operator->id, 'dialed' => $exten]);
             $this->ari->hangup($channelId, 'congestion');
 
             return;
         }
 
-        $number = $toDriver ? null : PhoneNumber::forBranch($operator->branch_id);
+        $number = PhoneNumber::forBranch($operator->branch_id);
 
-        if (! $toDriver && ! $number) {
+        if (! $number) {
             $this->ari->hangup($channelId, 'congestion');
 
             return;
@@ -513,21 +602,20 @@ class CallCenter
         $call = Call::query()->create([
             'channel_id' => $channelId,
             'branch_id' => $operator->branch_id,
-            'direction' => $toDriver ? 'internal' : 'outbound',
-            'kind' => $toDriver ? 'driver' : 'callback',
+            'direction' => 'outbound',
+            'kind' => 'callback',
             'caller' => $operator->sip_extension,
             'callee' => $phone,
-            'phone_number_id' => $number?->id,
-            'sip_trunk_id' => $number?->sip_trunk_id,
+            'phone_number_id' => $number->id,
+            'sip_trunk_id' => $number->sip_trunk_id,
             'operator_id' => $operator->id,
-            'driver_id' => $toDriver ? (int) $dm[1] : null,
-            'client_id' => $toDriver ? null : Client::query()->where('phone', $phone)->value('id'),
+            'client_id' => Client::query()->where('phone', $phone)->value('id'),
             'status' => 'ringing',
             'started_at' => now(),
         ]);
         $this->remember($channelId, $call, 'operator');
 
-        if ($number && ! $this->limits->canPlaceOutbound($number->trunk, $operator->branch)) {
+        if (! $this->limits->canPlaceOutbound($number->trunk, $operator->branch)) {
             $this->finish($call, 'rejected', ['reason' => 'channels']);
 
             return;
@@ -539,9 +627,9 @@ class CallCenter
         $this->ari->ring($channelId);
 
         $ok = $this->ari->originate(
-            $toDriver ? "PJSIP/{$exten}" : $number->dialString($phone),
+            $number->dialString($phone),
             "peer,{$call->id}",
-            $toDriver ? "\"Dispetcher\" <{$operator->sip_extension}>" : $number->number,
+            $number->number,
             40,
             channelId: $peerId,
         );
@@ -551,6 +639,60 @@ class CallCenter
 
             return;
         }
+
+        CallUpdated::dispatch($call);
+    }
+
+    /**
+     * Operator → haydovchi (qaror #59): ilova SIP'da ro'yxatdan o'tmaydi (batareya, NAT) — unga Reverb va FCM orqali
+     * "kiruvchi qo'ng'iroq" boradi, javob bersa ilova o'zi answer-{callId} ga qo'ng'iroq qiladi (driverAnswers).
+     * Operator kanali javobsiz jiringlaydi: brauzer o'z gudogini chaladi, rad/vaqt o'tsa "band"/"javob yo'q" oladi.
+     */
+    private function ringDriver(string $channelId, User $operator, int $driverId): void
+    {
+        $driver = Driver::query()->withoutGlobalScopes()->find($driverId);
+        if (! $driver || (! $operator->isSuperadmin() && ! in_array((int) $driver->branch_id, array_map('intval', $operator->branchIds()), true))) {
+            $this->ari->hangup($channelId, 'unallocated');
+
+            return;
+        }
+
+        $call = Call::query()->create([
+            'channel_id' => $channelId,
+            'branch_id' => $driver->branch_id,
+            'direction' => 'internal',
+            'kind' => 'driver',
+            'caller' => $operator->sip_extension,
+            'callee' => 'dr'.$driver->id,
+            'operator_id' => $operator->id,
+            'driver_id' => $driver->id,
+            'status' => 'ringing',
+            'started_at' => now(),
+        ]);
+        $this->remember($channelId, $call, 'operator');
+
+        // Liniyada emas (Reverb ulanmagan) va push tokeni yo'q — ilovaga yetib bo'lmaydi, 30 soniya kuttirilmaydi
+        if ($driver->status === DriverStatus::Offline && ! DeviceToken::query()->where('user_id', $driver->user_id)->exists()) {
+            $this->ari->hangup($channelId, 'unallocated');
+            $this->finish($call, 'failed', ['reason' => 'unreachable'], $channelId);
+
+            return;
+        }
+
+        $seconds = max(5, (int) $this->settings()->get('calls.driver_ring_seconds', $driver->branch_id));
+        $this->updateMeta($call, ['driver_ring_until' => now()->addSeconds($seconds)->getTimestamp()]);
+        $this->ari->ring($channelId);
+
+        $name = $operator->name ?: 'Dispetcher';
+        // Reverb ishlamasa ham push yetib borsin (va aksincha)
+        rescue(fn () => IncomingCall::dispatch($driver->id, $call->id, $name, $seconds));
+        SendPushNotification::dispatch($driver->user_id, [
+            'type' => 'incoming_call',
+            'call_id' => $call->id,
+            'operator' => $name,
+            'expires_in' => $seconds,
+            'sent_at' => now()->getTimestamp(),
+        ]);
 
         CallUpdated::dispatch($call);
     }
@@ -1029,7 +1171,22 @@ class CallCenter
             User::query()->whereKey($call->operator_id)->update(['operator_status_at' => $now]);
             OperatorCallEvent::dispatch($call->operator_id, 'ended', ['call_id' => $call->id, 'status' => $status]);
         }
+        // Haydovchi ilovasida jiringlayotgan ekran yopilsin (operator qo'ydi, rad etildi, vaqt o'tdi)
+        if ($call->driver_id && ! $call->answered_at && data_get($call->meta, 'driver_ring_until')) {
+            $this->notifyRingEnded($call, $status);
+        }
         CallUpdated::dispatch($call);
+    }
+
+    private function notifyRingEnded(Call $call, string $status): void
+    {
+        $driver = Driver::query()->withoutGlobalScopes()->find($call->driver_id);
+        if (! $driver) {
+            return;
+        }
+
+        rescue(fn () => IncomingCallEnded::dispatch($driver->id, $call->id, $status));
+        SendPushNotification::dispatch($driver->user_id, ['type' => 'incoming_call_ended', 'call_id' => $call->id, 'status' => $status]);
     }
 
     /**

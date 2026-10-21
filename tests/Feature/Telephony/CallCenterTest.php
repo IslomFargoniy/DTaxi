@@ -1,17 +1,22 @@
 <?php
 
 use App\Console\Commands\AriListen;
+use App\Enums\DriverStatus;
 use App\Enums\OrderSource;
 use App\Enums\OrderStatus;
 use App\Enums\Role;
 use App\Events\CallUpdated;
+use App\Events\IncomingCall;
+use App\Events\IncomingCallEnded;
 use App\Events\OperatorCallEvent;
 use App\Events\OrderUpdated;
 use App\Jobs\PlaceAutoCall;
 use App\Jobs\ProcessRecording;
+use App\Jobs\SendPushNotification;
 use App\Models\Branch;
 use App\Models\Call;
 use App\Models\Client;
+use App\Models\DeviceToken;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\PhoneNumber;
@@ -36,6 +41,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Laravel\Sanctum\Sanctum;
 
 require_once __DIR__.'/../Orders/helpers.php';
 
@@ -75,8 +81,8 @@ function ariRequests(string $needle): array
 }
 
 beforeEach(function () {
-    Queue::fake([ProcessRecording::class, PlaceAutoCall::class]);
-    Event::fake([OperatorCallEvent::class, CallUpdated::class, OrderUpdated::class]);
+    Queue::fake([ProcessRecording::class, PlaceAutoCall::class, SendPushNotification::class]);
+    Event::fake([OperatorCallEvent::class, CallUpdated::class, OrderUpdated::class, IncomingCall::class, IncomingCallEnded::class]);
     $this->seed(RolesSeeder::class);
 
     $this->online = [];
@@ -369,15 +375,175 @@ test('after the trip the client is called and rates it by pressing a digit', fun
         ->and($driver->fresh()->rating)->toBe(85);
 });
 
-test('operator calls a driver by typing the callsign', function () {
+/**
+ * Operator haydovchiga (pozivnoy bilan) qo'ng'iroq qildi — ilovaga xabar ketdi, kanal jiringlab turibdi.
+ */
+function operatorRingsDriver($test, string $callsign = '777'): Call
+{
+    operatorDials($test, $callsign);
+
+    return Call::query()->withoutGlobalScopes()->sole();
+}
+
+test('operator calls a driver by callsign: the app is notified instead of dialing an unregistered endpoint', function () {
     $driver = driverNear($this->branch, 0, ['callsign' => '777']);
 
-    $this->center->handle(stasis('ch-op', ['internal', '777'], "PJSIP/{$this->operator->sip_extension}-0001", $this->operator->sip_extension));
+    $call = operatorRingsDriver($this);
 
-    $call = Call::query()->withoutGlobalScopes()->sole();
-    expect($call->kind)->toBe('driver')
-        ->and($call->driver_id)->toBe($driver->id)
-        ->and(ariRequests("endpoint=PJSIP/dr{$driver->id}"))->toHaveCount(1);
+    expect($call)
+        ->kind->toBe('driver')
+        ->direction->toBe('internal')
+        ->status->toBe('ringing')
+        ->driver_id->toBe($driver->id)
+        ->operator_id->toBe($this->operator->id)
+        ->and($call->meta['driver_ring_until'])->toBe(now()->addSeconds(30)->getTimestamp());
+
+    // Ro'yxatdan o'tmagan PJSIP/dr{id} ga originate yo'q; operator brauzeri gudok chaladi (180 Ringing)
+    expect(ariRequests('endpoint=PJSIP/dr'))->toBeEmpty()
+        ->and(ariRequests('/ari/channels/ch-op/ring'))->toHaveCount(1)
+        ->and(ariRequests('/ari/channels/ch-op/answer'))->toBeEmpty();
+    Event::assertDispatched(IncomingCall::class, fn (IncomingCall $e) => $e->driverId === $driver->id && $e->callId === $call->id
+        && $e->operator === $this->operator->name && $e->expiresIn === 30);
+    Queue::assertPushed(SendPushNotification::class, fn (SendPushNotification $job) => $job->userId === $driver->user_id
+        && $job->data['type'] === 'incoming_call' && $job->data['call_id'] === $call->id && $job->data['expires_in'] === 30);
+});
+
+test('ring time for the driver app comes from settings', function () {
+    driverNear($this->branch, 0, ['callsign' => '777']);
+    app(Settings::class)->set('calls.driver_ring_seconds', 45);
+
+    operatorRingsDriver($this);
+
+    Event::assertDispatched(IncomingCall::class, fn (IncomingCall $e) => $e->expiresIn === 45);
+});
+
+test('an offline driver without a push token is reported unreachable at once', function () {
+    driverNear($this->branch, 0, ['callsign' => '777', 'status' => DriverStatus::Offline]);
+
+    $call = operatorRingsDriver($this);
+
+    expect($call->status)->toBe('failed')
+        ->and($call->ended_at)->not->toBeNull()
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-op'))->count())->toBe(1);
+    Event::assertNotDispatched(IncomingCall::class);
+});
+
+test('an offline driver with a push token is still rung through FCM', function () {
+    $driver = driverNear($this->branch, 0, ['callsign' => '777', 'status' => DriverStatus::Offline]);
+    DeviceToken::query()->create(['user_id' => $driver->user_id, 'platform' => 'android', 'token' => 'fcm-1']);
+
+    expect(operatorRingsDriver($this)->status)->toBe('ringing');
+    Queue::assertPushed(SendPushNotification::class, fn ($job) => $job->data['type'] === 'incoming_call');
+});
+
+test('operator cannot ring a driver of another branch', function () {
+    $other = driverNear(Branch::factory()->create(), 0, ['callsign' => '777']);
+
+    operatorDials($this, '777');
+    operatorDials($this, 'dr'.$other->id, 'ch-op2');
+
+    expect(Call::query()->withoutGlobalScopes()->count())->toBe(0);
+    Event::assertNotDispatched(IncomingCall::class);
+});
+
+test('driver answers from the app: his answer leg is bridged with the operator', function () {
+    $driver = driverNear($this->branch, 0, ['callsign' => '777']);
+    $call = operatorRingsDriver($this);
+
+    $this->center->handle(stasis('ch-dr', ['internal', "answer-{$call->id}"], "PJSIP/dr{$driver->id}-0001", "dr{$driver->id}"));
+    $call->refresh();
+
+    expect($call->status)->toBe('answered')
+        ->and($call->answered_at)->not->toBeNull()
+        ->and($call->meta['peer_channel'])->toBe('ch-dr')
+        ->and($call->meta['bridge'])->toBe('bridge-1')
+        ->and(ariRequests('/ari/channels/ch-op/answer'))->toHaveCount(1)
+        ->and(ariRequests('/ari/channels/ch-dr/answer'))->toHaveCount(1)
+        ->and(ariRequests('/ari/bridges/bridge-1/record'))->toHaveCount(1)
+        ->and(ariRequests('/ari/channels/ch-dr/variable?variable=VOLUME(TX)&value=4'))->toHaveCount(1);
+    // Javob berilgan qo'ng'iroq dispetcher navbatiga tushmaydi
+    expect(Call::query()->withoutGlobalScopes()->count())->toBe(1);
+
+    // Haydovchi qo'ydi — operator ham uziladi, yozuv qayta ishlanadi, "tugadi" xabari ilovaga kerak emas
+    $this->center->handle(['type' => 'StasisEnd', 'channel' => ['id' => 'ch-dr']]);
+    expect($call->refresh()->status)->toBe('completed')
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-op'))->count())->toBe(1);
+    Queue::assertPushed(ProcessRecording::class);
+    Event::assertNotDispatched(IncomingCallEnded::class);
+});
+
+test('answer legs from another driver or for a finished call are rejected', function () {
+    $driver = driverNear($this->branch, 0, ['callsign' => '777']);
+    $stranger = driverNear($this->branch, 50, ['callsign' => '888']);
+    $call = operatorRingsDriver($this);
+
+    $this->center->handle(stasis('ch-x', ['internal', "answer-{$call->id}"], "PJSIP/dr{$stranger->id}-0001", "dr{$stranger->id}"));
+    expect($call->refresh()->status)->toBe('ringing')
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-x'))->count())->toBe(1);
+
+    // Operator qo'yib qo'ydi — kechikkan javob ulanmaydi
+    $this->center->handle(['type' => 'StasisEnd', 'channel' => ['id' => 'ch-op']]);
+    $this->center->handle(stasis('ch-late', ['internal', "answer-{$call->id}"], "PJSIP/dr{$driver->id}-0002", "dr{$driver->id}"));
+
+    expect($call->refresh()->status)->not->toBe('answered')
+        ->and(ariRequests('/ari/channels/ch-late/answer'))->toBeEmpty()
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-late'))->count())->toBe(1)
+        ->and(ariRequests('/ari/bridges'))->toBeEmpty();
+});
+
+test('operator hanging up while the app rings dismisses the driver screen', function () {
+    $driver = driverNear($this->branch, 0, ['callsign' => '777']);
+    $call = operatorRingsDriver($this);
+
+    $this->center->handle(['type' => 'StasisEnd', 'channel' => ['id' => 'ch-op']]);
+
+    expect($call->refresh()->ended_at)->not->toBeNull();
+    Event::assertDispatched(IncomingCallEnded::class, fn (IncomingCallEnded $e) => $e->driverId === $driver->id && $e->callId === $call->id);
+    Queue::assertPushed(SendPushNotification::class, fn ($job) => $job->data['type'] === 'incoming_call_ended' && $job->data['call_id'] === $call->id);
+});
+
+test('driver declines in the app: the operator gets busy and the screen is dismissed', function () {
+    $driver = driverNear($this->branch, 0, ['callsign' => '777']);
+    $call = operatorRingsDriver($this);
+
+    Sanctum::actingAs($driver->user, ['driver']);
+    $this->postJson("/api/driver/v1/phone/calls/{$call->id}/decline")->assertOk();
+
+    expect($call->refresh())
+        ->status->toBe('declined')
+        ->ended_at->not->toBeNull()
+        ->and($call->meta['reason'])->toBe('declined')
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-op') && $r['reason'] === 'busy')->count())->toBe(1);
+    Event::assertDispatched(IncomingCallEnded::class, fn (IncomingCallEnded $e) => $e->callId === $call->id && $e->status === 'declined');
+});
+
+test('a driver cannot decline somebody else\'s call', function () {
+    driverNear($this->branch, 0, ['callsign' => '777']);
+    $stranger = driverNear($this->branch, 50, ['callsign' => '888']);
+    $call = operatorRingsDriver($this);
+
+    Sanctum::actingAs($stranger->user, ['driver']);
+    $this->postJson("/api/driver/v1/phone/calls/{$call->id}/decline")->assertNotFound();
+
+    expect($call->refresh()->status)->toBe('ringing');
+});
+
+test('unanswered driver ring times out on tick', function () {
+    $driver = driverNear($this->branch, 0, ['callsign' => '777']);
+    $call = operatorRingsDriver($this);
+
+    $this->travel(29)->seconds();
+    $this->center->tick();
+    expect($call->refresh()->status)->toBe('ringing');
+
+    $this->travel(2)->seconds();
+    $this->center->tick();
+
+    expect($call->refresh())
+        ->status->toBe('no_answer')
+        ->and($call->meta['reason'])->toBe('timeout')
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-op') && $r['reason'] === 'no_answer')->count())->toBe(1);
+    Event::assertDispatched(IncomingCallEnded::class, fn (IncomingCallEnded $e) => $e->driverId === $driver->id && $e->status === 'no_answer');
 });
 
 test('superadmin without a branch gets an extension and takes queued calls when ready', function () {
@@ -625,7 +791,7 @@ test('outbound calls per operator are rate limited', function () {
     // Haydovchiga qo'ng'iroq bepul — chegaraga kirmaydi
     $driver = driverNear($this->branch, 0, ['callsign' => '777']);
     operatorDials($this, '777', 'ch-d');
-    expect(ariRequests("endpoint=PJSIP/dr{$driver->id}"))->toHaveCount(1);
+    expect(Call::query()->withoutGlobalScopes()->where('driver_id', $driver->id)->sole()->status)->toBe('ringing');
 });
 
 test('the listener loop survives any exception', function () {
