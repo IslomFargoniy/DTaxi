@@ -45,6 +45,17 @@ test('map fallback center comes from branch data, not a hardcoded city', functio
             ->where('map.center.lng', 69.28));
 });
 
+test('without any branch center the map centers on recent pickups', function () {
+    $this->branch->forceFill(['center' => null])->save();
+    Order::factory()->create(['branch_id' => $this->branch->id, 'pickup_location' => Point::makeGeodetic(40.38, 71.78)]);
+    Order::factory()->create(['branch_id' => $this->branch->id, 'pickup_location' => Point::makeGeodetic(40.46, 71.72)]);
+
+    $this->actingAs($this->operator)->get(route('operator.index'))->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('map.center.lat', fn ($lat) => abs($lat - 40.42) < 0.001)
+            ->where('map.center.lng', fn ($lng) => abs($lng - 71.75) < 0.001));
+});
+
 test('cashier cannot open the operator panel', function () {
     $cashier = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Cashier);
 

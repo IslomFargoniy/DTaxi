@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Support\Settings;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -55,8 +56,8 @@ class OperatorController extends Controller
 
     /**
      * Xarita markazi filial markazi yo'q bo'lsa: koddagi biror shahar emas (mahsulot har firmaga sotiladi) —
-     * filial hududi (viloyat/shahar) markazi yoki boshqa filial markazi. Topilmasa null — panel xarita fayli
-     * qamragan hududni ko'rsatadi (istalgan import qilingan viloyat xarita tayyorlanmagan joy bo'lishi mumkin).
+     * filial hududi markazi, boshqa filial markazi, so'nggi buyurtmalar olib ketish joylari yoki haydovchilar
+     * turgan joy. Topilmasa null — panel xarita fayli qamragan hududni ko'rsatadi.
      *
      * @param  list<Branch>  $branches
      * @return array{lat: float, lng: float}|null
@@ -65,8 +66,27 @@ class OperatorController extends Controller
     {
         $point = collect($branches)->map(fn (Branch $b) => $b->center ?? $b->region()->first()?->center)->filter()->first()
             ?? Branch::query()->whereNotNull('center')->orderBy('id')->first()?->center;
+        if ($point instanceof Point) {
+            return ['lat' => $point->getLatitude(), 'lng' => $point->getLongitude()];
+        }
 
-        return $point instanceof Point ? ['lat' => $point->getLatitude(), 'lng' => $point->getLongitude()] : null;
+        $ids = array_map(fn (Branch $b): int => $b->id, $branches);
+        // Xarita fayli butun viloyat(lar)ni qamraydi, uning markazi bo'sh dala bo'lishi mumkin — ish qayerda bo'lsa o'sha
+        $recent = Order::query()->withoutGlobalScopes()->whereIn('branch_id', $ids)->whereNotNull('pickup_location')
+            ->latest('id')->limit(200)->select('pickup_location');
+        $seen = Driver::query()->withoutGlobalScopes()->whereIn('branch_id', $ids)->whereNotNull('last_location')
+            ->latest('last_seen_at')->limit(50)->select('last_location as pickup_location');
+
+        foreach ([$recent, $seen] as $query) {
+            $row = DB::query()->fromSub($query, 'p')
+                ->selectRaw('avg(ST_Y(pickup_location::geometry)) as lat, avg(ST_X(pickup_location::geometry)) as lng')
+                ->first();
+            if ($row !== null && $row->lat !== null) {
+                return ['lat' => (float) $row->lat, 'lng' => (float) $row->lng];
+            }
+        }
+
+        return null;
     }
 
     /**
