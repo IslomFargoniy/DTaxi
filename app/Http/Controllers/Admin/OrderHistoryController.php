@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
+use App\Models\Branch;
 use App\Models\Call;
 use App\Models\Complaint;
 use App\Models\Order;
 use App\Models\OrderEvent;
+use App\Models\User;
 use App\Services\Orders\OrderService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -30,10 +33,15 @@ class OrderHistoryController extends Controller
             'q' => ['nullable', 'string', 'max:50'],
         ]);
 
+        /** @var User $user */
+        $user = $request->user();
+        // Sana filtri filial kuni bo'yicha (UTC kuni emas) — hisobotlar bilan bir xil
+        $tz = Branch::timezoneFor($user);
+
         $orders = Order::query()
             ->with(['client', 'driver.user', 'vehicle', 'tariffClass'])
-            ->when($filters['from'] ?? null, fn ($q, $from) => $q->where('created_at', '>=', $from))
-            ->when($filters['to'] ?? null, fn ($q, $to) => $q->where('created_at', '<', now()->parse($to)->addDay()))
+            ->when($filters['from'] ?? null, fn ($q, $from) => $q->where('created_at', '>=', CarbonImmutable::parse($from, $tz)->startOfDay()->utc()))
+            ->when($filters['to'] ?? null, fn ($q, $to) => $q->where('created_at', '<', CarbonImmutable::parse($to, $tz)->startOfDay()->addDay()->utc()))
             ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->when($filters['q'] ?? null, function ($q, $term) {
                 $digits = preg_replace('/\D/', '', $term);

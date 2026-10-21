@@ -58,6 +58,20 @@ class Branch extends Model
     public const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
     /**
+     * Panel foydalanuvchisining "bugun"i qaysi vaqt zonasida (birinchi filiali bo'yicha, ReportController kabi).
+     * UTC kun bo'yicha hisoblansa, Toshkentda kechasi 00:00–05:00 dagi buyurtmalar kechagi kunga tushardi.
+     */
+    public static function timezoneFor(User $user): string
+    {
+        $query = self::query()->orderBy('id');
+        if (! $user->isSuperadmin()) {
+            $query->whereIn('id', $user->branchIds());
+        }
+
+        return $query->value('timezone') ?? (string) config('app.timezone');
+    }
+
+    /**
      * Filial hozir ishlayaptimi (filial vaqt zonasida). Tunda ishlaydigan smena (22:00–06:00) ham hisobga olinadi.
      */
     public function isOpen(?\DateTimeInterface $at = null): bool
