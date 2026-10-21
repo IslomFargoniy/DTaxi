@@ -21,7 +21,7 @@ type Props = {
     tariffClasses: TariffClass[];
     orders: Order[];
     drivers: MapDriver[];
-    map: { tiles: string; center: { lat: number; lng: number } };
+    map: { tiles: string; center: { lat: number; lng: number } | null };
     locationTtlSeconds: number;
 };
 
@@ -137,7 +137,9 @@ export default function OperatorIndex({
         setOrders(initialOrders);
     }, [initialOrders]);
 
-    const center = branches[0]?.center ?? mapConfig.center;
+    // Filial markazi kiritilmagan bo'lsa — butun mamlakat ko'rinadi
+    const located = branches[0]?.center ?? mapConfig.center;
+    const center = located ?? { lat: 41.3, lng: 64.6 };
 
     const onOrder = useCallback(
         (order: Order) =>
@@ -328,6 +330,7 @@ export default function OperatorIndex({
                     <TaxiMap
                         tilesUrl={mapConfig.tiles}
                         center={center}
+                        zoom={located ? 13 : 6}
                         className="absolute inset-0"
                         onReady={onReady}
                         onClick={(point) =>
