@@ -56,6 +56,9 @@ class MainActivity : ComponentActivity() {
     /** Joylashuv ruxsati yetarli emas — tushuntirish va "Sozlamalarni ochish" oynasi (matn resursi) */
     private var locationProblem by mutableStateOf<Int?>(null)
 
+    /** Qabul so'rovi ketayotgan taklif (offer_id) — tugma o'chiq */
+    private var accepting by mutableStateOf<Int?>(null)
+
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         val then = afterPermissions
         afterPermissions = null
@@ -158,16 +161,21 @@ class MainActivity : ComponentActivity() {
                 offer?.let { current ->
                     OfferDialog(
                         offer = current,
+                        accepting = accepting == current.offerId,
                         onAccept = {
+                            // Ikki marta bosilsa ikkita so'rov ketardi; ilova scope'ida — ekran burilsa ham so'rov uzilmaydi
+                            if (accepting == current.offerId) return@OfferDialog
+                            accepting = current.offerId
                             OfferNotifier.cancel(this)
-                            scope.launch {
+                            app.scope.launch {
                                 val result = app.repository.accept(current.orderId)
                                 if (result is Result.Error) DriverState.toast(result.message ?: getString(R.string.order_taken))
+                                accepting = null
                             }
                         },
                         onReject = {
                             OfferNotifier.cancel(this)
-                            scope.launch { app.repository.reject(current.orderId) }
+                            app.scope.launch { app.repository.reject(current.orderId) }
                         },
                         onExpire = { DriverState.expireOffer(current) },
                     )

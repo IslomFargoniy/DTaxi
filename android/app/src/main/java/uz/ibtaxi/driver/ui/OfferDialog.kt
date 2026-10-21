@@ -46,7 +46,7 @@ import kotlin.math.ceil
  * Operator tayinlagan bo'lsa — rad etish jarimali.
  */
 @Composable
-fun OfferDialog(offer: Offer, onAccept: () -> Unit, onReject: () -> Unit, onExpire: () -> Unit) {
+fun OfferDialog(offer: Offer, onAccept: () -> Unit, onReject: () -> Unit, onExpire: () -> Unit, accepting: Boolean = false) {
     val context = LocalContext.current
     val appColors = LocalAppColors.current
     // Qolgan vaqt taklif kelgan paytdan sanaladi — ekran burilsa yoki qayta yaratilsa taymer boshidan boshlanmaydi
@@ -158,10 +158,17 @@ fun OfferDialog(offer: Offer, onAccept: () -> Unit, onReject: () -> Unit, onExpi
 
                     Button(
                         onClick = onAccept,
+                        enabled = !accepting,
                         modifier = Modifier.fillMaxWidth().height(64.dp),
                         shape = RoundedCornerShape(20.dp),
-                    ) { Text(stringResource(R.string.accept), style = MaterialTheme.typography.titleLarge) }
-                    TextButton(onClick = onReject, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                    ) {
+                        if (accepting) {
+                            CircularProgressIndicator(Modifier.size(28.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 3.dp)
+                        } else {
+                            Text(stringResource(R.string.accept), style = MaterialTheme.typography.titleLarge)
+                        }
+                    }
+                    TextButton(onClick = onReject, enabled = !accepting, modifier = Modifier.fillMaxWidth().height(48.dp)) {
                         Text(stringResource(R.string.skip), fontWeight = FontWeight.Bold, color = appColors.muted)
                     }
                 }
