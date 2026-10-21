@@ -35,6 +35,9 @@ use Illuminate\Support\Str;
  */
 class CallCenter
 {
+    /** Chaqiruv ohangi (gudok): Asterisk indications.conf, ru zonasi — O'zbekistondagi bilan bir xil */
+    private const RINGBACK = 'tone:ring;tonezone=ru';
+
     private const CHANNEL_TTL = 14400;
 
     /** Avto-qo'ng'iroq xabari necha marta takrorlanadi (§5.4) */
@@ -361,7 +364,8 @@ class CallCenter
         $this->remember($channelId, $call, 'client');
 
         $this->ari->answer($channelId);
-        $this->playFor($call, $channelId, $this->composer()->phrase('ivr', 'please-wait'), 'greeting');
+        // Haydovchi oddiy telefondagidek gudok eshitadi (425 Hz, 1/4 s) — operator javob berganda to'xtaydi
+        $this->playFor($call, $channelId, [self::RINGBACK], 'ringback');
         $this->offerToOperator($call);
         CallUpdated::dispatch($call);
     }

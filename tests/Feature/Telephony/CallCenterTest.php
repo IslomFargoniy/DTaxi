@@ -173,6 +173,10 @@ test('driver calling the dispatcher waits in his branch queue', function () {
         ->kind->toBe('driver')
         ->driver_id->toBe($driver->id)
         ->operator_id->toBe($this->operator->id);
+
+    // Kutish paytida "kuting" xabari emas, oddiy gudok
+    expect(ariRequests('/ari/channels/ch-d/play/'))->toHaveCount(1)
+        ->and(ariRequests('media=tone:ring;tonezone=ru'))->toHaveCount(1);
 });
 
 test('operator callback goes out through the trunk and bridges when answered', function () {
