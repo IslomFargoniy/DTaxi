@@ -19,6 +19,7 @@ Har bir taksi firmasi o'z serverida alohida nusxa oladi. Firmaga xos hech narsa 
 > **Muhim — ochiq IP.** Operator brauzeri va haydovchi ilovasi ovozni (WebRTC) to'g'ridan-to'g'ri serverga yuboradi.
 > Server NAT ortida bo'lsa (uy/ofis routeri, ba'zi bulut VPS'lari 10.x ichki IP bilan) ovoz bir tomonlama bo'lib qoladi.
 > Buni oldindan tekshiring: `ip -4 addr` chiqishida ochiq IP ko'rinishi kerak.
+> Ochiq IP bo'lmasa yoki operatorlar UDP yopiq tarmoqda (korporativ ofis, mehmonxona Wi-Fi, ba'zi mobil operatorlar) ishlasa — `--turn` (§2.1).
 
 ### Domen va DNS
 
@@ -58,11 +59,39 @@ Parametrlar:
 | `--company=`                | firma (xizmat) nomi — faqat birinchi o'rnatishda (standart `Dtaxi`)       |
 | `--skip-maps`               | xarita/OSRM tayyorlashni o'tkazib yuborish (keyin qo'lda)                 |
 | `--skip-ssl`                | sertifikatsiz — **faqat sinov uchun** (mikrofon https'siz ishlamaydi)     |
+| `--turn`                    | ixtiyoriy TURN server (coturn) — §2.1                                     |
 | `BBOX=lon1,lat1,lon2,lat2`  | xizmat hududi (standart — Farg'ona vodiysi)                               |
 | `PUBLIC_IP=`                | avtomatik aniqlanmasa                                                     |
 | `LOCAL_NET=`                | server ichki tarmog'i (standart — asosiy interfeys tarmog'idan avtomatik) |
 
 Git uchun: serverda `ibtaxi` foydalanuvchisiga **faqat o'qish huquqli deploy key** qo'shing (GitHub → Settings → Deploy keys), keyingi yangilanishlar shu orqali keladi.
+
+### 2.1. TURN server (ixtiyoriy, `--turn`)
+
+WebRTC ovozi (operator brauzeri, haydovchi ilovasining qo'ng'iroq sahifasi) odatda to'g'ridan-to'g'ri Asterisk'ning RTP portlariga (UDP 10000–20000) boradi. Quyidagi hollarda bu ishlamaydi va ovoz yo'q yoki bir tomonlama bo'ladi — shunda TURN yoqiladi:
+
+- **server NAT ortida** (bulut VPS 10.x ichki IP bilan, ofisdagi server router ortida);
+- operator **korporativ tarmoqda** (UDP yopiq, faqat 443/TCP ochiq) yoki haydovchining mobil operatori UDP'ni cheklaydi.
+
+```bash
+sudo ./deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz --turn
+# yoki o'rnatilgan serverda alohida (qayta ishga tushirish xavfsiz):
+sudo DOMAIN=taxi.firma.uz /var/www/ibtaxi/deploy/turn-config.sh
+```
+
+`deploy/turn-config.sh` nima qiladi:
+
+- `coturn` o'rnatadi, `/etc/turnserver.conf` yozadi, `systemctl enable` + restart.
+- `use-auth-secret`: tasodifiy `static-auth-secret` `.env` ga `TURN_SECRET` bo'lib tushadi (mavjud bo'lsa saqlanadi), `TURN_URL` — `turn:<domen>:3478` (UDP va TCP) va Let's Encrypt sertifikati bo'lsa `turns:<domen>:5349` (TLS; sertifikat `/etc/coturn/certs` ga ko'chiriladi, certbot yangilaganda hook qayta ko'chiradi).
+- Panel va ilova har ulanishda **vaqtinchalik login/parol** oladi (12 soat, TURN REST API: login `<muddat>:<foydalanuvchi id>`, parol `base64(hmac-sha1(sir, login))`). Operator brauzeri muddat tugashidan oldin o'zi yangilaydi. Sozlanmagan bo'lsa faqat STUN beriladi.
+- `realm` = domen; NAT aniqlanadi: ochiq IP ≠ ichki IP bo'lsa `external-ip=OCHIQ/ICHKI`, `relay-ip=ICHKI`.
+- Xavfsizlik: relay faqat shu serverning o'ziga (Asterisk) ruxsat — barcha boshqa manzillar, jumladan ichki tarmoqlar (10.x, 172.16.x, 192.168.x, 127.x, 169.254.x bulut metadata) `denied-peer-ip`; `no-cli`, `no-multicast-peers`, TLS 1.0/1.1 o'chirilgan, foydalanuvchi va umumiy kvota.
+- ufw: 3478 (tcp/udp), 5349/tcp, relay 49160–49760/udp (`TURN_MIN_PORT`/`TURN_MAX_PORT` bilan o'zgartiriladi).
+
+Server NAT ortida bo'lsa routerda (yoki bulut security group'da) shu portlar va 80/443 serverga yo'naltirilishi kerak.
+**Asterisk'ga TURN kerak emas** (`rtp.conf` da `turnaddr` yo'q): u serverning o'zida, TURN relay unga ichki IP orqali yetadi; ochiq IP'ni esa `stunaddr` va `PUBLIC_IP` orqali biladi. TURN faqat mijoz (brauzer/ilova) tomonidan ishlatiladi.
+
+Tekshirish: `systemctl status coturn`, `journalctl -u coturn`; brauzerda `chrome://webrtc-internals` — qo'ng'iroq paytida tanlangan juftlikda `relay` nomzodi ko'rinadi (faqat to'g'ridan-to'g'ri yo'l bo'lmasa).
 
 ### `install.sh` nima qiladi (tartib bo'yicha)
 
@@ -76,7 +105,7 @@ Git uchun: serverda `ibtaxi` foydalanuvchisiga **faqat o'qish huquqli deploy key
 8. `composer install`, `npm ci && npm run build`, `migrate`, `storage:link`, `optimize`, `telephony:sync`.
 9. **`ibtaxi:init`**: rollar, bitta filial ("Asosiy filial"), superadmin `admin@<domen>` tasodifiy parol bilan (superadmin bor bo'lsa hech narsa o'zgarmaydi).
 10. Let's Encrypt (`certbot --nginx --redirect`), yangilanish — certbot timer. Qayta ishga tushirilganda mavjud sertifikat nginx'ga qayta ulanadi. **Olinmasa o'rnatish to'xtamaydi** — ogohlantirish va qayta urinish buyrug'i chiqadi.
-11. SIP firewall cron'i (5060 faqat trunk IP'lariga), logrotate, supervisor dasturlari, cron (`schedule:run` har daqiqada).
+11. SIP firewall cron'i (5060 faqat trunk IP'lariga); `--turn` bo'lsa coturn (§2.1); logrotate, supervisor dasturlari, cron (`schedule:run` har daqiqada).
 12. Xarita (`--skip-maps` bo'lmasa, **bir necha soat**, eng oxirida): OSM → tile'lar → OSRM (Docker, `ibtaxi-osrm`) → hududlar, mo'ljallar, ko'cha/uy raqamlari → ochiq joylar (`places-prepare.sh`: Overture Maps va Wikidata, BBOX bo'yicha; yuklanmasa o'rnatish to'xtamaydi). To'xtab qolsa ham sayt va telefoniya ishlaydi; `install.sh` ni qayta ishga tushirish tayyor qismlarni o'tkazib yuboradi.
 13. Yakunda: panel manzili, SIP provayderga beriladigan IP va **superadmin login/paroli**.
 
@@ -102,6 +131,8 @@ Git uchun: serverda `ibtaxi` foydalanuvchisiga **faqat o'qish huquqli deploy key
 | 80, 443/tcp                  | hammaga                 | panel, API, WSS (Reverb, Asterisk)                      |
 | 10000–20000/udp              | hammaga                 | ovoz (RTP) — brauzer, ilova, trunk                      |
 | 5060/udp                     | **faqat trunk IP'lari** | SIP trunk (`deploy/sip-firewall.sh`, cron har 5 daqiqa) |
+| 3478/tcp+udp, 5349/tcp       | hammaga (`--turn`)      | TURN/STUN, TURN over TLS (coturn)                       |
+| 49160–49760/udp              | hammaga (`--turn`)      | TURN relay portlari                                     |
 | 5432, 6379, 8080, 8088, 5000 | faqat 127.0.0.1         | PostgreSQL, Redis, Reverb, Asterisk HTTP/ARI, OSRM      |
 
 | Xizmat                           | Boshqaruv                              | Log                           |
@@ -110,6 +141,7 @@ Git uchun: serverda `ibtaxi` foydalanuvchisiga **faqat o'qish huquqli deploy key
 | Horizon (navbatlar)              | `supervisorctl restart ibtaxi-horizon` | `/var/log/ibtaxi-horizon.log` |
 | ARI daemon (qo'ng'iroq mantig'i) | `php artisan ari:restart`              | `/var/log/ibtaxi-ari.log`     |
 | Asterisk                         | `systemctl restart asterisk`           | `/var/log/asterisk/messages`  |
+| coturn (`--turn`)                | `systemctl restart coturn`             | `journalctl -u coturn`        |
 | OSRM                             | `systemctl restart ibtaxi-osrm`        | `journalctl -u ibtaxi-osrm`   |
 | Laravel                          | —                                      | `storage/logs/laravel.log`    |
 
@@ -254,20 +286,21 @@ To'plamni o'rnatilgan serverga alohida tiklash: `sudo ./deploy/map-restore.sh /r
 
 ## 8. Ma'lum muammolar va yechimlar
 
-| Belgi                                      | Sabab                                                              | Yechim                                                                                                                                                                                                       |
-| ------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| "Sertifikat olinmadi" ogohlantirishi       | DNS hali serverga ko'rsatmaydi yoki Let's Encrypt limiti           | DNS'ni tekshirib, `sudo certbot --nginx -d <domen> -m <email> --agree-tos --redirect` yoki `install.sh` ni qayta ishga tushiring (xavfsiz). Qolgan o'rnatish (firewall, supervisor, cron) baribir bajarilgan |
-| Superadmin paroli yo'qoldi                 | —                                                                  | `sudo -u ibtaxi php artisan ibtaxi:admin-password [email]`                                                                                                                                                   |
-| Login sahifasida "Administrator hali yo'q" | `ibtaxi:init` ishga tushmagan                                      | `sudo -u ibtaxi php artisan ibtaxi:init --company="..."`                                                                                                                                                     |
-| Ko'p operator bir IP'dan, `/ws` 429        | ofis NAT'i ortida juda ko'p ulanish                                | `/etc/nginx/sites-available/ibtaxi` da `limit_req`/`limit_conn` qiymatlarini oshiring, `nginx -s reload`                                                                                                     |
-| Mikrofon ishlamaydi                        | sahifa `http://` orqali ochilgan                                   | faqat `https://`                                                                                                                                                                                             |
-| Ovoz bir tomonlama                         | server NAT ortida, ochiq IP yo'q                                   | ochiq IP'li server; yoki `LOCAL_NET` noto'g'ri — `sudo LOCAL_NET=10.0.0.0/8 /var/www/ibtaxi/deploy/asterisk-config.sh --restart`                                                                             |
-| Trunk "Unregistered"                       | login/parol, provayder IP'si                                       | Panel → Telefoniya; `asterisk -rx 'pjsip show registrations'`; `ufw status`                                                                                                                                  |
-| Kiruvchi qo'ng'iroq kelmaydi               | 5060 trunk IP'siga ochilmagan                                      | `sudo /var/www/ibtaxi/deploy/sip-firewall.sh`, `journalctl -t ibtaxi-sip`                                                                                                                                    |
-| Telefoniya sozlamalari ta'sir qilmaydi     | ARI daemon eski sozlamani ushlab turadi                            | `sudo -u ibtaxi php artisan ari:restart`                                                                                                                                                                     |
-| Operator "band" bo'lib qoldi               | qo'ng'iroq holati osilib qolgan (Asterisk qayta ishga tushgan)     | `ari:restart`                                                                                                                                                                                                |
-| Haydovchiga push kelmaydi                  | Firebase kaliti yo'q yoki `google-services.json` boshqa loyihaniki | Integratsiyalar va Android build'ni tekshiring                                                                                                                                                               |
-| Xarita bo'sh                               | tile'lar tayyorlanmagan (`--skip-maps`)                            | `deploy/osm-prepare.sh`, `map-prepare.sh`, `osrm-prepare.sh`, so'ng `regions:import`                                                                                                                         |
+| Belgi                                         | Sabab                                                              | Yechim                                                                                                                                                                                                       |
+| --------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "Sertifikat olinmadi" ogohlantirishi          | DNS hali serverga ko'rsatmaydi yoki Let's Encrypt limiti           | DNS'ni tekshirib, `sudo certbot --nginx -d <domen> -m <email> --agree-tos --redirect` yoki `install.sh` ni qayta ishga tushiring (xavfsiz). Qolgan o'rnatish (firewall, supervisor, cron) baribir bajarilgan |
+| Superadmin paroli yo'qoldi                    | —                                                                  | `sudo -u ibtaxi php artisan ibtaxi:admin-password [email]`                                                                                                                                                   |
+| Login sahifasida "Administrator hali yo'q"    | `ibtaxi:init` ishga tushmagan                                      | `sudo -u ibtaxi php artisan ibtaxi:init --company="..."`                                                                                                                                                     |
+| Ko'p operator bir IP'dan, `/ws` 429           | ofis NAT'i ortida juda ko'p ulanish                                | `/etc/nginx/sites-available/ibtaxi` da `limit_req`/`limit_conn` qiymatlarini oshiring, `nginx -s reload`                                                                                                     |
+| Mikrofon ishlamaydi                           | sahifa `http://` orqali ochilgan                                   | faqat `https://`                                                                                                                                                                                             |
+| Ovoz bir tomonlama                            | server NAT ortida, ochiq IP yo'q                                   | ochiq IP'li server yoki TURN (§2.1); yoki `LOCAL_NET` noto'g'ri — `sudo LOCAL_NET=10.0.0.0/8 /var/www/ibtaxi/deploy/asterisk-config.sh --restart`                                                            |
+| Ba'zi operatorlarda (ofis tarmog'i) ovoz yo'q | tarmoq UDP'ni yopadi                                               | TURN: `sudo DOMAIN=<domen> /var/www/ibtaxi/deploy/turn-config.sh`; webfonni qayta yuklash                                                                                                                    |
+| Trunk "Unregistered"                          | login/parol, provayder IP'si                                       | Panel → Telefoniya; `asterisk -rx 'pjsip show registrations'`; `ufw status`                                                                                                                                  |
+| Kiruvchi qo'ng'iroq kelmaydi                  | 5060 trunk IP'siga ochilmagan                                      | `sudo /var/www/ibtaxi/deploy/sip-firewall.sh`, `journalctl -t ibtaxi-sip`                                                                                                                                    |
+| Telefoniya sozlamalari ta'sir qilmaydi        | ARI daemon eski sozlamani ushlab turadi                            | `sudo -u ibtaxi php artisan ari:restart`                                                                                                                                                                     |
+| Operator "band" bo'lib qoldi                  | qo'ng'iroq holati osilib qolgan (Asterisk qayta ishga tushgan)     | `ari:restart`                                                                                                                                                                                                |
+| Haydovchiga push kelmaydi                     | Firebase kaliti yo'q yoki `google-services.json` boshqa loyihaniki | Integratsiyalar va Android build'ni tekshiring                                                                                                                                                               |
+| Xarita bo'sh                                  | tile'lar tayyorlanmagan (`--skip-maps`)                            | `deploy/osm-prepare.sh`, `map-prepare.sh`, `osrm-prepare.sh`, so'ng `regions:import`                                                                                                                         |
 
 ---
 

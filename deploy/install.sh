@@ -12,6 +12,8 @@
 #       Xarita (bir necha soat) eng oxirida — undan oldin sayt to'liq ishlaydi.
 #       --map-bundle=/yo'l/..._map.tar — boshqa serverdan ko'chirishda xarita to'plami (php artisan ibtaxi:map-export):
 #       tile'lar, OSM va OSRM qayta yasalmaydi, admin tuzatgan mo'ljallar esa baza zaxirasidan tiklanadi.
+#       --turn — ixtiyoriy TURN server (coturn, deploy/turn-config.sh): server NAT ortida yoki operator/haydovchi
+#       tarmog'i UDP'ni yopsa WebRTC ovozi TCP/TLS orqali o'tadi.
 #
 # Skript qayta ishga tushirilsa ham xavfsiz (idempotent): mavjud parollar, .env, sertifikat va superadmin saqlanadi.
 set -euo pipefail
@@ -23,6 +25,7 @@ COMPANY=""
 SKIP_SSL=0
 SKIP_MAPS=0
 MAP_BUNDLE=""
+TURN=0
 for arg in "$@"; do
     case "$arg" in
         --dev | --prod) MODE="$arg" ;;
@@ -35,6 +38,7 @@ for arg in "$@"; do
         # Xarita/OSRM/hududlar keyinroq tayyorlanadi (deploy/osm-prepare.sh va boshqalar)
         --skip-maps) SKIP_MAPS=1 ;;
         --map-bundle=*) MAP_BUNDLE="${arg#*=}" ;;
+        --turn) TURN=1 ;;
         *) echo "Noma'lum parametr: $arg" >&2; exit 1 ;;
     esac
 done
@@ -45,6 +49,8 @@ if [[ "$MODE" == "--prod" ]]; then
     APP_USER="${APP_USER:-ibtaxi}"
 else
     APP_USER="${APP_USER:-ubuntu}"
+    # Dev VM'da brauzer va Asterisk bir tarmoqda — TURN kerak emas
+    [[ "$TURN" == 0 ]] || { echo "--turn faqat --prod bilan" >&2; exit 1; }
 fi
 DB_NAME="${DB_NAME:-ibtaxi}"
 DB_USER="${DB_USER:-ibtaxi}"
@@ -372,6 +378,13 @@ yoki install.sh ni qayta ishga tushiring. Sertifikatsiz panelga kirib bo'lmaydi 
 */5 * * * * root APP_DIR=${APP_DIR} APP_USER=${APP_USER} ${APP_DIR}/deploy/sip-firewall.sh
 CRON
     APP_DIR="${APP_DIR}" APP_USER="${APP_USER}" "${APP_DIR}/deploy/sip-firewall.sh" || true
+
+    # Sertifikatdan keyin: bo'lsa turns:5349 ham yoqiladi
+    if [[ "$TURN" == 1 ]]; then
+        log "Prod: TURN server (coturn)"
+        APP_DIR="${APP_DIR}" APP_USER="${APP_USER}" DOMAIN="${DOMAIN}" PUBLIC_IP="${PUBLIC_IP}" \
+            bash "${APP_DIR}/deploy/turn-config.sh" || warn "TURN sozlanmadi — keyin: sudo DOMAIN=${DOMAIN} ${APP_DIR}/deploy/turn-config.sh"
+    fi
 else
     log "Dev: birinchi filial va superadmin (bor bo'lsa o'zgarmaydi)"
     INIT_OUTPUT="$(as_app "php artisan ibtaxi:init" 2>&1 || true)"
@@ -459,6 +472,7 @@ if [[ "$MODE" == "--prod" ]]; then
     if [[ "$SSL_FAILED" == 1 ]]; then echo "  (sertifikat olinmadi — yuqoridagi ogohlantirishga qarang)"; fi
     echo "Zaxira: har kuni 02:30 (storage/app/private/backups), yangilash: sudo -u ${APP_USER} php artisan ibtaxi:update"
     echo "SIP provayderga server IP: ${PUBLIC_IP}"
+    if [[ "$TURN" == 1 ]]; then echo "TURN: $(grep -s '^TURN_URL=' "${APP_DIR}/.env" | cut -d= -f2-)"; fi
     echo
     if grep -q '^Parol:' <<<"$INIT_OUTPUT"; then
         echo "Superadmin (faqat hozir ko'rsatiladi; nusxasi ${APP_DIR}/storage/app/private/first-login.txt — kirgach o'chiring):"
