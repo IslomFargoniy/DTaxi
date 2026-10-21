@@ -4,7 +4,9 @@ import { Marker } from 'maplibre-gl';
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TaxiMap } from '@/components/map/taxi-map';
+import { globalSip } from '@/components/webphone/sip-state';
 import { useTrans } from '@/hooks/use-trans';
+import { markGpsEvent } from '@/lib/gps-health';
 import { cn } from '@/lib/utils';
 import { index } from '@/routes/operator';
 import type { Branch, MapDriver, Order, TariffClass } from '@/types/operator';
@@ -111,16 +113,25 @@ export default function OperatorIndex({
     } | null>(null);
     const [incoming, setIncoming] = useState<CallCard | null>(null);
 
-    // Kiruvchi qo'ng'iroq kartochkasi webfondan (layout'da) — buyurtma formasi mijoz raqami bilan ochiladi
+    // Kiruvchi qo'ng'iroq kartochkasi webfondan (layout'da) — buyurtma formasi mijoz raqami bilan ochiladi.
+    // Qo'ng'iroq boshqa sahifada kelgan bo'lsa — sahifa ochilganda global holatdan olinadi
     useEffect(() => {
-        const onCard = (e: Event) =>
+        const pending = globalSip.takePendingCard();
+        if (pending) {
+            setIncoming(pending);
+        }
+        const onCard = (e: Event) => {
+            globalSip.takePendingCard();
             setIncoming((e as CustomEvent<CallCard>).detail);
+        };
         window.addEventListener('dtaxi:call-card', onCard);
 
         return () => window.removeEventListener('dtaxi:call-card', onCard);
     }, []);
     const mapRef = useRef<MapLibreMap | null>(null);
     const placeMarkers = useRef<Marker[]>([]);
+    // Ro'yxatdan chiqqan (yakunlangan) buyurtmalar: kechikkan eski hodisa ularni qaytarmasin
+    const finished = useRef<Map<number, number>>(new Map());
 
     useEffect(() => {
         setOrders(initialOrders);
@@ -131,20 +142,51 @@ export default function OperatorIndex({
     const onOrder = useCallback(
         (order: Order) =>
             setOrders((list) => {
-                const rest = list.filter((o) => o.id !== order.id);
+                const at = order.updated_at
+                    ? Date.parse(order.updated_at)
+                    : null;
+                const index = list.findIndex((o) => o.id === order.id);
+                const prev = index >= 0 ? list[index] : null;
+                const closedAt = finished.current.get(order.id);
+                if (
+                    !prev &&
+                    closedAt !== undefined &&
+                    (at === null || at <= closedAt)
+                ) {
+                    return list;
+                }
+                // Tartibsiz kelgan eski hodisa yangi holat ustidan yozilmaydi
+                if (
+                    prev?.updated_at &&
+                    at !== null &&
+                    at < Date.parse(prev.updated_at)
+                ) {
+                    return list;
+                }
+                if (!ACTIVE.includes(order.status)) {
+                    finished.current.set(order.id, at ?? Date.now());
 
-                return ACTIVE.includes(order.status) ? [order, ...rest] : rest;
+                    return prev ? list.filter((o) => o.id !== order.id) : list;
+                }
+                if (!prev) {
+                    // Yangi buyurtma — tepada
+                    return [order, ...list];
+                }
+                // Yangilangan qator joyida qoladi (ro'yxat sakramasin)
+                const next = [...list];
+                next[index] = order;
+
+                return next;
             }),
         [],
     );
-    const onDriver = useCallback(
-        (driver: MapDriver) =>
-            setDrivers((list) => [
-                ...list.filter((d) => d.id !== driver.id),
-                { ...list.find((d) => d.id === driver.id), ...driver },
-            ]),
-        [],
-    );
+    const onDriver = useCallback((driver: MapDriver) => {
+        markGpsEvent();
+        setDrivers((list) => [
+            ...list.filter((d) => d.id !== driver.id),
+            { ...list.find((d) => d.id === driver.id), ...driver },
+        ]);
+    }, []);
 
     // Haydovchilar qatlami
     useEffect(() => {
@@ -233,16 +275,21 @@ export default function OperatorIndex({
         [],
     );
 
-    // Tanlangan buyurtmani xaritada ko'rsatish
+    // Tanlangan buyurtmani xaritada ko'rsatish — faqat tanlov o'zgarganda
+    // (har buyurtma hodisasida xarita operator qo'lidan sakrab ketmasin)
+    const ordersRef = useRef(orders);
     useEffect(() => {
-        const order = orders.find((o) => o.id === selectedId);
+        ordersRef.current = orders;
+    }, [orders]);
+    useEffect(() => {
+        const order = ordersRef.current.find((o) => o.id === selectedId);
         if (order?.pickup.lat && order.pickup.lng) {
             mapRef.current?.easeTo({
                 center: [order.pickup.lng, order.pickup.lat],
                 zoom: 15,
             });
         }
-    }, [selectedId, orders]);
+    }, [selectedId]);
 
     return (
         <>

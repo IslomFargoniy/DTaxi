@@ -1,9 +1,11 @@
 import { router } from '@inertiajs/react';
-import { Ban, Pencil, RefreshCw, UserCheck } from 'lucide-react';
+import { Ban, Pencil, Phone, RefreshCw, UserCheck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import OrderController from '@/actions/App/Http/Controllers/Operator/OrderController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { dial, useSip } from '@/components/webphone/use-sip';
+import { useCan } from '@/hooks/use-can';
 import { useTrans } from '@/hooks/use-trans';
 import { orderStatusColor, orderStatusLabel } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
@@ -52,6 +54,55 @@ function beep() {
     } catch {
         // Brauzer ovozni bloklagan bo'lishi mumkin — vizual belgi baribir bor
     }
+}
+
+/** Bir bosishda haydovchiga yoki mijozga qo'ng'iroq (webfon orqali) */
+function CallButtons({ order }: { order: Order }) {
+    const { t } = useTrans();
+    const { can } = useCan();
+    const sip = useSip();
+
+    if (!can('calls.answer') || (!order.driver && !order.client?.phone)) {
+        return null;
+    }
+    const ready = sip.status === 'connected' && sip.callState === 'idle';
+    const why =
+        sip.tabRole === 'follower'
+            ? t('Phone is open in another tab')
+            : sip.status !== 'connected'
+              ? t('Phone is not connected')
+              : sip.callState !== 'idle'
+                ? t('A call is already in progress')
+                : undefined;
+
+    return (
+        <>
+            {order.driver && (
+                <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!ready}
+                    title={
+                        why ?? `${t('Call driver')} #${order.driver.callsign}`
+                    }
+                    onClick={() => dial(order.driver?.callsign)}
+                >
+                    <Phone /> {t('Call driver')}
+                </Button>
+            )}
+            {order.client?.phone && (
+                <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!ready}
+                    title={why ?? `${t('Call client')} ${order.client.phone}`}
+                    onClick={() => dial(order.client?.phone)}
+                >
+                    <Phone /> {t('Call client')}
+                </Button>
+            )}
+        </>
+    );
 }
 
 /** Buyurtma yaratilganidan beri o'tgan vaqt (mm:ss) — operator kutish vaqtini ko'radi */
@@ -198,6 +249,17 @@ function OrderRow({
             )}
 
             {selected &&
+                !['new', 'searching', 'assigned', 'arrived'].includes(
+                    order.status,
+                ) && (
+                    <div
+                        className="mt-2 flex flex-wrap gap-1.5"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <CallButtons order={order} />
+                    </div>
+                )}
+            {selected &&
                 ['new', 'searching', 'assigned', 'arrived'].includes(
                     order.status,
                 ) && (
@@ -205,6 +267,7 @@ function OrderRow({
                         className="mt-2 flex flex-wrap gap-1.5"
                         onClick={(e) => e.stopPropagation()}
                     >
+                        <CallButtons order={order} />
                         {waiting && (
                             <Button
                                 size="sm"
@@ -324,18 +387,19 @@ export function OrdersList({
     onSelect: (id: number) => void;
 }) {
     const { t } = useTrans();
-    const alerted = useRef<Set<number>>(new Set());
+    // Buyurtma → signal berilgan "hech kim olmadi" vaqti
+    const alerted = useRef<Map<number, string>>(new Map());
 
-    // Har "hech kim olmadi" buyurtma uchun bir marta signal
+    // Har "hech kim olmadi" holati uchun bir marta signal; qayta qidiruvdan keyin yana tugasa — yana signal
     useEffect(() => {
         let fresh = false;
         for (const order of orders) {
             if (
                 order.status === 'searching' &&
                 order.search_exhausted_at &&
-                !alerted.current.has(order.id)
+                alerted.current.get(order.id) !== order.search_exhausted_at
             ) {
-                alerted.current.add(order.id);
+                alerted.current.set(order.id, order.search_exhausted_at);
                 fresh = true;
             }
         }
