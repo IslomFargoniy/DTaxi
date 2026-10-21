@@ -23,13 +23,14 @@ Har bir taksi firmasi o'z serverida alohida nusxa oladi. Firmaga xos hech narsa 
 ### Domen va DNS
 
 - Domen (masalan `taxi.firma.uz`) uchun **A yozuvi server IP'siga** o'rnatilgan va tarqalgan bo'lsin: `dig +short taxi.firma.uz` server IP'sini qaytarsin.
-- DNS tayyor bo'lmasa, Let's Encrypt sertifikati olinmaydi va o'rnatish to'xtaydi (§8 ga qarang).
+- DNS tayyor bo'lmasa, Let's Encrypt sertifikati olinmaydi: o'rnatish ogohlantirish bilan davom etadi, sertifikatni keyin olish kerak (§8 ga qarang).
 
 ### Firmadan olinadigan ma'lumotlar
 
 | Nima                                                                    | Qayerga kiritiladi                      | Majburiymi                  |
 | ----------------------------------------------------------------------- | --------------------------------------- | --------------------------- |
 | Domen, admin e-mail (sertifikat uchun)                                  | `install.sh` parametrlari               | ha                          |
+| Firma (xizmat) nomi                                                     | `--company=` yoki keyin Panel → Firma   | yo'q (standart — Dtaxi)     |
 | SIP trunk: provayder (Sarkor va h.k.), login, parol, server, raqam(lar) | Panel → Telefoniya                      | qo'ng'iroqlar uchun         |
 | Firebase loyihasi (`google-services.json` + server kaliti)              | Android build + Panel → Integratsiyalar | push uchun                  |
 | Click / Payme kalitlari                                                 | Panel → Integratsiyalar                 | onlayn to'ldirish uchun     |
@@ -46,43 +47,46 @@ Har bir taksi firmasi o'z serverida alohida nusxa oladi. Firmaga xos hech narsa 
 apt-get update && apt-get install -y git
 git clone git@github.com:IslomFargoniy/ibTaxi.git /var/www/ibtaxi
 cd /var/www/ibtaxi
-sudo ./deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz
+sudo ./deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz --company="Ibrat taksi"
 ```
 
 Parametrlar:
 
-| Parametr / o'zgaruvchi      | Ma'nosi                                                                           |
-| --------------------------- | --------------------------------------------------------------------------------- |
-| `--prod --domain= --email=` | firma serveri (majburiy uchtasi birga)                                            |
-| `--skip-maps`               | xarita/OSRM tayyorlashni o'tkazib yuborish (keyin qo'lda)                         |
-| `--skip-ssl`                | sertifikatsiz — **faqat sinov uchun** (mikrofon https'siz ishlamaydi)             |
-| `BBOX=lon1,lat1,lon2,lat2`  | xizmat hududi (standart — Farg'ona vodiysi)                                       |
-| `PUBLIC_IP=`                | avtomatik aniqlanmasa                                                             |
-| `LOCAL_NET=`                | server ichki tarmog'i (standart `192.168.0.0/16`; bulutda ko'pincha `10.0.0.0/8`) |
+| Parametr / o'zgaruvchi      | Ma'nosi                                                                   |
+| --------------------------- | ------------------------------------------------------------------------- |
+| `--prod --domain= --email=` | firma serveri (majburiy uchtasi birga)                                    |
+| `--company=`                | firma (xizmat) nomi — faqat birinchi o'rnatishda (standart `Dtaxi`)       |
+| `--skip-maps`               | xarita/OSRM tayyorlashni o'tkazib yuborish (keyin qo'lda)                 |
+| `--skip-ssl`                | sertifikatsiz — **faqat sinov uchun** (mikrofon https'siz ishlamaydi)     |
+| `BBOX=lon1,lat1,lon2,lat2`  | xizmat hududi (standart — Farg'ona vodiysi)                               |
+| `PUBLIC_IP=`                | avtomatik aniqlanmasa                                                     |
+| `LOCAL_NET=`                | server ichki tarmog'i (standart — asosiy interfeys tarmog'idan avtomatik) |
 
 Git uchun: serverda `ibtaxi` foydalanuvchisiga **faqat o'qish huquqli deploy key** qo'shing (GitHub → Settings → Deploy keys), keyingi yangilanishlar shu orqali keladi.
 
 ### `install.sh` nima qiladi (tartib bo'yicha)
 
-1. Paketlar: nginx, supervisor, redis, php8.3-fpm, PostgreSQL 16 + PostGIS 3, certbot, ufw, fail2ban; `ibtaxi` tizim foydalanuvchisi.
-2. RAM+swap 8 GB dan kam bo'lsa — 4 GB swap.
-3. Composer, Node 22.
-4. PostgreSQL: `ibtaxi` roli va bazasi, `postgis`, `pg_trgm` kengaytmalari (parol tasodifiy).
-5. Huquqlar: php-fpm `ibtaxi` nomidan ishlaydi, papka `750`.
-6. `.env` (production, baza, Reverb kalitlari) — fayl `640`.
-7. Asterisk + ODBC: `deploy/asterisk/*.conf` → `/etc/asterisk`, DTLS sertifikati, yozuvlar papkasi, ARI paroli `.env` ga.
-8. Nginx: `/` → PHP, `/app` → Reverb (8080), `/ws` → Asterisk WebSocket (8088), `/map/` → xarita tile'lari.
-9. `composer install`, `npm ci && npm run build`, `migrate`, rollar, `storage:link`, `optimize`, `telephony:sync`.
-10. Xarita (`--skip-maps` bo'lmasa, **bir necha soat**): OSM → tile'lar → OSRM (Docker, `ibtaxi-osrm`) → hududlar, mo'ljallar, ko'cha/uy raqamlari.
-11. Let's Encrypt sertifikati (`certbot --nginx --redirect`), yangilanish — certbot timer.
-12. Firewall (ufw) va fail2ban.
-13. logrotate, supervisor dasturlari, cron (`schedule:run` har daqiqada).
+1. Paketlar: nginx, supervisor, redis, php8.3-fpm, PostgreSQL 16 + PostGIS 3, Asterisk, certbot, ufw, fail2ban; `ibtaxi` tizim foydalanuvchisi.
+2. **Darhol** firewall (ufw: SSH, 80/443, RTP 10000–20000/udp) va fail2ban (sshd, asterisk) — server uzoq bosqichlar paytida ham himoyada.
+3. RAM+swap 8 GB dan kam bo'lsa — 4 GB swap. Composer, Node 22.
+4. PostgreSQL: `ibtaxi` roli va bazasi, `postgis`, `pg_trgm` (parol tasodifiy; `.env` da `.env.example` dagi `ibtaxi` paroli qolgan bo'lsa — almashtiriladi). Test bazasi faqat `--dev` da.
+5. Huquqlar: php-fpm `ibtaxi` nomidan ishlaydi, papka `750`. `.env` (production, baza, Reverb kalitlari) — `640`.
+6. Asterisk + ODBC: `deploy/asterisk-config.sh` — `deploy/asterisk/*.conf` → `/etc/asterisk` (PUBLIC_IP, LOCAL_NET `/etc/ibtaxi/asterisk.env` da saqlanadi), DTLS sertifikati, yozuvlar papkasi, ARI paroli `.env` ga.
+7. Nginx: `/` → PHP, `/app` → Reverb (8080), `/ws` → Asterisk WebSocket (8088), `/map/` → xarita tile'lari; kirish manzillari va `/ws` uchun IP bo'yicha so'rov cheklovi (`limit_req`).
+8. `composer install`, `npm ci && npm run build`, `migrate`, `storage:link`, `optimize`, `telephony:sync`.
+9. **`ibtaxi:init`**: rollar, bitta filial ("Asosiy filial"), superadmin `admin@<domen>` tasodifiy parol bilan (superadmin bor bo'lsa hech narsa o'zgarmaydi).
+10. Let's Encrypt (`certbot --nginx --redirect`), yangilanish — certbot timer. Qayta ishga tushirilganda mavjud sertifikat nginx'ga qayta ulanadi. **Olinmasa o'rnatish to'xtamaydi** — ogohlantirish va qayta urinish buyrug'i chiqadi.
+11. SIP firewall cron'i (5060 faqat trunk IP'lariga), logrotate, supervisor dasturlari, cron (`schedule:run` har daqiqada).
+12. Xarita (`--skip-maps` bo'lmasa, **bir necha soat**, eng oxirida): OSM → tile'lar → OSRM (Docker, `ibtaxi-osrm`) → hududlar, mo'ljallar, ko'cha/uy raqamlari. To'xtab qolsa ham sayt va telefoniya ishlaydi; `install.sh` ni qayta ishga tushirish tayyor qismlarni o'tkazib yuboradi.
+13. Yakunda: panel manzili, SIP provayderga beriladigan IP va **superadmin login/paroli**.
 
 ### O'rnatishdan so'ng darhol
 
-1. **Darhol** `https://taxi.firma.uz` ni oching va sozlash ustasidan o'ting — birinchi kirgan odam superadmin bo'ladi.
-   Sayt ochiq turgan paytda buni kechiktirmang.
-2. Panel → Filiallar: filial(lar), xarita markazi, vaqt zonasi.
+1. Yakuniy chiqishdagi **superadmin login va parolini** saqlang — ular faqat bir marta ko'rsatiladi.
+   Nusxasi: `/var/www/ibtaxi/storage/app/private/first-login.txt` (faqat `ibtaxi` o'qiydi). Kirgandan keyin parolni almashtiring (Sozlamalar → Parol) va faylni o'chiring:
+   `sudo rm /var/www/ibtaxi/storage/app/private/first-login.txt`.
+   Parol yo'qolsa: `sudo -u ibtaxi php artisan ibtaxi:admin-password` (yangi tasodifiy parol chiqaradi).
+2. Panel → Firma sozlamalari: firma nomi, standart til. Panel → Filiallar: "Asosiy filial" nomi, hududi, xarita markazi, vaqt zonasi; kerak bo'lsa boshqa filiallar.
 3. Panel → Telefoniya: SIP trunk va raqamlar → saqlash. 5 daqiqa ichida firewall trunk IP'lariga 5060 ni ochadi.
 4. Panel → Integratsiyalar: Firebase, Click/Payme, SpeechKit, zaxira SFTP.
 5. Xodimlar (operator, kassir) va haydovchilar.
@@ -114,6 +118,10 @@ Rejali vazifalar (cron → `schedule:run`):
 - har daqiqada: `orders:dispatch-scheduled`, `orders:rebroadcast`;
 - har 5 daqiqada: `ibtaxi:health`, `drivers:release-stuck`;
 - 02:30 `ibtaxi:backup`, 03:30 `recordings:cleanup`, 04:00 `locations:prune`.
+
+Nginx so'rov cheklovi (bitta IP'dan): `/login`, `/two-factor-challenge`, `/forgot-password`, `/api/driver/v1/auth/login` — daqiqasiga 20 (+20 burst);
+`/ws` (SIP over WSS) — daqiqasiga 30 yangi ulanish (+60 burst), bir vaqtda 100 tagacha. Oshsa — HTTP 429.
+Asterisk WSS ulanishlarini 127.0.0.1 dan ko'radi, shuning uchun fail2ban ularni bloklamaydi — cheklov nginx'da.
 
 ---
 
@@ -173,57 +181,66 @@ Qo'lda:
 
 ```bash
 cd /var/www/ibtaxi
-sudo -u ibtaxi php artisan ibtaxi:update           # oxirgi versiya
+sudo -u ibtaxi php artisan ibtaxi:update            # oxirgi versiya
+sudo -u ibtaxi php artisan ibtaxi:update --ref=v1.2 # aniq teg
 sudo -u ibtaxi php artisan ibtaxi:update --rollback # muammo bo'lsa — oldingi kod va baza
 ```
 
-- **Har doim `sudo -u ibtaxi` bilan** ishga tushiring. root nomidan ishlatilsa, git "dubious ownership" xatosini beradi va fayllar root'ga o'tib qoladi.
-- Yangilash: zaxira → texnik rejim → `git pull` → composer, build, migratsiya → xizmatlarni qayta ishga tushirish → `telephony:sync` → sayt ochiladi.
-- **Faol qo'ng'iroqlar paytida yangilamang** (kechasi). ARI daemon qayta ishga tushganda davom etayotgan qo'ng'iroqlar yopilgan deb belgilanadi.
-- `--ref=<teg>` dan keyin keyingi oddiy yangilanish ishlashi uchun avval `sudo -u ibtaxi git checkout main` qiling.
-- `--rollback` yangilanishdan keyin yozilgan ma'lumotlarni (buyurtmalar, to'lovlar) o'chiradi — faqat yangilanishdan keyin darhol ishlating.
-- `deploy/asterisk/*.conf` o'zgargan bo'lsa, ular avtomatik qo'llanmaydi: `install.sh` ni qayta ishga tushiring yoki faylni `/etc/asterisk` ga qo'lda ko'chirib, `asterisk -rx 'core reload'` qiling.
+- **Har doim `sudo -u ibtaxi` bilan.** root nomidan buyruq ishlamaydi (git "dubious ownership" va fayllar root'ga o'tib qolardi).
+- Yangilash: zaxira (`*_before-update.dump`) → texnik rejim → `git pull` → composer, build, migratsiya → kesh, Horizon, Reverb, `telephony:sync` → sayt ochiladi → ARI daemon qayta ishga tushadi.
+- **Xato bo'lsa** (composer, npm yoki migratsiya): kod avtomatik oldingi commit'ga qaytariladi, uning bog'liqliklari qayta o'rnatiladi va sayt ochiladi. Migratsiya qisman bajarilgan bo'lishi mumkin — kerak bo'lsa `--rollback`. Qaytarishning o'zi ham muvaffaqiyatsiz bo'lsa, sayt texnik rejimda qoladi (yangi kod eski bog'liqliklar bilan ishlamasin).
+- ARI daemon faol qo'ng'iroqlar tugashini kutadi (standart 10 daqiqagacha, `--wait-calls=<soniya>`), keyin qayta ishga tushadi. Sayt bu paytda ochiq. Baribir kechasi yangilagan ma'qul.
+- `--ref=<teg>` dan keyingi oddiy `ibtaxi:update` avval asosiy tarmoqqa (`main`) qaytadi.
+- `--rollback` yangilanishdan keyin yozilgan ma'lumotlarni (buyurtmalar, to'lovlar) o'chiradi — faqat yangilanishdan keyin darhol ishlating. Oxirgi yangilanish zaxirasi keyingi yangilanishgacha o'chirilmaydi (14 kunlik tozalashdan qat'i nazar).
+- `deploy/asterisk/*.conf` o'zgargan bo'lsa, `ibtaxi:update` oxirida buyruqni ko'rsatadi (root kerak):
+  `sudo /var/www/ibtaxi/deploy/asterisk-config.sh` (`core reload`, qo'ng'iroqlar uzilmaydi; to'liq qayta ishga tushirish — `--restart`).
 
 ---
 
 ## 7. Zaxira va tiklash
 
-- Har kuni 02:30: baza (`*.dump`) + `.env` + fayllar (`*.files.tar.gz`) → `storage/app/private/backups`, 14 kun saqlanadi.
+- Har kuni 02:30 `ibtaxi:backup`: baza (`*.dump`) + fayllar va `.env` (`*.files.tar.gz`) → `storage/app/private/backups`, 14 kun saqlanadi.
+- **Suhbat yozuvlari kunlik arxivga kirmaydi** (oyiga GB'lab o'sadi). Zaxira SFTP sozlangan bo'lsa, har kuni faqat **kechagi kun** yozuvlari alohida arxiv (`<sana>_recordings.tar`) bo'lib SFTP'ga yuboriladi va mahalliy nusxasi o'chiriladi (yozuvlar serverda baribir bor). Yuborilmay qolganlari keyingi kuni qayta yuboriladi.
+  SFTP keyinroq sozlansa, eski yozuvlarni bir marta yuborish: `sudo -u ibtaxi php artisan ibtaxi:backup --recordings-from=2026-01-01`.
 - **Zaxira serverning o'zida turadi** — disk buzilsa yo'qoladi. Panel → Integratsiyalar → zaxira SFTP'ni albatta sozlang.
-- Fayllar arxivida qo'ng'iroq yozuvlari ham bor — diskni kuzating (`df -h`).
 
-Boshqa serverga tiklash:
+Boshqa serverga (yoki halokatdan keyin) tiklash:
 
 ```bash
-# 1. Yangi serverga install.sh (yuqoridagidek), keyin:
-sudo supervisorctl stop all
-tar -xzf <sana>.files.tar.gz -C /var/www/ibtaxi       # .env va storage/app/private
-#    .env dagi APP_KEY eski serverniki bo'lishi SHART — integratsiya kalitlari shu bilan shifrlangan
-sudo -u postgres pg_restore --clean --if-exists --no-owner --role=ibtaxi -d ibtaxi <sana>.dump
-sudo -u ibtaxi php artisan optimize && sudo -u ibtaxi php artisan telephony:sync
-sudo supervisorctl start all
+# 1. Yangi serverga install.sh (yuqoridagidek), zaxira fayllarini serverga ko'chirish, keyin:
+sudo -u ibtaxi php artisan ibtaxi:restore /path/<sana>_daily.dump \
+    --files=/path/<sana>_daily.files.tar.gz \
+    --files=/path/<sana>_recordings.tar      # yozuvlar arxivlari (ixtiyoriy, bir nechta)
 ```
+
+`ibtaxi:restore` tasdiq so'raydi, so'ng: texnik rejim → `pg_restore --clean --if-exists --no-owner` → fayllar (`storage/app/private`) →
+`optimize`, `telephony:sync`, Horizon/Reverb/ARI qayta ishga tushirish → sayt ochiladi.
+Yangi serverning `.env` i saqlanadi (baza paroli, domen boshqa), faqat **APP_KEY** zaxiradagisiga almashtiriladi — integratsiya kalitlari shu bilan shifrlangan. Eski `.env` to'liq nusxasi `.env.restored` ga tushadi (taqqoslash uchun).
+Tiklangan bazada eski superadmin bo'ladi — `ibtaxi:init` yaratgan login ishlamay qoladi.
 
 ---
 
 ## 8. Ma'lum muammolar va yechimlar
 
-| Belgi                                  | Sabab                                                              | Yechim                                                                                                                                                                                              |
-| -------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `install.sh` certbot'da to'xtadi       | DNS hali serverga ko'rsatmaydi yoki Let's Encrypt limiti           | DNS'ni tekshirib, `install.sh` ni qayta ishga tushiring (qayta ishga tushirish xavfsiz). O'rnatish to'xtagan bo'lsa, firewall va supervisor hali sozlanmagan bo'lishi mumkin — oxirigacha yetkazing |
-| Mikrofon ishlamaydi                    | sahifa `http://` orqali ochilgan                                   | faqat `https://`                                                                                                                                                                                    |
-| Ovoz bir tomonlama                     | server NAT ortida, ochiq IP yo'q                                   | ochiq IP'li server; yoki `LOCAL_NET` noto'g'ri — to'g'rilab `install.sh` ni qayta ishga tushiring                                                                                                   |
-| Trunk "Unregistered"                   | login/parol, provayder IP'si                                       | Panel → Telefoniya; `asterisk -rx 'pjsip show registrations'`; `ufw status`                                                                                                                         |
-| Kiruvchi qo'ng'iroq kelmaydi           | 5060 trunk IP'siga ochilmagan                                      | `sudo /var/www/ibtaxi/deploy/sip-firewall.sh`, `journalctl -t ibtaxi-sip`                                                                                                                           |
-| Telefoniya sozlamalari ta'sir qilmaydi | ARI daemon eski sozlamani ushlab turadi                            | `sudo -u ibtaxi php artisan ari:restart`                                                                                                                                                            |
-| Operator "band" bo'lib qoldi           | qo'ng'iroq holati osilib qolgan (Asterisk qayta ishga tushgan)     | `ari:restart`                                                                                                                                                                                       |
-| Haydovchiga push kelmaydi              | Firebase kaliti yo'q yoki `google-services.json` boshqa loyihaniki | Integratsiyalar va Android build'ni tekshiring                                                                                                                                                      |
-| Xarita bo'sh                           | tile'lar tayyorlanmagan (`--skip-maps`)                            | `deploy/osm-prepare.sh`, `map-prepare.sh`, `osrm-prepare.sh`, so'ng `regions:import`                                                                                                                |
+| Belgi                                      | Sabab                                                              | Yechim                                                                                                                                                                                                       |
+| ------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "Sertifikat olinmadi" ogohlantirishi       | DNS hali serverga ko'rsatmaydi yoki Let's Encrypt limiti           | DNS'ni tekshirib, `sudo certbot --nginx -d <domen> -m <email> --agree-tos --redirect` yoki `install.sh` ni qayta ishga tushiring (xavfsiz). Qolgan o'rnatish (firewall, supervisor, cron) baribir bajarilgan |
+| Superadmin paroli yo'qoldi                 | —                                                                  | `sudo -u ibtaxi php artisan ibtaxi:admin-password [email]`                                                                                                                                                   |
+| Login sahifasida "Administrator hali yo'q" | `ibtaxi:init` ishga tushmagan                                      | `sudo -u ibtaxi php artisan ibtaxi:init --company="..."`                                                                                                                                                     |
+| Ko'p operator bir IP'dan, `/ws` 429        | ofis NAT'i ortida juda ko'p ulanish                                | `/etc/nginx/sites-available/ibtaxi` da `limit_req`/`limit_conn` qiymatlarini oshiring, `nginx -s reload`                                                                                                     |
+| Mikrofon ishlamaydi                        | sahifa `http://` orqali ochilgan                                   | faqat `https://`                                                                                                                                                                                             |
+| Ovoz bir tomonlama                         | server NAT ortida, ochiq IP yo'q                                   | ochiq IP'li server; yoki `LOCAL_NET` noto'g'ri — `sudo LOCAL_NET=10.0.0.0/8 /var/www/ibtaxi/deploy/asterisk-config.sh --restart`                                                                             |
+| Trunk "Unregistered"                       | login/parol, provayder IP'si                                       | Panel → Telefoniya; `asterisk -rx 'pjsip show registrations'`; `ufw status`                                                                                                                                  |
+| Kiruvchi qo'ng'iroq kelmaydi               | 5060 trunk IP'siga ochilmagan                                      | `sudo /var/www/ibtaxi/deploy/sip-firewall.sh`, `journalctl -t ibtaxi-sip`                                                                                                                                    |
+| Telefoniya sozlamalari ta'sir qilmaydi     | ARI daemon eski sozlamani ushlab turadi                            | `sudo -u ibtaxi php artisan ari:restart`                                                                                                                                                                     |
+| Operator "band" bo'lib qoldi               | qo'ng'iroq holati osilib qolgan (Asterisk qayta ishga tushgan)     | `ari:restart`                                                                                                                                                                                                |
+| Haydovchiga push kelmaydi                  | Firebase kaliti yo'q yoki `google-services.json` boshqa loyihaniki | Integratsiyalar va Android build'ni tekshiring                                                                                                                                                               |
+| Xarita bo'sh                               | tile'lar tayyorlanmagan (`--skip-maps`)                            | `deploy/osm-prepare.sh`, `map-prepare.sh`, `osrm-prepare.sh`, so'ng `regions:import`                                                                                                                         |
 
 ---
 
 ## 9. Lokal ishlab chiqish (faqat dasturchi uchun)
 
-- `sudo ./deploy/install.sh --dev` — Multipass VM (`ibtaxi`, 192.168.252.2); self-signed https.
+- `sudo ./deploy/install.sh --dev` — Multipass VM (`ibtaxi`, 192.168.252.2); self-signed https. `ibtaxi:init` ham chaqiriladi (dev bazada superadmin bo'lsa o'zgarmaydi).
 - Haqiqiy telefonda sinov: Mac'da `python3 deploy/dev-lan-proxy.py` (80/443 va RTP portlarini VM'ga uzatadi, Asterisk'ni Mac IP'siga sozlaydi), ilova `-Pfirm=lan` bilan.
 - Bu skript va `--dev` rejimi firma serverida **ishlatilmaydi**.

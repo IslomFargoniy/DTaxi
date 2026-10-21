@@ -67,6 +67,7 @@ Holat: **v5.0 — tasdiqlangan reja** · Sana: 2026-10-17
 | 55  | **Mijoz bahosi**: operator kiritadi yoki safardan keyingi IVR qo'ng'iroqda 1–5 (standart o'chiq — qo'ng'iroq pulli); shikoyat/unutilgan buyum jurnali buyurtma va yozuvga bog'lanadi                                                                                                          | 2026-10-22 |
 | 56  | **Mahsulot nomi — Dtaxi**, logo: qora "D" ichida lokatsiya belgisi (teshik), sariq #FFC800 fonda. Foydalanuvchiga ko'rinadigan nomlar almashtirildi; ichki `ibtaxi` nomlari (Android paketi, artisan buyruqlari, baza, VM) — o'rnatilgan ilovalar va serverlar buzilmasligi uchun o'zgarmaydi | 2026-10-21 |
 | 57  | **Ovozli navigatsiya** — telefonning TTS dvigateli (Samsung/Google), internetsiz; o'zbekcha ovoz yo'q, shuning uchun ko'rsatmalar ruscha (bo'lmasa inglizcha) aytiladi, banner ilova tilida. Haydovchi sozlamalarda ovozni tanlaydi. SpeechKit bilan o'zbekcha iboralar kerak emas            | 2026-10-21 |
+| 58  | **Birinchi ishga tushirish — `ibtaxi:init`** (ochiq sozlash ustasi o'rniga): `install.sh` bitta filial va superadmin (`admin@<domen>`, tasodifiy parol) yaratadi, login/parol o'rnatuvchiga bir marta ko'rsatiladi; begona odam superadmin bo'lib ololmaydi. Parol — `ibtaxi:admin-password`  | 2026-10-21 |
 
 ---
 
@@ -97,7 +98,7 @@ ibTaxi bitta firma uchun emas, **ko'plab taksi firmalariga sotiladigan mahsulot*
 **O'rnatish va yangilash:**
 
 - **O'rnatish skripti** (bash/Ansible, qaror #46): toza Ubuntu LTS VPS → to'liq tizim (Nginx, PHP-FPM, Laravel, PostgreSQL+PostGIS, Redis, Asterisk, coturn, OSRM, tiles, Supervisor, Certbot SSL, firewall, fail2ban, zaxira cron) bitta buyruqda. Yangi xaridorni ulash vaqti — soatlar, kunlar emas
-- **Birinchi kirish ustasi (setup wizard):** firma nomi, superadmin, hudud, birinchi filial, integratsiyalar
+- **Birinchi ishga tushirish (qaror #58):** `install.sh` filial va superadmin yaratadi, login/parol o'rnatuvchiga beriladi; firma nomi, til, hudud, integratsiyalar — keyin panelda
 - **Yangilanishlar:** barcha nusxalar bitta asosiy kod bazasidan (git tag/release) yangilanadi — firmaga xos o'zgarishlar kodda emas, sozlamalarda bo'lgani uchun yangilash xavfsiz. `php artisan ibtaxi:update` (migratsiya + kesh + Asterisk reload)
 - **Sotish: bir martalik** (qaror #36) — har firma **o'z serveri**ni oladi (O'zbekistondagi hosting tavsiya etiladi, masalan UzCloud), siz o'rnatib berasiz. Pilot — birinchi xaridor firma bilan (qaror #45). **Yangilanishlar bepul** (qaror #38). Kod himoyasi hozircha yo'q (qaror #39)
 
@@ -754,7 +755,7 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 
 - Har firma **o'z serverini** oladi; tavsiya — **O'zbekistondagi hosting** (masalan UzCloud): shaxsiy ma'lumotlar to'g'risidagi qonun (fuqarolarning telefon raqamlari, qo'ng'iroq yozuvlari, manzillari mamlakat hududida saqlanishi talab qilinadi) va SIP/ovoz uchun past kechikish
 - Server talablari §9 jadvalida; hostingdan oldindan tasdiqlanadi: statik IPv4, UDP portlar (SIP/RTP/TURN) ochiq
-- O'rnatish: toza Ubuntu → o'rnatish skripti → sozlash ustasi (§0). Test ma'lumotlari ko'chirilmaydi
+- O'rnatish: toza Ubuntu → o'rnatish skripti (superadmin login/paroli bilan, qaror #58) → panelda sozlash (§0). Test ma'lumotlari ko'chirilmaydi
 
 ---
 
@@ -849,7 +850,7 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 ### Bosqich 4 — Pilot birinchi xaridor firma bilan (2 hafta, qaror #45)
 
 - [x] Click SHOP API (prepare/complete) va Payme Merchant API (JSON-RPC, bekor qilishda qaytarish) — pozivnoy bo'yicha; ilovada "Balansni to'ldirish" (Click/Payme havolalari). Haqiqiy merchant kalitlari bilan sinov — firma shartnomasidan keyin
-- [ ] Firma serverini o'rnatish (o'rnatish skripti + sozlash ustasi)
+- [ ] Firma serverini o'rnatish (o'rnatish skripti + `ibtaxi:init`, `deploy/deploy.md`)
 - [ ] Firma SIP trunki va raqam(lar)ini ulash va sinash (§5.2)
 - [x] Yuklama sinovi (lokal VM, 2 CPU / 4 GB): 100 soxta haydovchi + ~210 buyurtma/soat — hammasi tayinlandi, xatosiz, server yuklamasi ~0.4. Firma serverida (haqiqiy telefonlar bilan) takrorlanadi
 - [ ] Firmaning yuklamasiga qarab kanallar sonini tekshirish (1000+/kun → 8–10 kanal)
