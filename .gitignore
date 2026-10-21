@@ -51,3 +51,4 @@ yarn-error.log
 /android/.idea
 /android/firms/*/dev-ca.pem
 /public/android
+phpunit.local.xml
