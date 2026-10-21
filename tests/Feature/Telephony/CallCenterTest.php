@@ -176,7 +176,9 @@ test('driver calling the dispatcher waits in his branch queue', function () {
 
     // Kutish paytida "kuting" xabari emas, oddiy gudok
     expect(ariRequests('/ari/channels/ch-d/play/'))->toHaveCount(1)
-        ->and(ariRequests('media=tone:ring;tonezone=ru'))->toHaveCount(1);
+        ->and(ariRequests('media=tone:ring;tonezone=ru'))->toHaveCount(1)
+        // Operator ovozi haydovchiga kuchaytirilib boradi
+        ->and(ariRequests('/ari/channels/ch-d/variable?variable=VOLUME(TX)&value=4'))->toHaveCount(1);
 });
 
 test('operator callback goes out through the trunk and bridges when answered', function () {

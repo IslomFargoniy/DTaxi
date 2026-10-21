@@ -26,6 +26,14 @@ class AriClient
         return $this->ok($this->http()->post("channels/{$channelId}/answer"));
     }
 
+    /**
+     * Kanal o'zgaruvchisi yoki funksiyasi, masalan VOLUME(TX).
+     */
+    public function setVariable(string $channelId, string $variable, string $value): bool
+    {
+        return $this->ok($this->http()->post("channels/{$channelId}/variable?".http_build_query(['variable' => $variable, 'value' => $value])));
+    }
+
     public function ring(string $channelId): bool
     {
         return $this->ok($this->http()->post("channels/{$channelId}/ring"));

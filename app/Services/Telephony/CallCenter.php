@@ -38,6 +38,12 @@ class CallCenter
     /** Chaqiruv ohangi (gudok): Asterisk indications.conf, ru zonasi — O'zbekistondagi bilan bir xil */
     private const RINGBACK = 'tone:ring;tonezone=ru';
 
+    /**
+     * Haydovchiga boradigan ovoz kuchaytiriladi: telefon karnayi mashinada shovqin ichida,
+     * brauzer mikrofonidan kelgan operator ovozi esa past (WebView'da 0.01 atrofida).
+     */
+    private const DRIVER_GAIN = '4';
+
     private const CHANNEL_TTL = 14400;
 
     /** Avto-qo'ng'iroq xabari necha marta takrorlanadi (§5.4) */
@@ -364,6 +370,7 @@ class CallCenter
         $this->remember($channelId, $call, 'client');
 
         $this->ari->answer($channelId);
+        $this->ari->setVariable($channelId, 'VOLUME(TX)', self::DRIVER_GAIN);
         // Haydovchi oddiy telefondagidek gudok eshitadi (425 Hz, 1/4 s) — operator javob berganda to'xtaydi
         $this->playFor($call, $channelId, [self::RINGBACK], 'ringback');
         $this->offerToOperator($call);

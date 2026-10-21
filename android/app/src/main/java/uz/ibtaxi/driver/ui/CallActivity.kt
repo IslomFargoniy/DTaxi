@@ -111,10 +111,11 @@ class CallActivity : ComponentActivity() {
     private fun setSpeaker(on: Boolean) {
         wantSpeaker = on
         applyRoute()
-        // Ovoz balandligi: chaqiruv oqimi juda past bo'lsa — o'rtachaga
+        // Mashina shovqinida eshitilsin: karnayda maksimum, quloq dinamigida 3/4 dan past emas
         val max = audio.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
-        if (audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL) < max / 2) {
-            audio.setStreamVolume(AudioManager.STREAM_VOICE_CALL, max * 3 / 4, 0)
+        val target = if (on) max else max * 3 / 4
+        if (audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL) < target) {
+            audio.setStreamVolume(AudioManager.STREAM_VOICE_CALL, target, 0)
         }
     }
 
