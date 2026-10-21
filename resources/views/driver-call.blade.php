@@ -27,6 +27,7 @@
     <audio id="remote" autoplay></audio>
     <div class="row">
         <button id="mute" aria-label="mute">🎙</button>
+        <button id="speaker" class="on" aria-label="speaker">🔊</button>
         <button id="hangup" class="hangup" aria-label="hangup">✕</button>
     </div>
 </main>

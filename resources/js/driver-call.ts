@@ -5,7 +5,12 @@
 import { UA, WebSocketInterface } from 'jssip';
 import type { RTCSession } from 'jssip/lib/RTCSession';
 
-type Bridge = { token(): string; locale(): string; close(): void };
+type Bridge = {
+    token(): string;
+    locale(): string;
+    close(): void;
+    speaker?(on: boolean): void;
+};
 type Phone = {
     sip: { uri: string; password: string; ws: string };
     target: string;
@@ -176,6 +181,14 @@ $('hangup').addEventListener('click', () => {
     } else {
         close(0);
     }
+});
+
+// Karnay ↔ qulog'ingizga tutiladigan dinamik (standart — karnay, mashinada qulay)
+let speakerOn = true;
+$('speaker').addEventListener('click', () => {
+    speakerOn = !speakerOn;
+    bridge?.speaker?.(speakerOn);
+    $('speaker').classList.toggle('on', speakerOn);
 });
 
 $('mute').addEventListener('click', () => {

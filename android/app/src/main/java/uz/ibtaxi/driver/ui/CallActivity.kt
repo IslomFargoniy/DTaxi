@@ -1,5 +1,7 @@
 package uz.ibtaxi.driver.ui
 
+import android.os.Build
+import android.media.AudioDeviceInfo
 import uz.ibtaxi.driver.R
 import uz.ibtaxi.driver.data.DriverState
 import android.webkit.WebResourceError
@@ -43,9 +45,10 @@ class CallActivity : ComponentActivity() {
         volumeControlStream = AudioManager.STREAM_VOICE_CALL
         audio.mode = AudioManager.MODE_IN_COMMUNICATION
         // Mashinada odatda karnay orqali gaplashiladi
-        @Suppress("DEPRECATION")
-        audio.isSpeakerphoneOn = true
+        setSpeaker(true)
 
+        // Lokal sinov build'ida qo'ng'iroq sahifasini Mac'dagi Chrome'dan kuzatish (chrome://inspect) — ovoz tashxisi
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG || BuildConfig.SERVER_EDITABLE)
         web = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
@@ -90,10 +93,33 @@ class CallActivity : ComponentActivity() {
         finish()
     }
 
+    /**
+     * Ovoz karnay yoki qulog'ingizga tutiladigan dinamik orqali. Android 12+ da eski isSpeakerphoneOn
+     * ko'p telefonlarda (Samsung) ishlamaydi — ovoz kichik dinamikka ketib, "jim" bo'lib qolardi.
+     */
+    private fun setSpeaker(on: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val type = if (on) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+            audio.availableCommunicationDevices.firstOrNull { it.type == type }?.let { audio.setCommunicationDevice(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audio.isSpeakerphoneOn = on
+        }
+        // Ovoz balandligi: chaqiruv oqimi juda past bo'lsa — o'rtachaga
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
+        if (audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL) < max / 2) {
+            audio.setStreamVolume(AudioManager.STREAM_VOICE_CALL, max * 3 / 4, 0)
+        }
+    }
+
     override fun onDestroy() {
         web.destroy()
-        @Suppress("DEPRECATION")
-        audio.isSpeakerphoneOn = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audio.clearCommunicationDevice()
+        } else {
+            @Suppress("DEPRECATION")
+            audio.isSpeakerphoneOn = false
+        }
         audio.mode = AudioManager.MODE_NORMAL
         super.onDestroy()
     }
@@ -107,5 +133,9 @@ class CallActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun close() = runOnUiThread { finish() }
+
+        /** Sahifadagi karnay tugmasi */
+        @JavascriptInterface
+        fun speaker(on: Boolean) = runOnUiThread { setSpeaker(on) }
     }
 }
