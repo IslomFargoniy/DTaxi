@@ -205,6 +205,7 @@ data class AppVersion(
     @SerializedName("version_code") val versionCode: Int,
     @SerializedName("min_version_code") val minVersionCode: Int,
     val url: String?,
+    @SerializedName("version_name") val versionName: String? = null,
 )
 
 data class ApiError(val message: String?)

@@ -123,4 +123,8 @@
     <string name="photo">Photo</string>
     <string name="scroll_down">Scroll down</string>
     <string name="call_failed">Could not open the call. Check the internet and server address.</string>
+    <string name="later">Later</string>
+    <string name="update_downloading">Downloading</string>
+    <string name="update_failed">Download failed. Check the internet and try again.</string>
+    <string name="battery_ok">Battery restriction is off</string>
 </resources>

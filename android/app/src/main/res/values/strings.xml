@@ -123,4 +123,8 @@
     <string name="photo">Rasm</string>
     <string name="scroll_down">Pastga</string>
     <string name="call_failed">Qo\'ng\'iroq ochilmadi. Internet va server manzilini tekshiring.</string>
+    <string name="later">Keyinroq</string>
+    <string name="update_downloading">Yuklanmoqda</string>
+    <string name="update_failed">Yuklab bo\'lmadi. Internetni tekshirib, qayta urinib ko\'ring.</string>
+    <string name="battery_ok">Batareya cheklovi o\'chirilgan</string>
 </resources>

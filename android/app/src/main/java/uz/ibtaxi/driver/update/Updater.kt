@@ -22,16 +22,40 @@ class Updater(private val context: Context, private val http: OkHttpClient) {
     /** Majburiy: joriy versiya API bilan mos emas — yangilamaguncha liniyaga chiqa olmaydi */
     fun isRequired(version: AppVersion) = isNewer(version) && BuildConfig.VERSION_CODE < version.minVersionCode
 
-    suspend fun downloadAndInstall(version: AppVersion): Boolean = withContext(Dispatchers.IO) {
+    /** @param onProgress 0..100 (hajm noma'lum bo'lsa -1) — yuklab olish oynasida ko'rsatiladi */
+    suspend fun downloadAndInstall(version: AppVersion, onProgress: (Int) -> Unit = {}): Boolean = withContext(Dispatchers.IO) {
         val url = version.url ?: return@withContext false
         val dir = File(context.cacheDir, "updates").apply { mkdirs() }
         val file = File(dir, "driver-${version.versionCode}.apk")
 
         val absolute = if (url.startsWith("http")) url else uz.ibtaxi.driver.IbTaxiApp.instance.session.serverUrl + url
-        http.newCall(Request.Builder().url(absolute).build()).execute().use { response ->
-            if (!response.isSuccessful) return@withContext false
-            response.body?.byteStream()?.use { input -> file.outputStream().use { input.copyTo(it) } } ?: return@withContext false
-        }
+        val ok = runCatching {
+            http.newCall(Request.Builder().url(absolute).build()).execute().use { response ->
+                val body = response.body
+                if (!response.isSuccessful || body == null) return@use false
+                val total = body.contentLength()
+                var done = 0L
+                var lastPercent = -2
+                body.byteStream().use { input ->
+                    file.outputStream().use { output ->
+                        val buffer = ByteArray(64 * 1024)
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            output.write(buffer, 0, read)
+                            done += read
+                            val percent = if (total > 0) (done * 100 / total).toInt() else -1
+                            if (percent != lastPercent) {
+                                lastPercent = percent
+                                withContext(Dispatchers.Main) { onProgress(percent) }
+                            }
+                        }
+                    }
+                }
+                true
+            }
+        }.getOrDefault(false)
+        if (!ok) return@withContext false
 
         withContext(Dispatchers.Main) {
             if (!context.packageManager.canRequestPackageInstalls()) {

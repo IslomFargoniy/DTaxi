@@ -123,4 +123,8 @@
     <string name="photo">Фото</string>
     <string name="scroll_down">Вниз</string>
     <string name="call_failed">Не удалось открыть звонок. Проверьте интернет и адрес сервера.</string>
+    <string name="later">Позже</string>
+    <string name="update_downloading">Загрузка</string>
+    <string name="update_failed">Не удалось загрузить. Проверьте интернет и попробуйте снова.</string>
+    <string name="battery_ok">Ограничение батареи отключено</string>
 </resources>

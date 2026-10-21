@@ -173,7 +173,16 @@ listOf("debug", "release").forEach { type ->
         val version = android.defaultConfig.versionName
         from(layout.buildDirectory.dir("outputs/apk/$type")) { include("*-universal-*.apk") }
         into(publicApkDir)
+        preserve { include("version.json") }
         rename { "dtaxi.$version" + (if (type == "debug") "-debug" else "") + ".apk" }
+        // Ilova o'zini yangilashi uchun: oxirgi versiya ma'lumoti (ilova /android/version.json ni tekshiradi)
+        val code = android.defaultConfig.versionCode
+        val apkName = "dtaxi.$version" + (if (type == "debug") "-debug" else "") + ".apk"
+        doLast {
+            publicApkDir.resolve("version.json").writeText(
+                "{\"version_code\": $code, \"version_name\": \"$version\", \"min_version_code\": 0, \"url\": \"/android/$apkName\"}\n",
+            )
+        }
     }
     tasks.matching { it.name == "assemble$name" }.configureEach { finalizedBy(sync) }
 }

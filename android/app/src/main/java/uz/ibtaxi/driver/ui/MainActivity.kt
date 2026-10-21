@@ -1,5 +1,14 @@
 package uz.ibtaxi.driver.ui
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Modifier
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.activity.compose.BackHandler
 import android.Manifest
@@ -93,7 +102,7 @@ class MainActivity : ComponentActivity() {
                     }
                     app.repository.refreshOrder()
                     registerPush()
-                    (app.repository.appVersion() as? Result.Ok)?.value?.takeIf(updater::isNewer)?.let { update = it }
+                    app.repository.latestVersion()?.takeIf(updater::isNewer)?.let { update = it }
                     // Ilova qayta ochilganda liniyadagi haydovchi uchun servis davom etadi
                     if (DriverState.profile.value?.status != "offline" && hasLocationPermission()) DriverService.start(this@MainActivity)
                 }
@@ -153,14 +162,52 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+                // Ilova ochiq turganda ham yangi versiya chiqsa bilinsin — har 30 daqiqada /android/version.json
+                LaunchedEffect(Unit) {
+                    // Kirishdan oldin ham (eski ilova login ekranida qolib ketmasin), keyin har 30 daqiqada
+                    while (true) {
+                        if (update == null) app.repository.latestVersion()?.takeIf(updater::isNewer)?.let { update = it }
+                        delay(30 * 60_000L)
+                    }
+                }
+
                 update?.let { version ->
                     val required = updater.isRequired(version)
+                    var progress by remember(version.versionCode) { mutableStateOf<Int?>(null) }
+                    var failed by remember(version.versionCode) { mutableStateOf(false) }
                     AlertDialog(
-                        onDismissRequest = { if (!required) update = null },
-                        title = { Text(stringResource(R.string.update_available)) },
-                        text = { if (required) Text(stringResource(R.string.update_required)) },
+                        onDismissRequest = { if (!required && progress == null) update = null },
+                        title = { Text(stringResource(R.string.update_available) + (version.versionName?.let { " ($it)" } ?: "")) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (required) Text(stringResource(R.string.update_required))
+                                progress?.let { p ->
+                                    if (p >= 0) {
+                                        LinearProgressIndicator(progress = { p / 100f }, modifier = Modifier.fillMaxWidth())
+                                        Text("${stringResource(R.string.update_downloading)} $p%")
+                                    } else {
+                                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                    }
+                                }
+                                if (failed) Text(stringResource(R.string.update_failed), color = MaterialTheme.colorScheme.error)
+                            }
+                        },
                         confirmButton = {
-                            Button(onClick = { scope.launch { updater.downloadAndInstall(version) } }) { Text(stringResource(R.string.update_now)) }
+                            Button(
+                                enabled = progress == null || failed,
+                                onClick = {
+                                    failed = false
+                                    progress = 0
+                                    scope.launch {
+                                        val ok = updater.downloadAndInstall(version) { progress = it }
+                                        if (!ok) failed = true
+                                        progress = null
+                                    }
+                                },
+                            ) { Text(stringResource(R.string.update_now)) }
+                        },
+                        dismissButton = {
+                            if (!required && progress == null) TextButton(onClick = { update = null }) { Text(stringResource(R.string.later)) }
                         },
                     )
                 }

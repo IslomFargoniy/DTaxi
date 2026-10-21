@@ -124,4 +124,8 @@
     <string name="photo">Расм</string>
     <string name="scroll_down">Пастга</string>
     <string name="call_failed">Қўнғироқ очилмади. Интернет ва сервер манзилини текширинг.</string>
+    <string name="later">Кейинроқ</string>
+    <string name="update_downloading">Юкланмоқда</string>
+    <string name="update_failed">Юклаб бўлмади. Интернетни текшириб, қайта уриниб кўринг.</string>
+    <string name="battery_ok">Батарея чеклови ўчирилган</string>
 </resources>

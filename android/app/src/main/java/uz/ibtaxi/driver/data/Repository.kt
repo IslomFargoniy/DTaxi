@@ -1,5 +1,7 @@
 package uz.ibtaxi.driver.data
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import android.os.Build
 import retrofit2.Response
 import java.io.IOException
@@ -118,6 +120,25 @@ class Repository(val client: ApiClient, val session: Session) {
 
     /** Telefon protsessoriga mos APK (server ABI bo'yicha alohida fayl beradi) */
     suspend fun appVersion() = call { api.appVersion(Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a") }
+
+    /**
+     * Eng yangi versiya: admin panelda chiqarilgan reliz yoki serverdagi /android/version.json
+     * (har build'da yoziladi) — qaysi biri yangiroq bo'lsa.
+     */
+    suspend fun latestVersion(): AppVersion? {
+        val release = (appVersion() as? Result.Ok)?.value
+        val published = withContext(Dispatchers.IO) {
+            runCatching {
+                client.http.newCall(okhttp3.Request.Builder().url(session.serverUrl.trimEnd('/') + "/android/version.json").build())
+                    .execute().use { response ->
+                        if (!response.isSuccessful) null
+                        else com.google.gson.Gson().fromJson(response.body?.string(), AppVersion::class.java)
+                    }
+            }.getOrNull()
+        }
+
+        return listOfNotNull(release?.takeIf { it.url != null }, published?.takeIf { it.url != null }).maxByOrNull { it.versionCode }
+    }
 
     private suspend fun orderCall(block: suspend () -> Response<OrderEnvelope>): Result<Order?> =
         call(block).map { it.order }.also { if (it is Result.Ok) DriverState.setOrder(it.value) }

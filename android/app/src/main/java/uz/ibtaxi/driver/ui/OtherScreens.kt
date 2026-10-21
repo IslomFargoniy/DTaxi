@@ -1,5 +1,9 @@
 package uz.ibtaxi.driver.ui
 
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.size
 import android.content.Intent
@@ -205,18 +209,40 @@ fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
             HorizontalDivider()
             Text(stringResource(R.string.battery_title), style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.battery_text), style = MaterialTheme.typography.bodyMedium)
-            OutlinedButton(onClick = {
-                context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}")))
-            }) { Text(stringResource(R.string.open_settings)) }
-            HorizontalDivider()
-            Button(onClick = {
-                scope.launch {
-                    app.repository.setOnline(false)
-                    DriverService.stop(context)
-                    delay(200)
-                    app.repository.logout()
+            // Ekranga qaytganda holat yangilansin (sozlamada ruxsat berilgan bo'lishi mumkin)
+            var batteryExempt by remember { mutableStateOf(isBatteryExempt(context)) }
+            val lifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
+            androidx.compose.runtime.DisposableEffect(lifecycle) {
+                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) batteryExempt = isBatteryExempt(context)
                 }
-            }) { Text(stringResource(R.string.logout)) }
+                lifecycle.addObserver(observer)
+                onDispose { lifecycle.removeObserver(observer) }
+            }
+            if (batteryExempt) {
+                Text("✓ " + stringResource(R.string.battery_ok), color = Color(0xFF1FA463), fontWeight = FontWeight.Bold)
+            }
+            OutlinedButton(onClick = { openBatterySettings(context) }) { Text(stringResource(R.string.open_settings)) }
+
+            // Chiqish — eng pastda, o'rtada, qizil
+            Spacer(Modifier.weight(1f))
+            Button(
+                onClick = {
+                    scope.launch {
+                        app.repository.setOnline(false)
+                        DriverService.stop(context)
+                        delay(200)
+                        app.repository.logout()
+                    }
+                },
+                modifier = Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally).height(52.dp),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.logout), fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -262,4 +288,24 @@ fun AppLogo(size: Int = 88) {
         contentDescription = stringResource(R.string.app_name),
         modifier = Modifier.size(size.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape((size / 4).dp)),
     )
+}
+
+private fun isBatteryExempt(context: android.content.Context): Boolean =
+    (context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager).isIgnoringBatteryOptimizations(context.packageName)
+
+/**
+ * Batareya cheklovidan chiqarish: ba'zi telefonlarda (Samsung, Xiaomi) to'g'ridan-to'g'ri so'rov oynasi yo'q —
+ * unda batareya sozlamalari ro'yxati, u ham bo'lmasa ilova sozlamalari ochiladi.
+ */
+private fun openBatterySettings(context: android.content.Context) {
+    val pkg = Uri.parse("package:${context.packageName}")
+    val attempts = buildList {
+        if (!isBatteryExempt(context)) add(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg))
+        add(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        add(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg))
+    }
+    for (intent in attempts) {
+        val opened = runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+        if (opened) return
+    }
 }
