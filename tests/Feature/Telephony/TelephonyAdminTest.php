@@ -5,6 +5,7 @@ use App\Models\Branch;
 use App\Models\Call;
 use App\Models\Driver;
 use App\Models\PhoneNumber;
+use App\Models\Pjsip\PsAuth;
 use App\Models\Pjsip\PsEndpoint;
 use App\Models\SipTrunk;
 use App\Models\SoundClip;
@@ -13,6 +14,7 @@ use App\Services\Telephony\Extensions;
 use App\Support\Settings;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Http\Client\Factory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
@@ -160,4 +162,36 @@ test('deleting a user removes its extension from Asterisk and sync prunes leftov
 
     expect(PsEndpoint::query()->whereKey($extension)->exists())->toBeFalse()
         ->and(PsEndpoint::query()->whereKey('op999999')->exists())->toBeFalse();
+});
+
+test('extension auth is stored as md5 digest without the plain password', function () {
+    $operator = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+    app(Extensions::class)->syncFor($operator);
+    $operator->refresh();
+
+    $auth = PsAuth::query()->findOrFail('op'.$operator->id);
+    $password = (string) $operator->sip_password;
+    expect($auth->auth_type)->toBe('md5')
+        ->and($auth->password)->toBeNull()
+        ->and($auth->realm)->toBe(Extensions::REALM)
+        ->and($auth->md5_cred)->toBe(md5("op{$operator->id}:".Extensions::REALM.":{$password}"))
+        ->and(DB::table('ps_auths')->where('password', $password)->orWhere('md5_cred', $password)->exists())->toBeFalse()
+        // Brauzer/ilova ochiq parolni baribir oladi (JsSIP digest'ni o'zi hisoblaydi)
+        ->and(app(Extensions::class)->credentials($operator, 'taxi.test')['password'] ?? null)->toBe($password);
+});
+
+test('telephony:sync converts legacy plaintext extension auth rows to md5', function () {
+    $operator = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+    app(Extensions::class)->syncFor($operator);
+    $operator->refresh();
+    $id = 'op'.$operator->id;
+    // Eski versiya yozgan qator
+    PsAuth::query()->whereKey($id)->update(['auth_type' => 'userpass', 'password' => $operator->sip_password, 'md5_cred' => null, 'realm' => null]);
+
+    $this->artisan('telephony:sync')->assertSuccessful();
+
+    $auth = PsAuth::query()->findOrFail($id);
+    expect($auth->auth_type)->toBe('md5')
+        ->and($auth->password)->toBeNull()
+        ->and($auth->md5_cred)->toBe(md5("{$id}:".Extensions::REALM.':'.$operator->sip_password));
 });
