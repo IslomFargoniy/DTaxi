@@ -247,6 +247,12 @@ fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
                 )
             }
             Spacer(Modifier.weight(1f))
+            Text(
+                stringResource(R.string.app_version, uz.ibtaxi.driver.BuildConfig.VERSION_NAME),
+                Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally),
+                style = MaterialTheme.typography.bodySmall,
+                color = LocalAppColors.current.muted,
+            )
             Button(
                 onClick = { confirmLogout = true },
                 modifier = Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally).height(52.dp),

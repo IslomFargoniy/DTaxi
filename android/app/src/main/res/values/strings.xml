@@ -138,4 +138,5 @@
     <string name="nav_voice_more">Boshqa ovozlar (telefon sozlamalari)</string>
     <string name="nav_voice_listen">Eshitish</string>
     <string name="done">Tayyor</string>
+    <string name="app_version">Versiya %1$s</string>
 </resources>

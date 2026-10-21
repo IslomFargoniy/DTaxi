@@ -60,6 +60,13 @@ class VoiceGuide(context: Context, private val locale: String, private val voice
                 .sortedWith(compareBy({ it.isNetworkConnectionRequired }, { it.name }))
         }
 
+        /** Tashxis: dvigatel va tillar holati (ovoz topilmaganda ko'rsatiladi) */
+        fun describe(tts: TextToSpeech, status: Int): String {
+            if (status != TextToSpeech.SUCCESS) return "init $status · engines ${tts.engines.map { it.name }}"
+            val langs = listOf("uz", "ru", "en").joinToString(" ") { "$it=${tts.isLanguageAvailable(AppLocale.speechLocale(it))}" }
+            return "engine ${tts.defaultEngine} · engines ${tts.engines.map { it.name }} · $langs · voices ${tts.voices?.size ?: -1}"
+        }
+
         fun sample(lang: String): String = when (lang) {
             "ru" -> "Через 200 метров поверните направо, на улицу Мустакиллик"
             "en" -> "In 200 meters turn right onto Mustaqillik street"

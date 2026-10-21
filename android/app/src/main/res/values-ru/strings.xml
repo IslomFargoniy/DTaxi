@@ -138,4 +138,5 @@
     <string name="nav_voice_more">Другие голоса (настройки телефона)</string>
     <string name="nav_voice_listen">Прослушать</string>
     <string name="done">Готово</string>
+    <string name="app_version">Версия %1$s</string>
 </resources>

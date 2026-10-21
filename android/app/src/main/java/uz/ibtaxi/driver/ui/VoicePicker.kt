@@ -47,6 +47,7 @@ fun VoicePicker() {
     var lang by remember { mutableStateOf<String?>(null) }
     var voices by remember { mutableStateOf<List<Voice>>(emptyList()) }
     var ready by remember { mutableStateOf(false) }
+    var diag by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf(session.navVoice) }
     val tts = remember {
         var engine: TextToSpeech? = null
@@ -56,6 +57,7 @@ fun VoicePicker() {
                 lang = VoiceGuide.pickLanguage(e, session.locale)
                 voices = lang?.let { VoiceGuide.voicesFor(e, it) }.orEmpty()
             }
+            diag = VoiceGuide.describe(e, status)
             ready = true
         }
         engine.setAudioAttributes(VoiceGuide.navigationAudio)
@@ -98,8 +100,10 @@ fun VoicePicker() {
                 Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                     if (ready && voices.isEmpty()) {
                         Text(stringResource(R.string.nav_voice_none), color = LocalAppColors.current.muted)
+                        // Nima yetishmayotganini ko'rish uchun (dvigatel, tillar holati)
+                        Text(diag, style = MaterialTheme.typography.bodySmall, color = LocalAppColors.current.muted)
                     }
-                    if (voices.isNotEmpty()) {
+                    if (lang != null) {
                         VoiceRow(stringResource(R.string.nav_voice_default), null, selected == null, { choose(null) }, { listen(null) })
                         voices.forEachIndexed { i, voice ->
                             VoiceRow(label(i, voice), voice.name, selected == voice.name, { choose(voice.name) }, { listen(voice) })
