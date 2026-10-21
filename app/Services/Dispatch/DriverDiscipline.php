@@ -64,32 +64,60 @@ class DriverDiscipline
             throw new InvalidArgumentException(__('This penalty cannot be excused.'));
         }
 
-        DB::transaction(function () use ($penalty, $by) {
+        $excused = DB::transaction(function () use ($penalty, $by) {
             $driver = Driver::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($penalty->driver_id);
-            $penalty->forceFill(['excused_at' => now(), 'excused_by' => $by->id])->save();
+
+            // Shartli UPDATE: ikki marta bosilsa (yoki ikki admin bir vaqtda) pul faqat bir marta qaytadi
+            $now = now();
+            $changed = DriverTransaction::query()->whereKey($penalty->id)->whereNull('excused_at')
+                ->update(['excused_at' => $now, 'excused_by' => $by->id]);
+            if ($changed !== 1) {
+                return false;
+            }
+            $penalty->forceFill(['excused_at' => $now, 'excused_by' => $by->id])->syncOriginal();
 
             $this->balance->adjust($driver, abs($penalty->amount), $by, "Jarima qaytarildi (#{$penalty->id})");
-
-            $rating = (int) $this->settings->get('drivers.rating_cancel_penalty', $driver->branch_id);
-            $driver->forceFill(['rating' => min(100, $driver->rating + $rating)])->save();
+            $this->changeRating($driver, (int) $this->settings->get('drivers.rating_cancel_penalty', $driver->branch_id));
 
             if ($penalty->order_id) {
                 OrderCancellation::query()->where('driver_id', $driver->id)->where('order_id', $penalty->order_id)
                     ->update(['penalty_amount' => 0]);
             }
+
+            return true;
         });
+
+        if (! $excused) {
+            throw new InvalidArgumentException(__('This penalty cannot be excused.'));
+        }
     }
 
     public function completed(Driver $driver): void
     {
-        $bonus = (int) $this->settings->get('drivers.rating_complete_bonus', $driver->branch_id);
-        $driver->forceFill(['rating' => min(100, $driver->rating + $bonus)])->save();
+        $this->changeRating($driver, (int) $this->settings->get('drivers.rating_complete_bonus', $driver->branch_id));
+    }
+
+    /**
+     * Reyting SQL'da o'zgaradi: modelni save() qilish parallel to'ldirilgan balansni eski qiymat bilan yozib yuborardi.
+     */
+    public function changeRating(Driver $driver, int $delta): void
+    {
+        if ($delta === 0) {
+            return;
+        }
+
+        $rating = DB::scalar(
+            'UPDATE drivers SET rating = LEAST(100, GREATEST(0, rating + ?)), updated_at = ? WHERE id = ? RETURNING rating',
+            [$delta, now(), $driver->id],
+        );
+        if (is_numeric($rating)) {
+            $driver->forceFill(['rating' => (int) $rating])->syncOriginalAttribute('rating');
+        }
     }
 
     private function lowerRating(Driver $driver): void
     {
-        $penalty = (int) $this->settings->get('drivers.rating_cancel_penalty', $driver->branch_id);
-        $driver->forceFill(['rating' => max(0, $driver->rating - $penalty)])->save();
+        $this->changeRating($driver, -(int) $this->settings->get('drivers.rating_cancel_penalty', $driver->branch_id));
     }
 
     private function blockIfTooManyCancels(Driver $driver): void
@@ -104,7 +132,9 @@ class DriverDiscipline
 
         if ($limit > 0 && $count >= $limit) {
             $minutes = (int) $this->settings->get('drivers.block_minutes', $driver->branch_id);
-            $driver->forceFill(['blocked_until' => now()->addMinutes($minutes)])->save();
+            $until = now()->addMinutes($minutes);
+            Driver::query()->withoutGlobalScopes()->whereKey($driver->id)->update(['blocked_until' => $until]);
+            $driver->forceFill(['blocked_until' => $until])->syncOriginalAttribute('blocked_until');
         }
     }
 }

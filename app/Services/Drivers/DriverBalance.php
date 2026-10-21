@@ -132,7 +132,10 @@ class DriverBalance
             $locked->balance += $amount;
             $locked->save();
 
+            // Chaqiruvchi modeli yangi balansni ko'radi, lekin "o'zgargan" deb belgilanmaydi: keyingi save()
+            // (holat va h.k.) qulfdan tashqarida parallel to'ldirishni eski balans bilan yozib yubormasin
             $driver->balance = $locked->balance;
+            $driver->syncOriginalAttribute('balance');
 
             if ($cashShift && $amount > 0) {
                 $cashShift->increment('total_cash', $amount);

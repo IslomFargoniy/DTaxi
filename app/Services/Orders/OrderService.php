@@ -287,8 +287,13 @@ class OrderService
     public function rateByClient(Order $order, int $rating): void
     {
         $rating = max(1, min(5, $rating));
-        $first = $order->client_rating === null;
-        $order->forceFill(['client_rating' => $rating])->save();
+        // Shartli UPDATE: operator va mijoz qo'ng'irog'i bir vaqtda baholasa ham reytingga faqat bittasi ta'sir qiladi
+        $first = Order::query()->withoutGlobalScopes()->whereKey($order->id)->whereNull('client_rating')
+            ->update(['client_rating' => $rating]) === 1;
+        if (! $first) {
+            Order::query()->withoutGlobalScopes()->whereKey($order->id)->update(['client_rating' => $rating]);
+        }
+        $order->forceFill(['client_rating' => $rating])->syncOriginalAttribute('client_rating');
 
         if ($first && $order->driver_id) {
             $delta = [1 => -10, 2 => -5, 3 => -2, 4 => 0, 5 => 1][$rating];
