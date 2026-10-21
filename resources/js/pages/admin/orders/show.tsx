@@ -3,11 +3,7 @@ import ComplaintController from '@/actions/App/Http/Controllers/Admin/ComplaintC
 import OrderHistoryController from '@/actions/App/Http/Controllers/Admin/OrderHistoryController';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-    DataTable,
-    formatDateTime,
-    formatMoney,
-} from '@/components/data-table';
+import { DataTable, formatDateTime } from '@/components/data-table';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +12,12 @@ import { orderStatusColor, orderStatusLabel } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
 import { index } from '@/routes/admin/orders';
 import type { Order } from '@/types/operator';
+import {
+    formatMoney,
+    formatNumber,
+    formatPhone,
+    formatPlate,
+} from '@/lib/format';
 
 type Event = {
     type: string;
@@ -72,7 +74,11 @@ export default function OrderShow({
         text: '',
     });
     const rows: [string, React.ReactNode][] = [
-        ['Client', `${order.client?.phone ?? ''} ${order.client?.name ?? ''}`],
+        [
+            'Client',
+            `${formatPhone(order.client?.phone)} ${order.client?.name ?? ''}`.trim() ||
+                '—',
+        ],
         ['Pickup', order.pickup.text],
         ['Destination', order.dropoff?.text ?? '—'],
         ['Tariff class', order.tariff_class?.name],
@@ -85,7 +91,7 @@ export default function OrderShow({
         [
             'Car',
             order.vehicle
-                ? `${order.vehicle.color} ${order.vehicle.model} ${order.vehicle.plate_number}`
+                ? `${order.vehicle.color} ${order.vehicle.model} ${formatPlate(order.vehicle.plate_number)}`
                 : '—',
         ],
         [
@@ -132,7 +138,7 @@ export default function OrderShow({
                                     .filter(([, v]) => v)
                                     .map(([k, v]) => (
                                         <Badge key={k} variant="outline">
-                                            {t(k)}: {v.toLocaleString('ru-RU')}
+                                            {t(k)}: {formatNumber(v)}
                                         </Badge>
                                     ))}
                             </div>

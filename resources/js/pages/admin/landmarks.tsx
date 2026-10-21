@@ -6,6 +6,7 @@ import { DataTable, Pagination } from '@/components/data-table';
 import type { Paginated } from '@/components/data-table';
 import { EditDialog } from '@/components/edit-dialog';
 import Heading from '@/components/heading';
+import InputError from '@/components/input-error';
 import { SearchInput } from '@/components/search-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,9 +64,11 @@ function LandmarkDialog({
                 <Label htmlFor="name">{t('Name')}</Label>
                 <Input
                     id="name"
+                    maxLength={150}
                     value={form.data.name}
                     onChange={(e) => form.setData('name', e.target.value)}
                 />
+                <InputError message={form.errors.name} />
             </div>
             <div className="grid gap-1.5">
                 <Label htmlFor="aliases">
@@ -76,29 +79,44 @@ function LandmarkDialog({
                     value={form.data.aliases}
                     onChange={(e) => form.setData('aliases', e.target.value)}
                 />
+                <InputError
+                    message={
+                        Object.entries(
+                            form.errors as Record<string, string>,
+                        ).find(([k]) => k.startsWith('aliases'))?.[1]
+                    }
+                />
             </div>
             <div className="grid grid-cols-2 items-start gap-2">
                 <div className="grid gap-1.5">
                     <Label>{t('Latitude')}</Label>
                     <Input
                         type="number"
+                        inputMode="decimal"
                         step="0.00001"
+                        min={37}
+                        max={46}
                         value={form.data.lat}
                         onChange={(e) =>
                             form.setData('lat', Number(e.target.value))
                         }
                     />
+                    <InputError message={form.errors.lat} />
                 </div>
                 <div className="grid gap-1.5">
                     <Label>{t('Longitude')}</Label>
                     <Input
                         type="number"
+                        inputMode="decimal"
                         step="0.00001"
+                        min={55}
+                        max={74}
                         value={form.data.lng}
                         onChange={(e) =>
                             form.setData('lng', Number(e.target.value))
                         }
                     />
+                    <InputError message={form.errors.lng} />
                 </div>
             </div>
         </EditDialog>

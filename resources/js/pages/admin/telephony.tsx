@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTrans } from '@/hooks/use-trans';
 import { index } from '@/routes/admin/telephony';
+import { formatPhone } from '@/lib/format';
 
 type Trunk = {
     id: number;
@@ -52,6 +53,21 @@ type BranchLimit = {
     name: string;
     max_channels: number | null;
     max_auto_calls: number;
+};
+
+// Sozlamalar chegaralari — TelephonyController::SETTINGS bilan bir xil
+const SETTING_LIMITS: Record<string, [number, number]> = {
+    'calls.max_wait_seconds': [30, 1800],
+    'calls.operator_ring_seconds': [5, 120],
+    'calls.auto_call_attempts': [1, 5],
+    'calls.auto_call_retry_seconds': [10, 600],
+    'calls.still_waiting_minutes': [0, 30],
+    'calls.rating_call_delay_minutes': [0, 60],
+    'calls.recordings_retention_days': [1, 3650],
+    'calls.max_recording_seconds': [60, 86400],
+    'calls.driver_gain': [0, 10],
+    'calls.operator_outbound_limit': [0, 1000],
+    'calls.operator_outbound_window_minutes': [1, 1440],
 };
 
 type Props = {
@@ -115,8 +131,16 @@ function TrunkDialog({
         key: 'name' | 'title' | 'host' | 'username' | 'from_user',
     ) => (
         <Input
+            autoComplete="off"
+            maxLength={key === 'host' ? 255 : 100}
             value={form.data[key]}
-            onChange={(ev) => form.setData(key, ev.target.value)}
+            onChange={(ev) =>
+                // Texnik maydonlarda bo'shliq bo'lmaydi (sarlavhadan tashqari)
+                form.setData(
+                    key,
+                    key === 'title' ? ev.target.value : ev.target.value.trim(),
+                )
+            }
         />
     );
     const num = (
@@ -124,6 +148,10 @@ function TrunkDialog({
     ) => (
         <Input
             type="number"
+            inputMode="numeric"
+            min={key === 'max_inbound' || key === 'max_outbound' ? 0 : 1}
+            max={key === 'port' ? 65535 : 1000}
+            step={1}
             value={form.data[key]}
             onChange={(ev) =>
                 form.setData(
@@ -278,14 +306,22 @@ function NumberDialog({
                 <Field label="Number" error={e.number}>
                     <Input
                         placeholder="+998712000000"
+                        inputMode="tel"
+                        autoComplete="off"
+                        maxLength={16}
                         value={form.data.number}
                         onChange={(ev) =>
-                            form.setData('number', ev.target.value)
+                            // Trunk DID'i aynan shu ko'rinishda keladi — faqat raqam va "+"
+                            form.setData(
+                                'number',
+                                ev.target.value.replace(/[^\d+]/g, ''),
+                            )
                         }
                     />
                 </Field>
                 <Field label="Name" error={e.name}>
                     <Input
+                        maxLength={100}
                         value={form.data.name}
                         onChange={(ev) => form.setData('name', ev.target.value)}
                     />
@@ -364,8 +400,10 @@ function NumberDialog({
                                             'shared_queue' && (
                                             <Input
                                                 type="number"
+                                                inputMode="numeric"
                                                 min={1}
                                                 max={9}
+                                                step={1}
                                                 placeholder={t('Key')}
                                                 className="h-7 w-16"
                                                 value={link.ivr_digit ?? ''}
@@ -468,6 +506,10 @@ function LimitsForm({ branches }: { branches: BranchLimit[] }) {
                                 <td className="px-3 py-1.5">
                                     <Input
                                         type="number"
+                                        inputMode="numeric"
+                                        min={1}
+                                        max={500}
+                                        step={1}
                                         className="h-8 w-24"
                                         placeholder={t('Trunk')}
                                         value={
@@ -485,6 +527,10 @@ function LimitsForm({ branches }: { branches: BranchLimit[] }) {
                                 <td className="px-3 py-1.5">
                                     <Input
                                         type="number"
+                                        inputMode="numeric"
+                                        min={0}
+                                        max={100}
+                                        step={1}
                                         className="h-8 w-24"
                                         value={
                                             form.data.branches[i].max_auto_calls
@@ -683,6 +729,10 @@ function SettingsForm({ settings }: { settings: Props['settings'] }) {
                     <Field key={key} label={f.label} error={e[key]}>
                         <Input
                             type="number"
+                            inputMode="numeric"
+                            min={SETTING_LIMITS[key]?.[0]}
+                            max={SETTING_LIMITS[key]?.[1]}
+                            step={1}
                             value={Number(form.data[key])}
                             onChange={(ev) =>
                                 form.setData(key, Number(ev.target.value))
@@ -843,7 +893,7 @@ export default function Telephony({
                                 title: 'Number',
                                 render: (r) => (
                                     <span className="font-medium">
-                                        {r.number}
+                                        {formatPhone(r.number)}
                                     </span>
                                 ),
                             },

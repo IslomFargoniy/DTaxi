@@ -1,11 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
-import {
-    DataTable,
-    formatDateTime,
-    formatMoney,
-    Pagination,
-} from '@/components/data-table';
+import { DataTable, formatDateTime, Pagination } from '@/components/data-table';
 import type { Paginated } from '@/components/data-table';
 import Heading from '@/components/heading';
 import { SearchInput } from '@/components/search-input';
@@ -16,6 +11,7 @@ import { orderStatusColor, orderStatusLabel } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
 import { index, show } from '@/routes/admin/orders';
 import type { Order, OrderStatus } from '@/types/operator';
+import { formatMoney, formatPhone } from '@/lib/format';
 
 type Filters = { from?: string; to?: string; status?: string; q?: string };
 
@@ -51,6 +47,7 @@ export default function OrdersIndex({
                     <Input
                         type="date"
                         className="w-40"
+                        max={local.to || undefined}
                         value={local.from ?? ''}
                         onChange={(e) =>
                             apply({ ...local, from: e.target.value })
@@ -59,6 +56,7 @@ export default function OrdersIndex({
                     <Input
                         type="date"
                         className="w-40"
+                        min={local.from || undefined}
                         value={local.to ?? ''}
                         onChange={(e) =>
                             apply({ ...local, to: e.target.value })
@@ -120,7 +118,11 @@ export default function OrdersIndex({
                         {
                             key: 'client',
                             title: 'Client',
-                            render: (o) => o.client?.phone,
+                            render: (o) => (
+                                <span className="whitespace-nowrap">
+                                    {formatPhone(o.client?.phone)}
+                                </span>
+                            ),
                         },
                         {
                             key: 'pickup',

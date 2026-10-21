@@ -9,9 +9,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import InputError from '@/components/input-error';
+import { MoneyInput } from '@/components/money-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTrans } from '@/hooks/use-trans';
+import { formatNumber } from '@/lib/format';
 import type { Order, TariffClass } from '@/types/operator';
 import { PlacePicker } from './place-picker';
 import type { PickedPlace } from './place-picker';
@@ -187,6 +190,7 @@ export function EditOrderDialog({
     );
     const [bonus, setBonus] = useState(order.price_bonus ?? 0);
     const [processing, setProcessing] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     const classes = tariffClasses.filter(
         (c) => c.branch_id === order.branch_id,
@@ -207,6 +211,7 @@ export function EditOrderDialog({
             {
                 preserveScroll: true,
                 onSuccess: () => onOpenChange(false),
+                onError: setErrors,
                 onFinish: () => setProcessing(false),
             },
         );
@@ -263,9 +268,11 @@ export function EditOrderDialog({
                         </Label>
                         <Input
                             id={`edit-comment-${order.id}`}
+                            maxLength={500}
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
                         />
+                        <InputError message={errors.comment} />
                     </div>
                     <div className="grid gap-1.5">
                         <Label htmlFor={`edit-bonus-${order.id}`}>
@@ -284,23 +291,20 @@ export function EditOrderDialog({
                                         setBonus(bonus === amount ? 0 : amount)
                                     }
                                 >
-                                    +{amount.toLocaleString('ru-RU')}
+                                    +{formatNumber(amount)}
                                 </Button>
                             ))}
-                            <Input
-                                id={`edit-bonus-${order.id}`}
-                                className="w-28"
-                                inputMode="numeric"
-                                value={bonus || ''}
-                                onChange={(e) =>
-                                    setBonus(
-                                        Number(
-                                            e.target.value.replace(/\D/g, ''),
-                                        ) || 0,
-                                    )
-                                }
-                            />
+                            <div className="w-32">
+                                <MoneyInput
+                                    id={`edit-bonus-${order.id}`}
+                                    currency={false}
+                                    max={1000000}
+                                    value={bonus || null}
+                                    onChange={(v) => setBonus(v ?? 0)}
+                                />
+                            </div>
                         </div>
+                        <InputError message={errors.price_bonus} />
                         {waiting && (
                             <p className="text-xs text-muted-foreground">
                                 {t(

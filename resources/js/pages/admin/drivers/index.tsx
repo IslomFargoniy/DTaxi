@@ -1,6 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
-import { DataTable, formatMoney, Pagination } from '@/components/data-table';
+import { DataTable, Pagination } from '@/components/data-table';
 import type { Paginated } from '@/components/data-table';
 import Heading from '@/components/heading';
 import { SearchInput } from '@/components/search-input';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useTrans } from '@/hooks/use-trans';
 import { create, edit, index } from '@/routes/admin/drivers';
+import { formatMoney, formatPhone, formatPlate } from '@/lib/format';
 
 export type DriverRow = {
     id: number;
@@ -104,14 +105,18 @@ export default function DriversIndex({
                         {
                             key: 'phone',
                             title: 'Phone',
-                            render: (d) => d.phone,
+                            render: (d) => (
+                                <span className="whitespace-nowrap">
+                                    {formatPhone(d.phone) || '—'}
+                                </span>
+                            ),
                         },
                         {
                             key: 'vehicle',
                             title: 'Car',
                             render: (d) =>
                                 d.vehicle
-                                    ? `${d.vehicle.color} ${d.vehicle.model} · ${d.vehicle.plate_number}`
+                                    ? `${d.vehicle.color} ${d.vehicle.model} · ${formatPlate(d.vehicle.plate_number)}`
                                     : '—',
                         },
                         {

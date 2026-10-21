@@ -26,6 +26,7 @@ import type { Branch, ClientCard, TariffClass } from '@/types/operator';
 import { PlacePicker } from './place-picker';
 import type { PickedPlace } from './place-picker';
 import type { CallCard } from '@/components/webphone/webphone';
+import { PhoneInput } from '@/components/phone-input';
 
 const emptyPlace: PickedPlace = {
     text: '',
@@ -83,6 +84,13 @@ const ACTIVE_STATUSES = [
 /**
  * Yangi buyurtma formasi (reja §8.1). Doimiy mijoz uchun oxirgi manzil bir bosishda tanlanadi.
  */
+// <input type="datetime-local"> uchun brauzer vaqti: "2026-10-20T14:30"
+function localInputValue(date: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function OrderForm({
     branches,
     tariffClasses,
@@ -426,14 +434,13 @@ export function OrderForm({
             <div className="grid grid-cols-2 items-start gap-2">
                 <div className="grid gap-1.5">
                     <Label htmlFor="phone">{t('Phone')}</Label>
-                    <Input
+                    <PhoneInput
                         id="phone"
                         ref={phoneRef}
                         autoFocus
-                        inputMode="tel"
-                        placeholder="90 123 45 67"
+                        autoComplete="off"
                         value={form.data.phone}
-                        onChange={(e) => form.setData('phone', e.target.value)}
+                        onChange={(v) => form.setData('phone', v)}
                         onBlur={() => lookup()}
                         onKeyDown={(e) => {
                             // Enter — mijozni qidirish (buyurtma yuborilmaydi)
@@ -449,6 +456,8 @@ export function OrderForm({
                     <Label htmlFor="client_name">{t('Name')}</Label>
                     <Input
                         id="client_name"
+                        autoComplete="off"
+                        maxLength={100}
                         value={form.data.client_name}
                         onChange={(e) =>
                             form.setData('client_name', e.target.value)
@@ -705,22 +714,46 @@ export function OrderForm({
                             'recipient_name',
                             'recipient_phone',
                         ] as const
-                    ).map((field) => (
-                        <Input
-                            key={field}
-                            placeholder={t(field)}
-                            value={form.data.delivery[field]}
-                            onChange={(e) =>
-                                form.setData('delivery', {
-                                    ...form.data.delivery,
-                                    [field]: e.target.value,
-                                })
-                            }
-                        />
-                    ))}
+                    ).map((field) =>
+                        field.endsWith('_phone') ? (
+                            <div key={field} className="grid gap-1">
+                                <PhoneInput
+                                    aria-label={t(field)}
+                                    title={t(field)}
+                                    placeholder={t(field)}
+                                    autoComplete="off"
+                                    value={form.data.delivery[field]}
+                                    onChange={(v) =>
+                                        form.setData('delivery', {
+                                            ...form.data.delivery,
+                                            [field]: v,
+                                        })
+                                    }
+                                />
+                                <InputError
+                                    message={errors[`delivery.${field}`]}
+                                />
+                            </div>
+                        ) : (
+                            <Input
+                                key={field}
+                                placeholder={t(field)}
+                                autoComplete="off"
+                                maxLength={100}
+                                value={form.data.delivery[field]}
+                                onChange={(e) =>
+                                    form.setData('delivery', {
+                                        ...form.data.delivery,
+                                        [field]: e.target.value,
+                                    })
+                                }
+                            />
+                        ),
+                    )}
                     <Input
                         className="col-span-2"
                         placeholder={t('What to deliver')}
+                        maxLength={500}
                         value={form.data.delivery.description}
                         onChange={(e) =>
                             form.setData('delivery', {
@@ -734,6 +767,7 @@ export function OrderForm({
 
             <Input
                 placeholder={t('Comment for the driver')}
+                maxLength={500}
                 value={form.data.comment}
                 onChange={(e) => form.setData('comment', e.target.value)}
             />
@@ -749,6 +783,10 @@ export function OrderForm({
                 <Input
                     id="scheduled_at"
                     type="datetime-local"
+                    min={localInputValue(new Date())}
+                    max={localInputValue(
+                        new Date(Date.now() + 7 * 24 * 3600 * 1000),
+                    )}
                     value={form.data.scheduled_at}
                     onChange={(e) =>
                         form.setData('scheduled_at', e.target.value)

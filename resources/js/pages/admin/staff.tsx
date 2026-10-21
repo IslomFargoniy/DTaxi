@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PhoneInput } from '@/components/phone-input';
+import { formatPhone } from '@/lib/format';
 import { useTrans } from '@/hooks/use-trans';
 import { index } from '@/routes/admin/staff';
 
@@ -39,6 +41,17 @@ const roleLabel: Record<string, string> = {
     operator: 'Operator',
     cashier: 'Cashier',
 };
+
+const STAFF_INPUT = {
+    name: { maxLength: 100, autoComplete: 'off' },
+    username: {
+        maxLength: 50,
+        autoComplete: 'off',
+        autoCapitalize: 'none',
+        spellCheck: false,
+    },
+    email: { type: 'email', maxLength: 150, autoComplete: 'off' },
+} as const;
 
 function StaffDialog({
     user,
@@ -79,7 +92,7 @@ function StaffDialog({
                       })
             }
         >
-            {(['name', 'username', 'email', 'phone'] as const).map((field) => (
+            {(['name', 'username', 'email'] as const).map((field) => (
                 <div key={field} className="grid gap-1.5">
                     <Label htmlFor={field}>
                         {t(
@@ -87,18 +100,36 @@ function StaffDialog({
                                 name: 'Full name',
                                 username: 'Login',
                                 email: 'Email (optional)',
-                                phone: 'Phone',
                             }[field],
                         )}
                     </Label>
                     <Input
                         id={field}
+                        {...STAFF_INPUT[field]}
                         value={form.data[field] ?? ''}
-                        onChange={(e) => form.setData(field, e.target.value)}
+                        onChange={(e) =>
+                            form.setData(
+                                field,
+                                // Login serverda ham kichik harfga o'tadi
+                                field === 'username'
+                                    ? e.target.value.toLowerCase().trim()
+                                    : e.target.value,
+                            )
+                        }
                     />
                     <InputError message={errors[field]} />
                 </div>
             ))}
+            <div className="grid gap-1.5">
+                <Label htmlFor="phone">{t('Phone (optional)')}</Label>
+                <PhoneInput
+                    id="phone"
+                    autoComplete="off"
+                    value={form.data.phone}
+                    onChange={(v) => form.setData('phone', v)}
+                />
+                <InputError message={errors.phone} />
+            </div>
             <div className="grid gap-1.5">
                 <Label htmlFor="password">
                     {t(existing ? 'New password' : 'Password')}
@@ -247,7 +278,7 @@ export default function Staff({ users, roles, branches }: Props) {
                         {
                             key: 'phone',
                             title: 'Phone',
-                            render: (u) => u.phone ?? '—',
+                            render: (u) => formatPhone(u.phone) || '—',
                         },
                         {
                             key: 'active',

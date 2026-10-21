@@ -242,8 +242,10 @@ export default function Stands({
                                 <Input
                                     id="radius_m"
                                     type="number"
+                                    inputMode="numeric"
                                     min={30}
                                     max={2000}
+                                    step={10}
                                     value={form.data.radius_m}
                                     onChange={(e) =>
                                         form.setData(
@@ -252,6 +254,7 @@ export default function Stands({
                                         )
                                     }
                                 />
+                                <InputError message={form.errors.radius_m} />
                             </div>
                             <p
                                 className={cn(

@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import InputError from '@/components/input-error';
+import { formatPhone, toPercent } from '@/lib/format';
 import { useTrans } from '@/hooks/use-trans';
 import { index } from '@/routes/admin/clients';
 
@@ -51,7 +53,7 @@ function ClientDialog({
         <EditDialog
             open
             onOpenChange={(open) => !open && onClose()}
-            title={client.phone}
+            title={formatPhone(client.phone)}
             processing={form.processing}
             onSubmit={() =>
                 form.put(ClientController.update.url(client.id), {
@@ -64,17 +66,22 @@ function ClientDialog({
                 <Label htmlFor="name">{t('Name')}</Label>
                 <Input
                     id="name"
+                    maxLength={100}
+                    autoComplete="off"
                     value={form.data.name}
                     onChange={(e) => form.setData('name', e.target.value)}
                 />
+                <InputError message={form.errors.name} />
             </div>
             <div className="grid gap-1.5">
                 <Label htmlFor="note">{t('Note for operators')}</Label>
                 <Input
                     id="note"
+                    maxLength={500}
                     value={form.data.note}
                     onChange={(e) => form.setData('note', e.target.value)}
                 />
+                <InputError message={form.errors.note} />
             </div>
             <label className="flex items-center gap-2 text-sm">
                 <Checkbox
@@ -117,18 +124,19 @@ function ClientDialog({
                         <Input
                             id="discount_percent"
                             type="number"
+                            inputMode="numeric"
                             min={0}
                             max={100}
+                            step={1}
                             value={form.data.discount_percent ?? ''}
                             onChange={(e) =>
                                 form.setData(
                                     'discount_percent',
-                                    e.target.value === ''
-                                        ? null
-                                        : Number(e.target.value),
+                                    toPercent(e.target.value),
                                 )
                             }
                         />
+                        <InputError message={form.errors.discount_percent} />
                     </div>
                 </div>
             )}
@@ -186,7 +194,9 @@ export default function Clients({
                             key: 'phone',
                             title: 'Phone',
                             render: (c) => (
-                                <span className="font-mono">{c.phone}</span>
+                                <span className="whitespace-nowrap tabular-nums">
+                                    {formatPhone(c.phone)}
+                                </span>
                             ),
                         },
                         {

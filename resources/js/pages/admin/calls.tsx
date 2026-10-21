@@ -10,6 +10,7 @@ import { useTrans } from '@/hooks/use-trans';
 import { cn } from '@/lib/utils';
 import { index } from '@/routes/admin/calls';
 import { show as orderShow } from '@/routes/admin/orders';
+import { formatPhone } from '@/lib/format';
 
 type CallRow = {
     id: number;
@@ -214,10 +215,12 @@ export default function Calls({
                                     title: 'Phone',
                                     render: (r) =>
                                         r.client ??
-                                        (r.kind === 'tts' ||
-                                        r.kind === 'callback'
-                                            ? r.callee
-                                            : r.caller),
+                                        formatPhone(
+                                            r.kind === 'tts' ||
+                                                r.kind === 'callback'
+                                                ? r.callee
+                                                : r.caller,
+                                        ),
                                 },
                                 {
                                     key: 'operator',
@@ -314,6 +317,7 @@ export default function Calls({
                             <Input
                                 type="date"
                                 className="w-40"
+                                max={local.to || undefined}
                                 value={local.from}
                                 onChange={(e) =>
                                     apply({ ...local, from: e.target.value })
@@ -322,6 +326,7 @@ export default function Calls({
                             <Input
                                 type="date"
                                 className="w-40"
+                                min={local.from || undefined}
                                 value={local.to}
                                 onChange={(e) =>
                                     apply({ ...local, to: e.target.value })
@@ -430,6 +435,10 @@ export default function Calls({
                     <div className="mb-3 flex flex-wrap gap-2">
                         <Input
                             className="w-48"
+                            type="search"
+                            inputMode="tel"
+                            autoComplete="off"
+                            maxLength={25}
                             placeholder={t('Phone')}
                             value={local.phone}
                             onChange={(e) =>
@@ -501,11 +510,13 @@ export default function Calls({
                                 key: 'phone',
                                 title: 'Phone',
                                 render: (r) => (
-                                    <span>
-                                        {r.kind === 'tts' ||
-                                        r.kind === 'callback'
-                                            ? r.callee
-                                            : r.caller}
+                                    <span className="whitespace-nowrap">
+                                        {formatPhone(
+                                            r.kind === 'tts' ||
+                                                r.kind === 'callback'
+                                                ? r.callee
+                                                : r.caller,
+                                        )}
                                         {r.client && (
                                             <span className="text-muted-foreground">
                                                 {' '}

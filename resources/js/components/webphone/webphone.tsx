@@ -29,6 +29,7 @@ import {
     stopLeaderElection,
     takeLeadership,
 } from './tab-leader';
+import { formatPhone } from '@/lib/format';
 
 export type { CallCard } from './sip-state';
 
@@ -425,7 +426,7 @@ export function WebPhone({
     const connected = status === 'connected';
     const who = card?.driver
         ? `${t('Driver')} #${card.driver.callsign} — ${card.driver.name}`
-        : (card?.client?.name ?? card?.phone ?? activeCaller);
+        : (card?.client?.name ?? formatPhone(card?.phone ?? activeCaller));
 
     const statusText = follower
         ? t('Phone is open in another tab')
@@ -686,10 +687,11 @@ export function WebPhone({
                                 >
                                     <div className="min-w-0 flex-1">
                                         <div className="truncate text-sm">
-                                            {m.client ?? m.phone}
+                                            {m.client ?? formatPhone(m.phone)}
                                         </div>
                                         <div className="text-xs text-muted-foreground">
-                                            {m.client && `${m.phone} · `}
+                                            {m.client &&
+                                                `${formatPhone(m.phone)} · `}
                                             {new Date(
                                                 m.started_at,
                                             ).toLocaleTimeString([], {
@@ -721,6 +723,8 @@ export function WebPhone({
                                     <div className="flex w-full items-center justify-between">
                                         <input
                                             type="text"
+                                            inputMode="tel"
+                                            autoComplete="off"
                                             value={dialNumber}
                                             aria-label={t(
                                                 'Number or extension',
@@ -783,7 +787,8 @@ export function WebPhone({
                                         </span>
                                         {card?.client && (
                                             <span className="text-xs text-muted-foreground">
-                                                {card.phone} · {t('Orders')}:{' '}
+                                                {formatPhone(card.phone)} ·{' '}
+                                                {t('Orders')}:{' '}
                                                 {card.client.orders_count}
                                             </span>
                                         )}

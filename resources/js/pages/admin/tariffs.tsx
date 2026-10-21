@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MoneyInput } from '@/components/money-input';
+import { formatNumber } from '@/lib/format';
 import { useTrans } from '@/hooks/use-trans';
 import { index } from '@/routes/admin/tariffs';
 
@@ -45,13 +47,17 @@ function NumberField({
     value,
     onChange,
     error,
-    step,
+    step = '1',
+    min = 0,
+    max,
 }: {
     label: string;
     value: string | number;
     onChange: (v: string) => void;
     error?: string;
     step?: string;
+    min?: number;
+    max?: number;
 }) {
     const { t } = useTrans();
 
@@ -62,10 +68,38 @@ function NumberField({
             </Label>
             <Input
                 type="number"
+                inputMode={step === '1' ? 'numeric' : 'decimal'}
                 step={step}
+                min={min}
+                max={max}
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
             />
+            <InputError message={error} />
+        </div>
+    );
+}
+
+// Pul maydoni: "25 000", valyuta yorlig'ida allaqachon "so'm" bor
+function MoneyField({
+    label,
+    value,
+    onChange,
+    error,
+}: {
+    label: string;
+    value: number | null;
+    onChange: (v: number | null) => void;
+    error?: string;
+}) {
+    const { t } = useTrans();
+
+    return (
+        <div className="grid gap-1">
+            <Label className="text-xs font-normal text-muted-foreground">
+                {t(label)}
+            </Label>
+            <MoneyInput currency={false} value={value} onChange={onChange} />
             <InputError message={error} />
         </div>
     );
@@ -84,19 +118,19 @@ function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
         is_default: tariffClass.is_default,
         is_active: tariffClass.is_active,
         tariff: {
-            base_fare: tariff?.base_fare ?? 10000,
+            base_fare: (tariff?.base_fare ?? 10000) as number | null,
             base_km: tariff?.base_km ?? '3',
-            per_km: tariff?.per_km ?? 2000,
+            per_km: (tariff?.per_km ?? 2000) as number | null,
             rounding_step: tariff?.rounding_step ?? 500,
             waiting_enabled: tariff?.waiting_enabled ?? false,
             waiting_free_min: tariff?.waiting_free_min ?? 3,
-            waiting_per_min: tariff?.waiting_per_min ?? 0,
+            waiting_per_min: (tariff?.waiting_per_min ?? 0) as number | null,
             night_enabled: tariff?.night_enabled ?? false,
             night_from: (tariff?.night_from ?? '23:00').slice(0, 5),
             night_to: (tariff?.night_to ?? '06:00').slice(0, 5),
             night_coeff: tariff?.night_coeff ?? '1.2',
             outside_enabled: tariff?.outside_enabled ?? false,
-            outside_per_km: tariff?.outside_per_km ?? 0,
+            outside_per_km: (tariff?.outside_per_km ?? 0) as number | null,
         },
     });
     const errors = form.errors as Record<string, string>;
@@ -118,11 +152,16 @@ function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
     return (
         <Card>
             <CardHeader className="flex flex-row items-center gap-2">
-                <Input
-                    className="max-w-48 font-semibold"
-                    value={form.data.name}
-                    onChange={(e) => form.setData('name', e.target.value)}
-                />
+                <div className="grid gap-1">
+                    <Input
+                        className="max-w-48 font-semibold"
+                        aria-label={t('Name')}
+                        maxLength={50}
+                        value={form.data.name}
+                        onChange={(e) => form.setData('name', e.target.value)}
+                    />
+                    <InputError message={errors.name} />
+                </div>
                 {form.data.is_default && <Badge>{t('Default')}</Badge>}
                 {!form.data.is_active && (
                     <Badge variant="secondary">{t('Disabled')}</Badge>
@@ -139,7 +178,7 @@ function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
                     }}
                 >
                     <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-4">
-                        <NumberField
+                        <MoneyField
                             label="Base fare, so'm"
                             value={form.data.tariff.base_fare}
                             onChange={(v) => set('base_fare', v)}
@@ -148,11 +187,12 @@ function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
                         <NumberField
                             label="Km included"
                             step="0.1"
+                            max={100}
                             value={form.data.tariff.base_km}
                             onChange={(v) => set('base_km', v)}
                             error={errors['tariff.base_km']}
                         />
-                        <NumberField
+                        <MoneyField
                             label="Each next km, so'm"
                             value={form.data.tariff.per_km}
                             onChange={(v) => set('per_km', v)}
@@ -171,7 +211,7 @@ function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
                             >
                                 {[1, 100, 500, 1000].map((s) => (
                                     <option key={s} value={s}>
-                                        {s}
+                                        {formatNumber(s)}
                                     </option>
                                 ))}
                             </select>
@@ -184,13 +224,16 @@ function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
                             <div className="grid grid-cols-2 items-start gap-3">
                                 <NumberField
                                     label="Free minutes"
+                                    max={60}
                                     value={form.data.tariff.waiting_free_min}
                                     onChange={(v) => set('waiting_free_min', v)}
+                                    error={errors['tariff.waiting_free_min']}
                                 />
-                                <NumberField
+                                <MoneyField
                                     label="Each next minute, so'm"
                                     value={form.data.tariff.waiting_per_min}
                                     onChange={(v) => set('waiting_per_min', v)}
+                                    error={errors['tariff.waiting_per_min']}
                                 />
                             </div>
                         )}
@@ -210,6 +253,9 @@ function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
                                             set('night_from', e.target.value)
                                         }
                                     />
+                                    <InputError
+                                        message={errors['tariff.night_from']}
+                                    />
                                 </div>
                                 <div className="grid gap-1">
                                     <Label className="text-xs font-normal text-muted-foreground">
@@ -222,12 +268,18 @@ function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
                                             set('night_to', e.target.value)
                                         }
                                     />
+                                    <InputError
+                                        message={errors['tariff.night_to']}
+                                    />
                                 </div>
                                 <NumberField
                                     label="Coefficient"
                                     step="0.05"
+                                    min={1}
+                                    max={5}
                                     value={form.data.tariff.night_coeff}
                                     onChange={(v) => set('night_coeff', v)}
+                                    error={errors['tariff.night_coeff']}
                                 />
                             </div>
                         )}
@@ -238,10 +290,11 @@ function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
                             'Separate price outside the city',
                         )}
                         {form.data.tariff.outside_enabled && (
-                            <NumberField
+                            <MoneyField
                                 label="Each km outside the service area, so'm"
                                 value={form.data.tariff.outside_per_km}
                                 onChange={(v) => set('outside_per_km', v)}
+                                error={errors['tariff.outside_per_km']}
                             />
                         )}
                     </div>

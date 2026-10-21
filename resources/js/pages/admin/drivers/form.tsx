@@ -1,11 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import DriverController from '@/actions/App/Http/Controllers/Admin/DriverController';
-import {
-    DataTable,
-    formatDateTime,
-    formatMoney,
-} from '@/components/data-table';
+import { DataTable, formatDateTime } from '@/components/data-table';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +14,9 @@ import { useCan } from '@/hooks/use-can';
 import { useTrans } from '@/hooks/use-trans';
 import { index } from '@/routes/admin/drivers';
 import type { DriverRow } from './index';
+import { MoneyInput } from '@/components/money-input';
+import { PhoneInput } from '@/components/phone-input';
+import { formatMoney, formatNumber, formatPlate } from '@/lib/format';
 
 type Driver = DriverRow & {
     license_no: string | null;
@@ -54,6 +53,42 @@ type Props = {
     branches: { id: number; name: string }[];
     tariffClasses: { id: number; branch_id: number; name: string }[];
     documentTypes: string[];
+};
+
+// Mashina maydonlari: klaviatura, uzunlik va yozilishi
+const VEHICLE_INPUT: Record<
+    'brand' | 'model' | 'color' | 'plate_number' | 'year' | 'tech_passport_no',
+    {
+        maxLength?: number;
+        inputMode?: 'numeric' | 'text';
+        placeholder?: string;
+        clean?: (value: string) => string;
+    }
+> = {
+    brand: { maxLength: 50 },
+    model: { maxLength: 50 },
+    color: { maxLength: 30 },
+    // "01 A 123 BC" yoki "01 123 ABC"
+    plate_number: {
+        maxLength: 11,
+        placeholder: '01 A 123 BC',
+        clean: (v) =>
+            v
+                .toUpperCase()
+                .replace(/[^0-9A-Z ]/g, '')
+                .replace(/\s+/g, ' ')
+                .trimStart(),
+    },
+    year: {
+        maxLength: 4,
+        inputMode: 'numeric',
+        placeholder: String(new Date().getFullYear()),
+        clean: (v) => v.replace(/\D/g, ''),
+    },
+    tech_passport_no: {
+        maxLength: 50,
+        clean: (v) => v.toUpperCase(),
+    },
 };
 
 function Field({
@@ -98,7 +133,7 @@ export default function DriverForm({
             brand: driver?.vehicle?.brand ?? 'Chevrolet',
             model: driver?.vehicle?.model ?? '',
             color: driver?.vehicle?.color ?? '',
-            plate_number: driver?.vehicle?.plate_number ?? '',
+            plate_number: formatPlate(driver?.vehicle?.plate_number),
             year: driver?.vehicle?.year ?? '',
             tech_passport_no: driver?.vehicle?.tech_passport_no ?? '',
             tariff_class_ids:
@@ -112,7 +147,7 @@ export default function DriverForm({
     const setVehicle = (key: keyof typeof form.data.vehicle, value: unknown) =>
         form.setData('vehicle', { ...form.data.vehicle, [key]: value });
 
-    const [adjust, setAdjust] = useState({ amount: '', comment: '' });
+    const adjust = useForm({ amount: null as number | null, comment: '' });
     const [doc, setDoc] = useState<{
         type: string;
         file: File | null;
@@ -189,17 +224,22 @@ export default function DriverForm({
                                             driver.blocked_until &&
                                             new Date(driver.blocked_until) >
                                                 new Date();
-                                        const minutes = blocked
-                                            ? 0
-                                            : Number(
-                                                  window.prompt(
-                                                      t(
-                                                          'Block for how many minutes?',
-                                                      ),
-                                                      '60',
+                                        const answer = blocked
+                                            ? '0'
+                                            : window.prompt(
+                                                  t(
+                                                      'Block for how many minutes?',
                                                   ),
+                                                  '60',
                                               );
-                                        if (!Number.isNaN(minutes)) {
+                                        // Bekor qilinsa yoki son bo'lmasa — hech narsa yuborilmaydi
+                                        const minutes = Number(
+                                            answer?.trim() || NaN,
+                                        );
+                                        if (
+                                            Number.isInteger(minutes) &&
+                                            minutes >= 0
+                                        ) {
                                             router.post(
                                                 DriverController.block.url(
                                                     driver.id,
@@ -256,9 +296,16 @@ export default function DriverForm({
                             >
                                 <Input
                                     id="callsign"
+                                    inputMode="numeric"
+                                    autoComplete="off"
+                                    maxLength={6}
+                                    placeholder="101"
                                     value={form.data.callsign}
                                     onChange={(e) =>
-                                        form.setData('callsign', e.target.value)
+                                        form.setData(
+                                            'callsign',
+                                            e.target.value.replace(/\D/g, ''),
+                                        )
                                     }
                                 />
                             </Field>
@@ -269,6 +316,8 @@ export default function DriverForm({
                             >
                                 <Input
                                     id="name"
+                                    autoComplete="off"
+                                    maxLength={100}
                                     value={form.data.name}
                                     onChange={(e) =>
                                         form.setData('name', e.target.value)
@@ -280,12 +329,11 @@ export default function DriverForm({
                                 label="Phone"
                                 error={errors.phone}
                             >
-                                <Input
+                                <PhoneInput
                                     id="phone"
+                                    autoComplete="off"
                                     value={form.data.phone}
-                                    onChange={(e) =>
-                                        form.setData('phone', e.target.value)
-                                    }
+                                    onChange={(v) => form.setData('phone', v)}
                                 />
                             </Field>
                             <Field
@@ -310,11 +358,13 @@ export default function DriverForm({
                             >
                                 <Input
                                     id="license_no"
+                                    autoComplete="off"
+                                    maxLength={50}
                                     value={form.data.license_no}
                                     onChange={(e) =>
                                         form.setData(
                                             'license_no',
-                                            e.target.value,
+                                            e.target.value.toUpperCase(),
                                         )
                                     }
                                 />
@@ -363,20 +413,36 @@ export default function DriverForm({
                                     key={key}
                                     id={`vehicle-${key}`}
                                     label={key}
-                                    error={
-                                        errors[`vehicle.${key}`] ??
-                                        (key === 'plate_number'
-                                            ? errors.plate
-                                            : undefined)
-                                    }
+                                    error={errors[`vehicle.${key}`]}
                                 >
                                     <Input
                                         id={`vehicle-${key}`}
+                                        autoComplete="off"
+                                        maxLength={VEHICLE_INPUT[key].maxLength}
+                                        inputMode={VEHICLE_INPUT[key].inputMode}
+                                        placeholder={
+                                            VEHICLE_INPUT[key].placeholder
+                                        }
                                         value={String(
                                             form.data.vehicle[key] ?? '',
                                         )}
                                         onChange={(e) =>
-                                            setVehicle(key, e.target.value)
+                                            setVehicle(
+                                                key,
+                                                VEHICLE_INPUT[key].clean?.(
+                                                    e.target.value,
+                                                ) ?? e.target.value,
+                                            )
+                                        }
+                                        onBlur={() =>
+                                            key === 'plate_number' &&
+                                            setVehicle(
+                                                key,
+                                                formatPlate(
+                                                    form.data.vehicle
+                                                        .plate_number,
+                                                ),
+                                            )
                                         }
                                     />
                                 </Field>
@@ -439,37 +505,38 @@ export default function DriverForm({
                                 {can('balance.adjust') && (
                                     <div className="grid gap-2">
                                         <div className="flex gap-2">
-                                            <Input
-                                                type="number"
-                                                placeholder={t('Amount (+/-)')}
-                                                value={adjust.amount}
-                                                onChange={(e) =>
-                                                    setAdjust({
-                                                        ...adjust,
-                                                        amount: e.target.value,
-                                                    })
-                                                }
-                                            />
+                                            <div className="flex-1">
+                                                <MoneyInput
+                                                    allowNegative
+                                                    placeholder={t(
+                                                        'Amount (+/-)',
+                                                    )}
+                                                    value={adjust.data.amount}
+                                                    onChange={(v) =>
+                                                        adjust.setData(
+                                                            'amount',
+                                                            v,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
                                             <Button
                                                 type="button"
                                                 variant="outline"
                                                 disabled={
-                                                    !adjust.amount ||
-                                                    !adjust.comment
+                                                    adjust.processing ||
+                                                    !adjust.data.amount ||
+                                                    !adjust.data.comment.trim()
                                                 }
                                                 onClick={() =>
-                                                    router.post(
+                                                    adjust.post(
                                                         DriverController.adjustBalance.url(
                                                             driver.id,
                                                         ),
-                                                        adjust,
                                                         {
                                                             preserveScroll: true,
                                                             onSuccess: () =>
-                                                                setAdjust({
-                                                                    amount: '',
-                                                                    comment: '',
-                                                                }),
+                                                                adjust.reset(),
                                                         },
                                                     )
                                                 }
@@ -477,17 +544,24 @@ export default function DriverForm({
                                                 {t('Apply')}
                                             </Button>
                                         </div>
+                                        <InputError
+                                            message={adjust.errors.amount}
+                                        />
                                         <Input
                                             placeholder={t(
                                                 'Comment (required)',
                                             )}
-                                            value={adjust.comment}
+                                            maxLength={255}
+                                            value={adjust.data.comment}
                                             onChange={(e) =>
-                                                setAdjust({
-                                                    ...adjust,
-                                                    comment: e.target.value,
-                                                })
+                                                adjust.setData(
+                                                    'comment',
+                                                    e.target.value,
+                                                )
                                             }
+                                        />
+                                        <InputError
+                                            message={adjust.errors.comment}
                                         />
                                     </div>
                                 )}
@@ -517,9 +591,8 @@ export default function DriverForm({
                                                             : 'text-emerald-600 dark:text-emerald-400'
                                                     }
                                                 >
-                                                    {r.amount.toLocaleString(
-                                                        'ru-RU',
-                                                    )}
+                                                    {r.amount > 0 ? '+' : ''}
+                                                    {formatNumber(r.amount)}
                                                 </span>
                                             ),
                                         },
@@ -600,18 +673,14 @@ export default function DriverForm({
                                             title: 'Earnings',
                                             className: 'text-right',
                                             render: (r) =>
-                                                r.earnings.toLocaleString(
-                                                    'ru-RU',
-                                                ),
+                                                formatNumber(r.earnings),
                                         },
                                         {
                                             key: 'commission',
                                             title: 'Commission',
                                             className: 'text-right',
                                             render: (r) =>
-                                                r.commission.toLocaleString(
-                                                    'ru-RU',
-                                                ),
+                                                formatNumber(r.commission),
                                         },
                                     ]}
                                 />

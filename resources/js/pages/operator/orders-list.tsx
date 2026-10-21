@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { dial, useSip } from '@/components/webphone/use-sip';
 import { useCan } from '@/hooks/use-can';
 import { useTrans } from '@/hooks/use-trans';
+import { formatNumber, formatPhone, formatPlate } from '@/lib/format';
 import { orderStatusColor, orderStatusLabel } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
 import type { MapDriver, Order, TariffClass } from '@/types/operator';
@@ -95,7 +96,10 @@ function CallButtons({ order }: { order: Order }) {
                     size="sm"
                     variant="outline"
                     disabled={!ready}
-                    title={why ?? `${t('Call client')} ${order.client.phone}`}
+                    title={
+                        why ??
+                        `${t('Call client')} ${formatPhone(order.client.phone)}`
+                    }
                     onClick={() => dial(order.client?.phone)}
                 >
                     <Phone /> {t('Call client')}
@@ -228,23 +232,24 @@ function OrderRow({
                 </div>
             )}
             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{order.client?.phone}</span>
+                <span className="whitespace-nowrap">
+                    {formatPhone(order.client?.phone)}
+                </span>
                 <span>· {order.tariff_class?.name}</span>
                 {order.price_estimate && (
-                    <span>
-                        · ~{order.price_estimate.toLocaleString('ru-RU')}
-                    </span>
+                    <span>· ~{formatNumber(order.price_estimate)}</span>
                 )}
                 {order.price_bonus ? (
                     <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                        +{order.price_bonus.toLocaleString('ru-RU')}
+                        +{formatNumber(order.price_bonus)}
                     </span>
                 ) : null}
             </div>
             {order.driver && (
                 <div className="mt-1 text-xs">
                     🚕 {order.driver.callsign} · {order.vehicle?.color}{' '}
-                    {order.vehicle?.model} {order.vehicle?.plate_number}
+                    {order.vehicle?.model}{' '}
+                    {formatPlate(order.vehicle?.plate_number)}
                 </div>
             )}
 

@@ -1,5 +1,4 @@
 import { Link } from '@inertiajs/react';
-import { currencyLabel } from '@/lib/locales';
 import type { ReactNode } from 'react';
 import { useTrans } from '@/hooks/use-trans';
 import { cn } from '@/lib/utils';
@@ -114,12 +113,6 @@ export function Pagination({ links }: { links: Paginated<unknown>['links'] }) {
             ))}
         </nav>
     );
-}
-
-export function formatMoney(value: number | null | undefined): string {
-    return value === null || value === undefined
-        ? '—'
-        : `${value.toLocaleString('ru-RU')} ${currencyLabel()}`;
 }
 
 export function formatDateTime(value: string | null | undefined): string {

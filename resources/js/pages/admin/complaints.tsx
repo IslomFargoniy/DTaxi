@@ -6,6 +6,7 @@ import { DataTable, formatDateTime, Pagination } from '@/components/data-table';
 import type { Paginated } from '@/components/data-table';
 import { EditDialog } from '@/components/edit-dialog';
 import Heading from '@/components/heading';
+import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,9 +61,11 @@ function ResolveDialog({
                 <Label htmlFor="resolution">{t('What was done')}</Label>
                 <Input
                     id="resolution"
+                    maxLength={2000}
                     value={form.data.resolution}
                     onChange={(e) => form.setData('resolution', e.target.value)}
                 />
+                <InputError message={form.errors.resolution} />
             </div>
             <div className="flex gap-1.5">
                 {(['open', 'resolved'] as const).map((status) => (
@@ -124,6 +127,8 @@ function NewDialog({ onClose }: { onClose: () => void }) {
                 <Input
                     id="order_id"
                     inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={10}
                     value={form.data.order_id}
                     onChange={(e) =>
                         form.setData(
@@ -132,19 +137,17 @@ function NewDialog({ onClose }: { onClose: () => void }) {
                         )
                     }
                 />
-                {form.errors.order_id && (
-                    <p className="text-sm text-destructive">
-                        {form.errors.order_id}
-                    </p>
-                )}
+                <InputError message={form.errors.order_id} />
             </div>
             <div className="grid gap-1.5">
                 <Label htmlFor="text">{t('What did the client say?')}</Label>
                 <Input
                     id="text"
+                    maxLength={2000}
                     value={form.data.text}
                     onChange={(e) => form.setData('text', e.target.value)}
                 />
+                <InputError message={form.errors.text} />
             </div>
         </EditDialog>
     );

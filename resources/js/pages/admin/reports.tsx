@@ -2,13 +2,14 @@ import { Head, router } from '@inertiajs/react';
 import { Download } from 'lucide-react';
 import { useState } from 'react';
 import ReportController from '@/actions/App/Http/Controllers/Admin/ReportController';
-import { DataTable, formatMoney } from '@/components/data-table';
+import { DataTable } from '@/components/data-table';
 import Heading from '@/components/heading';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTrans } from '@/hooks/use-trans';
 import { index } from '@/routes/admin/reports';
+import { formatMoney } from '@/lib/format';
 
 type Daily = {
     day: string;
@@ -164,6 +165,7 @@ export default function Reports({
                         <Input
                             type="date"
                             className="w-40"
+                            max={local.to || undefined}
                             value={local.from}
                             onChange={(e) =>
                                 apply({ ...local, from: e.target.value })
@@ -172,6 +174,7 @@ export default function Reports({
                         <Input
                             type="date"
                             className="w-40"
+                            min={local.from || undefined}
                             value={local.to}
                             onChange={(e) =>
                                 apply({ ...local, to: e.target.value })

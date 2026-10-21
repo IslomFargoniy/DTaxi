@@ -18,6 +18,8 @@ import { useTrans } from '@/hooks/use-trans';
 import { getJson } from '@/lib/http';
 import { index } from '@/routes/admin/branches';
 import { children as regionChildren } from '@/routes/admin/regions';
+import { MoneyInput } from '@/components/money-input';
+import { formatNumber } from '@/lib/format';
 
 type Branch = {
     id: number;
@@ -304,6 +306,23 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     );
 }
 
+// Pul kalitlari — MoneyInput; qolganlari son (chegaralar BranchController::SETTINGS bilan bir xil)
+const MONEY_SETTINGS = ['drivers.min_balance', 'drivers.cancel_penalty'];
+const settingLimits: Record<
+    string,
+    { min: number; max?: number; step?: number }
+> = {
+    'drivers.commission_percent': { min: 0, max: 100, step: 0.1 },
+    'drivers.max_cancels_per_shift': { min: 0, max: 100 },
+    'drivers.block_minutes': { min: 0, max: 1440 },
+    'dispatch.step_seconds': { min: 5, max: 120 },
+    'dispatch.direct_offer_seconds': { min: 5, max: 120 },
+    'dispatch.low_rating_threshold': { min: 0, max: 100 },
+    'pricing.surge_coeff': { min: 1, max: 5, step: 0.05 },
+    'pricing.surge_from_hour': { min: 0, max: 23 },
+    'pricing.surge_to_hour': { min: 0, max: 24 },
+};
+
 const settingLabels: Record<string, string> = {
     'drivers.commission_percent': 'Driver commission, %',
     'drivers.min_balance': "Minimum driver balance, so'm",
@@ -396,6 +415,8 @@ function BranchDialog({
                         <Label htmlFor="name">{t('Name')}</Label>
                         <Input
                             id="name"
+                            maxLength={100}
+                            autoComplete="off"
                             value={form.data.name}
                             onChange={(e) =>
                                 form.setData('name', e.target.value)
@@ -409,12 +430,15 @@ function BranchDialog({
                         </Label>
                         <Input
                             id="service_name"
+                            maxLength={100}
+                            autoComplete="off"
                             placeholder="Ibrat taksi"
                             value={form.data.service_name}
                             onChange={(e) =>
                                 form.setData('service_name', e.target.value)
                             }
                         />
+                        <InputError message={errors.service_name} />
                     </div>
                     <div className="grid gap-1.5">
                         <Label htmlFor="greeting">{t('Greeting text')}</Label>
@@ -423,11 +447,13 @@ function BranchDialog({
                             placeholder={t(
                                 'Assalomu alaykum, … xizmatiga xush kelibsiz',
                             )}
+                            maxLength={500}
                             value={form.data.greeting_text}
                             onChange={(e) =>
                                 form.setData('greeting_text', e.target.value)
                             }
                         />
+                        <InputError message={errors.greeting_text} />
                     </div>
                     <label className="flex items-center gap-2 text-sm">
                         <Checkbox
@@ -530,7 +556,9 @@ function BranchDialog({
                             <Input
                                 id="radius"
                                 type="number"
+                                inputMode="decimal"
                                 min={0.5}
+                                max={300}
                                 step={0.5}
                                 placeholder="—"
                                 value={form.data.service_radius_km}
@@ -555,11 +583,17 @@ function BranchDialog({
                         </p>
                         {Object.entries(settingLabels).map(([key, label]) => {
                             const field = key.replaceAll('.', '__');
+                            const limits = settingLimits[key];
+                            const setValue = (value: string) =>
+                                form.setData('settings', {
+                                    ...form.data.settings,
+                                    [field]: value,
+                                });
 
                             return (
                                 <div
                                     key={key}
-                                    className="grid grid-cols-[1fr_100px] items-center gap-2"
+                                    className="grid grid-cols-[1fr_120px] items-center gap-x-2"
                                 >
                                     <Label
                                         htmlFor={field}
@@ -567,19 +601,44 @@ function BranchDialog({
                                     >
                                         {t(label)}
                                     </Label>
-                                    <Input
-                                        id={field}
-                                        type="number"
-                                        placeholder={String(
-                                            defaults[key] ?? '',
-                                        )}
-                                        value={form.data.settings[field]}
-                                        onChange={(e) =>
-                                            form.setData('settings', {
-                                                ...form.data.settings,
-                                                [field]: e.target.value,
-                                            })
-                                        }
+                                    {MONEY_SETTINGS.includes(key) ? (
+                                        <MoneyInput
+                                            id={field}
+                                            currency={false}
+                                            placeholder={formatNumber(
+                                                Number(defaults[key] ?? 0),
+                                            )}
+                                            value={form.data.settings[field]}
+                                            onChange={(v) =>
+                                                setValue(
+                                                    v === null ? '' : String(v),
+                                                )
+                                            }
+                                        />
+                                    ) : (
+                                        <Input
+                                            id={field}
+                                            type="number"
+                                            inputMode={
+                                                limits?.step
+                                                    ? 'decimal'
+                                                    : 'numeric'
+                                            }
+                                            min={limits?.min}
+                                            max={limits?.max}
+                                            step={limits?.step ?? 1}
+                                            placeholder={String(
+                                                defaults[key] ?? '',
+                                            )}
+                                            value={form.data.settings[field]}
+                                            onChange={(e) =>
+                                                setValue(e.target.value)
+                                            }
+                                        />
+                                    )}
+                                    <InputError
+                                        className="col-span-2"
+                                        message={errors[`settings.${field}`]}
                                     />
                                 </div>
                             );

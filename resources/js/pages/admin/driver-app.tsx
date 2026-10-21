@@ -95,6 +95,9 @@ export default function DriverApp({
                                     <Label>{t('Version code')}</Label>
                                     <Input
                                         type="number"
+                                        inputMode="numeric"
+                                        min={1}
+                                        step={1}
                                         value={form.data.version_code}
                                         onChange={(e) =>
                                             form.setData(
@@ -123,6 +126,9 @@ export default function DriverApp({
                                     <Label>{t('Minimum version')}</Label>
                                     <Input
                                         type="number"
+                                        inputMode="numeric"
+                                        min={1}
+                                        step={1}
                                         value={form.data.min_version_code}
                                         onChange={(e) =>
                                             form.setData(

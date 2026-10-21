@@ -1,9 +1,9 @@
 import { Head } from '@inertiajs/react';
-import { formatMoney } from '@/components/data-table';
 import Heading from '@/components/heading';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTrans } from '@/hooks/use-trans';
 import { dashboard } from '@/routes';
+import { formatMoney } from '@/lib/format';
 
 type Stats = {
     orders_today: number;

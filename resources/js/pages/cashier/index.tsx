@@ -1,11 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import CashierController from '@/actions/App/Http/Controllers/Cashier/CashierController';
-import {
-    DataTable,
-    formatDateTime,
-    formatMoney,
-} from '@/components/data-table';
+import { DataTable, formatDateTime } from '@/components/data-table';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +12,8 @@ import { useTrans } from '@/hooks/use-trans';
 import { getJson, isAbort } from '@/lib/http';
 import { index } from '@/routes/cashier';
 import { search } from '@/routes/cashier/drivers';
+import { MoneyInput } from '@/components/money-input';
+import { formatMoney, formatNumber, formatPhone } from '@/lib/format';
 
 type FoundDriver = {
     id: number;
@@ -75,7 +73,7 @@ export default function CashierIndex({
     const [driver, setDriver] = useState<FoundDriver | null>(null);
     const form = useForm({
         driver_id: 0,
-        amount: '',
+        amount: null as number | null,
         request_id: newRequestId(),
     });
 
@@ -140,6 +138,9 @@ export default function CashierIndex({
                     <CardContent className="grid gap-3">
                         <Input
                             autoFocus
+                            type="search"
+                            autoComplete="off"
+                            maxLength={30}
                             placeholder={t('Callsign, phone or plate')}
                             value={q}
                             onChange={(e) => setQ(e.target.value)}
@@ -160,6 +161,11 @@ export default function CashierIndex({
                                                 {d.callsign}
                                             </span>{' '}
                                             · {d.name} · {d.vehicle}
+                                            {d.phone && (
+                                                <span className="ml-1 text-muted-foreground">
+                                                    · {formatPhone(d.phone)}
+                                                </span>
+                                            )}
                                             <span className="float-right text-muted-foreground">
                                                 {formatMoney(d.balance)}
                                             </span>
@@ -208,22 +214,19 @@ export default function CashierIndex({
                                                 onClick={() =>
                                                     form.setData(
                                                         'amount',
-                                                        String(amount),
+                                                        amount,
                                                     )
                                                 }
                                             >
-                                                {amount.toLocaleString('ru-RU')}
+                                                {formatNumber(amount)}
                                             </Button>
                                         ),
                                     )}
                                 </div>
-                                <Input
-                                    type="number"
+                                <MoneyInput
                                     placeholder={t('Amount')}
                                     value={form.data.amount}
-                                    onChange={(e) =>
-                                        form.setData('amount', e.target.value)
-                                    }
+                                    onChange={(v) => form.setData('amount', v)}
                                 />
                                 <InputError message={form.errors.amount} />
                                 <div className="flex gap-2">

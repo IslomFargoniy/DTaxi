@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PhoneInput } from '@/components/phone-input';
+import { formatMoney, formatPhone, toPercent } from '@/lib/format';
 import { useTrans } from '@/hooks/use-trans';
 import { index } from '@/routes/admin/companies';
 
@@ -91,6 +93,8 @@ function CompanyDialog({
                 <Label htmlFor="name">{t('Name')}</Label>
                 <Input
                     id="name"
+                    maxLength={150}
+                    autoComplete="off"
                     value={form.data.name}
                     onChange={(e) => form.setData('name', e.target.value)}
                 />
@@ -99,26 +103,28 @@ function CompanyDialog({
             <div className="grid grid-cols-2 items-start gap-2">
                 <div className="grid gap-1.5">
                     <Label htmlFor="contact_phone">{t('Phone')}</Label>
-                    <Input
+                    <PhoneInput
                         id="contact_phone"
+                        autoComplete="off"
                         value={form.data.contact_phone}
-                        onChange={(e) =>
-                            form.setData('contact_phone', e.target.value)
-                        }
+                        onChange={(v) => form.setData('contact_phone', v)}
                     />
+                    <InputError message={form.errors.contact_phone} />
                 </div>
                 <div className="grid gap-1.5">
                     <Label htmlFor="discount_percent">{t('Discount, %')}</Label>
                     <Input
                         id="discount_percent"
                         type="number"
+                        inputMode="numeric"
                         min={0}
                         max={100}
+                        step={1}
                         value={form.data.discount_percent}
                         onChange={(e) =>
                             form.setData(
                                 'discount_percent',
-                                Number(e.target.value),
+                                toPercent(e.target.value) ?? 0,
                             )
                         }
                     />
@@ -129,9 +135,11 @@ function CompanyDialog({
                 <Label htmlFor="note">{t('Note')}</Label>
                 <Input
                     id="note"
+                    maxLength={1000}
                     value={form.data.note}
                     onChange={(e) => form.setData('note', e.target.value)}
                 />
+                <InputError message={form.errors.note} />
             </div>
             <label className="flex items-center gap-2 text-sm">
                 <Checkbox
@@ -202,6 +210,15 @@ export default function Companies({
                             render: (c) => c.branch ?? '—',
                         },
                         {
+                            key: 'phone',
+                            title: 'Phone',
+                            render: (c) => (
+                                <span className="whitespace-nowrap">
+                                    {formatPhone(c.contact_phone) || '—'}
+                                </span>
+                            ),
+                        },
+                        {
                             key: 'discount',
                             title: 'Discount, %',
                             className: 'text-right',
@@ -218,7 +235,7 @@ export default function Companies({
                             title: 'This month',
                             className: 'text-right',
                             render: (c) =>
-                                `${c.month_orders} · ${c.month_sum.toLocaleString('ru-RU')}`,
+                                `${c.month_orders} · ${formatMoney(c.month_sum)}`,
                         },
                         {
                             key: 'status',

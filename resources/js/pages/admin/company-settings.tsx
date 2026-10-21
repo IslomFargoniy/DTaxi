@@ -5,6 +5,8 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MoneyInput } from '@/components/money-input';
+import { formatNumber } from '@/lib/format';
 import {
     Select,
     SelectContent,
@@ -21,15 +23,30 @@ type Settings = Record<string, string | number>;
 // Nuqtali kalitlar formada `__` bilan yuboriladi (company.name → company__name)
 const toField = (key: string) => key.replaceAll('.', '__');
 
-const numericFields: { key: string; label: string }[] = [
-    { key: 'drivers.commission_percent', label: 'Driver commission, %' },
-    { key: 'drivers.min_balance', label: "Minimum driver balance, so'm" },
-    { key: 'tariffs.rounding_step', label: "Price rounding step, so'm" },
+// Chegaralar serverdagi CompanySettingsController qoidalari bilan bir xil
+const numericFields: {
+    key: string;
+    label: string;
+    min: number;
+    max?: number;
+    step?: number;
+}[] = [
+    {
+        key: 'drivers.commission_percent',
+        label: 'Driver commission, %',
+        min: 0,
+        max: 100,
+        step: 0.1,
+    },
     {
         key: 'calls.recordings_retention_days',
         label: 'Call recordings retention, days',
+        min: 1,
+        max: 3650,
     },
 ];
+
+const ROUNDING_STEPS = [1, 100, 500, 1000];
 
 export default function CompanySettings({ settings }: { settings: Settings }) {
     const { t } = useTrans();
@@ -65,6 +82,8 @@ export default function CompanySettings({ settings }: { settings: Settings }) {
                         </Label>
                         <Input
                             id="company-name"
+                            maxLength={100}
+                            autoComplete="organization"
                             value={data.company__name}
                             onChange={(e) =>
                                 setData('company__name', e.target.value)
@@ -94,13 +113,62 @@ export default function CompanySettings({ settings }: { settings: Settings }) {
                         </Select>
                     </div>
 
-                    {numericFields.map(({ key, label }) => (
+                    <div className="grid gap-2">
+                        <Label htmlFor="drivers.min_balance">
+                            {t("Minimum driver balance, so'm")}
+                        </Label>
+                        <MoneyInput
+                            id="drivers.min_balance"
+                            currency={false}
+                            value={data.drivers__min_balance}
+                            onChange={(v) =>
+                                setData(
+                                    'drivers__min_balance',
+                                    v === null ? '' : String(v),
+                                )
+                            }
+                        />
+                        <InputError
+                            message={fieldErrors['drivers.min_balance']}
+                        />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="tariffs.rounding_step">
+                            {t("Price rounding step, so'm")}
+                        </Label>
+                        <select
+                            id="tariffs.rounding_step"
+                            className="h-9 rounded-md border bg-transparent px-2 text-sm"
+                            value={data.tariffs__rounding_step}
+                            onChange={(e) =>
+                                setData(
+                                    'tariffs__rounding_step',
+                                    e.target.value,
+                                )
+                            }
+                        >
+                            {ROUNDING_STEPS.map((step) => (
+                                <option key={step} value={step}>
+                                    {formatNumber(step)}
+                                </option>
+                            ))}
+                        </select>
+                        <InputError
+                            message={fieldErrors['tariffs.rounding_step']}
+                        />
+                    </div>
+
+                    {numericFields.map(({ key, label, min, max, step }) => (
                         <div key={key} className="grid gap-2">
                             <Label htmlFor={key}>{t(label)}</Label>
                             <Input
                                 id={key}
                                 type="number"
-                                min={0}
+                                inputMode={step ? 'decimal' : 'numeric'}
+                                min={min}
+                                max={max}
+                                step={step ?? 1}
                                 value={data[toField(key)]}
                                 onChange={(e) =>
                                     setData(toField(key), e.target.value)
