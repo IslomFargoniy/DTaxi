@@ -17,6 +17,7 @@ use App\Support\Backup;
 use App\Support\HealthCheck;
 use App\Support\Settings;
 use App\Support\UzbekCyrillic;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -84,7 +85,9 @@ Artisan::command('recordings:cleanup', function (Settings $settings) {
 
 Schedule::command('recordings:cleanup')->dailyAt('03:30')->withoutOverlapping();
 
-Artisan::command('ibtaxi:backup {--keep=14 : Necha kunlik zaxira saqlanadi}', function (Backup $backup) {
+Artisan::command('ibtaxi:backup
+    {--keep=14 : Necha kunlik zaxira saqlanadi}
+    {--recordings-from= : Suhbat yozuvlarini shu kundan (Y-m-d) kechagacha zaxira serveriga yuborish (birinchi sozlashda)}', function (Backup $backup) {
     $file = $backup->create();
     $files = $backup->createFiles();
     $pruned = $backup->prune((int) $this->option('keep'));
@@ -94,6 +97,24 @@ Artisan::command('ibtaxi:backup {--keep=14 : Necha kunlik zaxira saqlanadi}', fu
         if ($backup->upload($file)) {
             $backup->upload($files);
             $this->info('Zaxira serveriga yuborildi.');
+
+            // Yozuvlar serverning o'zida turibdi — mahalliy nusxa kerak emas, faqat zaxira serveriga (kunma-kun)
+            $from = $this->option('recordings-from');
+            $day = is_string($from) && $from !== '' ? CarbonImmutable::parse($from)->startOfDay() : CarbonImmutable::today()->subDay();
+            // Oldingi kunlarda yuborilmay qolganlari ham qayta urinib ko'riladi
+            $pending = File::glob($backup->directory().'/*_recordings.tar');
+            for (; $day->lessThan(CarbonImmutable::today()); $day = $day->addDay()) {
+                if (($archive = $backup->createRecordings($day)) && ! in_array($archive, $pending, true)) {
+                    $pending[] = $archive;
+                }
+            }
+            foreach ($pending as $archive) {
+                $backup->upload($archive);
+                File::delete($archive);
+            }
+            if ($pending !== []) {
+                $this->info('Suhbat yozuvlari: '.count($pending).' kunlik arxiv yuborildi.');
+            }
         }
     } catch (Throwable $e) {
         // Mahalliy zaxira baribir bor; monitoring (ibtaxi:health) ogohlantiradi
@@ -103,7 +124,7 @@ Artisan::command('ibtaxi:backup {--keep=14 : Necha kunlik zaxira saqlanadi}', fu
         return;
     }
     Cache::forget('backup.upload_error');
-})->purpose('Baza (pg_dump), fayllar va .env zaxirasi');
+})->purpose('Baza (pg_dump), fayllar va .env zaxirasi; suhbat yozuvlari — kunma-kun zaxira serveriga');
 
 Artisan::command('ari:restart', function () {
     Cache::forever('ari:restart', now()->getTimestamp());

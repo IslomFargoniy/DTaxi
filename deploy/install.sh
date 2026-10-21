@@ -4,18 +4,20 @@
 #   sudo ./install.sh --dev
 #       lokal virtual mashina (Multipass): kod Mac'dan ulangan papkada, bazaga Mac'dan ulanadi
 #
-#   sudo ./deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz
-#       xaridor serveri: kod shu repozitoriy papkasida (masalan /var/www/ibtaxi), Let's Encrypt,
-#       ufw, fail2ban, kunlik zaxira. Tugagach brauzerda https://<domen> — sozlash ustasi.
+#   sudo ./deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz [--company="Ibrat taksi"]
+#       xaridor serveri: kod shu repozitoriy papkasida (masalan /var/www/ibtaxi), ufw, fail2ban,
+#       Let's Encrypt, kunlik zaxira. Oxirida superadmin login va paroli chiqariladi (ibtaxi:init).
 #       Server IP'si domen DNS'ida ko'rsatilgan bo'lishi kerak (Let's Encrypt tekshiradi).
 #       Xizmat hududi: BBOX=lon1,lat1,lon2,lat2 (standart — Farg'ona vodiysi), xarita va marshrutlar shu hudud uchun.
+#       Xarita (bir necha soat) eng oxirida — undan oldin sayt to'liq ishlaydi.
 #
-# Skript qayta ishga tushirilsa ham xavfsiz (idempotent): mavjud parollar va .env saqlanadi.
+# Skript qayta ishga tushirilsa ham xavfsiz (idempotent): mavjud parollar, .env, sertifikat va superadmin saqlanadi.
 set -euo pipefail
 
 MODE="--dev"
 DOMAIN=""
 EMAIL=""
+COMPANY=""
 SKIP_SSL=0
 SKIP_MAPS=0
 for arg in "$@"; do
@@ -23,6 +25,8 @@ for arg in "$@"; do
         --dev | --prod) MODE="$arg" ;;
         --domain=*) DOMAIN="${arg#*=}" ;;
         --email=*) EMAIL="${arg#*=}" ;;
+        # Firma (xizmat) nomi — faqat birinchi o'rnatishda; keyin panelda o'zgartiriladi
+        --company=*) COMPANY="${arg#*=}" ;;
         # Faqat sinov serveri uchun (domen yo'q): sertifikatsiz — brauzer mikrofoni ishlamaydi
         --skip-ssl) SKIP_SSL=1 ;;
         # Xarita/OSRM/hududlar keyinroq tayyorlanadi (deploy/osm-prepare.sh va boshqalar)
@@ -40,15 +44,19 @@ else
 fi
 DB_NAME="${DB_NAME:-ibtaxi}"
 DB_USER="${DB_USER:-ibtaxi}"
-# Mavjud .env dagi parol saqlanadi; prod'da yangi tasodifiy parol
+# Mavjud .env dagi parol saqlanadi; prod'da yangi tasodifiy parol.
+# .env.example dan nusxalangan "ibtaxi" paroli prod'da qoldirilmaydi (rol paroli ham pastda yangilanadi)
 DB_PASS="${DB_PASS:-$(grep -s '^DB_PASSWORD=' "${APP_DIR}/.env" | cut -d= -f2 || true)}"
-if [[ -z "$DB_PASS" ]]; then
-    if [[ "$MODE" == "--prod" ]]; then DB_PASS="$(openssl rand -hex 16)"; else DB_PASS="ibtaxi"; fi
+if [[ "$MODE" == "--prod" && ( -z "$DB_PASS" || "$DB_PASS" == "ibtaxi" ) ]]; then
+    DB_PASS="$(openssl rand -hex 16)"
 fi
+DB_PASS="${DB_PASS:-ibtaxi}"
 PHP_VERSION="8.3"
 PG_VERSION="16"
 
 log() { printf '\n\033[1;32m==> %s\033[0m\n' "$*"; }
+warn() { printf '\n\033[1;33mOGOHLANTIRISH: %s\033[0m\n' "$*" >&2; }
+as_app() { sudo -u "${APP_USER}" -H bash -c "cd '${APP_DIR}' && $*"; }
 
 if [[ $EUID -ne 0 ]]; then
     echo "Root sifatida ishga tushiring: sudo $0 $*" >&2
@@ -67,10 +75,36 @@ apt install -y -q ca-certificates curl gnupg unzip git acl \
     "php${PHP_VERSION}-redis" "php${PHP_VERSION}-intl" "php${PHP_VERSION}-bcmath" \
     "php${PHP_VERSION}-gd" "php${PHP_VERSION}-zip" "php${PHP_VERSION}-mbstring" \
     "php${PHP_VERSION}-xml" "php${PHP_VERSION}-curl" "php${PHP_VERSION}-sqlite3" \
-    "postgresql-${PG_VERSION}" "postgresql-${PG_VERSION}-postgis-3"
+    "postgresql-${PG_VERSION}" "postgresql-${PG_VERSION}-postgis-3" \
+    asterisk asterisk-modules unixodbc odbc-postgresql ffmpeg openssl
 if [[ "$MODE" == "--prod" ]]; then
     apt install -y -q certbot python3-certbot-nginx ufw fail2ban
     id -u "${APP_USER}" >/dev/null 2>&1 || useradd --system --create-home --shell /bin/bash "${APP_USER}"
+
+    # Server ochiq IP bilan internetda turadi — himoya uzoq bosqichlardan (build, xarita) oldin yoqiladi
+    log "Prod: xavfsizlik devori (ufw) va fail2ban"
+    ufw allow OpenSSH
+    # SSH nostandart portda bo'lsa ham ulanish uzilmasin
+    SSH_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}' || true)"
+    if [[ -n "$SSH_PORT" && "$SSH_PORT" != 22 ]]; then ufw allow "${SSH_PORT}/tcp"; fi
+    ufw allow 80,443/tcp
+    # Ovoz (RTP) — trunk va brauzer/ilova (WebRTC) uchun. SIP 5060 esa faqat trunk IP'lariga (sip-firewall.sh)
+    ufw allow 10000:20000/udp
+    ufw --force enable
+    # Jail log fayli bo'lmasa fail2ban umuman ishga tushmaydi
+    touch /var/log/asterisk/messages && chown asterisk:asterisk /var/log/asterisk/messages
+    cat > /etc/fail2ban/jail.d/ibtaxi.conf <<'JAIL'
+[sshd]
+enabled = true
+
+[asterisk]
+enabled = true
+logpath = /var/log/asterisk/messages
+maxretry = 5
+bantime = 3600
+JAIL
+    systemctl enable --now fail2ban
+    systemctl restart fail2ban
 fi
 
 # OSRM ma'lumotini tayyorlash va build vaqtida xotira yetishi uchun (4 GB serverda OOM bo'ladi)
@@ -95,7 +129,10 @@ log "PostgreSQL: baza va foydalanuvchi"
 sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1 ||
     sudo -u postgres psql -c "CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DB_PASS}' CREATEDB"
 sudo -u postgres psql -qc "ALTER ROLE ${DB_USER} PASSWORD '${DB_PASS}'"
-for db in "${DB_NAME}" "${DB_NAME}_test"; do
+DATABASES=("${DB_NAME}")
+# Test bazasi faqat dasturchi VM'ida
+[[ "$MODE" == "--dev" ]] && DATABASES+=("${DB_NAME}_test")
+for db in "${DATABASES[@]}"; do
     sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${db}'" | grep -q 1 ||
         sudo -u postgres createdb -O "${DB_USER}" "${db}"
     sudo -u postgres psql -d "${db}" -c "CREATE EXTENSION IF NOT EXISTS postgis; CREATE EXTENSION IF NOT EXISTS pg_trgm;"
@@ -104,6 +141,7 @@ done
 PG_CONF_DIR="/etc/postgresql/${PG_VERSION}/main"
 REDIS_CONF="/etc/redis/redis.conf"
 
+# Faqat dev: baza va Redis tashqariga ochiladi (Redis parolsiz). Prod'da ular faqat 127.0.0.1 da
 if [[ "$MODE" == "--dev" ]]; then
     log "Dev: PostgreSQL va Redis Mac'dan ulanish uchun ochiladi"
     sed -i "s/^#\?listen_addresses.*/listen_addresses = '*'/" "${PG_CONF_DIR}/postgresql.conf"
@@ -162,19 +200,14 @@ done
 systemctl restart postgresql redis-server "php${PHP_VERSION}-fpm"
 
 log "Telefoniya: Asterisk (PJSIP Realtime, ARI, WebRTC)"
-apt install -y -q asterisk asterisk-modules unixodbc odbc-postgresql ffmpeg openssl
 ARI_PASSWORD="$(grep -s '^ASTERISK_ARI_PASSWORD=' "${APP_DIR}/.env" | cut -d= -f2 || true)"
-[[ -z "$ARI_PASSWORD" ]] && ARI_PASSWORD="$(openssl rand -hex 16)"
+if [[ -z "$ARI_PASSWORD" ]]; then
+    ARI_PASSWORD="$(openssl rand -hex 16)"
+    printf '\nASTERISK_ARI_URL=http://127.0.0.1:8088\nASTERISK_ARI_USER=ibtaxi\nASTERISK_ARI_PASSWORD=%s\n' "$ARI_PASSWORD" >> "${APP_DIR}/.env"
+fi
 PUBLIC_IP="${PUBLIC_IP:-$(hostname -I | awk '{print $1}')}"
-for f in "${APP_DIR}"/deploy/asterisk/*.conf; do
-    name="$(basename "$f")"
-    sed -e "s|{{DB_NAME}}|${DB_NAME}|g" -e "s|{{DB_USER}}|${DB_USER}|g" -e "s|{{DB_PASS}}|${DB_PASS}|g" \
-        -e "s|{{ARI_PASSWORD}}|${ARI_PASSWORD}|g" -e "s|{{PUBLIC_IP}}|${PUBLIC_IP}|g" \
-        -e "s|{{LOCAL_NET}}|${LOCAL_NET:-192.168.0.0/16}|g" -e "s|{{STUN}}|${STUN:-stun.l.google.com:19302}|g" \
-        "$f" > "/etc/asterisk/${name}"
-done
-sed -e "s|{{DB_NAME}}|${DB_NAME}|g" -e "s|{{DB_USER}}|${DB_USER}|g" -e "s|{{DB_PASS}}|${DB_PASS}|g" \
-    "${APP_DIR}/deploy/asterisk/odbc.ini" > /etc/odbc.ini
+# Dev: Mac LAN'i ham ichki tarmoq (dev-lan-proxy.py); prod'da asterisk-config.sh interfeysdan aniqlaydi
+if [[ "$MODE" == "--dev" ]]; then LOCAL_NET="${LOCAL_NET:-192.168.0.0/16}"; fi
 # WebRTC media shifrlash (DTLS) sertifikati — o'z-o'zidan imzolangan yetarli (barmoq izi orqali tekshiriladi)
 mkdir -p /etc/asterisk/keys
 if [[ ! -f /etc/asterisk/keys/asterisk.pem ]]; then
@@ -182,7 +215,6 @@ if [[ ! -f /etc/asterisk/keys/asterisk.pem ]]; then
         -keyout /etc/asterisk/keys/asterisk.key -out /etc/asterisk/keys/asterisk.crt 2>/dev/null
     cat /etc/asterisk/keys/asterisk.key /etc/asterisk/keys/asterisk.crt > /etc/asterisk/keys/asterisk.pem
 fi
-chown -R asterisk:asterisk /etc/asterisk
 # Asterisk ovozli bo'laklarni o'qiydi, ilova esa yozuvlarni (recording) o'qiydi
 usermod -aG "${APP_USER}" asterisk
 usermod -aG asterisk "${APP_USER}"
@@ -195,10 +227,10 @@ mkdir -p /etc/systemd/system/asterisk.service.d
 printf '[Service]\nNice=-10\n' > /etc/systemd/system/asterisk.service.d/priority.conf
 systemctl daemon-reload
 systemctl enable asterisk
-systemctl restart asterisk
-if ! grep -q '^ASTERISK_ARI_PASSWORD=' "${APP_DIR}/.env" 2>/dev/null; then
-    printf '\nASTERISK_ARI_URL=http://127.0.0.1:8088\nASTERISK_ARI_USER=ibtaxi\nASTERISK_ARI_PASSWORD=%s\n' "$ARI_PASSWORD" >> "${APP_DIR}/.env"
-fi
+# Shablonlar alohida skriptda — yangilanishdan keyin ham shu bilan qayta yoziladi
+APP_DIR="${APP_DIR}" DB_NAME="${DB_NAME}" DB_USER="${DB_USER}" DB_PASS="${DB_PASS}" ARI_PASSWORD="${ARI_PASSWORD}" \
+    PUBLIC_IP="${PUBLIC_IP}" LOCAL_NET="${LOCAL_NET:-}" STUN="${STUN:-}" \
+    bash "${APP_DIR}/deploy/asterisk-config.sh" --restart
 
 if [[ "$MODE" == "--dev" ]]; then
     log "Dev: https (o'z-o'zidan imzolangan) — brauzer mikrofoni faqat https'da ishlaydi"
@@ -212,11 +244,22 @@ fi
 log "Nginx"
 DEV_TLS=""
 [[ "$MODE" == "--dev" ]] && DEV_TLS="listen 443 ssl default_server; ssl_certificate /etc/ssl/ibtaxi-dev.crt; ssl_certificate_key /etc/ssl/ibtaxi-dev.key;"
+SERVER_NAME="_"
+[[ "$MODE" == "--prod" ]] && SERVER_NAME="${DOMAIN}"
+# Bitta IP'dan ko'p urinish (parol tanlash) cheklanadi. Asterisk /ws ulanishlarini 127.0.0.1 dan ko'radi —
+# fail2ban ularni bloklay olmaydi, shuning uchun cheklov nginx'da. Ofis NAT'i ortida ko'p operator bo'lishi mumkin — burst katta
+cat > /etc/nginx/conf.d/ibtaxi-limits.conf <<'NGINX'
+limit_req_zone $binary_remote_addr zone=ibtaxi_auth:10m rate=20r/m;
+limit_req_zone $binary_remote_addr zone=ibtaxi_ws:10m rate=30r/m;
+limit_conn_zone $binary_remote_addr zone=ibtaxi_conn:10m;
+limit_req_status 429;
+limit_conn_status 429;
+NGINX
 cat > /etc/nginx/sites-available/ibtaxi <<NGINX
 server {
     listen 80 default_server;
     ${DEV_TLS}
-    server_name _;
+    server_name ${SERVER_NAME};
     root ${APP_DIR}/public;
     index index.php;
     # Haydovchi ilovasi APK'si (har ABI ~80 MB) panel orqali yuklanadi
@@ -225,6 +268,12 @@ server {
 
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+
+    # Kirish (panel va haydovchi ilovasi): Laravel cheklovi login+IP bo'yicha, bu esa IP bo'yicha umumiy
+    location ~ ^/(login|two-factor-challenge|forgot-password|api/driver/v1/auth/login)$ {
+        limit_req zone=ibtaxi_auth burst=20 nodelay;
+        try_files \$uri /index.php?\$query_string;
     }
 
     location ~ \.php$ {
@@ -249,6 +298,8 @@ server {
 
     # WebRTC SIP (operator brauzeri, haydovchi ilovasi) → Asterisk WebSocket
     location /ws {
+        limit_req zone=ibtaxi_ws burst=60 nodelay;
+        limit_conn ibtaxi_conn 100;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "Upgrade";
@@ -281,55 +332,46 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
+INIT_OUTPUT=""
+SSL_FAILED=0
 if [[ "$MODE" == "--prod" ]]; then
     log "Prod: ilova (composer, frontend, migratsiyalar)"
-    as_app() { sudo -u "${APP_USER}" -H bash -c "cd '${APP_DIR}' && $*"; }
     as_app "composer install --no-dev --optimize-autoloader --no-interaction"
     grep -q '^APP_KEY=base64' "${APP_DIR}/.env" || as_app "php artisan key:generate --force"
     as_app "npm ci --no-audit --no-fund && npm run build"
-    as_app "php artisan migrate --force && php artisan db:seed --class=RolesSeeder --force"
+    as_app "php artisan migrate --force"
     as_app "php artisan storage:link >/dev/null 2>&1 || true; php artisan optimize; php artisan telephony:sync"
 
-    if [[ "$SKIP_MAPS" == 0 ]]; then
-        log "Prod: xarita, marshrutlash (OSRM), hududlar va mo'ljallar (OSM)"
-        [[ -f "${APP_DIR}/storage/app/osm/boundaries.geojsonseq" ]] || bash "${APP_DIR}/deploy/osm-prepare.sh"
-        [[ -f "${APP_DIR}/public/map/region.pmtiles" ]] || bash "${APP_DIR}/deploy/map-prepare.sh"
-        systemctl is-active --quiet ibtaxi-osrm || bash "${APP_DIR}/deploy/osrm-prepare.sh"
-        chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/storage/app/osm" "${APP_DIR}/public/map"
-        as_app "php artisan regions:import && php artisan landmarks:import && php artisan landmarks:import --file=storage/app/osm/streets.geojsonseq && php artisan landmarks:import --file=storage/app/osm/addresses.geojsonseq"
-    fi
+    log "Prod: birinchi filial va superadmin"
+    INIT_ARGS=""
+    [[ -n "$COMPANY" ]] && INIT_ARGS="--company=$(printf '%q' "$COMPANY")"
+    INIT_OUTPUT="$(as_app "php artisan ibtaxi:init ${INIT_ARGS}")"
+    echo "$INIT_OUTPUT"
 
+    # Sertifikat uzoq bosqichlardan (xarita) oldin; olinmasa ham o'rnatish davom etadi (supervisor, cron sozlanadi)
     log "Prod: HTTPS (Let's Encrypt)"
-    sed -i "s/server_name _;/server_name ${DOMAIN};/" /etc/nginx/sites-available/ibtaxi
-    nginx -t && systemctl reload nginx
     if [[ "$SKIP_SSL" == 1 ]]; then
-        echo "OGOHLANTIRISH: --skip-ssl — sertifikat o'rnatilmadi (faqat sinov uchun)"
+        warn "--skip-ssl — sertifikat o'rnatilmadi (faqat sinov uchun)"
+    elif [[ -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]]; then
+        # Nginx sayti yuqorida qayta yozildi — mavjud sertifikat 443 blokiga qayta ulanadi (yangisi olinmaydi)
+        certbot install --nginx --cert-name "${DOMAIN}" -n --redirect || SSL_FAILED=1
     else
-        certbot --nginx -d "${DOMAIN}" -m "${EMAIL}" --agree-tos -n --redirect --keep-until-expiring
+        certbot --nginx -d "${DOMAIN}" -m "${EMAIL}" --agree-tos -n --redirect --keep-until-expiring || SSL_FAILED=1
+    fi
+    if [[ "$SSL_FAILED" == 1 ]]; then
+        warn "Sertifikat olinmadi (DNS: ${DOMAIN} server IP'siga ko'rsatishini tekshiring). Keyin qayta urinish:
+    sudo certbot --nginx -d ${DOMAIN} -m ${EMAIL} --agree-tos --redirect
+yoki install.sh ni qayta ishga tushiring. Sertifikatsiz panelga kirib bo'lmaydi (cookie faqat https)."
     fi
 
-    log "Prod: xavfsizlik devori (ufw) va fail2ban"
-    ufw allow OpenSSH
-    ufw allow 80,443/tcp
-    # Ovoz (RTP) — trunk va brauzer/ilova (WebRTC) uchun. SIP 5060 esa faqat trunk IP'lariga (sip-firewall.sh)
-    ufw allow 10000:20000/udp
-    ufw --force enable
     cat > /etc/cron.d/ibtaxi-sip <<CRON
 */5 * * * * root APP_DIR=${APP_DIR} APP_USER=${APP_USER} ${APP_DIR}/deploy/sip-firewall.sh
 CRON
     APP_DIR="${APP_DIR}" APP_USER="${APP_USER}" "${APP_DIR}/deploy/sip-firewall.sh" || true
-    cat > /etc/fail2ban/jail.d/ibtaxi.conf <<'JAIL'
-[sshd]
-enabled = true
-
-[asterisk]
-enabled = true
-logpath = /var/log/asterisk/messages
-maxretry = 5
-bantime = 3600
-JAIL
-    systemctl enable --now fail2ban
-    systemctl restart fail2ban
+else
+    log "Dev: birinchi filial va superadmin (bor bo'lsa o'zgarmaydi)"
+    INIT_OUTPUT="$(as_app "php artisan ibtaxi:init" 2>&1 || true)"
+    echo "$INIT_OUTPUT"
 fi
 
 log "Loglarni aylantirish (disk to'lmasin)"
@@ -381,12 +423,31 @@ echo "* * * * * ${APP_USER} php ${APP_DIR}/artisan schedule:run >> /dev/null 2>&
 supervisorctl reread
 supervisorctl update
 
+if [[ "$MODE" == "--prod" && "$SKIP_MAPS" == 0 ]]; then
+    # Eng uzoq bosqich (bir necha soat) — oxirida: to'xtab qolsa ham sayt va telefoniya ishlaydi,
+    # skriptni qayta ishga tushirish tayyor bo'lgan qismlarni o'tkazib yuboradi
+    log "Prod: xarita, marshrutlash (OSRM), hududlar va mo'ljallar (OSM)"
+    [[ -f "${APP_DIR}/storage/app/osm/boundaries.geojsonseq" ]] || bash "${APP_DIR}/deploy/osm-prepare.sh"
+    [[ -f "${APP_DIR}/public/map/region.pmtiles" ]] || bash "${APP_DIR}/deploy/map-prepare.sh"
+    systemctl is-active --quiet ibtaxi-osrm || bash "${APP_DIR}/deploy/osrm-prepare.sh"
+    chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/storage/app/osm" "${APP_DIR}/public/map"
+    as_app "php artisan regions:import && php artisan landmarks:import && php artisan landmarks:import --file=storage/app/osm/streets.geojsonseq && php artisan landmarks:import --file=storage/app/osm/addresses.geojsonseq"
+fi
+
 log "Tayyor"
 if [[ "$MODE" == "--prod" ]]; then
-    echo "Panel: https://${DOMAIN}  — birinchi kirishda sozlash ustasi ochiladi"
-    echo "Zaxira: har kuni 02:30 (storage/app/private/backups), yangilash: php artisan ibtaxi:update"
+    echo "Panel: $([[ "$SKIP_SSL" == 1 ]] && echo http || echo https)://${DOMAIN}"
+    if [[ "$SSL_FAILED" == 1 ]]; then echo "  (sertifikat olinmadi — yuqoridagi ogohlantirishga qarang)"; fi
+    echo "Zaxira: har kuni 02:30 (storage/app/private/backups), yangilash: sudo -u ${APP_USER} php artisan ibtaxi:update"
     echo "SIP provayderga server IP: ${PUBLIC_IP}"
+    echo
+    if grep -q '^Parol:' <<<"$INIT_OUTPUT"; then
+        echo "Superadmin (faqat hozir ko'rsatiladi; nusxasi ${APP_DIR}/storage/app/private/first-login.txt — kirgach o'chiring):"
+        grep -E '^(Manzil|Login|Parol):' <<<"$INIT_OUTPUT" | sed 's/^/    /'
+    else
+        echo "Superadmin avval yaratilgan. Parolni tiklash: sudo -u ${APP_USER} php artisan ibtaxi:admin-password"
+    fi
 else
     echo "PostgreSQL: ${DB_NAME} / ${DB_USER}  (test bazasi: ${DB_NAME}_test)"
-    echo "Panel: http://$(hostname -I | awk '{print $1}')"
+    echo "Panel: https://$(hostname -I | awk '{print $1}')"
 fi
