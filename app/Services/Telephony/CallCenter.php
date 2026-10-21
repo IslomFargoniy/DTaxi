@@ -18,6 +18,7 @@ use App\Services\Sounds\MessageComposer;
 use App\Support\Settings;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
 /**
@@ -487,6 +488,15 @@ class CallCenter
 
         $toDriver = (bool) preg_match('/^dr(\d+)$/', $exten, $dm);
         $phone = $toDriver ? $exten : Client::normalizePhone($exten);
+
+        // Trunk pulli: o'g'irlangan operator paroli bilan xalqaro/pullik raqamlarga qo'ng'iroq qilinmasin
+        if (! $toDriver && (! $this->outboundAllowed($phone) || ! $this->outboundWithinLimit($operator))) {
+            Log::warning("CallCenter: chiquvchi qo'ng'iroq rad etildi", ['operator' => $operator->id, 'dialed' => $exten]);
+            $this->ari->hangup($channelId, 'congestion');
+
+            return;
+        }
+
         $number = $toDriver ? null : PhoneNumber::forBranch($operator->branch_id);
 
         if (! $toDriver && ! $number) {
@@ -538,6 +548,43 @@ class CallCenter
         }
 
         CallUpdated::dispatch($call);
+    }
+
+    /**
+     * Raqam (+998901234567 ko'rinishida) ruxsat ro'yxatidagi andozalardan biriga mosmi (calls.outbound_allowed_patterns).
+     */
+    private function outboundAllowed(string $phone): bool
+    {
+        $digits = ltrim($phone, '+');
+
+        foreach ((array) $this->settings()->get('calls.outbound_allowed_patterns') as $pattern) {
+            // Panelda xato yozilgan andoza butun chiquvchi aloqani yiqitmasin — u shunchaki mos kelmaydi
+            $regex = '/'.str_replace('/', '\/', (string) $pattern).'/';
+            if (rescue(fn () => preg_match($regex, $digits) === 1, false, false)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Operator uchun chiquvchi qo'ng'iroqlar chastotasi (calls.operator_outbound_limit / _window_minutes; 0 — cheksiz).
+     */
+    private function outboundWithinLimit(User $operator): bool
+    {
+        $max = (int) $this->settings()->get('calls.operator_outbound_limit');
+        if ($max <= 0) {
+            return true;
+        }
+
+        $key = "telephony:outbound:{$operator->id}";
+        if (RateLimiter::tooManyAttempts($key, $max)) {
+            return false;
+        }
+        RateLimiter::hit($key, max(1, (int) $this->settings()->get('calls.operator_outbound_window_minutes')) * 60);
+
+        return true;
     }
 
     /**

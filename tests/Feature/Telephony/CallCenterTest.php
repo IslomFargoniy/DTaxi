@@ -571,6 +571,49 @@ test('orphan Stasis bridges are destroyed, bridges of live calls are kept', func
     expect($deleted)->toBe(['orphan']);
 });
 
+function operatorDials($test, string $exten, string $channel = 'ch-op'): void
+{
+    $test->center->handle(stasis($channel, ['internal', $exten], "PJSIP/{$test->operator->sip_extension}-0001", $test->operator->sip_extension));
+}
+
+test('operator cannot dial numbers outside the allow-list', function (string $exten) {
+    operatorDials($this, $exten);
+
+    expect(Call::query()->withoutGlobalScopes()->count())->toBe(0)
+        ->and(ariRequests('/ari/channels?endpoint='))->toBeEmpty()
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-op'))->count())->toBe(1);
+})->with(['international' => '0088216123456', 'plus international' => '+79161234567', 'premium short' => '0900', 'too long' => '99890123456789']);
+
+test('operator can dial local numbers in any common form', function (string $exten) {
+    operatorDials($this, $exten);
+
+    expect(ariRequests('endpoint=PJSIP/998901234567@trunk-sarkor'))->toHaveCount(1);
+})->with(['9 digits' => '901234567', 'full' => '998901234567', 'plus' => '+998901234567']);
+
+test('allowed outbound patterns come from settings', function () {
+    app(Settings::class)->set('calls.outbound_allowed_patterns', ['^998\d{9}$', '^7\d{10}$', '(broken']);
+
+    operatorDials($this, '79161234567');
+
+    expect(ariRequests('endpoint=PJSIP/79161234567@trunk-sarkor'))->toHaveCount(1);
+});
+
+test('outbound calls per operator are rate limited', function () {
+    app(Settings::class)->set('calls.operator_outbound_limit', 2);
+
+    foreach (['ch-a', 'ch-b', 'ch-c'] as $channel) {
+        operatorDials($this, '901234567', $channel);
+    }
+
+    expect(ariRequests('@trunk-sarkor'))->toHaveCount(2)
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-c'))->count())->toBe(1);
+
+    // Haydovchiga qo'ng'iroq bepul — chegaraga kirmaydi
+    $driver = driverNear($this->branch, 0, ['callsign' => '777']);
+    operatorDials($this, '777', 'ch-d');
+    expect(ariRequests("endpoint=PJSIP/dr{$driver->id}"))->toHaveCount(1);
+});
+
 test('the listener loop survives any exception', function () {
     app(AriListen::class)->guard(fn () => throw new RuntimeException('boom'));
 
