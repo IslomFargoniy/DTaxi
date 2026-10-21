@@ -42,7 +42,6 @@
         .ctl button.on .main { display: none; }
         #hangup { width: 76px; height: 76px; border-radius: 50%; background: var(--red); color: #fff; box-shadow: 0 6px 18px rgba(239, 59, 59, 0.35); }
         #hangup svg { width: 34px; height: 34px; transform: rotate(135deg); }
-        #diag { position: fixed; left: 8px; right: 8px; bottom: 6px; font: 10px/1.3 ui-monospace, monospace; color: var(--muted); text-align: center; }
         #hangup:active, .ctl button:active { transform: scale(0.94); }
     </style>
     @vite('resources/js/driver-call.ts')
@@ -99,7 +98,6 @@
             <path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/>
         </svg>
     </button>
-    <div id="diag"></div>
 </main>
 </body>
 </html>

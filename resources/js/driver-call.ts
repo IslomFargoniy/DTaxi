@@ -238,7 +238,6 @@ $('mute').addEventListener('click', () => {
     $('mute').classList.toggle('on', !muted);
 });
 
-let playError = '';
 let attached: RTCPeerConnection | null = null;
 
 function playRemote(stream: MediaStream): void {
@@ -249,7 +248,7 @@ function playRemote(stream: MediaStream): void {
     remote.srcObject = stream;
     // Ba'zi Android WebView'larda autoplay o'zi boshlanmaydi
     void remote.play().catch((err: unknown) => {
-        playError = String(err);
+        console.warn('remote audio play failed', String(err));
     });
 }
 
@@ -258,7 +257,6 @@ function attachRemote(pc: RTCPeerConnection): void {
         return;
     }
     attached = pc;
-    diagnose(pc);
     pc.addEventListener('track', (e: RTCTrackEvent) => {
         playRemote(e.streams[0] ?? new MediaStream([e.track]));
     });
@@ -270,52 +268,6 @@ function attachRemote(pc: RTCPeerConnection): void {
     if (tracks.length > 0) {
         playRemote(new MediaStream(tracks));
     }
-}
-
-/**
- * Faqat lokal tarmoqda (sinov): telefonga ovoz kelyaptimi-yo'qmi ekranning pastida ko'rinadi.
- * Telefon USB'ga ulanmaganda bir tomonlama ovozni boshqa yo'l bilan aniqlab bo'lmaydi.
- */
-function diagnose(pc: RTCPeerConnection): void {
-    if (!/^(192\.168|10)\./.test(location.hostname)) {
-        return;
-    }
-    const line = $('diag');
-    window.setInterval(() => {
-        void pc.getStats().then((stats) => {
-            const parts: string[] = [
-                `ice ${pc.iceConnectionState}`,
-                `pc ${pc.connectionState}`,
-            ];
-            stats.forEach((r: Record<string, unknown> & { type: string }) => {
-                if (r.type === 'inbound-rtp' && r.kind === 'audio') {
-                    parts.push(
-                        `in ${String(r.packetsReceived)}p lost ${String(r.packetsLost)}`,
-                        `lvl ${Number(r.audioLevel ?? 0).toFixed(3)}`,
-                        `energy ${Number(r.totalAudioEnergy ?? 0).toFixed(3)}`,
-                    );
-                }
-                if (r.type === 'outbound-rtp' && r.kind === 'audio') {
-                    parts.push(`out ${String(r.packetsSent)}p`);
-                }
-            });
-            const remote = $('remote') as HTMLAudioElement;
-            const track = (
-                remote.srcObject as MediaStream | null
-            )?.getAudioTracks()[0];
-            parts.push(
-                `audio ${remote.paused ? 'paused' : 'playing'} vol ${remote.volume}`,
-                `track ${track ? `${track.readyState}${track.muted ? ' muted' : ''}` : 'none'}`,
-            );
-            if (bridge?.route) {
-                parts.push(`route ${bridge.route()}`);
-            }
-            if (playError) {
-                parts.push(`play: ${playError}`);
-            }
-            line.textContent = parts.join(' · ');
-        });
-    }, 2000);
 }
 
 start().catch((e: unknown) => {
