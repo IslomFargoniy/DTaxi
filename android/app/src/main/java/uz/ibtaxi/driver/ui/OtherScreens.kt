@@ -189,12 +189,7 @@ fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
                 })
             }
             Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
-            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                uz.ibtaxi.driver.data.AppLocale.codes.forEach { code ->
-                    val label = uz.ibtaxi.driver.data.AppLocale.labels.getValue(code)
-                    if (app.session.locale == code) Button(onClick = {}) { Text(label) } else OutlinedButton(onClick = { onLocaleChange(code) }) { Text(label) }
-                }
-            }
+            LanguageRow(app.session.locale, onSelect = onLocaleChange)
             Text(stringResource(R.string.theme), style = MaterialTheme.typography.titleMedium)
             val themeMode by DriverState.themeMode.collectAsState()
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

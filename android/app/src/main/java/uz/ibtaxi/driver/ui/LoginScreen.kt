@@ -63,19 +63,7 @@ fun LoginScreen(onLocaleChange: (String) -> Unit = {}) {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
         // Kirishdan oldin til (serverga kirgandan keyin yuboriladi)
-        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            uz.ibtaxi.driver.data.AppLocale.codes.forEach { code ->
-                androidx.compose.material3.FilterChip(
-                    selected = session.locale == code,
-                    onClick = { if (session.locale != code) onLocaleChange(code) },
-                    label = { Text(uz.ibtaxi.driver.data.AppLocale.labels.getValue(code)) },
-                    colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
-                )
-            }
-        }
+        LanguageRow(session.locale, onSelect = { if (session.locale != it) onLocaleChange(it) })
         AppLogo()
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
         Text(stringResource(R.string.login_title), style = MaterialTheme.typography.bodyLarge)

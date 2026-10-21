@@ -14,6 +14,9 @@ object AppLocale {
     /** Har til o'z tilida — haydovchi o'z tilini taniydi */
     val labels = mapOf("uz" to "O'zbekcha", "oz" to "Ўзбекча", "ru" to "Русский", "en" to "English")
 
+    /** Qisqa — tanlash qatori bir qatorga sig'sin */
+    val shortLabels = mapOf("uz" to "O'z", "oz" to "Ўз", "ru" to "Ru", "en" to "En")
+
     fun normalize(code: String?): String = code?.takeIf { it in codes } ?: "uz"
 
     fun javaLocale(code: String): Locale = when (normalize(code)) {
