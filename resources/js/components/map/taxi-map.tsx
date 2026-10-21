@@ -36,7 +36,9 @@ export function mapStyle(
             protomaps: {
                 type: 'vector',
                 url: `pmtiles://${new URL(tilesUrl, window.location.origin).href}`,
-                attribution: '© OpenStreetMap',
+                // Mo'ljallar qidiruvi Overture ma'lumotidan ham foydalanadi (qaror #60)
+                attribution:
+                    '© OpenStreetMap · Overture Maps Foundation · Foursquare',
             },
         },
         // Uy raqamlari 18 o'rniga 17-zoom'dan (resources/map/generate-layers.mjs bilan bir xil)

@@ -30,7 +30,8 @@ class MapStyleController extends Controller
                 'protomaps' => [
                     'type' => 'vector',
                     'url' => 'pmtiles://'.(str_starts_with($tiles, 'http') ? $tiles : $base.$tiles),
-                    'attribution' => '© OpenStreetMap',
+                    // Mo'ljallar qidiruvi Overture ma'lumotidan ham foydalanadi (qaror #60, litsenziya talabi)
+                    'attribution' => '© OpenStreetMap · Overture Maps Foundation · Foursquare',
                 ],
             ],
             // Obyekt sifatida o'qiladi: assoc=true bo'lsa "format" ichidagi {} bo'sh massivga ([]) aylanadi va
