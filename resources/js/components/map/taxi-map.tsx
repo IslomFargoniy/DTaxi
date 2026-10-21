@@ -7,16 +7,58 @@ import {
 } from 'maplibre-gl';
 // MapLibre 6 worker'ni o'z chunk'iga nisbatan qidiradi — Vite bundle'ida u yo'q, shuning uchun aniq manzil
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import type { MapMouseEvent, StyleSpecification } from 'maplibre-gl';
+import type {
+    ExpressionSpecification,
+    MapMouseEvent,
+    StyleSpecification,
+} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { PMTiles, Protocol } from 'pmtiles';
 import { useEffect, useRef, useState } from 'react';
+import { renames as streetRenamesRoute } from '@/actions/App/Http/Controllers/MapStyleController';
 import { useTrans } from '@/hooks/use-trans';
+import { getJson } from '@/lib/http';
 import { mapLang } from '@/lib/locales';
 
 setWorkerUrl(maplibreWorkerUrl);
 
 let protocolRegistered = false;
+
+/** Qayta nomlangan ko'chalar: OSM'dagi eski nom → admin kiritgan yangi nom */
+export type StreetRenames = Record<string, string>;
+
+let streetRenames: Promise<StreetRenames> | null = null;
+
+/** Sahifa ochilganda bir marta olinadi (server 5 daqiqa kesh qiladi) */
+function loadStreetRenames(): Promise<StreetRenames> {
+    streetRenames ??= getJson<StreetRenames>(streetRenamesRoute.url()).catch(
+        () => ({}),
+    );
+
+    return streetRenames;
+}
+
+/**
+ * Ko'cha yozuvi eski nomga teng bo'lsa — yangi nom (MapStyleController::renamed bilan bir xil).
+ * Tildagi nom (name:uz) bo'lsa ham asosiy nom (name) tekshiriladi.
+ */
+function renamedLabel(
+    textField: unknown,
+    lang: string,
+    renames: StreetRenames,
+): ExpressionSpecification {
+    const pairs = Object.entries(renames).flatMap(([old, name]) => [
+        old,
+        ['format', name, {}],
+    ]);
+
+    return [
+        'match',
+        ['coalesce', ['get', `name:${lang}`], ['get', 'name'], ''],
+        ...pairs,
+        ['match', ['coalesce', ['get', 'name'], ''], ...pairs, textField],
+    ] as unknown as ExpressionSpecification;
+}
 
 /**
  * Xarita uslubi: tile'lar, shriftlar va belgilar o'z serverimizda (public/map, qaror #2).
@@ -25,8 +67,10 @@ export function mapStyle(
     tilesUrl: string,
     dark: boolean,
     lang: string,
+    renames: StreetRenames = {},
 ): StyleSpecification {
     const flavor = dark ? 'dark' : 'light';
+    const renamed = Object.keys(renames).length > 0;
 
     return {
         version: 8,
@@ -55,6 +99,25 @@ export function mapStyle(
             (layer) => {
                 if (layer.id === 'address_label') {
                     return { ...layer, minzoom: 17 };
+                }
+                if (
+                    renamed &&
+                    layer.type === 'symbol' &&
+                    layer['source-layer'] === 'roads' &&
+                    layer.id !== 'roads_shields' &&
+                    layer.layout?.['text-field'] !== undefined
+                ) {
+                    return {
+                        ...layer,
+                        layout: {
+                            ...layer.layout,
+                            'text-field': renamedLabel(
+                                layer.layout['text-field'],
+                                lang,
+                                renames,
+                            ),
+                        },
+                    };
                 }
                 if (layer.id === 'pois' && layer.type === 'symbol') {
                     return {
@@ -106,8 +169,19 @@ export function TaxiMap({
     const [dark, setDark] = useState(() =>
         document.documentElement.classList.contains('dark'),
     );
-    // Hozir xaritada turgan uslub — mavzu yoki til o'zgarsa qayta qo'yiladi
-    const applied = useRef(`${dark}:${lang}`);
+    const [renames, setRenames] = useState<StreetRenames>({});
+    const renamed = Object.keys(renames).length > 0;
+    // Hozir xaritada turgan uslub — mavzu, til yoki ko'cha nomlari o'zgarsa qayta qo'yiladi
+    const applied = useRef(`${dark}:${lang}:${renamed}`);
+
+    useEffect(() => {
+        let active = true;
+        void loadStreetRenames().then((value) => active && setRenames(value));
+
+        return () => {
+            active = false;
+        };
+    }, []);
 
     // Yorug'/qorong'i rejim <html class="dark"> orqali almashadi
     useEffect(() => {
@@ -125,13 +199,13 @@ export function TaxiMap({
 
     useEffect(() => {
         const map = mapRef.current;
-        const key = `${dark}:${lang}`;
+        const key = `${dark}:${lang}:${renamed}`;
         if (!map || applied.current === key) {
             return;
         }
         applied.current = key;
         // Ota komponent qo'shgan manba va qatlamlar (haydovchilar, bekatlar) saqlanadi
-        map.setStyle(mapStyle(tilesUrl, dark, lang), {
+        map.setStyle(mapStyle(tilesUrl, dark, lang, renames), {
             transformStyle: (previous, next) => {
                 if (!previous) {
                     return next;
@@ -150,7 +224,7 @@ export function TaxiMap({
                 };
             },
         });
-    }, [dark, lang, tilesUrl]);
+    }, [dark, lang, tilesUrl, renames, renamed]);
 
     useEffect(() => {
         clickRef.current = onClick;
@@ -168,7 +242,7 @@ export function TaxiMap({
 
         const map = new MapLibreMap({
             container: container.current,
-            style: mapStyle(tilesUrl, dark, lang),
+            style: mapStyle(tilesUrl, dark, lang, renames),
             center: center ? [center.lng, center.lat] : [0, 0],
             zoom: center ? zoom : 1,
             attributionControl: { compact: true },

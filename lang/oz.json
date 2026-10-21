@@ -706,5 +706,17 @@
     "Filter orders": "Буюртмалар филтри",
     "Sort": "Тартиб",
     "Re-sort the list now": "Рўйхатни ҳозир қайта саралаш",
-    "No orders match this filter": "Бу филтрда буюртма йўқ"
+    "No orders match this filter": "Бу филтрда буюртма йўқ",
+    "Street names": "Кўча номлари",
+    "Edit street name": "Кўча номини таҳрирлаш",
+    "Add street name": "Кўча номини қўшиш",
+    "Old name (as on the map)": "Эски ном (харитадагидек)",
+    "Pick the street from the list so the spelling matches the map exactly.": "Кўчани рўйхатдан танланг — ёзилиши харитадаги билан айнан бир хил бўлиши керак.",
+    "New name": "Янги ном",
+    "City or region": "Шаҳар ёки вилоят",
+    "Everywhere": "Ҳамма жойда",
+    "Only if a street with the same name exists in another city.": "Фақат шу номли кўча бошқа шаҳарда ҳам бўлса танланг.",
+    "Many streets were renamed, but the map data (OpenStreetMap) still has the old names. Add the new name here: map labels, navigation and address search will show it, and the old name still finds the street.": "Кўп кўчалар қайта номланган, харита маълумотида (OpenStreetMap) эса ҳали эски номлар. Янги номни шу ерга киритинг: харитадаги ёзув, навигатсия ва манзил қидируви янги номни кўрсатади, эски ном билан қидирса ҳам топилади.",
+    "Old name": "Эски ном",
+    "Delete? Streets and addresses get the old name back.": "Ўчирилсинми? Кўча ва манзилларга эски ном қайтади."
 }

@@ -706,5 +706,17 @@
     "Filter orders": "Фильтр заказов",
     "Sort": "Сортировка",
     "Re-sort the list now": "Пересортировать список сейчас",
-    "No orders match this filter": "Нет заказов по этому фильтру"
+    "No orders match this filter": "Нет заказов по этому фильтру",
+    "Street names": "Названия улиц",
+    "Edit street name": "Изменить название улицы",
+    "Add street name": "Добавить название улицы",
+    "Old name (as on the map)": "Старое название (как на карте)",
+    "Pick the street from the list so the spelling matches the map exactly.": "Выберите улицу из списка — написание должно точно совпадать с картой.",
+    "New name": "Новое название",
+    "City or region": "Город или область",
+    "Everywhere": "Везде",
+    "Only if a street with the same name exists in another city.": "Только если улица с таким названием есть и в другом городе.",
+    "Many streets were renamed, but the map data (OpenStreetMap) still has the old names. Add the new name here: map labels, navigation and address search will show it, and the old name still finds the street.": "Многие улицы переименованы, а в данных карты (OpenStreetMap) ещё старые названия. Укажите новое название здесь: подписи на карте, навигация и поиск адресов покажут его, а по старому названию улица тоже найдётся.",
+    "Old name": "Старое название",
+    "Delete? Streets and addresses get the old name back.": "Удалить? Улицам и адресам вернётся старое название."
 }

@@ -22,6 +22,7 @@ import {
     Users,
     UserRound,
     Smartphone,
+    Signpost,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
@@ -53,6 +54,7 @@ import { index as orders } from '@/routes/admin/orders';
 import { index as reports } from '@/routes/admin/reports';
 import { index as sounds } from '@/routes/admin/sounds';
 import { index as staff } from '@/routes/admin/staff';
+import { index as streetRenames } from '@/routes/admin/street-renames';
 import { index as tariffs } from '@/routes/admin/tariffs';
 import { index as telephony } from '@/routes/admin/telephony';
 import { index as cashier } from '@/routes/cashier';
@@ -88,6 +90,15 @@ export function AppSidebar() {
             : []),
         ...(can('orders.view')
             ? [{ title: 'Landmarks', href: landmarks(), icon: MapPin }]
+            : []),
+        ...(can('tariffs.manage')
+            ? [
+                  {
+                      title: 'Street names',
+                      href: streetRenames(),
+                      icon: Signpost,
+                  },
+              ]
             : []),
         ...(can('orders.view')
             ? [
