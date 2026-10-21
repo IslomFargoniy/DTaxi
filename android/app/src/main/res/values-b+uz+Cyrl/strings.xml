@@ -128,4 +128,7 @@
     <string name="update_downloading">Юкланмоқда</string>
     <string name="update_failed">Юклаб бўлмади. Интернетни текшириб, қайта уриниб кўринг.</string>
     <string name="battery_ok">Батарея чеклови ўчирилган</string>
+    <string name="logout_confirm_title">Чиқасизми?</string>
+    <string name="logout_confirm_text">Ҳисобдан чиқасиз ва линиядан тушасиз. Қайта кириш учун телефон рақами ва парол керак бўлади.</string>
+    <string name="cancel">Бекор қилиш</string>
 </resources>

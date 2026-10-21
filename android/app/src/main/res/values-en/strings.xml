@@ -127,4 +127,7 @@
     <string name="update_downloading">Downloading</string>
     <string name="update_failed">Download failed. Check the internet and try again.</string>
     <string name="battery_ok">Battery restriction is off</string>
+    <string name="logout_confirm_title">Log out?</string>
+    <string name="logout_confirm_text">You will log out and go offline. You will need your phone number and password to log in again.</string>
+    <string name="cancel">Cancel</string>
 </resources>

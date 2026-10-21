@@ -127,4 +127,7 @@
     <string name="update_downloading">Загрузка</string>
     <string name="update_failed">Не удалось загрузить. Проверьте интернет и попробуйте снова.</string>
     <string name="battery_ok">Ограничение батареи отключено</string>
+    <string name="logout_confirm_title">Выйти?</string>
+    <string name="logout_confirm_text">Вы выйдете из аккаунта и линии. Для повторного входа понадобятся номер телефона и пароль.</string>
+    <string name="cancel">Отмена</string>
 </resources>

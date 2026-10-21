@@ -127,4 +127,7 @@
     <string name="update_downloading">Yuklanmoqda</string>
     <string name="update_failed">Yuklab bo\'lmadi. Internetni tekshirib, qayta urinib ko\'ring.</string>
     <string name="battery_ok">Batareya cheklovi o\'chirilgan</string>
+    <string name="logout_confirm_title">Chiqasizmi?</string>
+    <string name="logout_confirm_text">Hisobdan chiqasiz va liniyadan tushasiz. Qayta kirish uchun telefon raqami va parol kerak bo\'ladi.</string>
+    <string name="cancel">Bekor qilish</string>
 </resources>

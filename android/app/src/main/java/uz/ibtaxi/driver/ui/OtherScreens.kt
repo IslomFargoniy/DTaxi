@@ -219,17 +219,35 @@ fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
             }
             OutlinedButton(onClick = { openBatterySettings(context) }) { Text(stringResource(R.string.open_settings)) }
 
-            // Chiqish — eng pastda, o'rtada, qizil
+            // Chiqish — eng pastda, o'rtada, qizil; tasodifan bosilmasin — tasdiqlash so'raladi
+            var confirmLogout by remember { mutableStateOf(false) }
+            if (confirmLogout) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { confirmLogout = false },
+                    title = { Text(stringResource(R.string.logout_confirm_title)) },
+                    text = { Text(stringResource(R.string.logout_confirm_text)) },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                confirmLogout = false
+                                scope.launch {
+                                    app.repository.setOnline(false)
+                                    DriverService.stop(context)
+                                    delay(200)
+                                    app.repository.logout()
+                                }
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White),
+                        ) { Text(stringResource(R.string.logout)) }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = { confirmLogout = false }) { Text(stringResource(R.string.cancel)) }
+                    },
+                )
+            }
             Spacer(Modifier.weight(1f))
             Button(
-                onClick = {
-                    scope.launch {
-                        app.repository.setOnline(false)
-                        DriverService.stop(context)
-                        delay(200)
-                        app.repository.logout()
-                    }
-                },
+                onClick = { confirmLogout = true },
                 modifier = Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally).height(52.dp),
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White),
                 shape = RoundedCornerShape(16.dp),
