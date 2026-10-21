@@ -43,6 +43,7 @@ export type Order = {
     scheduled_at?: string | null;
     assigned_at: string | null;
     arrived_at: string | null;
+    updated_at?: string | null;
 };
 
 export type MapDriver = {
@@ -108,4 +109,19 @@ export type ClientCard = {
         vehicle: string | null;
     }[];
     dropoffs: { text: string; lat: number; lng: number }[];
+    /** "Oxirgi buyurtmani takrorlash" uchun */
+    last_order?: {
+        id: number;
+        branch_id: number;
+        tariff_class_id: number;
+        pickup: {
+            text: string;
+            lat: number;
+            lng: number;
+            landmark_id: number | null;
+        };
+        dropoff: { text: string; lat: number; lng: number } | null;
+        stops: { text: string; lat: number; lng: number }[];
+        comment: string | null;
+    } | null;
 };

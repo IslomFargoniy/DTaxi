@@ -10,7 +10,7 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import type { MapMouseEvent, StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTrans } from '@/hooks/use-trans';
 import { mapLang } from '@/lib/locales';
 
@@ -72,8 +72,58 @@ export function TaxiMap({
     onClick,
 }: Props) {
     const container = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<MapLibreMap | null>(null);
     const clickRef = useRef(onClick);
     const { locale } = useTrans();
+    const lang = mapLang(locale);
+    const [dark, setDark] = useState(() =>
+        document.documentElement.classList.contains('dark'),
+    );
+    // Hozir xaritada turgan uslub — mavzu yoki til o'zgarsa qayta qo'yiladi
+    const applied = useRef(`${dark}:${lang}`);
+
+    // Yorug'/qorong'i rejim <html class="dark"> orqali almashadi
+    useEffect(() => {
+        const root = document.documentElement;
+        const observer = new MutationObserver(() =>
+            setDark(root.classList.contains('dark')),
+        );
+        observer.observe(root, {
+            attributes: true,
+            attributeFilter: ['class'],
+        });
+
+        return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        const key = `${dark}:${lang}`;
+        if (!map || applied.current === key) {
+            return;
+        }
+        applied.current = key;
+        // Ota komponent qo'shgan manba va qatlamlar (haydovchilar, bekatlar) saqlanadi
+        map.setStyle(mapStyle(tilesUrl, dark, lang), {
+            transformStyle: (previous, next) => {
+                if (!previous) {
+                    return next;
+                }
+                const ids = new Set(next.layers.map((layer) => layer.id));
+
+                return {
+                    ...next,
+                    sources: { ...previous.sources, ...next.sources },
+                    layers: [
+                        ...next.layers,
+                        ...previous.layers.filter(
+                            (layer) => !ids.has(layer.id),
+                        ),
+                    ],
+                };
+            },
+        });
+    }, [dark, lang, tilesUrl]);
 
     useEffect(() => {
         clickRef.current = onClick;
@@ -89,10 +139,9 @@ export function TaxiMap({
             protocolRegistered = true;
         }
 
-        const dark = document.documentElement.classList.contains('dark');
         const map = new MapLibreMap({
             container: container.current,
-            style: mapStyle(tilesUrl, dark, mapLang(locale)),
+            style: mapStyle(tilesUrl, dark, lang),
             center: [center.lng, center.lat],
             zoom,
             attributionControl: { compact: true },
@@ -106,8 +155,12 @@ export function TaxiMap({
             clickRef.current?.({ lat: e.lngLat.lat, lng: e.lngLat.lng }),
         );
         map.on('load', () => onReady?.(map));
+        mapRef.current = map;
 
-        return () => map.remove();
+        return () => {
+            mapRef.current = null;
+            map.remove();
+        };
         // Xarita bir marta yaratiladi; markazni ota komponent map.flyTo bilan o'zgartiradi
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);

@@ -3,10 +3,13 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Services\Telephony\OperatorPool;
 use App\Support\Settings;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -30,6 +33,13 @@ class AppServiceProvider extends ServiceProvider
 
         // Superadmin hamma ruxsatga ega
         Gate::before(fn (User $user) => $user->isSuperadmin() ? true : null);
+
+        // Paneldan chiqqan operatorga navbatdagi qo'ng'iroqlar yuborilmasin
+        Event::listen(Logout::class, function (Logout $event) {
+            if ($event->user instanceof User && ($event->user->operator_status ?? 'offline') !== 'offline') {
+                app(OperatorPool::class)->setStatus($event->user, 'offline');
+            }
+        });
     }
 
     /**

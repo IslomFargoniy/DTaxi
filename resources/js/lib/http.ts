@@ -7,13 +7,22 @@ function xsrfToken(): string {
     return match ? decodeURIComponent(match[1]) : '';
 }
 
-export async function getJson<T>(url: string): Promise<T> {
+/** Bekor qilingan so'rov (AbortController) — xato sifatida ko'rsatilmaydi */
+export function isAbort(error: unknown): boolean {
+    return error instanceof DOMException && error.name === 'AbortError';
+}
+
+export async function getJson<T>(
+    url: string,
+    options: { signal?: AbortSignal } = {},
+): Promise<T> {
     const response = await fetch(url, {
         headers: {
             Accept: 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
         },
         credentials: 'same-origin',
+        signal: options.signal,
     });
 
     if (!response.ok) {

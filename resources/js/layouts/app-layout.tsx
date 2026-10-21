@@ -1,5 +1,7 @@
 import { usePage } from '@inertiajs/react';
+import { useEffect } from 'react';
 import AppLayoutTemplate from '@/layouts/app/app-sidebar-layout';
+import { globalSip } from '@/components/webphone/sip-state';
 import { WebPhone } from '@/components/webphone/webphone';
 import { ChatPanel } from '@/pages/operator/chat-panel';
 import type { BreadcrumbItem } from '@/types';
@@ -22,6 +24,14 @@ export default function AppLayout({
     const canPhone =
         auth.permissions.includes('*') ||
         auth.permissions.includes('calls.answer');
+    const phoneUser = auth.user && canPhone ? auth.user.id : null;
+
+    // Telefonsiz foydalanuvchi kirdi (yoki ruxsat olib tashlandi) — oldingi ulanish yopiladi
+    useEffect(() => {
+        if (phoneUser === null && globalSip.ua) {
+            globalSip.destroyUA();
+        }
+    }, [phoneUser]);
 
     return (
         <AppLayoutTemplate breadcrumbs={breadcrumbs}>

@@ -74,6 +74,8 @@ class OrderResource extends JsonResource
             'completed_at' => $this->completed_at?->toIso8601String(),
             'cancelled_at' => $this->cancelled_at?->toIso8601String(),
             'cancel_reason' => $this->cancel_reason,
+            // Panel kechikib kelgan (eski) hodisani yangisi ustidan yozmasligi uchun
+            'updated_at' => $this->updated_at?->toIso8601String(),
         ];
     }
 }

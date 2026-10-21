@@ -5,6 +5,7 @@ import {
     CarFront,
     History,
     Plus,
+    Repeat,
     X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -14,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTrans } from '@/hooks/use-trans';
-import { getJson } from '@/lib/http';
+import { getJson, isAbort } from '@/lib/http';
 import { orderStatusLabel } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
 import {
@@ -34,6 +35,23 @@ const emptyPlace: PickedPlace = {
 };
 
 export type PickTarget = 'pickup' | 'dropoff' | `stop-${number}` | null;
+
+/** Oraliq to'xtash: React kaliti barqaror (o'chirilganda boshqa maydonlarning matni aralashmasin) */
+type Stop = PickedPlace & { key: number };
+
+let stopSeq = 0;
+function newStop(place: PickedPlace = emptyPlace): Stop {
+    stopSeq += 1;
+
+    return { ...place, key: stopSeq };
+}
+
+/** Ochiq dialog (bekor qilish, tahrirlash va h.k.) — forma klaviatura yorliqlari ishlamaydi */
+function dialogOpen(): boolean {
+    return !!document.querySelector(
+        '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+    );
+}
 
 type Props = {
     branches: Branch[];
@@ -81,10 +99,12 @@ export function OrderForm({
     const [card, setCard] = useState<ClientCard | null>(null);
     const [pickup, setPickup] = useState<PickedPlace>(emptyPlace);
     const [dropoff, setDropoff] = useState<PickedPlace>(emptyPlace);
-    const [stops, setStops] = useState<PickedPlace[]>([]);
+    const [stops, setStops] = useState<Stop[]>([]);
+    // Mijoz qidiruvi: faqat oxirgi so'rov javobi kartochkaga yoziladi
+    const lookupAbort = useRef<AbortController | null>(null);
 
-    const form = useForm({
-        branch_id: branches[0]?.id ?? 0,
+    const blank = (branchId: number) => ({
+        branch_id: branchId,
         phone: '',
         call_id: null as number | null,
         client_name: '',
@@ -99,6 +119,8 @@ export function OrderForm({
             description: '',
         },
     });
+
+    const form = useForm(blank(branches[0]?.id ?? 0));
 
     const classes = tariffClasses.filter(
         (c) => c.branch_id === form.data.branch_id,
@@ -145,7 +167,9 @@ export function OrderForm({
             if (target.startsWith('stop-')) {
                 const index = Number(target.slice(5));
                 setStops((list) =>
-                    list.map((stop, i) => (i === index ? update(stop) : stop)),
+                    list.map((stop, i) =>
+                        i === index ? { ...update(stop), key: stop.key } : stop,
+                    ),
                 );
             } else {
                 (target === 'pickup' ? setPickup : setDropoff)(update);
@@ -173,8 +197,16 @@ export function OrderForm({
                 e.preventDefault();
                 phoneRef.current?.focus();
             } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                // Faqat forma ichidan: chat, webfon yoki dialogdagi Ctrl+Enter buyurtma yubormasin
+                if (
+                    !(e.target instanceof Node) ||
+                    !formRef.current?.contains(e.target) ||
+                    dialogOpen()
+                ) {
+                    return;
+                }
                 e.preventDefault();
-                formRef.current?.requestSubmit();
+                formRef.current.requestSubmit();
             } else if (e.altKey && /^Digit[1-5]$/.test(e.code)) {
                 const address = addresses?.[Number(e.code.slice(5)) - 1];
                 if (address) {
@@ -196,12 +228,18 @@ export function OrderForm({
     }, [addresses, setPicking]);
 
     const lookup = (phone: string = form.data.phone) => {
+        lookupAbort.current?.abort();
+        lookupAbort.current = null;
         if (phone.replace(/\D/g, '').length < 9) {
             setCard(null);
 
             return;
         }
-        getJson<ClientCard>(lookupClient.url({ query: { phone } }))
+        const controller = new AbortController();
+        lookupAbort.current = controller;
+        getJson<ClientCard>(lookupClient.url({ query: { phone } }), {
+            signal: controller.signal,
+        })
             .then((result) => {
                 setCard(result);
                 // Doimiy mijoz: oxirgi manzil darhol tanlanadi (operator o'zgartirishi mumkin)
@@ -226,7 +264,54 @@ export function OrderForm({
                     );
                 }
             })
-            .catch(() => setCard(null));
+            .catch((e) => !isAbort(e) && setCard(null));
+    };
+
+    // Oxirgi buyurtmani takrorlash: manzillar, to'xtashlar va tarif bir bosishda
+    const repeatLast = () => {
+        const last = card?.last_order;
+        if (!last) {
+            return;
+        }
+        const branchId = branches.some((b) => b.id === last.branch_id)
+            ? last.branch_id
+            : form.data.branch_id;
+        const tariffOk = tariffClasses.some(
+            (c) => c.id === last.tariff_class_id && c.branch_id === branchId,
+        );
+        form.setData((data) => ({
+            ...data,
+            branch_id: branchId,
+            tariff_class_id: tariffOk ? last.tariff_class_id : 0,
+            comment: data.comment || (last.comment ?? ''),
+        }));
+        setPickup({
+            text: last.pickup.text,
+            lat: last.pickup.lat,
+            lng: last.pickup.lng,
+            landmarkId: last.pickup.landmark_id,
+        });
+        setDropoff(
+            last.dropoff
+                ? {
+                      text: last.dropoff.text,
+                      lat: last.dropoff.lat,
+                      lng: last.dropoff.lng,
+                      landmarkId: null,
+                  }
+                : emptyPlace,
+        );
+        setStops(
+            last.stops.map((stop) =>
+                newStop({
+                    text: stop.text,
+                    lat: stop.lat,
+                    lng: stop.lng,
+                    landmarkId: null,
+                }),
+            ),
+        );
+        setPicking(null);
     };
 
     // Kiruvchi qo'ng'iroq: forma mijoz raqami va filial bilan ochiladi
@@ -238,20 +323,25 @@ export function OrderForm({
         const branchId = branches.some((b) => b.id === incoming.branch_id)
             ? (incoming.branch_id as number)
             : form.data.branch_id;
-        form.setData((data) => ({
-            ...data,
+        // Yangi mijoz — oldingi mijozning to'xtashlari, izohi, vaqti va tarifi qolmasin
+        form.clearErrors();
+        form.setData({
+            ...blank(branchId),
             phone,
             client_name: incoming.client?.name ?? '',
-            branch_id: branchId,
             call_id: incoming.call_id,
-        }));
+        });
+        setCard(null);
         setPickup(emptyPlace);
         setDropoff(emptyPlace);
+        setStops([]);
+        setPicking(null);
         lookup(phone);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [incoming?.call_id]);
 
     const reset = () => {
+        lookupAbort.current?.abort();
         form.reset();
         setCard(null);
         setPickup(emptyPlace);
@@ -266,7 +356,7 @@ export function OrderForm({
             return;
         }
         if (dropoff.lat !== null) {
-            setStops((list) => [...list, dropoff]);
+            setStops((list) => [...list, newStop(dropoff)]);
         }
         setDropoff({ ...pickup, landmarkId: null });
     };
@@ -297,7 +387,22 @@ export function OrderForm({
     const errors = form.errors as Record<string, string>;
 
     return (
-        <form ref={formRef} onSubmit={submit} className="grid gap-3">
+        <form
+            ref={formRef}
+            onSubmit={submit}
+            // Oddiy Enter maydonda buyurtmani yubormaydi (tasodifan yuborilardi) — yuborish Ctrl+Enter yoki tugma
+            onKeyDown={(e) => {
+                if (
+                    e.key === 'Enter' &&
+                    !e.ctrlKey &&
+                    !e.metaKey &&
+                    e.target instanceof HTMLInputElement
+                ) {
+                    e.preventDefault();
+                }
+            }}
+            className="grid gap-3"
+        >
             {branches.length > 1 && (
                 <div className="flex flex-wrap gap-1.5">
                     {branches.map((branch) => (
@@ -330,6 +435,13 @@ export function OrderForm({
                         value={form.data.phone}
                         onChange={(e) => form.setData('phone', e.target.value)}
                         onBlur={() => lookup()}
+                        onKeyDown={(e) => {
+                            // Enter — mijozni qidirish (buyurtma yuborilmaydi)
+                            if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+                                e.preventDefault();
+                                lookup();
+                            }
+                        }}
                     />
                     <InputError message={errors.phone} />
                 </div>
@@ -390,6 +502,25 @@ export function OrderForm({
                     </div>
                 ))}
 
+            {card?.last_order && (
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="justify-self-start"
+                    title={[
+                        card.last_order.pickup.text,
+                        ...card.last_order.stops.map((s) => s.text),
+                        card.last_order.dropoff?.text,
+                    ]
+                        .filter(Boolean)
+                        .join(' → ')}
+                    onClick={repeatLast}
+                >
+                    <Repeat className="size-3.5" /> {t('Repeat last order')}
+                </Button>
+            )}
+
             {card && card.addresses.length > 0 && (
                 <div className="grid gap-1">
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -437,7 +568,7 @@ export function OrderForm({
             <InputError message={errors.pickup_text ?? errors.pickup_lat} />
 
             {stops.map((stop, index) => (
-                <div key={index} className="flex items-end gap-1.5">
+                <div key={stop.key} className="flex items-end gap-1.5">
                     <div className="flex-1">
                         <PlacePicker
                             id={`stop-${index}`}
@@ -446,7 +577,9 @@ export function OrderForm({
                             onChange={(value) =>
                                 setStops((list) =>
                                     list.map((s, i) =>
-                                        i === index ? value : s,
+                                        i === index
+                                            ? { ...value, key: s.key }
+                                            : s,
                                     ),
                                 )
                             }
@@ -488,9 +621,7 @@ export function OrderForm({
                         size="sm"
                         variant="ghost"
                         className="h-7 text-xs"
-                        onClick={() =>
-                            setStops((list) => [...list, emptyPlace])
-                        }
+                        onClick={() => setStops((list) => [...list, newStop()])}
                     >
                         <Plus className="size-3" /> {t('Add stop')}
                     </Button>
