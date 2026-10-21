@@ -28,9 +28,9 @@ class ShiftTracker
         return DriverShift::query()->create(['driver_id' => $driver->id, 'branch_id' => $driver->branch_id, 'started_at' => now()]);
     }
 
-    public function end(Driver $driver): void
+    public function end(Driver $driver, ?\DateTimeInterface $at = null): void
     {
-        $this->open($driver)?->forceFill(['ended_at' => now()])->save();
+        $this->open($driver)?->forceFill(['ended_at' => $at ?? now()])->save();
     }
 
     /**

@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 require_once __DIR__.'/../Orders/helpers.php';
 
@@ -213,6 +214,25 @@ test('cashier tops up a driver only within an open shift', function () {
 
     $this->post(route('cashier.shift.close'));
     expect($shift->fresh()->closed_at)->not->toBeNull();
+});
+
+test('a double-submitted cash top-up is added only once', function () {
+    $cashier = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Cashier);
+    $driver = driverNear($this->branch, 0, ['balance' => 0]);
+    $this->actingAs($cashier)->post(route('cashier.shift.open'));
+
+    $id = (string) Str::uuid();
+    $this->post(route('cashier.topup'), ['driver_id' => $driver->id, 'amount' => 50000, 'request_id' => $id])->assertSessionHasNoErrors();
+    $this->post(route('cashier.topup'), ['driver_id' => $driver->id, 'amount' => 50000, 'request_id' => $id]);
+    // Keyingi to'ldirish — yangi id bilan, o'sha summa bo'lsa ham o'tadi
+    $this->post(route('cashier.topup'), ['driver_id' => $driver->id, 'amount' => 50000, 'request_id' => (string) Str::uuid()]);
+
+    // Eski mijoz (id'siz): bir xil summa darhol qayta kelsa — bir marta
+    $this->post(route('cashier.topup'), ['driver_id' => $driver->id, 'amount' => 20000]);
+    $this->post(route('cashier.topup'), ['driver_id' => $driver->id, 'amount' => 20000]);
+
+    expect($driver->fresh()->balance)->toBe(120000)
+        ->and($driver->transactions()->count())->toBe(3);
 });
 
 test('cashier finds drivers by callsign, phone or plate', function () {

@@ -484,6 +484,8 @@
     "Point on the map": "Точка на карте",
     "Drag a marker on the map to adjust it, or press the pin button and click the map again.": "Чтобы изменить точку: перетащите метку на карте или нажмите 📍 и кликните по карте снова.",
     "The order is no longer waiting for a driver.": "Заказ уже не ждёт водителя.",
+    "This top-up has already been made.": "Это пополнение уже выполнено.",
+    "The driver is not available for orders right now.":"Водитель сейчас не может принять заказ (не на линии, занят или заблокирован).",
     "The order is already finished.": "Заказ уже завершён.",
     "This action is not possible now.": "Сейчас это действие невозможно.",
     "Your account is disabled.": "Ваша учётная запись отключена.",

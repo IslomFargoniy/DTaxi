@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\DriverStatus;
 use App\Enums\OrderStatus;
+use App\Models\Branch;
 use App\Models\Driver;
 use App\Models\Order;
 use App\Models\User;
@@ -31,7 +32,8 @@ class DashboardController extends Controller
             };
         }
 
-        $today = now()->startOfDay();
+        $tz = Branch::timezoneFor($user);
+        $today = now($tz)->startOfDay()->utc();
         $orders = Order::query()->where('created_at', '>=', $today);
 
         $completed = (clone $orders)->where('status', OrderStatus::Completed->value);
@@ -54,7 +56,7 @@ class DashboardController extends Controller
                 'drivers_busy' => Driver::query()->where('status', DriverStatus::Busy->value)->count(),
                 'drivers_pending' => Driver::query()->where('is_approved', false)->count(),
                 'by_hour' => (clone $orders)
-                    ->selectRaw('EXTRACT(HOUR FROM created_at)::int AS hour, COUNT(*) AS total')
+                    ->selectRaw("EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC') AT TIME ZONE ?)::int AS hour, COUNT(*) AS total", [$tz])
                     ->groupBy('hour')->orderBy('hour')->pluck('total', 'hour'),
             ],
         ]);

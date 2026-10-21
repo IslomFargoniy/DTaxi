@@ -63,7 +63,7 @@ class CompanyController extends Controller
     {
         $month = $request->string('month')->toString();
         $tz = $company->branch()->value('timezone') ?? 'Asia/Tashkent';
-        $from = CarbonImmutable::createFromFormat('Y-m', preg_match('/^\d{4}-\d{2}$/', $month) ? $month : now($tz)->format('Y-m'), $tz)?->startOfMonth()
+        $from = CarbonImmutable::createFromFormat('!Y-m', preg_match('/^\d{4}-\d{2}$/', $month) ? $month : now($tz)->format('Y-m'), $tz)?->startOfMonth()
             ?? CarbonImmutable::now($tz)->startOfMonth();
         $to = $from->endOfMonth();
 

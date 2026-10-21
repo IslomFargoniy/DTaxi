@@ -53,6 +53,8 @@ class Settings
         'dispatch.location_ttl_seconds' => 60,
         // Oldindan buyurtma necha daqiqa oldin efirga chiqadi
         'dispatch.preorder_lead_minutes' => 15,
+        // Hech kim olmagan buyurtma necha daqiqadan keyin qayta efirdan "haydovchi topilmadi" ga o'tadi (0 — cheksiz)
+        'dispatch.rebroadcast_max_minutes' => 30,
         // Reytingi shundan past haydovchi eng yaqin radiusda taklif olmaydi (keyingi bosqichda oladi; 0 — o'chiq)
         'dispatch.low_rating_threshold' => 60,
         // Tig'iz soat: koeffitsient (1 — o'chiq) va filial vaqti bo'yicha soatlar (boshi = oxiri — kun bo'yi)
@@ -61,6 +63,8 @@ class Settings
         'pricing.surge_to_hour' => 0,
         // GPS treki necha kun saqlanadi (masofa bahslari uchun)
         'drivers.locations_retention_days' => 30,
+        // Shuncha daqiqa GPS kelmasa "bo'sh" haydovchi oflayn qilinadi (0 — o'chiq)
+        'drivers.offline_after_minutes' => 5,
         // Jarima va reyting (qaror #29)
         'drivers.cancel_penalty' => 2000,
         'drivers.rating_cancel_penalty' => 5,

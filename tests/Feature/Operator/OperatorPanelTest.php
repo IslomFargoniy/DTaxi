@@ -35,6 +35,16 @@ test('operator opens the panel', function () {
         ->assertInertia(fn ($page) => $page->component('operator/index')->has('branches', 1)->has('tariffClasses', 4));
 });
 
+test('map fallback center comes from branch data, not a hardcoded city', function () {
+    $this->branch->forceFill(['center' => null])->save();
+    Branch::factory()->create(['center' => Point::makeGeodetic(41.31, 69.28)]);
+
+    $this->actingAs($this->operator)->get(route('operator.index'))->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('map.center.lat', 41.31)
+            ->where('map.center.lng', 69.28));
+});
+
 test('cashier cannot open the operator panel', function () {
     $cashier = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Cashier);
 

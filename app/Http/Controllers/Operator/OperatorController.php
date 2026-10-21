@@ -7,9 +7,11 @@ use App\Http\Resources\OrderResource;
 use App\Models\Branch;
 use App\Models\Driver;
 use App\Models\Order;
+use App\Models\Region;
 use App\Models\TariffClass;
 use App\Models\User;
 use App\Support\Settings;
+use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -45,11 +47,27 @@ class OperatorController extends Controller
             'drivers' => fn () => $this->drivers(array_values($branches->map(fn (Branch $branch): int => $branch->id)->all())),
             'map' => [
                 'tiles' => config('services.tiles.url'),
-                'center' => ['lat' => 40.3864, 'lng' => 71.7864],
+                'center' => $this->fallbackCenter(array_values($branches->all())),
             ],
             // Shundan eski GPS'li haydovchi "bo'sh" deb sanalmaydi va tayinlash ro'yxatida chiqmaydi
             'locationTtlSeconds' => (int) app(Settings::class)->get('dispatch.location_ttl_seconds'),
         ]);
+    }
+
+    /**
+     * Xarita markazi filial markazi yo'q bo'lsa: koddagi biror shahar emas (mahsulot har firmaga sotiladi) —
+     * filial hududi (viloyat/shahar) markazi, boshqa filial markazi yoki import qilingan istalgan hudud markazi.
+     *
+     * @param  list<Branch>  $branches
+     * @return array{lat: float, lng: float}|null
+     */
+    private function fallbackCenter(array $branches): ?array
+    {
+        $point = collect($branches)->map(fn (Branch $b) => $b->center ?? $b->region()->first()?->center)->filter()->first()
+            ?? Branch::query()->whereNotNull('center')->orderBy('id')->first()->center
+            ?? Region::query()->whereNotNull('center')->orderBy('id')->first()?->center;
+
+        return $point instanceof Point ? ['lat' => $point->getLatitude(), 'lng' => $point->getLongitude()] : null;
     }
 
     /**

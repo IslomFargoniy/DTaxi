@@ -62,9 +62,11 @@ class DriverLocator
             }
         }
 
-        foreach ($rows as $row) {
-            DriverLocation::query()->create($row);
-        }
+        // Bitta INSERT (200 tagacha nuqta): qiymatlar model cast'lari orqali (Point → PostGIS) tayyorlanadi
+        DriverLocation::query()->insert(array_map(
+            fn (array $row) => (new DriverLocation)->forceFill($row)->getAttributes(),
+            $rows,
+        ));
 
         // Kechikib kelgan eski nuqtalar hozirgi joyni orqaga surmaydi (telefon soati bir daqiqagacha farq qilishi mumkin)
         if (($driver->last_seen_at === null || $latest['recorded_at']->gte($driver->last_seen_at->copy()->subMinute()))) {

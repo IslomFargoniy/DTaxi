@@ -19,7 +19,7 @@ class FcmPushNotifier
     private const SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
 
     /**
-     * @param  array<string, scalar>  $data
+     * @param  array<string, scalar|null>  $data
      */
     public function sendToUser(int $userId, array $data): int
     {
@@ -28,6 +28,8 @@ class FcmPushNotifier
             return 0;
         }
 
+        $data = self::stringify($data);
+
         $sent = 0;
         foreach (DeviceToken::query()->where('user_id', $userId)->pluck('token') as $token) {
             $response = Http::withToken($this->accessToken($account))
@@ -35,7 +37,7 @@ class FcmPushNotifier
                 ->post("https://fcm.googleapis.com/v1/projects/{$account['project_id']}/messages:send", [
                     'message' => [
                         'token' => $token,
-                        'data' => array_map('strval', $data),
+                        'data' => $data,
                         'android' => ['priority' => 'HIGH', 'ttl' => '30s'],
                     ],
                 ]);
@@ -51,6 +53,25 @@ class FcmPushNotifier
         }
 
         return $sent;
+    }
+
+    /**
+     * FCM data faqat matn oladi. null kalit umuman yuborilmaydi: strval(null) = "" ilovada son sifatida o'qilmaydi.
+     *
+     * @param  array<string, scalar|null>  $data
+     * @return array<string, string>
+     */
+    public static function stringify(array $data): array
+    {
+        $result = [];
+        foreach ($data as $key => $value) {
+            if ($value === null) {
+                continue;
+            }
+            $result[$key] = is_bool($value) ? ($value ? '1' : '0') : (string) $value;
+        }
+
+        return $result;
     }
 
     /**
