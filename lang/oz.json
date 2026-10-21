@@ -593,5 +593,11 @@
     "Disconnected": "Узилган",
     "Decline": "Рад этиш",
     "The microphone works only on a secure (https) address.": "Микрофон фақат хавфсиз (ҳттпс) манзилда ишлайди.",
-    "Open the https version": "ҳттпс манзилни очиш"
+    "Open the https version": "ҳттпс манзилни очиш",
+    "Phone is open in another tab": "Телефон бошқа варақда очиқ",
+    "Phone is open in another tab. Calls ring there.": "Телефон бошқа варақда очиқ. Қўнғироқлар ўша ерга келади.",
+    "Use here": "Шу ерда ишлатиш",
+    "Disconnected — reconnecting…": "Узилди — қайта уланмоқда…",
+    "Connection error — retrying…": "Уланиш хатоси — қайта уринилмоқда…",
+    "The phone could not connect to the PBX. Retrying automatically…": "Телефон ATS'ga улана олмади. Автоматик қайта уринилмоқда…"
 }

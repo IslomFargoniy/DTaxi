@@ -22,26 +22,20 @@ import {
     status as statusRoute,
 } from '@/routes/operator/phone';
 import { globalSip } from './sip-state';
-import type { SipCredentials } from './sip-state';
+import type { CallCard, SipCredentials } from './sip-state';
+import {
+    resignLeadership,
+    startLeaderElection,
+    stopLeaderElection,
+    takeLeadership,
+} from './tab-leader';
+
+export type { CallCard } from './sip-state';
 
 export type OperatorStatus = 'offline' | 'ready' | 'paused';
 
-/** Kiruvchi qo'ng'iroq kartochkasi (server OperatorCallEvent) — buyurtma formasi shundan to'ldiriladi */
-export type CallCard = {
-    call_id: number;
-    kind: 'client' | 'driver' | 'callback' | 'tts';
-    phone: string | null;
-    branch_id: number | null;
-    number: string | null;
-    client: {
-        id: number;
-        name: string | null;
-        note: string | null;
-        orders_count: number;
-    } | null;
-    driver: { id: number; callsign: string; name: string } | null;
-    order_id: number | null;
-};
+/** Uzilish shuncha davom etsa operator "tanaffus"ga o'tkaziladi (qisqa uzilishda navbat buzilmasin) */
+const AUTO_PAUSE_MS = 3000;
 
 type MissedCall = {
     id: number;
@@ -74,10 +68,11 @@ function savePoint(key: string, point: Point | null) {
     }
 }
 
-function clamp(point: Point, width: number, height: number): Point {
+/** Oyna ekrandan chiqmasin; ekran oynadan tor bo'lsa — chap/yuqori chetga yopishadi */
+export function clamp(point: Point, width: number, height: number): Point {
     return {
-        x: Math.min(Math.max(8, point.x), window.innerWidth - width - 8),
-        y: Math.min(Math.max(8, point.y), window.innerHeight - height - 8),
+        x: Math.max(8, Math.min(point.x, window.innerWidth - width - 8)),
+        y: Math.max(8, Math.min(point.y, window.innerHeight - height - 8)),
     };
 }
 
@@ -96,6 +91,23 @@ function useDraggable(storageKey: string, width: number, height: number) {
     } | null>(null);
     const moved = useRef(false);
     const latest = useRef(point);
+
+    // Saqlangan joy kichikroq ekranda yoki oyna o'lchami o'zgarganda chetdan chiqib qolmasin
+    useEffect(() => {
+        const fit = () =>
+            setPoint((p) => {
+                if (!p) {
+                    return p;
+                }
+                const next = clamp(p, width, height);
+
+                return next.x === p.x && next.y === p.y ? p : next;
+            });
+        fit();
+        window.addEventListener('resize', fit);
+
+        return () => window.removeEventListener('resize', fit);
+    }, [width, height]);
 
     const onPointerDown = (e: React.PointerEvent<HTMLElement>) => {
         if (e.button !== 0) {
@@ -157,6 +169,8 @@ function snapshot() {
         isAudioEnabled: globalSip.isAudioEnabled,
         duration: globalSip.duration,
         activeCaller: globalSip.activeCaller,
+        tabRole: globalSip.tabRole,
+        card: globalSip.card,
     };
 }
 
@@ -184,7 +198,6 @@ export function WebPhone({
     const [phone, setPhone] = useState(snapshot);
     const [dialNumber, setDialNumber] = useState('');
     const [dtmfBuffer, setDtmfBuffer] = useState('');
-    const [card, setCard] = useState<CallCard | null>(null);
     const [missed, setMissed] = useState<MissedCall[]>([]);
     const [showMissed, setShowMissed] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -204,6 +217,8 @@ export function WebPhone({
         isAudioEnabled,
         duration,
         activeCaller,
+        tabRole,
+        card,
     } = phone;
 
     // Global holatga obuna: har o'zgarishda qayta chizish
@@ -228,27 +243,78 @@ export function WebPhone({
     }, []);
 
     useEffect(() => {
+        // Shu varaqda avval boshqa foydalanuvchi ulangan bo'lsa — uning ulanishi yopiladi
+        if (globalSip.ua && globalSip.userId !== userId) {
+            globalSip.destroyUA();
+        }
         getJson<{ sip: SipCredentials | null; status: OperatorStatus }>(
             showRoute.url(),
         )
             .then((r) => {
                 setSip(r.sip);
                 setOperatorStatus(r.status);
+                if (!r.sip) {
+                    // Ichki raqam yo'q — eski ulanish qolib ketmasin
+                    globalSip.destroyUA();
+                    stopLeaderElection();
+                }
             })
             .catch(() => undefined);
         loadMissed();
-    }, [loadMissed]);
+    }, [loadMissed, userId]);
+
+    // Bir nechta varaq: telefon faqat bittasida ro'yxatdan o'tadi
+    useEffect(() => {
+        if (sip) {
+            startLeaderElection();
+        }
+    }, [sip]);
 
     // Ro'yxatdan o'tish (allaqachon shu raqam bilan ulangan bo'lsa — qayta ulanmaydi)
     useEffect(() => {
-        if (!sip) {
+        if (!sip || tabRole !== 'leader') {
             return;
         }
         if (audioRef.current) {
             globalSip.remoteAudio = audioRef.current;
         }
-        globalSip.initUA(sip, userName);
-    }, [sip, userName]);
+        globalSip.initUA(sip, userName, userId);
+    }, [sip, userName, userId, tabRole]);
+
+    // Ulanish uzildi — operatorga qo'ng'iroq yo'naltirilmasin ("tanaffus"); qayta ulanganda "tayyor" qaytadi
+    useEffect(() => {
+        if (tabRole !== 'leader' || !sip) {
+            return;
+        }
+        if (status === 'connected') {
+            if (globalSip.autoPaused) {
+                globalSip.autoPaused = false;
+                postJson<{ status: OperatorStatus }>(statusRoute.url(), {
+                    status: 'ready',
+                })
+                    .then((r) => setOperatorStatus(r.status))
+                    .catch(() => undefined);
+            }
+
+            return;
+        }
+        if (operatorStatus !== 'ready') {
+            return;
+        }
+        const id = window.setTimeout(() => {
+            if (globalSip.status === 'connected' || globalSip.stopped) {
+                return;
+            }
+            globalSip.autoPaused = true;
+            postJson<{ status: OperatorStatus }>(statusRoute.url(), {
+                status: 'paused',
+            })
+                .then((r) => setOperatorStatus(r.status))
+                .catch(() => undefined);
+        }, AUTO_PAUSE_MS);
+
+        return () => window.clearTimeout(id);
+    }, [status, operatorStatus, tabRole, sip]);
 
     // Suhbat paytida sahifani yopish/yangilashdan ogohlantirish
     useEffect(() => {
@@ -257,7 +323,10 @@ export function WebPhone({
                 e.preventDefault();
             }
         };
-        const onPageHide = () => globalSip.destroyUA();
+        const onPageHide = () => {
+            resignLeadership();
+            globalSip.destroyUA();
+        };
         window.addEventListener('beforeunload', onBeforeUnload);
         window.addEventListener('pagehide', onPageHide);
 
@@ -273,10 +342,14 @@ export function WebPhone({
         'OperatorCallEvent',
         (e) => {
             if (e.type === 'incoming' && e.call_id) {
+                // Qo'ng'iroq telefoni ochiq varaqqa keladi — boshqa varaqlar kartochka ochmaydi
+                if (globalSip.tabRole !== 'leader') {
+                    return;
+                }
                 const c = e as unknown as CallCard;
-                setCard(c);
                 globalSip.isOpen = true;
-                globalSip.notify();
+                // Operator sahifasi ochilmagan bo'lsa — keyin o'qib oladi (pendingCard)
+                globalSip.setCard(c);
                 window.dispatchEvent(
                     new CustomEvent('dtaxi:call-card', { detail: c }),
                 );
@@ -292,13 +365,18 @@ export function WebPhone({
     // Suhbat tugagach kartochka yopiladi
     useEffect(() => {
         if (callState === 'idle' && card) {
-            const id = window.setTimeout(() => setCard(null), 300);
+            const id = window.setTimeout(() => {
+                globalSip.card = null;
+                globalSip.notify();
+            }, 300);
 
             return () => window.clearTimeout(id);
         }
     }, [callState, card]);
 
     const changeStatus = (next: OperatorStatus) => {
+        // Operator o'zi tanladi — avtomatik tiklash bekor
+        globalSip.autoPaused = false;
         postJson<{ status: OperatorStatus }>(statusRoute.url(), {
             status: next,
         })
@@ -343,27 +421,37 @@ export function WebPhone({
         );
     }
 
+    const follower = tabRole === 'follower';
     const connected = status === 'connected';
     const who = card?.driver
         ? `${t('Driver')} #${card.driver.callsign} — ${card.driver.name}`
         : (card?.client?.name ?? card?.phone ?? activeCaller);
 
-    const statusText = {
-        connected: t('Extension :extension is active', {
-            extension: sip.extension,
-        }),
-        connecting: t('Connecting…'),
-        disconnected: t('Disconnected'),
-        registration_failed: t('Connection error'),
-    }[status];
+    const statusText = follower
+        ? t('Phone is open in another tab')
+        : {
+              connected: t('Extension :extension is active', {
+                  extension: sip.extension,
+              }),
+              connecting: t('Connecting…'),
+              disconnected: t('Disconnected — reconnecting…'),
+              registration_failed: t('Connection error — retrying…'),
+          }[status];
 
+    const fromLauncher = launcher.point
+        ? clamp(
+              {
+                  x: launcher.point.x + LAUNCHER - PANEL_WIDTH,
+                  y: launcher.point.y - 480 + LAUNCHER,
+              },
+              PANEL_WIDTH,
+              480,
+          )
+        : null;
     const panelStyle: React.CSSProperties = panel.point
         ? { left: panel.point.x, top: panel.point.y }
-        : launcher.point
-          ? {
-                left: Math.max(8, launcher.point.x + LAUNCHER - PANEL_WIDTH),
-                top: Math.max(8, launcher.point.y - 480 + LAUNCHER),
-            }
+        : fromLauncher
+          ? { left: fromLauncher.x, top: fromLauncher.y }
           : { right: 24, bottom: 96 };
 
     return (
@@ -423,7 +511,7 @@ export function WebPhone({
                 <div
                     data-drag-root
                     style={panelStyle}
-                    className="fixed z-50 flex w-[310px] flex-col overflow-hidden rounded-2xl border-2 border-primary/30 bg-card text-card-foreground shadow-2xl select-none dark:bg-zinc-900"
+                    className="fixed z-50 flex w-[310px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-2xl border-2 border-primary/30 bg-card text-card-foreground shadow-2xl select-none dark:bg-zinc-900"
                 >
                     {/* Sarlavha — ushlab sudraladi */}
                     <div
@@ -553,12 +641,29 @@ export function WebPhone({
                             </div>
                         )}
 
-                    {status === 'registration_failed' && (
+                    {follower && (
+                        <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-50 p-2.5 text-xs text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-300">
+                            <span className="flex-1">
+                                {t(
+                                    'Phone is open in another tab. Calls ring there.',
+                                )}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => takeLeadership()}
+                                className="shrink-0 rounded-md border border-sky-300 bg-background px-2 py-1 font-semibold hover:bg-muted dark:border-sky-800"
+                            >
+                                {t('Use here')}
+                            </button>
+                        </div>
+                    )}
+
+                    {!follower && status === 'registration_failed' && (
                         <div className="flex items-start gap-2 border-b border-red-200 bg-red-50 p-2.5 text-xs text-red-600 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400">
                             <ShieldAlert className="size-4 shrink-0" />
                             <span>
                                 {t(
-                                    'The phone could not connect to the PBX. Check the network and reload the page.',
+                                    'The phone could not connect to the PBX. Retrying automatically…',
                                 )}
                             </span>
                         </div>

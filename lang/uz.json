@@ -593,5 +593,11 @@
     "Disconnected": "Uzilgan",
     "Decline": "Rad etish",
     "The microphone works only on a secure (https) address.": "Mikrofon faqat xavfsiz (https) manzilda ishlaydi.",
-    "Open the https version": "https manzilni ochish"
+    "Open the https version": "https manzilni ochish",
+    "Phone is open in another tab": "Telefon boshqa varaqda ochiq",
+    "Phone is open in another tab. Calls ring there.": "Telefon boshqa varaqda ochiq. Qo'ng'iroqlar o'sha yerga keladi.",
+    "Use here": "Shu yerda ishlatish",
+    "Disconnected — reconnecting…": "Uzildi — qayta ulanmoqda…",
+    "Connection error — retrying…": "Ulanish xatosi — qayta urinilmoqda…",
+    "The phone could not connect to the PBX. Retrying automatically…": "Telefon ATS'ga ulana olmadi. Avtomatik qayta urinilmoqda…"
 }

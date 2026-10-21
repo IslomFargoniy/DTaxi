@@ -7,6 +7,8 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { UserInfo } from '@/components/user-info';
+import { globalSip } from '@/components/webphone/sip-state';
+import { stopLeaderElection } from '@/components/webphone/tab-leader';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
@@ -23,6 +25,10 @@ export function UserMenuContent({ user }: Props) {
 
     const handleLogout = () => {
         cleanup();
+        // Chiqqandan keyin ichki raqam ro'yxatda qolmasin (qo'ng'iroq bo'sh varaqqa tushardi);
+        // operator holati serverda chiqishda "offline" bo'ladi
+        stopLeaderElection();
+        globalSip.destroyUA();
         router.flushAll();
     };
 

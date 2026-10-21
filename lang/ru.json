@@ -593,5 +593,11 @@
     "Disconnected": "Отключено",
     "Decline": "Отклонить",
     "The microphone works only on a secure (https) address.": "Микрофон работает только на защищённом адресе (https).",
-    "Open the https version": "Открыть https-версию"
+    "Open the https version": "Открыть https-версию",
+    "Phone is open in another tab": "Телефон открыт в другой вкладке",
+    "Phone is open in another tab. Calls ring there.": "Телефон открыт в другой вкладке. Звонки поступают туда.",
+    "Use here": "Использовать здесь",
+    "Disconnected — reconnecting…": "Отключено — переподключение…",
+    "Connection error — retrying…": "Ошибка подключения — повторная попытка…",
+    "The phone could not connect to the PBX. Retrying automatically…": "Телефон не подключился к АТС. Повторяем автоматически…"
 }

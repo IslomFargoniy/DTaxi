@@ -27,6 +27,26 @@ export type SipCredentials = {
     ws: string;
 };
 
+/** Kiruvchi qo'ng'iroq kartochkasi (server OperatorCallEvent) — buyurtma formasi shundan to'ldiriladi */
+export type CallCard = {
+    call_id: number;
+    kind: 'client' | 'driver' | 'callback' | 'tts';
+    phone: string | null;
+    branch_id: number | null;
+    number: string | null;
+    client: {
+        id: number;
+        name: string | null;
+        note: string | null;
+        orders_count: number;
+    } | null;
+    driver: { id: number; callsign: string; name: string } | null;
+    order_id: number | null;
+};
+
+/** Bir nechta varaq: faqat bittasi (leader) ichki raqamni ro'yxatdan o'tkazadi */
+export type TabRole = 'pending' | 'leader' | 'follower';
+
 type Oscillator = { stop: () => void };
 
 export type GlobalSipState = {
@@ -50,12 +70,36 @@ export type GlobalSipState = {
     localStream: MediaStream | null;
     remoteStream: MediaStream | null;
     answering: boolean;
+    /** Ulangan foydalanuvchi — boshqa foydalanuvchi kirsa eski ulanish yopiladi */
+    userId: number | null;
+    credentials: SipCredentials | null;
+    displayName: string;
+    /** destroyUA chaqirilgan — uzilish kutilgan, qayta ulanilmaydi */
+    stopped: boolean;
+    reconnectTimer: ReturnType<typeof setTimeout> | null;
+    reconnectAttempts: number;
+    tabRole: TabRole;
+    /** Ulanish uzilgani uchun operator avtomatik "tanaffus"ga o'tkazilgan — qayta ulanganda "tayyor" qaytadi */
+    autoPaused: boolean;
+    /** Hozirgi suhbat kartochkasi (suhbat tugaguncha) */
+    card: CallCard | null;
+    /** Operator sahifasi hali ko'rmagan kartochka — boshqa sahifada kelgan bo'lsa ham forma to'ldiriladi */
+    pendingCard: { card: CallCard; at: number } | null;
     notify: () => void;
     getAudioContext: () => AudioContext | null;
     playDtmfTone: (digit: string) => void;
     startCallSound: (type: 'ringing' | 'ringback') => void;
     stopCallSound: () => void;
-    initUA: (sip: SipCredentials, displayName: string) => void;
+    initUA: (
+        sip: SipCredentials,
+        displayName: string,
+        userId?: number | null,
+    ) => void;
+    register: () => void;
+    scheduleReconnect: () => void;
+    reconnectNow: () => void;
+    setCard: (card: CallCard | null) => void;
+    takePendingCard: () => CallCard | null;
     setupSession: (session: Session, fallbackCaller: string) => void;
     makeCall: (target: string, isVideo?: boolean) => void;
     answerCall: () => void;
@@ -118,6 +162,16 @@ export const globalSip: GlobalSipState = existing ?? {
     localStream: null,
     remoteStream: null,
     answering: false,
+    userId: null,
+    credentials: null,
+    displayName: '',
+    stopped: false,
+    reconnectTimer: null,
+    reconnectAttempts: 0,
+    tabRole: 'pending',
+    autoPaused: false,
+    card: null,
+    pendingCard: null,
 
     notify() {
         this.listeners.forEach((cb) => {
@@ -218,14 +272,27 @@ export const globalSip: GlobalSipState = existing ?? {
         this.ringOscillators = [];
     },
 
-    initUA(sip, displayName) {
+    initUA(sip, displayName, userId = null) {
         if (this.ua) {
-            if (this.registeredExtension === sip.extension) {
+            if (
+                this.registeredExtension === sip.extension &&
+                this.userId === userId
+            ) {
+                // Uzilib qolgan bo'lsa — darhol qayta urinish
+                if (this.status !== 'connected') {
+                    this.reconnectNow();
+                }
+
                 return;
             }
             this.destroyUA();
         }
 
+        this.stopped = false;
+        this.userId = userId;
+        this.credentials = sip;
+        this.displayName = displayName;
+        this.reconnectAttempts = 0;
         this.registeredExtension = sip.extension;
         this.sipDomain = sip.uri.split('@')[1] ?? window.location.hostname;
 
@@ -258,12 +325,26 @@ export const globalSip: GlobalSipState = existing ?? {
 
         ua.delegate = {
             onConnect: () => {
+                if (this.ua !== ua) {
+                    return;
+                }
+                this.reconnectAttempts = 0;
+                if (this.reconnectTimer) {
+                    clearTimeout(this.reconnectTimer);
+                    this.reconnectTimer = null;
+                }
                 this.status = 'connecting';
                 this.notify();
+                // Har ulanishda (birinchi va qayta) ichki raqam qayta ro'yxatdan o'tadi
+                this.register();
             },
             onDisconnect: () => {
+                if (this.ua !== ua) {
+                    return;
+                }
                 this.status = 'disconnected';
                 this.notify();
+                this.scheduleReconnect();
             },
             onInvite: (invitation: Invitation) => {
                 // Bir vaqtda bitta suhbat
@@ -279,27 +360,107 @@ export const globalSip: GlobalSipState = existing ?? {
         this.status = 'connecting';
         this.notify();
 
-        ua.start()
-            .then(() => {
-                const registerer = new Registerer(ua);
-                this.registerer = registerer;
-                registerer.stateChange.addListener((state) => {
-                    if (state === RegistererState.Registered) {
-                        this.status = 'connected';
-                    } else if (state === RegistererState.Unregistered) {
-                        this.status = 'disconnected';
-                    } else if (state === RegistererState.Terminated) {
-                        this.status = 'registration_failed';
-                    }
-                    this.notify();
-                });
+        ua.start().catch(() => {
+            if (this.ua !== ua) {
+                return;
+            }
+            // Tarmoq yo'q yoki PBX javob bermadi — orqaga chekinish bilan qayta urinamiz
+            this.status = 'registration_failed';
+            this.notify();
+            this.scheduleReconnect();
+        });
+    },
 
-                return registerer.register();
-            })
-            .catch(() => {
-                this.status = 'registration_failed';
+    register() {
+        const ua = this.ua;
+        if (!ua) {
+            return;
+        }
+        if (this.registerer?.state === RegistererState.Terminated) {
+            this.registerer = null;
+        }
+        if (!this.registerer) {
+            const registerer = new Registerer(ua);
+            this.registerer = registerer;
+            registerer.stateChange.addListener((state) => {
+                if (this.registerer !== registerer) {
+                    return;
+                }
+                if (state === RegistererState.Registered) {
+                    this.status = 'connected';
+                } else if (state === RegistererState.Unregistered) {
+                    this.status = 'disconnected';
+                } else if (state === RegistererState.Terminated) {
+                    this.status = 'registration_failed';
+                }
                 this.notify();
             });
+        }
+        this.registerer.register().catch(() => {
+            this.status = 'registration_failed';
+            this.notify();
+        });
+    },
+
+    scheduleReconnect() {
+        if (this.stopped || !this.ua || this.reconnectTimer) {
+            return;
+        }
+        // 1, 2, 4, 8, 16, 30 soniya...
+        const delay = Math.min(30_000, 1000 * 2 ** this.reconnectAttempts);
+        this.reconnectAttempts += 1;
+        this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
+            this.reconnectNow();
+        }, delay);
+    },
+
+    reconnectNow() {
+        const ua = this.ua;
+        if (this.stopped || !ua) {
+            return;
+        }
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        if (ua.isConnected()) {
+            // Transport bor, ro'yxatdan o'tish yo'qolgan
+            if (this.status !== 'connected') {
+                this.register();
+            }
+
+            return;
+        }
+        this.status = 'connecting';
+        this.notify();
+        ua.reconnect().catch(() => {
+            if (this.ua !== ua) {
+                return;
+            }
+            this.status = 'disconnected';
+            this.notify();
+            this.scheduleReconnect();
+        });
+    },
+
+    setCard(card) {
+        this.card = card;
+        if (card) {
+            this.pendingCard = { card, at: Date.now() };
+        }
+        this.notify();
+    },
+
+    takePendingCard() {
+        const pending = this.pendingCard;
+        this.pendingCard = null;
+        // Eski (10 daqiqadan oshgan) kartochka formaga tushmaydi
+        if (!pending || Date.now() - pending.at > 10 * 60_000) {
+            return null;
+        }
+
+        return pending.card;
     },
 
     setupSession(session, fallbackCaller) {
@@ -519,14 +680,24 @@ export const globalSip: GlobalSipState = existing ?? {
     },
 
     destroyUA() {
+        this.stopped = true;
         this.registeredExtension = '';
+        this.userId = null;
+        this.credentials = null;
+        this.card = null;
+        this.pendingCard = null;
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        this.reconnectAttempts = 0;
         if (this.session) {
             this.hangupCall();
         }
         if (this.registerer) {
             try {
-                void this.registerer.unregister();
-                void this.registerer.dispose();
+                this.registerer.unregister().catch(() => undefined);
+                this.registerer.dispose().catch(() => undefined);
             } catch {
                 // Ulanish allaqachon uzilgan
             }
@@ -534,7 +705,7 @@ export const globalSip: GlobalSipState = existing ?? {
         }
         if (this.ua) {
             try {
-                void this.ua.stop();
+                this.ua.stop().catch(() => undefined);
             } catch {
                 // Ulanish allaqachon uzilgan
             }
@@ -546,3 +717,13 @@ export const globalSip: GlobalSipState = existing ?? {
 };
 
 (globalThis as GlobalWithSip).__DTAXI_SIP__ = globalSip;
+
+// Internet qaytdi — kutmasdan qayta ulanamiz
+if (typeof window !== 'undefined' && !existing) {
+    window.addEventListener('online', () => {
+        if (globalSip.ua && globalSip.status !== 'connected') {
+            globalSip.reconnectAttempts = 0;
+            globalSip.reconnectNow();
+        }
+    });
+}
