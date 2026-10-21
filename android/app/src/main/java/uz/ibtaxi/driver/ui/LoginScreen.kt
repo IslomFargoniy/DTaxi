@@ -94,7 +94,10 @@ fun LoginScreen(onLocaleChange: (String) -> Unit = {}) {
             visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 IconButton(onClick = { showPassword = !showPassword }) {
-                    Icon(if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                    Icon(
+                        if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = stringResource(if (showPassword) R.string.hide_password else R.string.show_password),
+                    )
                 }
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),

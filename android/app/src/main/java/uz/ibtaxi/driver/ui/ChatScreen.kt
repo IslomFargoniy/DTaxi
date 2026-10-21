@@ -184,11 +184,12 @@ fun ChatScreen(onBack: () -> Unit, onCall: (() -> Unit)? = null) {
     Scaffold(
         topBar = {
             TopAppBar(
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) } },
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Box(Modifier.size(40.dp).background(Color(0xFFFFC800), CircleShape), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Headset, null, tint = Color(0xFF111111))
+                        // Firma rangi (firm.properties) — boshqa firmada sariq emas
+                        Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Headset, null, tint = MaterialTheme.colorScheme.onPrimary)
                         }
                         Column {
                             Text(stringResource(R.string.dispatcher), style = MaterialTheme.typography.titleMedium)

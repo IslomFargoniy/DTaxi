@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.border
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.widget.Toast
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.ConnectivityManager
@@ -203,7 +205,7 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
                         Text(arrow(step), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                         Column(Modifier.padding(start = 14.dp)) {
                             meters?.let { Text(formatDistance(it), style = MaterialTheme.typography.headlineSmall, color = Color.White) }
-                            Text(Instructions.text(step, session.locale), color = Color(0xFFCFCFCF), maxLines = 2)
+                            Text(Instructions.text(step, session.locale), color = NavBannerMuted, maxLines = 2)
                         }
                     }
                 }
@@ -289,7 +291,7 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
     }
 
     info?.let { message ->
-        AlertDialog(onDismissRequest = { info = null }, confirmButton = { TextButton({ info = null }) { Text("OK") } }, text = { Text(message) })
+        AlertDialog(onDismissRequest = { info = null }, confirmButton = { TextButton({ info = null }) { Text(stringResource(R.string.ok)) } }, text = { Text(message) })
     }
 
     val receipt by DriverState.receipt.collectAsState()
@@ -390,12 +392,12 @@ private fun OrderCard(order: Order, passedStops: Int, onChat: () -> Unit, onPass
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             TileIconButton(Icons.Default.Phone, stringResource(R.string.call_client)) {
-                order.client?.phone?.let { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$it"))) }
+                order.client?.phone?.let { context.openExternal(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$it"))) }
             }
             TileIconButton(Icons.Default.Chat, stringResource(R.string.chat), onClick = onChat)
             TileIconButton(Icons.Default.Navigation, stringResource(R.string.open_navigator)) {
                 navigationTarget(order, passedStops)?.let { (lat, lng) ->
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng")))
+                    context.openExternal(Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng")))
                 }
             }
             if (order.status in setOf("assigned", "arrived")) {
@@ -483,6 +485,15 @@ private fun CancelDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("✕") } },
     )
+}
+
+/** Navigator yoki terish ilovasi yo'q (planshet, o'chirilgan Maps) — yiqilish o'rniga xabar */
+private fun Context.openExternal(intent: Intent) {
+    try {
+        startActivity(intent)
+    } catch (e: ActivityNotFoundException) {
+        Toast.makeText(this, getString(R.string.no_app_found), Toast.LENGTH_SHORT).show()
+    }
 }
 
 /** Banner matni yoki null — hammasi joyida */

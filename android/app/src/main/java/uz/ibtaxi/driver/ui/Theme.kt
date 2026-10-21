@@ -42,6 +42,9 @@ val LocalAppColors = staticCompositionLocalOf {
 /** Navigator banneri ikkala rejimda ham qora (Yandex kabi), strelka sariq */
 val NavBannerColor = Color(0xFF111111)
 
+/** Qora banner ustidagi ikkinchi darajali matn (ko'cha nomi) */
+val NavBannerMuted = Color(0xFFCFCFCF)
+
 // A — "Sariq klassik" (kunduzgi)
 private val light = lightColorScheme(
     primary = brand,
