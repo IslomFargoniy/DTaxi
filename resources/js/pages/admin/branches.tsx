@@ -1,6 +1,8 @@
 import { Head, useForm } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Marker } from 'maplibre-gl';
+import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import BranchController from '@/actions/App/Http/Controllers/Admin/BranchController';
 import { DataTable } from '@/components/data-table';
 import { EditDialog } from '@/components/edit-dialog';
@@ -11,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { TaxiMap } from '@/components/map/taxi-map';
 import { useTrans } from '@/hooks/use-trans';
 import { getJson } from '@/lib/http';
 import { index } from '@/routes/admin/branches';
@@ -24,6 +27,8 @@ type Branch = {
     timezone: string;
     is_active: boolean;
     region_id: number | null;
+    center: { lat: number; lng: number } | null;
+    service_radius_km: number | null;
     parent_region_id: number | null;
     region: string | null;
     work_schedule: Schedule | null;
@@ -33,6 +38,121 @@ type Branch = {
 
 type DayHours = { from: string; to: string } | null;
 type Schedule = Record<string, DayHours>;
+
+type Point = { lat: number; lng: number };
+
+/** Markaz atrofidagi aylana (xaritada ko'rsatish uchun; server hududni PostGIS ST_Buffer bilan quradi) */
+function circle(center: Point, km: number): GeoJSON.Feature<GeoJSON.Polygon> {
+    const steps = 64;
+    const dLat = km / 111.32;
+    const dLng = km / (111.32 * Math.cos((center.lat * Math.PI) / 180));
+    const ring = Array.from({ length: steps + 1 }, (_, i) => {
+        const a = (2 * Math.PI * i) / steps;
+
+        return [
+            center.lng + dLng * Math.sin(a),
+            center.lat + dLat * Math.cos(a),
+        ];
+    });
+
+    return {
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'Polygon', coordinates: [ring] },
+    };
+}
+
+/**
+ * Filial joylashuvi va xizmat radiusi: xaritani bosib markaz qo'yiladi, aylana — xizmat hududi.
+ */
+function AreaPicker({
+    tiles,
+    center,
+    radiusKm,
+    onCenter,
+}: {
+    tiles: string;
+    center: Point | null;
+    radiusKm: number | null;
+    onCenter: (p: Point) => void;
+}) {
+    const mapRef = useRef<MapLibreMap | null>(null);
+    const markerRef = useRef<Marker | null>(null);
+    const [ready, setReady] = useState(false);
+    // Xarita bir marta yaratiladi — boshlang'ich markaz keyingi bosishlarda o'zgarmaydi
+    const [initial] = useState(center);
+
+    const onReady = useCallback((map: MapLibreMap) => {
+        mapRef.current = map;
+        map.addSource('area', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+        });
+        map.addLayer({
+            id: 'area-fill',
+            type: 'fill',
+            source: 'area',
+            paint: { 'fill-color': '#FFC800', 'fill-opacity': 0.15 },
+        });
+        map.addLayer({
+            id: 'area-line',
+            type: 'line',
+            source: 'area',
+            paint: { 'line-color': '#E0A800', 'line-width': 2 },
+        });
+        setReady(true);
+    }, []);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!ready || !map) {
+            return;
+        }
+        if (center) {
+            markerRef.current ??= new Marker({ color: '#111111' });
+            markerRef.current.setLngLat([center.lng, center.lat]).addTo(map);
+        } else {
+            markerRef.current?.remove();
+        }
+        const source = map.getSource<GeoJSONSource>('area');
+        void source?.setData({
+            type: 'FeatureCollection',
+            features: center && radiusKm ? [circle(center, radiusKm)] : [],
+        });
+        if (center && radiusKm) {
+            const c = circle(center, radiusKm).geometry.coordinates[0];
+            const lngs = c.map((p) => p[0]);
+            const lats = c.map((p) => p[1]);
+            map.fitBounds(
+                [
+                    [Math.min(...lngs), Math.min(...lats)],
+                    [Math.max(...lngs), Math.max(...lats)],
+                ],
+                { padding: 24, duration: 300 },
+            );
+        }
+    }, [ready, center, radiusKm]);
+
+    useEffect(
+        () => () => {
+            markerRef.current?.remove();
+        },
+        [],
+    );
+
+    return (
+        <div className="relative h-64 overflow-hidden rounded-md border">
+            <TaxiMap
+                tilesUrl={tiles}
+                center={initial}
+                zoom={12}
+                className="absolute inset-0 cursor-crosshair"
+                onReady={onReady}
+                onClick={onCenter}
+            />
+        </div>
+    );
+}
 
 const WEEKDAYS: [string, string][] = [
     ['mon', 'Monday'],
@@ -195,10 +315,12 @@ function BranchDialog({
     branch,
     regions,
     defaults,
+    tiles,
     onClose,
 }: {
     branch: Branch | 'new';
     regions: { id: number; name: string }[];
+    tiles: string;
     defaults: Record<string, number>;
     onClose: () => void;
 }) {
@@ -217,6 +339,9 @@ function BranchDialog({
         timezone: existing?.timezone ?? 'Asia/Tashkent',
         is_active: existing?.is_active ?? true,
         region_id: existing?.region_id ?? ('' as number | ''),
+        center_lat: existing?.center?.lat ?? (null as number | null),
+        center_lng: existing?.center?.lng ?? (null as number | null),
+        service_radius_km: existing?.service_radius_km ?? ('' as number | ''),
         work_schedule: (existing?.work_schedule ?? null) as Schedule | null,
         holidays: existing?.holidays ?? ([] as string[]),
         settings: Object.fromEntries(
@@ -309,6 +434,57 @@ function BranchDialog({
                 )}
             </p>
             <div className="grid gap-1.5">
+                <Label>{t('Location and service radius')}</Label>
+                <AreaPicker
+                    tiles={tiles}
+                    center={
+                        form.data.center_lat !== null &&
+                        form.data.center_lng !== null
+                            ? {
+                                  lat: form.data.center_lat,
+                                  lng: form.data.center_lng,
+                              }
+                            : null
+                    }
+                    radiusKm={Number(form.data.service_radius_km) || null}
+                    onCenter={(p) =>
+                        form.setData((data) => ({
+                            ...data,
+                            center_lat: Number(p.lat.toFixed(6)),
+                            center_lng: Number(p.lng.toFixed(6)),
+                        }))
+                    }
+                />
+                <p className="text-xs text-muted-foreground">
+                    {t(
+                        'Click on the map to set the branch center. With a radius, the service area is this circle instead of the city boundary.',
+                    )}
+                </p>
+                <InputError message={errors.center_lat} />
+                <div className="grid grid-cols-[1fr_140px] items-center gap-2">
+                    <Label htmlFor="radius" className="font-normal">
+                        {t('Service radius, km')}
+                    </Label>
+                    <Input
+                        id="radius"
+                        type="number"
+                        min={0.5}
+                        step={0.5}
+                        placeholder="—"
+                        value={form.data.service_radius_km}
+                        onChange={(e) =>
+                            form.setData(
+                                'service_radius_km',
+                                e.target.value === ''
+                                    ? ''
+                                    : Number(e.target.value),
+                            )
+                        }
+                    />
+                </div>
+                <InputError message={errors.service_radius_km} />
+            </div>
+            <div className="grid gap-1.5">
                 <Label htmlFor="service_name">
                     {t('Service name (IVR greeting)')}
                 </Label>
@@ -389,10 +565,12 @@ export default function Branches({
     branches,
     regions,
     defaults,
+    tiles,
 }: {
     branches: Branch[];
     regions: { id: number; name: string }[];
     defaults: Record<string, number>;
+    tiles: string;
 }) {
     const { t } = useTrans();
     const [editing, setEditing] = useState<Branch | 'new' | null>(null);
@@ -448,6 +626,7 @@ export default function Branches({
                     branch={editing}
                     regions={regions}
                     defaults={defaults}
+                    tiles={tiles}
                     onClose={() => setEditing(null)}
                 />
             )}

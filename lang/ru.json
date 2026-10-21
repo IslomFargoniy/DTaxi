@@ -669,5 +669,8 @@
     "View recovery codes": "Показать коды восстановления",
     "e.g., MacBook Pro, iPhone": "например, MacBook Pro, iPhone",
     "log in": "входу",
-    "or, enter the code manually": "или введите код вручную"
+    "or, enter the code manually": "или введите код вручную",
+    "Location and service radius": "Местоположение и радиус обслуживания",
+    "Click on the map to set the branch center. With a radius, the service area is this circle instead of the city boundary.": "Нажмите на карту, чтобы указать центр филиала. Если задан радиус, зона обслуживания — этот круг вместо границы города.",
+    "Service radius, km": "Радиус обслуживания, км"
 }

@@ -121,7 +121,8 @@ def configure_asterisk(lan_ip: str) -> None:
                 "#!/bin/bash\nset -e\ncp /tmp/dtaxi-rtp.conf /etc/asterisk/rtp.conf\n"
                 # VM o'zi ham Mac NAT'i orqali telefonga ICE tekshiruvi yuboradi va telefon o'sha yo'lni tanlaydi —
                 # NAT portni o'zgartiradi, ovoz telefonga yetmaydi. Wi-Fi tarmog'iga to'g'ridan-to'g'ri RTP yopiladi.
-                f"while iptables -D OUTPUT -p udp --sport {RTP_START}:{RTP_END} -d {lan_net} -j DROP 2>/dev/null; do :; done\n"
+                # Oldingi Wi-Fi tarmoqlari uchun qo'yilgan qoidalar ham olib tashlanadi
+                f"iptables -S OUTPUT | grep -- '--sport {RTP_START}:{RTP_END} -j DROP' | sed 's/^-A/-D/' | while read -r rule; do iptables $rule; done\n"
                 f"iptables -I OUTPUT -p udp --sport {RTP_START}:{RTP_END} -d {lan_net} -j DROP\n"
                 "asterisk -rx 'module reload res_rtp_asterisk.so'\n"
             )

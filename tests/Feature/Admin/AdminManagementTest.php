@@ -24,6 +24,7 @@ use App\Services\Regions\OsmRegionImporter;
 use App\Support\Settings;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -69,6 +70,32 @@ test('superadmin creates a branch whose service area comes from the chosen distr
     expect($branch->service_area)->not->toBeNull()
         ->and($branch->tariffClasses()->withoutGlobalScopes()->count())->toBe(4)
         ->and(app(Settings::class)->get('drivers.commission_percent', $branch))->toBe(12);
+});
+
+test('branch center and radius set on the map define the service area', function () {
+    $branch = Branch::factory()->create(['center' => null, 'service_area' => null]);
+    $covers = fn (float $lat, float $lng): bool => (bool) DB::scalar(
+        'SELECT ST_Covers(service_area, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) FROM branches WHERE id = ?',
+        [$lng, $lat, $branch->id],
+    );
+
+    $this->actingAs($this->superadmin)->put(route('admin.branches.update', $branch), [
+        'name' => $branch->name, 'timezone' => 'Asia/Tashkent',
+        'center_lat' => 40.3864, 'center_lng' => 71.7864, 'service_radius_km' => 10,
+    ])->assertSessionHasNoErrors();
+
+    $branch->refresh();
+    expect($branch->center?->getLatitude())->toBe(40.3864)
+        ->and($branch->service_radius_m)->toBe(10000)
+        ->and($covers(40.44, 71.7864))->toBeTrue()    // ~6 km shimolda
+        ->and($covers(40.60, 71.7864))->toBeFalse();  // ~24 km — hududdan tashqari
+
+    // Radius olib tashlansa (shahar tanlanmagan) — aylana hudud qolmaydi
+    $this->actingAs($this->superadmin)->put(route('admin.branches.update', $branch), [
+        'name' => $branch->name, 'timezone' => 'Asia/Tashkent', 'center_lat' => 40.3864, 'center_lng' => 71.7864,
+    ])->assertSessionHasNoErrors();
+    expect($branch->refresh()->service_radius_m)->toBeNull()
+        ->and($branch->service_area)->toBeNull();
 });
 
 test('branch admin cannot manage branches', function () {

@@ -669,5 +669,8 @@
     "View recovery codes": "Tiklash kodlarini ko'rish",
     "e.g., MacBook Pro, iPhone": "masalan, MacBook Pro, iPhone",
     "log in": "kirish sahifasiga qayting",
-    "or, enter the code manually": "yoki kodni qo'lda kiriting"
+    "or, enter the code manually": "yoki kodni qo'lda kiriting",
+    "Location and service radius": "Joylashuv va xizmat radiusi",
+    "Click on the map to set the branch center. With a radius, the service area is this circle instead of the city boundary.": "Filial markazini belgilash uchun xaritani bosing. Radius kiritilsa, xizmat hududi shahar chegarasi o'rniga shu aylana bo'ladi.",
+    "Service radius, km": "Xizmat radiusi, km"
 }

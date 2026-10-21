@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $greeting_text
  * @property Point|null $center
  * @property MultiPolygon|null $service_area
+ * @property int|null $service_radius_m
  * @property string $timezone
  * @property bool $is_active
  * @property array<string, array{from: string, to: string}|null>|null $work_schedule null — kecha-kunduz
@@ -31,7 +32,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'region_id', 'service_name', 'greeting_text', 'center', 'service_area', 'timezone', 'is_active', 'work_schedule', 'holidays'])]
+#[Fillable(['name', 'region_id', 'service_name', 'greeting_text', 'center', 'service_area', 'service_radius_m', 'timezone', 'is_active', 'work_schedule', 'holidays'])]
 class Branch extends Model
 {
     use Auditable;
