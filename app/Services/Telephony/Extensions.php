@@ -26,6 +26,8 @@ class Extensions
      */
     public const REALM = 'asterisk';
 
+    public function __construct(private readonly IceServers $iceServers) {}
+
     public function syncFor(User $user): void
     {
         $extension = $this->extensionFor($user);
@@ -104,7 +106,7 @@ class Extensions
      * Operator brauzeri / haydovchi ilovasi uchun ulanish ma'lumotlari (JsSIP).
      *
      * @param  bool  $secure  sahifa https bo'lsa wss://, aks holda ws:// (brauzer sertifikatni qabul qilmagan http sahifadan wss ulanmaydi)
-     * @return array{uri: string, password: string, ws: string, extension: string}|null
+     * @return array{uri: string, password: string, ws: string, extension: string, ice_servers: list<array{urls: list<string>, username?: string, credential?: string}>, ice_expires_at: int|null}|null
      */
     public function credentials(User $user, string $host, bool $secure = true): ?array
     {
@@ -117,6 +119,7 @@ class Extensions
             'uri' => "sip:{$user->sip_extension}@{$host}",
             'password' => (string) $user->sip_password,
             'ws' => ($secure ? 'wss' : 'ws')."://{$host}/ws",
+            ...$this->iceServers->for($user),
         ];
     }
 

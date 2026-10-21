@@ -57,4 +57,14 @@ return [
         'recordings_dir' => env('ASTERISK_RECORDINGS_DIR', '/var/spool/asterisk/recording'),
     ],
 
+    // WebRTC ICE: STUN (Asterisk rtp.conf dagi bilan bir xil) va ixtiyoriy TURN (install.sh --turn, coturn shu serverda)
+    'webrtc' => [
+        'stun' => env('STUN_URL', 'stun:stun.l.google.com:19302'),
+        // Vergul bilan: turn:<domen>:3478?transport=udp,turn:<domen>:3478?transport=tcp,turns:<domen>:5349?transport=tcp
+        'turn_url' => env('TURN_URL'),
+        // coturn static-auth-secret — vaqtinchalik login/parol shu bilan imzolanadi (TURN REST API)
+        'turn_secret' => env('TURN_SECRET'),
+        'turn_ttl' => (int) env('TURN_TTL', 12 * 3600),
+    ],
+
 ];
