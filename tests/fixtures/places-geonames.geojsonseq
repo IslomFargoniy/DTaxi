@@ -1,0 +1,4 @@
+{"type":"Feature","geometry":{"type":"Point","coordinates":[71.21,40.21]},"properties":{"id":"11083227","name":"Birinchi-Shifoxona","names":{"uz":"Birinchi-Shifoxona","ru":"Первая больница","en":null},"categories":["HSPC"]}}
+{"type":"Feature","geometry":{"type":"Point","coordinates":[71.22,40.22]},"properties":{"id":"1514240","name":"Cheksho‘ra","names":{"uz":"Cheksho‘ra","ru":null,"en":null},"categories":["PPLX"]}}
+{"type":"Feature","geometry":{"type":"Point","coordinates":[71.2140,40.2050]},"properties":{"id":"1513000","name":"Yangiobod","names":{"uz":null,"ru":"Янгиобод","en":null},"categories":["PPL"]}}
+{"type":"Feature","geometry":{"type":"Point","coordinates":[71.2302,40.2301]},"properties":{"id":"1514500","name":"Guliston","names":{"uz":null,"ru":null,"en":null},"categories":["PPL"]}}

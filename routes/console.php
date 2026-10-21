@@ -46,7 +46,7 @@ Artisan::command('regions:import
 
 Artisan::command('landmarks:import
     {--file= : GeoJSON fayl (standart: storage/app/osm/pois.geojsonseq yoki places-<manba>.geojsonseq)}
-    {--source=osm : osm | overture | wikidata (ochiq joylar — deploy/places-prepare.sh)}', function (OsmLandmarkImporter $osm, OpenPlacesImporter $places) {
+    {--source=osm : osm | overture | wikidata | geonames (ochiq joylar — deploy/places-prepare.sh)}', function (OsmLandmarkImporter $osm, OpenPlacesImporter $places) {
     $file = $this->option('file');
     $source = $this->option('source');
     $source = is_string($source) ? $source : 'osm';
@@ -60,7 +60,7 @@ Artisan::command('landmarks:import
 
     $stats = $places->import($source, is_string($file) && $file !== '' ? $file : storage_path("app/osm/places-{$source}.geojsonseq"));
     $this->info("Tayyor ({$source}): {$stats['read']} ta o'qildi, {$stats['imported']} ta mo'ljal, {$stats['duplicates']} ta takror (yaqinda shu nomli mo'ljal bor) o'tkazib yuborildi.");
-})->purpose("OSM va ochiq manbalardagi (Overture, Wikidata) nomli joylarni mo'ljallar bazasiga import qilish");
+})->purpose("OSM va ochiq manbalardagi (Overture, Wikidata, GeoNames) nomli joylarni mo'ljallar bazasiga import qilish");
 
 Artisan::command('sounds:generate {--force : Hammasini qayta generatsiya qilish}', function (SoundLibrary $library) {
     $count = $library->generateMissing((bool) $this->option('force'), fn (string $line) => $this->line($line));

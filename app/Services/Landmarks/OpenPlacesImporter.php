@@ -9,16 +9,19 @@ use RuntimeException;
 use SplFileObject;
 
 /**
- * Ochiq litsenziyali joylar ma'lumotini (Overture Maps, Wikidata — qaror #60) mo'ljallar bazasiga import qilish.
+ * Ochiq litsenziyali joylar ma'lumotini (Overture Maps, Wikidata — qaror #60; GeoNames — #64) mo'ljallar bazasiga import qilish.
  * Fayl deploy/places-prepare.sh yasagan GeoJSON qatorlari: properties = {id, name, names: {til: nom}, categories}.
- * OSM yoki boshqa manbada yaqin joyda (150 m) shu nomli mo'ljal bo'lsa — takror sifatida o'tkazib yuboriladi.
+ * OSM yoki boshqa manbada yaqin joyda (150 m, qishloq/mahalla uchun 2 km) shu nomli mo'ljal bo'lsa — takror sifatida o'tkazib yuboriladi.
  */
 class OpenPlacesImporter
 {
-    public const SOURCES = ['overture', 'wikidata'];
+    public const SOURCES = ['overture', 'wikidata', 'geonames'];
 
     /** Takror: shu masofa ichida (metr) va nomi o'xshash boshqa manbadagi mo'ljal */
     private const DUPLICATE_METERS = 150;
+
+    /** Qishloq/mahalla nuqtasi manbalarda markazning turli joyida (GeoNames'da ~1 km gacha farq) — faqat boshqa qishloq/mahallaga solishtiriladi */
+    private const DUPLICATE_SETTLEMENT_METERS = 2000;
 
     private const BATCH = 500;
 
@@ -96,6 +99,40 @@ class OpenPlacesImporter
         'real_estate_service' => 'office:estate_agent',
         'travel_service' => 'shop:travel_agency',
         'manufacturer' => 'man_made:works',
+        // GeoNames turlari (https://www.geonames.org/export/codes.html)
+        'PPL' => 'place:village',
+        'PPLX' => 'place:neighbourhood',
+        'PPLL' => 'place:hamlet',
+        'ADMF' => 'office:government',
+        'AIRP' => 'aeroway:aerodrome',
+        'ATHF' => 'leisure:sports_centre',
+        'BLDG' => 'building:yes',
+        'BUSTN' => 'amenity:bus_station',
+        'CH' => 'amenity:place_of_worship',
+        'MSQE' => 'amenity:place_of_worship',
+        'SHRN' => 'historic:wayside_shrine',
+        'TMB' => 'historic:tomb',
+        'HSP' => 'amenity:hospital',
+        'HSPC' => 'amenity:clinic',
+        'HSPD' => 'amenity:clinic',
+        'HTL' => 'tourism:hotel',
+        'MKT' => 'amenity:marketplace',
+        'MALL' => 'shop:mall',
+        'MUS' => 'tourism:museum',
+        'MNMT' => 'historic:monument',
+        'PO' => 'amenity:post_office',
+        'PRK' => 'leisure:park',
+        'RSTN' => 'railway:station',
+        'SCH' => 'amenity:school',
+        'SCHM' => 'amenity:school',
+        'SCHC' => 'amenity:university',
+        'UNIV' => 'amenity:university',
+        'SCHT' => 'amenity:college',
+        'STDM' => 'leisure:stadium',
+        'THTR' => 'amenity:theatre',
+        'LIBR' => 'amenity:library',
+        'RSRT' => 'leisure:resort',
+        'BANK' => 'amenity:bank',
     ];
 
     /**
@@ -215,11 +252,14 @@ class OpenPlacesImporter
 
         // Takror: boshqa manbada (OSM, qo'lda qo'shilgan) yaqinda o'xshash nomli mo'ljal bor. Avval import
         // qilinganlari takror hisoblanmaydi — yangilanadi. Shahar/tumandan tashqaridagilar olinmaydi.
+        // Qishloq/mahalla faqat boshqa qishloq/mahallaga (2 km ichida) solishtiriladi: "Guliston ko'chasi" uni yashirmasin.
         $sql = 'WITH v(external_id, name, key, aliases, search, category, lng, lat) AS (VALUES '.implode(',', $values).'),
             src AS (SELECT ?::varchar AS source),
             p AS (
-                SELECT v.*, src.source, g.geog, r.id AS region_id
+                SELECT v.*, src.source, g.geog, r.id AS region_id, s.settlement,
+                    CASE WHEN s.settlement THEN '.self::DUPLICATE_SETTLEMENT_METERS.' ELSE '.self::DUPLICATE_METERS.' END AS radius
                 FROM v CROSS JOIN src
+                CROSS JOIN LATERAL (SELECT v.category LIKE \'place:%\' AS settlement) AS s
                 CROSS JOIN LATERAL (SELECT ST_SetSRID(ST_MakePoint(v.lng, v.lat), 4326)::geography AS geog) AS g
                 JOIN LATERAL (
                     SELECT id FROM regions WHERE parent_id IS NOT NULL AND ST_Covers(boundary, g.geog) LIMIT 1
@@ -230,7 +270,9 @@ class OpenPlacesImporter
                     NOT EXISTS (SELECT 1 FROM landmarks e WHERE e.source = p.source AND e.external_id = p.external_id)
                     AND EXISTS (
                         SELECT 1 FROM landmarks l
-                        WHERE l.source <> p.source AND ST_DWithin(l.location, p.geog, '.self::DUPLICATE_METERS.')
+                        WHERE l.source <> p.source
+                          AND ST_DWithin(l.location, p.geog, p.radius)
+                          AND (NOT p.settlement OR l.category LIKE \'place:%\')
                           AND (similarity(l.search, p.key) > 0.5 OR word_similarity(p.key, l.search) > 0.7)
                     )
                 ) AS duplicate

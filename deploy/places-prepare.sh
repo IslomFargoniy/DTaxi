@@ -4,6 +4,8 @@
 #   overture — Overture Maps "places" (CDLA-Permissive-2.0; ichidagi Foursquare yozuvlari Apache-2.0,
 #              AllThePlaces — CC0), ochiq S3'dagi GeoParquet'dan faqat BBOX qismi DuckDB bilan olinadi
 #   wikidata — Wikidata (CC0), rasmiy SPARQL endpoint orqali faqat taksi uchun foydali turlar
+#   geonames — GeoNames (CC-BY 4.0, atributsiya "GeoNames" majburiy), mamlakat fayllari (UZ, KG, TJ):
+#              qishloq/mahalla nomlari va foydali binolar (shifoxona, maktab, vokzal...), qaror #64
 # Chiqish: <papka>/places-<manba>.geojsonseq (+ overture uchun litsenziya NOTICE fayli).
 # Qayta ishga tushirish xavfsiz: fayllar vaqtinchalik nomga yozilib, oxirida almashtiriladi.
 #
@@ -11,12 +13,14 @@
 #   BBOX=55.9,37.1,73.2,45.6 ./places-prepare.sh    butun O'zbekiston
 #   SOURCES=wikidata ./places-prepare.sh            faqat bitta manba
 #   OVERTURE_MIN_CONFIDENCE=0.5                     Overture ishonch chegarasi (pastlari — ko'pincha axlat)
+#   GEONAMES_COUNTRIES="UZ KG TJ"                   GeoNames mamlakat fayllari (BBOX bo'yicha kesiladi)
 # Import: php artisan landmarks:import --source=overture --file=<papka>/places-overture.geojsonseq
 set -euo pipefail
 
 OUT_DIR="${1:-$(cd "$(dirname "$0")/.." && pwd)/storage/app/osm}"
 BBOX="${BBOX:-70.4,39.9,73.3,41.6}"
-SOURCES="${SOURCES:-overture wikidata}"
+SOURCES="${SOURCES:-overture wikidata geonames}"
+GEONAMES_COUNTRIES="${GEONAMES_COUNTRIES:-UZ KG TJ}"
 MIN_CONFIDENCE="${OVERTURE_MIN_CONFIDENCE:-0.5}"
 WORK_DIR="${PLACES_WORK_DIR:-${OSM_WORK_DIR:-/var/lib/ibtaxi/osm}/places}"
 DUCKDB_VERSION="1.4.4"
@@ -139,10 +143,74 @@ wikidata() {
     echo "==> Wikidata: $(wc -l < "$OUT_DIR/places-wikidata.geojsonseq") ta joy"
 }
 
+geonames() {
+    echo "==> GeoNames (CC-BY 4.0): ${GEONAMES_COUNTRIES}, hudud ${BBOX}"
+    local country files=() alt_files=()
+    mkdir -p "$WORK_DIR/geonames"
+    for country in $GEONAMES_COUNTRIES; do
+        # Asosiy fayl va shu mamlakat obyektlarining boshqa tillardagi nomlari (rasmiy dump, kuniga yangilanadi)
+        curl -fsSL --retry 3 -A 'Dtaxi-places-prepare/1.0' -o "$WORK_DIR/geonames/${country}.zip" \
+            "https://download.geonames.org/export/dump/${country}.zip"
+        curl -fsSL --retry 3 -A 'Dtaxi-places-prepare/1.0' -o "$WORK_DIR/geonames/${country}-alt.zip" \
+            "https://download.geonames.org/export/dump/alternatenames/${country}.zip"
+        python3 -m zipfile -e "$WORK_DIR/geonames/${country}.zip" "$WORK_DIR/geonames/"
+        mkdir -p "$WORK_DIR/geonames/alt"
+        python3 -m zipfile -e "$WORK_DIR/geonames/${country}-alt.zip" "$WORK_DIR/geonames/alt/"
+        files+=("'$WORK_DIR/geonames/${country}.txt'")
+        alt_files+=("'$WORK_DIR/geonames/alt/${country}.txt'")
+    done
+    local IFS=,
+
+    # Faqat taksi mo'ljali bo'ladigan turlar: qishloq/mahalla (PPL, PPLX, PPLL) va binolar. Shahar/tuman
+    # markazlari (PPLA*) — hududlar jadvalida; tog' yaylovlari, xarobalar, urochishe — kerak emas.
+    # Turlar: https://www.geonames.org/export/codes.html
+    "$DUCKDB" -c "
+        CREATE TABLE g AS SELECT * FROM read_csv([${files[*]}], delim = '\t', header = false, quote = '', escape = '',
+            columns = {'id': 'BIGINT', 'name': 'VARCHAR', 'ascii': 'VARCHAR', 'alternates': 'VARCHAR', 'lat': 'DOUBLE',
+                'lng': 'DOUBLE', 'class': 'VARCHAR', 'code': 'VARCHAR', 'country': 'VARCHAR', 'cc2': 'VARCHAR',
+                'a1': 'VARCHAR', 'a2': 'VARCHAR', 'a3': 'VARCHAR', 'a4': 'VARCHAR', 'population': 'BIGINT',
+                'elevation': 'VARCHAR', 'dem': 'VARCHAR', 'timezone': 'VARCHAR', 'modified': 'VARCHAR'})
+        WHERE lng BETWEEN ${X1} AND ${X2} AND lat BETWEEN ${Y1} AND ${Y2}
+          AND code IN ('PPL', 'PPLX', 'PPLL', 'ADMF', 'AIRP', 'ATHF', 'BLDG', 'BUSTN', 'CH', 'MSQE', 'SHRN', 'TMB',
+              'HSP', 'HSPC', 'HSPD', 'HTL', 'MKT', 'MALL', 'MUS', 'MNMT', 'PO', 'PRK', 'RSTN', 'SCH', 'SCHC', 'SCHM',
+              'SCHT', 'UNIV', 'STDM', 'THTR', 'LIBR', 'RSRT', 'BANK');
+        -- Tarixiy nomlar va havolalar emas; avval 'afzal' deb belgilangani
+        CREATE TABLE a AS SELECT geonameid AS id, lang, first(name ORDER BY preferred DESC, alt_id) AS name
+            FROM read_csv([${alt_files[*]}], delim = '\t', header = false, quote = '', escape = '',
+                columns = {'alt_id': 'BIGINT', 'geonameid': 'BIGINT', 'lang': 'VARCHAR', 'name': 'VARCHAR',
+                    'preferred': 'VARCHAR', 'short': 'VARCHAR', 'colloquial': 'VARCHAR', 'historic': 'VARCHAR',
+                    'from': 'VARCHAR', 'to': 'VARCHAR'})
+            WHERE lang IN ('uz', 'ru', 'en') AND coalesce(historic, '') <> '1' AND geonameid IN (SELECT id FROM g)
+            GROUP BY ALL;
+        COPY (
+            SELECT 'Feature' AS type,
+                {'type': 'Point', 'coordinates': [g.lng, g.lat]} AS geometry,
+                {'id': g.id::VARCHAR, 'name': g.name,
+                 'names': {'uz': uz.name, 'ru': ru.name, 'en': en.name},
+                 'categories': [g.code]} AS properties
+            FROM g
+            LEFT JOIN a uz ON uz.id = g.id AND uz.lang = 'uz'
+            LEFT JOIN a ru ON ru.id = g.id AND ru.lang = 'ru'
+            LEFT JOIN a en ON en.id = g.id AND en.lang = 'en'
+            ORDER BY g.id
+        ) TO '$OUT_DIR/places-geonames.geojsonseq.tmp' (FORMAT json);"
+    mv "$OUT_DIR/places-geonames.geojsonseq.tmp" "$OUT_DIR/places-geonames.geojsonseq"
+
+    {
+        echo "GeoNames geographical database (https://www.geonames.org), country dumps: ${GEONAMES_COUNTRIES}"
+        echo "Downloaded $(date -u +%Y-%m-%d) from https://download.geonames.org/export/dump/"
+        echo "Licence: Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/)."
+        echo "Attribution \"GeoNames\" is shown in the map attribution. Data is provided \"as is\"; it was"
+        echo "filtered by area and feature type and merged with OpenStreetMap landmarks (duplicates skipped)."
+    } > "$OUT_DIR/places-geonames.NOTICE.txt"
+    echo "==> GeoNames: $(wc -l < "$OUT_DIR/places-geonames.geojsonseq") ta joy"
+}
+
 for source in $SOURCES; do
     case "$source" in
         overture) overture ;;
         wikidata) wikidata ;;
+        geonames) geonames ;;
         *) echo "Noma'lum manba: $source" >&2; exit 1 ;;
     esac
 done

@@ -80,9 +80,9 @@ export function mapStyle(
             protomaps: {
                 type: 'vector',
                 url: `pmtiles://${new URL(tilesUrl, window.location.origin).href}`,
-                // Mo'ljallar qidiruvi Overture ma'lumotidan ham foydalanadi (qaror #60)
+                // Mo'ljallar qidiruvi Overture va GeoNames (CC-BY) ma'lumotidan ham foydalanadi (qaror #60, #64)
                 attribution:
-                    '© OpenStreetMap · Overture Maps Foundation · Foursquare',
+                    '© OpenStreetMap · Overture Maps Foundation · Foursquare · GeoNames',
             },
             dtaxi: {
                 type: 'vector',

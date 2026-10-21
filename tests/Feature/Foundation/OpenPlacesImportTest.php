@@ -47,10 +47,30 @@ test('reimport updates by external id and keeps admin corrections', function () 
         ->and(Landmark::query()->where('external_id', 'ov-2')->value('name'))->toBe('Bella Pizza');
 });
 
+test('geonames settlements are deduplicated against nearby OSM settlements only', function () {
+    // OSM qishlog'i GeoNames nuqtasidan ~760 m narida (takror); "Guliston ko'chasi" — ko'cha, qishloqni yashirmaydi
+    $village = Landmark::query()->create(['name' => 'Yangiobod', 'location' => Point::makeGeodetic(40.2050, 71.2050)]);
+    $village->forceFill(['source' => 'osm', 'osm_id' => 11, 'category' => 'place:village'])->save();
+    $street = Landmark::query()->create(['name' => "Guliston ko'chasi", 'location' => Point::makeGeodetic(40.2300, 71.2300)]);
+    $street->forceFill(['source' => 'osm', 'osm_id' => 12, 'category' => 'street'])->save();
+
+    $stats = app(OpenPlacesImporter::class)->import('geonames', base_path('tests/fixtures/places-geonames.geojsonseq'));
+
+    expect($stats)->toBe(['read' => 4, 'imported' => 3, 'duplicates' => 1]);
+
+    $places = Landmark::query()->where('source', 'geonames')->get()->keyBy('external_id');
+    expect(Landmark::query()->where('source', 'geonames')->orderBy('external_id')->pluck('external_id')->all())->toBe(['11083227', '1514240', '1514500'])
+        ->and($places['11083227']->category)->toBe('amenity:clinic')
+        ->and($places['11083227']->aliases)->toBe(['Первая больница'])
+        ->and($places['1514240']->category)->toBe('place:neighbourhood')
+        ->and($places['1514500']->category)->toBe('place:village');
+});
+
 test('categories map to the OSM style or fall back to the source category', function () {
     expect(OpenPlacesImporter::category('overture', ['italian_restaurant', 'restaurant']))->toBe('amenity:restaurant')
         ->and(OpenPlacesImporter::category('wikidata', ['muslim_place_of_worship']))->toBe('amenity:place_of_worship')
         ->and(OpenPlacesImporter::category('wikidata', ['madrasa']))->toBe('wikidata:madrasa')
+        ->and(OpenPlacesImporter::category('geonames', ['RSTN']))->toBe('railway:station')
         ->and(OpenPlacesImporter::category('overture', []))->toBe('overture:place');
 });
 
