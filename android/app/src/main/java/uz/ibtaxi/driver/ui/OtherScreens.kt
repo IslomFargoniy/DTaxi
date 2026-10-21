@@ -78,7 +78,7 @@ private fun ScreenScaffold(title: String, onBack: () -> Unit, content: @Composab
  * Balans va tarix; to'ldirish yo'riqnomasi (qaror #23): Click/Payme'da ID yoki kassa.
  */
 @Composable
-fun BalanceScreen(onBack: () -> Unit) {
+fun BalanceScreen(onBack: () -> Unit, onOrders: () -> Unit) {
     val repository = IbTaxiApp.instance.repository
     val profile by DriverState.profile.collectAsState()
     var items by remember { mutableStateOf<List<Transaction>>(emptyList()) }
@@ -96,6 +96,8 @@ fun BalanceScreen(onBack: () -> Unit) {
                 }
             }
             profile?.let { p -> item { TopUpCard(p.callsign, p.config.payments) } }
+            // Safarlar (qayerda olindi / tushirildi) — balans harakatlaridan alohida ekran
+            item { OutlinedButton(onClick = onOrders, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.order_history)) } }
             items(items) { t ->
                 Row(Modifier.fillMaxWidth()) {
                     Column(Modifier.weight(1f)) {

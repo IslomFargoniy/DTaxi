@@ -68,7 +68,11 @@ class Repository(val client: ApiClient, val session: Session) {
 
     suspend fun arrive(orderId: Int) = orderCall { api.arrive(orderId) }
 
-    suspend fun start(orderId: Int) = orderCall { api.start(orderId) }
+    /** Joriy GPS joyi yuboriladi — buyurtmalar tarixida yo'lovchi qayerda olingani ko'rinadi */
+    suspend fun start(orderId: Int): Result<Order?> {
+        val here = DriverState.location.value
+        return orderCall { api.start(orderId, PositionRequest(here?.first, here?.second)) }
+    }
 
     /**
      * Internet yo'q bo'lsa natija saqlanadi va servis [retryPendingComplete] bilan qayta yuboradi —
@@ -76,6 +80,7 @@ class Repository(val client: ApiClient, val session: Session) {
      */
     suspend fun complete(orderId: Int, inside: Long, outside: Long): Result<Order?> {
         session.pendingComplete = Triple(orderId, inside, outside)
+        session.pendingFinishAt = DriverState.location.value
         DriverState.setPendingComplete(orderId)
         return sendComplete(orderId, inside, outside)
     }
@@ -87,10 +92,14 @@ class Repository(val client: ApiClient, val session: Session) {
     }
 
     private suspend fun sendComplete(orderId: Int, inside: Long, outside: Long): Result<Order?> =
-        call { api.complete(orderId, CompleteRequest(inside, outside)) }.map { it.order }.also {
+        call {
+            val at = session.pendingFinishAt
+            api.complete(orderId, CompleteRequest(inside, outside, at?.first, at?.second))
+        }.map { it.order }.also {
             // Tarmoq xatosi (-1) bo'lmasa server javob berdi — qayta yuborish shart emas
             if (it !is Result.Error || it.code != -1) {
                 session.pendingComplete = null
+                session.pendingFinishAt = null
                 DriverState.setPendingComplete(null)
             }
             if (it is Result.Ok) {
@@ -118,6 +127,10 @@ class Repository(val client: ApiClient, val session: Session) {
         call { api.setLocale(LocaleRequest(code)) }.also { result ->
             if (result is Result.Ok) result.value.mapStyle?.let(DriverState::setMapStyle)
         }
+
+    suspend fun orderHistory(page: Int) = call { api.orderHistory(page) }
+
+    suspend fun orderTrack(orderId: Int) = call { api.orderTrack(orderId) }
 
     suspend fun balance() = call { api.balance() }.also { if (it is Result.Ok) DriverState.setBalance(it.value.balance) }
 

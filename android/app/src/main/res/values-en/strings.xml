@@ -158,4 +158,18 @@
     <string name="incoming_call">Incoming call</string>
     <string name="answer">Answer</string>
     <string name="decline">Decline</string>
+    <string name="order_history">Order history</string>
+    <string name="picked_up">Picked up</string>
+    <string name="dropped_off">Dropped off</string>
+    <string name="status_completed">Completed</string>
+    <string name="status_cancelled_by_client">Cancelled by client</string>
+    <string name="status_cancelled_by_operator">Cancelled by operator</string>
+    <string name="status_cancelled_by_driver">You cancelled</string>
+    <string name="history_empty">No orders yet</string>
+    <string name="trip">Trip</string>
+    <string name="trip_duration">On the way</string>
+    <string name="distance">Distance</string>
+    <string name="price">Price</string>
+    <string name="corporate_short">Corporate</string>
+    <string name="track_missing">GPS track not saved — start and finish are joined with a straight line</string>
 </resources>

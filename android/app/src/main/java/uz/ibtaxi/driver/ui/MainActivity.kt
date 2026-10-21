@@ -48,7 +48,7 @@ import uz.ibtaxi.driver.service.DriverService
 import uz.ibtaxi.driver.service.OfferNotifier
 import uz.ibtaxi.driver.update.Updater
 
-enum class Screen { Home, Chat, Balance, Settings, Call }
+enum class Screen { Home, Chat, Balance, Orders, Settings, Call }
 
 class MainActivity : ComponentActivity() {
     private var afterPermissions: (() -> Unit)? = null
@@ -149,7 +149,8 @@ class MainActivity : ComponentActivity() {
                             if (target == Screen.Call) callDispatcher() else screen = target
                         }, requestPermissions = ::withPermissions)
                         Screen.Chat -> ChatScreen(onBack = { screen = Screen.Home }, onCall = ::callDispatcher)
-                        Screen.Balance -> BalanceScreen { screen = Screen.Home }
+                        Screen.Balance -> BalanceScreen(onBack = { screen = Screen.Home }, onOrders = { screen = Screen.Orders })
+                        Screen.Orders -> OrderHistoryScreen { screen = Screen.Home }
                         Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Home }, onLocaleChange = { code ->
                             app.session.locale = code
                             // Server xabarlari va xarita nomlari ham shu tilda (ilova scope'ida — ekran qayta yaratilsa ham)

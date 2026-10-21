@@ -49,7 +49,7 @@ interface Api {
     suspend fun arrive(@Path("id") id: Int): Response<OrderEnvelope>
 
     @POST("api/driver/v1/orders/{id}/start")
-    suspend fun start(@Path("id") id: Int): Response<OrderEnvelope>
+    suspend fun start(@Path("id") id: Int, @Body body: PositionRequest): Response<OrderEnvelope>
 
     @POST("api/driver/v1/orders/{id}/complete")
     suspend fun complete(@Path("id") id: Int, @Body body: CompleteRequest): Response<OrderEnvelope>
@@ -64,6 +64,12 @@ interface Api {
         @Query("to_lat") toLat: Double,
         @Query("to_lng") toLng: Double,
     ): Response<RouteResponse>
+
+    @GET("api/driver/v1/orders/history")
+    suspend fun orderHistory(@Query("page") page: Int): Response<OrderHistoryPage>
+
+    @GET("api/driver/v1/orders/{id}/track")
+    suspend fun orderTrack(@Path("id") id: Int): Response<OrderTrack>
 
     @GET("api/driver/v1/balance")
     suspend fun balance(): Response<BalanceResponse>
