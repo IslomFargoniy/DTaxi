@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -316,6 +317,10 @@ Artisan::command('lang:cyrillic', function () {
     foreach (File::files(lang_path('uz')) as $file) {
         $data = $walk(require $file->getPathname());
         file_put_contents(lang_path('oz/'.$file->getFilename()), "<?php\n\n// lang/uz dan yasalgan: php artisan lang:cyrillic\nreturn ".var_export($data, true).";\n");
+    }
+    // var_export eski array() ko'rinishida yozadi — har safar Pint diff'i chiqmasin (Pint faqat dev'da bor)
+    if (is_file(base_path('vendor/bin/pint'))) {
+        Process::path(base_path())->run([base_path('vendor/bin/pint'), lang_path('oz')]);
     }
 
     $this->info('Tayyor: lang/oz.json va lang/oz/*.php ('.count($converted).' ta matn)');
