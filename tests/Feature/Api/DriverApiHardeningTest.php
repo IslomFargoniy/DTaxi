@@ -11,6 +11,8 @@ use App\Models\DeviceToken;
 use App\Models\Driver;
 use App\Models\Landmark;
 use App\Models\Order;
+use App\Models\Tariff;
+use App\Models\TariffClass;
 use App\Services\Orders\OrderService;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Support\Facades\DB;
@@ -138,4 +140,16 @@ test('profile sends the branch centre so the app map opens where the firm works'
     $this->getJson('/api/driver/v1/me')->assertOk()
         ->assertJsonPath('data.config.map_center.lat', 42.46)
         ->assertJsonPath('data.config.map_center.lng', 59.61);
+});
+
+test('profile still lists tariffs when the driver account is left in another branch', function () {
+    $class = TariffClass::factory()->create(['branch_id' => $this->branch->id, 'name' => 'Standart']);
+    Tariff::factory()->create(['tariff_class_id' => $class->id]);
+    $driver = driverNear($this->branch, 0);
+    // Haydovchi boshqa filialga o'tkazilgan, lekin akkaunti eski filialda qolgan
+    $driver->user->forceFill(['branch_id' => Branch::factory()->create()->id])->save();
+    signInDriver($driver);
+
+    $this->getJson('/api/driver/v1/me')->assertOk()
+        ->assertJsonPath('data.tariffs.0.name', 'Standart');
 });

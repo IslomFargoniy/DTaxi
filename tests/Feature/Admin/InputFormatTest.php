@@ -5,6 +5,7 @@ use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Company;
 use App\Models\Driver;
+use App\Models\Pjsip\PsEndpoint;
 use App\Models\TariffClass;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -102,4 +103,12 @@ test('staff and company phones are validated and stored as E.164', function () {
         'branch_id' => $this->branch->id, 'name' => 'Artel', 'contact_phone' => '8 (91) 234-56-78', 'discount_percent' => 5,
     ])->assertSessionHasNoErrors();
     expect(Company::query()->where('name', 'Artel')->value('contact_phone'))->toBe('+998912345678');
+});
+
+test('a newly created driver gets an active SIP endpoint so in-app calls work at once', function () {
+    $this->actingAs($this->admin)->post(route('admin.drivers.store'), formatDriverPayload($this->branch))
+        ->assertSessionHasNoErrors();
+
+    $user = Driver::query()->where('callsign', '777')->firstOrFail()->user;
+    expect(PsEndpoint::query()->whereKey($user->sip_extension)->value('context'))->toBe('from-internal');
 });

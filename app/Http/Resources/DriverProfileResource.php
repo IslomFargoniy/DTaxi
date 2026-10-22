@@ -79,7 +79,9 @@ class DriverProfileResource extends JsonResource
                     ] : null,
                 ],
             ],
-            'tariffs' => Tariff::query()->withoutGlobalScopes()->where('branch_id', $this->branch_id)->with('tariffClass')->get()
+            // Klass ham filial scope'isiz: haydovchi akkaunti boshqa filialda qolgan bo'lsa ham profil (taksometr tariflari) yiqilmasin
+            'tariffs' => Tariff::query()->withoutGlobalScopes()->where('branch_id', $this->branch_id)
+                ->with(['tariffClass' => fn ($q) => $q->withoutGlobalScopes()])->get()
                 ->map(fn (Tariff $tariff) => [
                     'tariff_class_id' => $tariff->tariff_class_id,
                     'name' => $tariff->tariffClass->name,

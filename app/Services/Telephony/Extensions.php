@@ -57,7 +57,9 @@ class Extensions
             ])->saveQuietly();
         }
 
-        $context = $user->is_active ? 'from-internal' : 'inactive';
+        // Yangi yaratilgan modelda is_active o'qilmagan (null) — bazadagi standart qiymat true.
+        // Avval null "faol emas" deb olinib, har yangi haydovchi qo'ng'iroq qila olmasdi (context=inactive)
+        $context = ($user->is_active ?? true) ? 'from-internal' : 'inactive';
         $password = (string) $user->sip_password;
 
         DB::transaction(function () use ($extension, $context, $password, $user) {
