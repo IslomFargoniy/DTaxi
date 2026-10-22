@@ -66,7 +66,7 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
             'status' => $request->session()->get('status'),
-            // Superadmin hali yo'q — serverda ibtaxi:init ishga tushirilmagan (qaror #58)
+            // Superadmin hali yo'q — serverda dtaxi:init ishga tushirilmagan (qaror #58)
             'needsInit' => ! FirstRunSeeder::superadminExists(),
         ]));
 

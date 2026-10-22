@@ -37,7 +37,7 @@ class Backup
     }
 
     /**
-     * Oxirgi yangilanish holati (ibtaxi:update): commit va yangilanishdan oldingi zaxira.
+     * Oxirgi yangilanish holati (dtaxi:update): commit va yangilanishdan oldingi zaxira.
      */
     public static function updateStateFile(): string
     {

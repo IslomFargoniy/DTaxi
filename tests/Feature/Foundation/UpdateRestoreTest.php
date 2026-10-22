@@ -57,7 +57,7 @@ test('failed update goes back to the previous commit with its dependencies and o
     $log = [];
     fakeUpdateProcesses($log, failComposerOn: 'new');
 
-    $this->artisan('ibtaxi:update', ['--skip-build' => true])
+    $this->artisan('dtaxi:update', ['--skip-build' => true])
         ->expectsOutputToContain('Oldingi kod tiklandi')
         ->assertFailed();
 
@@ -72,7 +72,7 @@ test('plain update after --ref first returns to the main branch', function () {
     $log = [];
     fakeUpdateProcesses($log, failComposerOn: 'new', detached: true);
 
-    $this->artisan('ibtaxi:update', ['--skip-build' => true])->assertFailed();
+    $this->artisan('dtaxi:update', ['--skip-build' => true])->assertFailed();
 
     expect(array_search('git checkout --quiet main', $log))->toBeLessThan(array_search('git pull --ff-only --quiet', $log));
 });
@@ -84,7 +84,7 @@ test('successful update waits for active calls and tells how to apply changed As
     Call::query()->create(['branch_id' => Branch::factory()->create()->id, 'direction' => 'inbound', 'kind' => 'client',
         'caller' => '+998901111111', 'status' => 'answered', 'started_at' => now()]);
 
-    $this->artisan('ibtaxi:update', ['--skip-build' => true, '--wait-calls' => 10])
+    $this->artisan('dtaxi:update', ['--skip-build' => true, '--wait-calls' => 10])
         ->expectsOutputToContain("Faol qo'ng'iroqlar (1)")
         ->expectsOutputToContain('qayta ishga tushirilmoqda')
         ->expectsOutputToContain('deploy/asterisk-config.sh')
@@ -163,8 +163,8 @@ test('files restore copies uploads and takes only APP_KEY from the archived .env
     }
 });
 
-test('ibtaxi:restore asks for confirmation and restores the database in maintenance mode', function () {
-    $this->artisan('ibtaxi:restore', ['dump' => '/yoq/fayl.dump'])->expectsOutputToContain('Fayl topilmadi')->assertFailed();
+test('dtaxi:restore asks for confirmation and restores the database in maintenance mode', function () {
+    $this->artisan('dtaxi:restore', ['dump' => '/yoq/fayl.dump'])->expectsOutputToContain('Fayl topilmadi')->assertFailed();
 
     $dump = tempnam(sys_get_temp_dir(), 'dump');
     $log = [];
@@ -175,10 +175,10 @@ test('ibtaxi:restore asks for confirmation and restores the database in maintena
     });
 
     try {
-        $this->artisan('ibtaxi:restore', ['dump' => $dump])->expectsConfirmation("Joriy baza {$dump} bilan almashtiriladi, hozirgi ma'lumotlar yo'qoladi. Davom etilsinmi?", 'no')->assertFailed();
+        $this->artisan('dtaxi:restore', ['dump' => $dump])->expectsConfirmation("Joriy baza {$dump} bilan almashtiriladi, hozirgi ma'lumotlar yo'qoladi. Davom etilsinmi?", 'no')->assertFailed();
         expect($log)->toBe([]);
 
-        $this->artisan('ibtaxi:restore', ['dump' => $dump])->expectsConfirmation("Joriy baza {$dump} bilan almashtiriladi, hozirgi ma'lumotlar yo'qoladi. Davom etilsinmi?", 'yes')->assertSuccessful();
+        $this->artisan('dtaxi:restore', ['dump' => $dump])->expectsConfirmation("Joriy baza {$dump} bilan almashtiriladi, hozirgi ma'lumotlar yo'qoladi. Davom etilsinmi?", 'yes')->assertSuccessful();
         expect(collect($log)->first(fn ($c) => str_contains($c, 'pg_restore --clean --if-exists --no-owner')))->not->toBeNull()
             ->and(collect($log)->first(fn ($c) => str_ends_with($c, 'artisan telephony:sync')))->not->toBeNull()
             ->and(app()->isDownForMaintenance())->toBeFalse();

@@ -66,7 +66,7 @@ return [
     */
 
     // Har firma o'z serverida — prefiks to'qnashuvi yo'q
-    'prefix' => env('HORIZON_PREFIX', 'ibtaxi_horizon:'),
+    'prefix' => env('HORIZON_PREFIX', 'dtaxi_horizon:'),
 
     /*
     |--------------------------------------------------------------------------

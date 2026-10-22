@@ -9,11 +9,11 @@ use Illuminate\Support\Facades\Process;
 
 /**
  * Tuzatilgan xaritani yangi firma serveriga ko'chirish (qaror #65): hududlar, mo'ljallar va ko'cha nomlari
- * xarita to'plamidan (ibtaxi:map-export) — buyurtma, mijoz va pul ma'lumotlarisiz. map-restore.sh chaqiradi.
+ * xarita to'plamidan (dtaxi:map-export) — buyurtma, mijoz va pul ma'lumotlarisiz. map-restore.sh chaqiradi.
  */
 class MapImport extends Command
 {
-    protected $signature = 'ibtaxi:map-import
+    protected $signature = 'dtaxi:map-import
         {file : Xarita to\'plami (*_map.tar) yoki undagi map.dump}
         {--force : Filial yoki mijoz manzillari mavjud xaritaga bog\'langan bo\'lsa ham almashtirish}';
 

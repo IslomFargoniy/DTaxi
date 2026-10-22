@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ibTaxiDriver"
+rootProject.name = "DtaxiDriver"
 include(":app")

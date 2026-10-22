@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\File;
  */
 class InitApp extends Command
 {
-    protected $signature = 'ibtaxi:init
+    protected $signature = 'dtaxi:init
         {--company= : Firma (xizmat) nomi, standart — Dtaxi}
         {--username=admin : Superadmin logini}
         {--email= : Superadmin e-mail\'i (ixtiyoriy, parolni tiklash uchun)}';
@@ -48,7 +48,7 @@ class InitApp extends Command
 
         if ($seeder->credentials === null) {
             $this->info('Superadmin allaqachon mavjud — hech narsa o\'zgartirilmadi.');
-            $this->line('Parolni tiklash: php artisan ibtaxi:admin-password');
+            $this->line('Parolni tiklash: php artisan dtaxi:admin-password');
 
             return self::SUCCESS;
         }

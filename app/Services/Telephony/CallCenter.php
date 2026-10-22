@@ -30,7 +30,7 @@ use Illuminate\Support\Str;
 
 /**
  * Qo'ng'iroq markazi — ARI hodisalari bo'yicha holat mashinasi (andoza: panel.1call.uz Stasis handlerlari).
- * Butun mantiq PHP'da: dialplan faqat Stasis(ibtaxi,...) ga yuboradi.
+ * Butun mantiq PHP'da: dialplan faqat Stasis(dtaxi,...) ga yuboradi.
  *
  * Stasis argumentlari:
  *   inbound,<DID>   — trunkdan kiruvchi (mijoz)

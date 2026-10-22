@@ -12,17 +12,17 @@ use Illuminate\Support\Sleep;
 /**
  * Xavfsiz yangilanish (Bosqich 3b): texnik rejim → zaxira → kod → bog'liqliklar → frontend → fon xizmatlarini to'xtatish →
  * migratsiya → fon xizmatlarini qayta ishga tushirish.
- * Muammo bo'lsa: `php artisan ibtaxi:update --rollback` — oldingi kod va yangilanishdan oldingi baza.
+ * Muammo bo'lsa: `php artisan dtaxi:update --rollback` — oldingi kod va yangilanishdan oldingi baza.
  */
 class UpdateApp extends Command
 {
     /** Supervisor dasturlari (install.sh); ilova foydalanuvchisiga faqat shularni start/stop qilish ruxsati (sudoers) */
-    private const WORKERS = ['ibtaxi-horizon', 'ibtaxi-ari'];
+    private const WORKERS = ['dtaxi-horizon', 'dtaxi-ari'];
 
     /** Fon xizmatlari supervisor orqali to'xtatildimi (dev/lokalda supervisor yo'q — eski usulda qayta ishga tushiriladi) */
     private bool $workersStopped = false;
 
-    protected $signature = 'ibtaxi:update
+    protected $signature = 'dtaxi:update
         {--ref= : Git teg yoki tarmoq (standart — asosiy tarmoqning oxirgi holati)}
         {--rollback : Oxirgi yangilanishni bekor qilish}
         {--skip-build : Frontend build qilinmasin (faqat backend o\'zgargan bo\'lsa)}
@@ -34,7 +34,7 @@ class UpdateApp extends Command
     {
         // root nomidan git "dubious ownership" beradi, yangi fayllar esa root'ga o'tib php-fpm o'qiy olmaydi
         if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
-            $this->error('root sifatida ishlatmang: sudo -u ibtaxi php artisan '.$this->getName().($this->option('rollback') ? ' --rollback' : ''));
+            $this->error('root sifatida ishlatmang: sudo -u dtaxi php artisan '.$this->getName().($this->option('rollback') ? ' --rollback' : ''));
 
             return self::FAILURE;
         }
@@ -110,14 +110,14 @@ class UpdateApp extends Command
         } catch (\Throwable $e) {
             // Kod va bog'liqliklar mos emas — sayt ochilmaydi, texnik rejimda qoladi
             $this->error('Oldingi kodga qaytib bo\'lmadi: '.$e->getMessage());
-            $this->warn('Sayt texnik rejimda qoldi. Muammoni tuzatib: sudo -u ibtaxi php artisan ibtaxi:update --rollback');
+            $this->warn('Sayt texnik rejimda qoldi. Muammoni tuzatib: sudo -u dtaxi php artisan dtaxi:update --rollback');
 
             return self::FAILURE;
         }
 
         $this->startWorkers();
         $this->call('up');
-        $this->warn('Oldingi kod tiklandi. Migratsiya qisman bajarilgan bo\'lishi mumkin; baza ham kerak bo\'lsa: sudo -u ibtaxi php artisan ibtaxi:update --rollback');
+        $this->warn('Oldingi kod tiklandi. Migratsiya qisman bajarilgan bo\'lishi mumkin; baza ham kerak bo\'lsa: sudo -u dtaxi php artisan dtaxi:update --rollback');
 
         return self::FAILURE;
     }
@@ -147,7 +147,7 @@ class UpdateApp extends Command
             $backup->restore($state['backup']);
         } catch (\Throwable $e) {
             $this->error('Qaytarish to\'xtadi: '.$e->getMessage());
-            $this->warn('Sayt texnik rejimda qoldi. Tuzatib, qayta ishga tushiring: sudo -u ibtaxi php artisan ibtaxi:update --rollback');
+            $this->warn('Sayt texnik rejimda qoldi. Tuzatib, qayta ishga tushiring: sudo -u dtaxi php artisan dtaxi:update --rollback');
 
             return self::FAILURE;
         }
@@ -203,14 +203,14 @@ class UpdateApp extends Command
             return;
         }
         $this->step('Fon xizmatlarini to\'xtatish');
-        if (! $this->supervisor('stop', 'ibtaxi-horizon')) {
+        if (! $this->supervisor('stop', 'dtaxi-horizon')) {
             $this->warn('Supervisor\'ga ruxsat yo\'q — Horizon va ARI to\'xtatilmadi, oxirida qayta ishga tushiriladi.');
 
             return;
         }
         $this->workersStopped = true;
         $this->waitForCalls();
-        $this->supervisor('stop', 'ibtaxi-ari');
+        $this->supervisor('stop', 'dtaxi-ari');
     }
 
     private function startWorkers(): void

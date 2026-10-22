@@ -3,7 +3,7 @@
 # tarmog'i UDP'ni yopsa (ofis, ba'zi mobil operatorlar) TCP/TLS orqali o'tadi. Asterisk'ga TURN kerak emas.
 #
 #   install.sh --prod --domain=... --turn       # o'rnatishda
-#   sudo DOMAIN=taxi.firma.uz /var/www/ibtaxi/deploy/turn-config.sh   # keyin alohida (qayta ishga tushirish xavfsiz)
+#   sudo DOMAIN=taxi.firma.uz /var/www/dtaxi/deploy/turn-config.sh   # keyin alohida (qayta ishga tushirish xavfsiz)
 #
 # Natija: /etc/turnserver.conf (use-auth-secret), .env da TURN_URL va TURN_SECRET — panel va ilova
 # har ulanishda vaqtinchalik login/parol oladi (App\Services\Telephony\IceServers).
@@ -12,7 +12,7 @@ set -euo pipefail
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-APP_USER="${APP_USER:-ibtaxi}"
+APP_USER="${APP_USER:-dtaxi}"
 ENV_FILE="${APP_DIR}/.env"
 TURN_MIN_PORT="${TURN_MIN_PORT:-49160}"
 TURN_MAX_PORT="${TURN_MAX_PORT:-49760}"
@@ -58,7 +58,7 @@ TLS_CONF="no-tls
 no-dtls"
 URLS="turn:${DOMAIN}:3478?transport=udp,turn:${DOMAIN}:3478?transport=tcp"
 if [[ -f "${LE_DIR}/fullchain.pem" ]]; then
-    HOOK=/etc/letsencrypt/renewal-hooks/deploy/ibtaxi-coturn.sh
+    HOOK=/etc/letsencrypt/renewal-hooks/deploy/dtaxi-coturn.sh
     mkdir -p "$(dirname "$HOOK")"
     cat > "$HOOK" <<HOOK
 #!/usr/bin/env bash
@@ -116,9 +116,9 @@ chmod 640 /etc/turnserver.conf
 [[ -f /etc/default/coturn ]] && sed -i 's/^#\?TURNSERVER_ENABLED=.*/TURNSERVER_ENABLED=1/' /etc/default/coturn
 
 if command -v ufw >/dev/null && ufw status | grep -q '^Status: active'; then
-    ufw allow 3478 comment 'ibtaxi-turn' >/dev/null
-    ufw allow 5349/tcp comment 'ibtaxi-turn' >/dev/null
-    ufw allow "${TURN_MIN_PORT}:${TURN_MAX_PORT}/udp" comment 'ibtaxi-turn relay' >/dev/null
+    ufw allow 3478 comment 'dtaxi-turn' >/dev/null
+    ufw allow 5349/tcp comment 'dtaxi-turn' >/dev/null
+    ufw allow "${TURN_MIN_PORT}:${TURN_MAX_PORT}/udp" comment 'dtaxi-turn relay' >/dev/null
 fi
 
 systemctl enable coturn >/dev/null 2>&1

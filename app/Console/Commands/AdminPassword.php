@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
  */
 class AdminPassword extends Command
 {
-    protected $signature = 'ibtaxi:admin-password {login? : Superadmin logini yoki e-mail\'i (standart — birinchi superadmin)}';
+    protected $signature = 'dtaxi:admin-password {login? : Superadmin logini yoki e-mail\'i (standart — birinchi superadmin)}';
 
     protected $description = 'Superadmin uchun yangi tasodifiy parol';
 
@@ -27,7 +27,7 @@ class AdminPassword extends Command
             ->first();
 
         if (! $user) {
-            $this->error('Superadmin topilmadi. Birinchi ishga tushirish: php artisan ibtaxi:init');
+            $this->error('Superadmin topilmadi. Birinchi ishga tushirish: php artisan dtaxi:init');
 
             return self::FAILURE;
         }

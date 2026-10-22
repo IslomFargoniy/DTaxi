@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
 
 /**
  * Ovozli xabarni bo'laklardan yig'ish (reja §5.4): "Sizga oq Cobalt, raqami 01 A 123 BC, taxminan 5 daqiqada yetib keladi".
- * Natija — Asterisk media ro'yxati (sound:ibtaxi/...). Yetishmayotgan bo'lak o'tkazib yuboriladi, xabar baribir yetadi.
+ * Natija — Asterisk media ro'yxati (sound:dtaxi/...). Yetishmayotgan bo'lak o'tkazib yuboriladi, xabar baribir yetadi.
  */
 class MessageComposer
 {

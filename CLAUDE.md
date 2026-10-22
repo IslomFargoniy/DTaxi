@@ -1,6 +1,6 @@
 # Dtaxi — loyiha qoidalari
 
-Telefon orqali ishlaydigan taksi dispetcherlik tizimi. Mahsulot nomi — **Dtaxi** (logo: D ichida lokatsiya belgisi); kod ichidagi `ibtaxi` nomlari (paket, buyruqlar, baza, VM) o'zgarmaydi. **Sotiladigan mahsulot**: har bir taksi firmasi o'z serverida alohida nusxa oladi. To'liq reja va qabul qilingan qarorlar — `docs/plan.md` (o'zgartirishdan oldin o'qing, qaror qabul qilinsa jadvalga qo'shing).
+Telefon orqali ishlaydigan taksi dispetcherlik tizimi. Mahsulot nomi — **Dtaxi** (logo: D ichida lokatsiya belgisi); kod ichida ham hamma joyda `dtaxi` (Android paketi `uz.dtaxi.driver`, `dtaxi:*` buyruqlari, baza, VM — qaror #68). Faqat Mac'dagi `ibTaxi` papkasi va VM ichidagi `/home/ubuntu/ibTaxi` mount yo'li eski nomda. **Sotiladigan mahsulot**: har bir taksi firmasi o'z serverida alohida nusxa oladi. To'liq reja va qabul qilingan qarorlar — `docs/plan.md` (o'zgartirishdan oldin o'qing, qaror qabul qilinsa jadvalga qo'shing).
 
 ## Asosiy qoidalar
 
@@ -13,23 +13,23 @@ Telefon orqali ishlaydigan taksi dispetcherlik tizimi. Mahsulot nomi — **Dtaxi
 
 ## Muhit
 
-- Lokal: Multipass virtual mashinasi `ibtaxi` (Ubuntu 24.04, IP `192.168.252.2`) — PostgreSQL+PostGIS, Redis, Nginx shu yerda. Loyiha papkasi VM ichida `/home/ubuntu/ibTaxi` ga ulangan.
+- Lokal: Multipass virtual mashinasi `dtaxi` (Ubuntu 24.04, IP `192.168.252.5`) — PostgreSQL+PostGIS, Redis, Nginx shu yerda. Loyiha papkasi VM ichida `/home/ubuntu/ibTaxi` ga ulangan. Qayta ishga tushirish: `multipass stop dtaxi && multipass start dtaxi` (`restart` ulangan papkani uzib qo'yishi mumkin). VM qayta yaratilsa IP o'zgaradi — `.env`, shu fayl, `deploy/deploy.md`, `deploy/dev-lan-proxy.py`, `android/firms/dev/firm.properties`.
 - Kod, `composer`, `npm`, `php artisan` va testlar — Mac'da (`.env` VM'dagi bazaga ulanadi).
 - Server o'rnatish: `deploy/install.sh` (toza Ubuntu; `--dev` lokal VM, `--prod --domain= --email=` firma serveri). OSM ma'lumoti: `deploy/osm-prepare.sh` → `php artisan regions:import` (butun O'zbekiston, qaror #67).
-- Telefoniya: Asterisk VM'da; qo'ng'iroq mantig'i `App\Services\Telephony\CallCenter` (ARI), daemon `php artisan ari:listen` (supervisor `ibtaxi-ari`; yangi kod uchun `ari:restart`). Panel brauzerda `https://192.168.252.2` (self-signed) — mikrofon faqat https'da.
+- Telefoniya: Asterisk VM'da; qo'ng'iroq mantig'i `App\Services\Telephony\CallCenter` (ARI), daemon `php artisan ari:listen` (supervisor `dtaxi-ari`; yangi kod uchun `ari:restart`). Panel brauzerda `https://192.168.252.5` (self-signed) — mikrofon faqat https'da.
 - Android: JDK 17 (`~/Library/Java/JavaVirtualMachines/jdk-17*`), Studio'ning JBR'i (25) Gradle 8.9 bilan ishlamaydi. Har `assembleDebug`/`assembleRelease` dan keyin universal APK `public/android/dtaxi.<versiya>.apk` ga tushadi (faqat oxirgisi, git'ga tushmaydi). Versiya — `1.0.<git commit'lar soni>`. Haqiqiy telefon uchun: `./gradlew assembleRelease -Pfirm=lan` + Mac'da `python3 deploy/dev-lan-proxy.py`.
 
 ## Buyruqlar
 
 ```bash
-php artisan test                 # testlar (ibtaxi_test bazasi)
+php artisan test                 # testlar (dtaxi_test bazasi)
 composer test                    # Pint + PHPStan + testlar
 npm run check                    # frontend format va lint
 npx tsc --noEmit                 # TypeScript
 php artisan wayfinder:generate --with-form   # route'lar o'zgarsa
-npm run build                    # panel VM orqali http://192.168.252.2 da ochiladi
+npm run build                    # panel VM orqali http://192.168.252.5 da ochiladi
 php artisan telephony:sync       # ichki raqamlar va trunklarni Asterisk'ga qayta yozish
-php artisan ibtaxi:backup        # baza zaxirasi; ibtaxi:update [--rollback] — firma serverida yangilash
+php artisan dtaxi:backup        # baza zaxirasi; dtaxi:update [--rollback] — firma serverida yangilash
 ```
 
 ## Kod uslubi

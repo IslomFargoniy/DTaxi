@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
- * Asterisk REST Interface (andoza: panel.1call.uz AriClient). Hamma qo'ng'iroqlar `ibtaxi` Stasis ilovasida.
+ * Asterisk REST Interface (andoza: panel.1call.uz AriClient). Hamma qo'ng'iroqlar `dtaxi` Stasis ilovasida.
  *
  * Usullar istisno tashlamaydi: Asterisk javob bermasa false/null qaytadi — chaqiruvchi holatni orqaga qaytara oladi
  * (aks holda masalan operator "band" bo'lib qolardi) va daemon tsikli to'xtamaydi.
@@ -70,7 +70,7 @@ class AriClient
     /**
      * Bir nechta bo'lakni ketma-ket ijro etish (ARI bitta so'rovda ro'yxatni qabul qiladi).
      *
-     * @param  list<string>  $media  masalan ['sound:ibtaxi/phrase/sizni-haydovchi-kutmoqda', 'sound:ibtaxi/number/5']
+     * @param  list<string>  $media  masalan ['sound:dtaxi/phrase/sizni-haydovchi-kutmoqda', 'sound:dtaxi/number/5']
      */
     public function play(string $channelId, array $media, ?string $playbackId = null): ?string
     {

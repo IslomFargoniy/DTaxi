@@ -101,7 +101,7 @@ Artisan::command('recordings:cleanup', function (Settings $settings) {
 
 Schedule::command('recordings:cleanup')->dailyAt('03:30')->withoutOverlapping(120);
 
-Artisan::command('ibtaxi:backup
+Artisan::command('dtaxi:backup
     {--keep=14 : Necha kunlik zaxira saqlanadi}
     {--recordings-from= : Suhbat yozuvlarini shu kundan (Y-m-d) kechagacha zaxira serveriga yuborish (birinchi sozlashda)}', function (Backup $backup, Settings $settings) {
     $file = $backup->create();
@@ -138,7 +138,7 @@ Artisan::command('ibtaxi:backup
             }
         }
     } catch (Throwable $e) {
-        // Mahalliy zaxira baribir bor; monitoring (ibtaxi:health) ogohlantiradi
+        // Mahalliy zaxira baribir bor; monitoring (dtaxi:health) ogohlantiradi
         Cache::forever('backup.upload_error', $e->getMessage());
         $this->error('Zaxira serveriga yuborilmadi: '.$e->getMessage());
 
@@ -153,9 +153,9 @@ Artisan::command('ari:restart', function () {
 })->purpose('ARI daemonini yangi kod bilan qayta ishga tushirish');
 
 // Fonda: bir soatlab davom etishi mumkin, shu vaqtda har daqiqalik vazifalar (efir, oflayn) to'xtamasin
-Schedule::command('ibtaxi:backup')->dailyAt('02:30')->withoutOverlapping(720)->runInBackground();
+Schedule::command('dtaxi:backup')->dailyAt('02:30')->withoutOverlapping(720)->runInBackground();
 
-Artisan::command('ibtaxi:map-export {--upload : Zaxira serveriga (SFTP) ham yuborish}', function (Backup $backup) {
+Artisan::command('dtaxi:map-export {--upload : Zaxira serveriga (SFTP) ham yuborish}', function (Backup $backup) {
     $file = $backup->createMap();
     if ($file === null) {
         $this->warn('Xarita tayyorlanmagan (public/map/region.pmtiles yo\'q) — to\'plam yaratilmadi.');
@@ -178,7 +178,7 @@ Artisan::command('ibtaxi:map-export {--upload : Zaxira serveriga (SFTP) ham yubo
 })->purpose('Xarita to\'plami (tile, OSM, OSRM va bazadagi hududlar, mo\'ljallar, ko\'cha nomlari) — boshqa serverga ko\'chirishda xarita qayta yasalmaydi');
 
 // Har hafta: xarita deyarli o'zgarmaydi, lekin admin tuzatgan nomlar va yangilangan tile'lar ham saqlansin
-Schedule::command('ibtaxi:map-export --upload')->weeklyOn(0, '03:00')->withoutOverlapping(720)->runInBackground();
+Schedule::command('dtaxi:map-export --upload')->weeklyOn(0, '03:00')->withoutOverlapping(720)->runInBackground();
 
 Artisan::command('orders:dispatch-scheduled', function (OrderService $orders) {
     $count = $orders->dispatchScheduled();
@@ -190,12 +190,12 @@ Artisan::command('orders:dispatch-scheduled', function (OrderService $orders) {
 // Muddat — jarayon o'lib qolsa (OOM, server qayta yuklandi) qulf abadiy qolib, vazifa boshqa ishlamay qolmasin
 Schedule::command('orders:dispatch-scheduled')->everyMinute()->withoutOverlapping(2);
 
-Artisan::command('ibtaxi:health', function (HealthCheck $health) {
+Artisan::command('dtaxi:health', function (HealthCheck $health) {
     $problems = $health->run();
     $problems === [] ? $this->info('Hammasi joyida') : array_map(fn ($p) => $this->warn($p), $problems);
 })->purpose('Tizim holatini tekshirish (Asterisk, trunk, OSRM, navbatlar, disk, zaxira)');
 
-Schedule::command('ibtaxi:health')->everyFiveMinutes()->withoutOverlapping(10);
+Schedule::command('dtaxi:health')->everyFiveMinutes()->withoutOverlapping(10);
 
 Artisan::command('drivers:release-stuck', function () {
     // Faol buyurtmasi yo'q "band" haydovchi (masalan bekor qilish va qabul qilish bir vaqtga to'g'ri kelgan) —

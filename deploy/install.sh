@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# ibTaxi o'rnatish skripti — toza Ubuntu 24.04 LTS uchun.
+# Dtaxi o'rnatish skripti — toza Ubuntu 24.04 LTS uchun.
 #
 #   sudo ./install.sh --dev
 #       lokal virtual mashina (Multipass): kod Mac'dan ulangan papkada, bazaga Mac'dan ulanadi
 #
 #   sudo ./deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz [--company="Ibrat taksi"]
-#       xaridor serveri: kod shu repozitoriy papkasida (masalan /var/www/ibtaxi), ufw, fail2ban,
-#       Let's Encrypt, kunlik zaxira. Oxirida superadmin login va paroli chiqariladi (ibtaxi:init).
+#       xaridor serveri: kod shu repozitoriy papkasida (masalan /var/www/dtaxi), ufw, fail2ban,
+#       Let's Encrypt, kunlik zaxira. Oxirida superadmin login va paroli chiqariladi (dtaxi:init).
 #       Server IP'si domen DNS'ida ko'rsatilgan bo'lishi kerak (Let's Encrypt tekshiradi).
 #       Xizmat hududi: BBOX=lon1,lat1,lon2,lat2 (standart — butun O'zbekiston, qaror #67), xarita va marshrutlar shu hudud uchun.
 #       Xarita (bir necha soat) eng oxirida — undan oldin sayt to'liq ishlaydi.
-#       --map-bundle=/yo'l/..._map.tar — boshqa serverdan ko'chirishda xarita to'plami (php artisan ibtaxi:map-export):
+#       --map-bundle=/yo'l/..._map.tar — boshqa serverdan ko'chirishda xarita to'plami (php artisan dtaxi:map-export):
 #       tile'lar, OSM va OSRM qayta yasalmaydi; to'plamda map.dump bo'lsa (qaror #65) hududlar, tuzatilgan mo'ljallar va
 #       ko'cha nomlari ham shu holatda yuklanadi — OSM importi (regions:import, landmarks:import) o'tkazib yuboriladi.
 #       --turn — ixtiyoriy TURN server (coturn, deploy/turn-config.sh): server NAT ortida yoki operator/haydovchi
@@ -47,21 +47,21 @@ done
 APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 if [[ "$MODE" == "--prod" ]]; then
     [[ -n "$DOMAIN" && -n "$EMAIL" ]] || { echo "--prod uchun --domain= va --email= kerak" >&2; exit 1; }
-    APP_USER="${APP_USER:-ibtaxi}"
+    APP_USER="${APP_USER:-dtaxi}"
 else
     APP_USER="${APP_USER:-ubuntu}"
     # Dev VM'da brauzer va Asterisk bir tarmoqda — TURN kerak emas
     [[ "$TURN" == 0 ]] || { echo "--turn faqat --prod bilan" >&2; exit 1; }
 fi
-DB_NAME="${DB_NAME:-ibtaxi}"
-DB_USER="${DB_USER:-ibtaxi}"
+DB_NAME="${DB_NAME:-dtaxi}"
+DB_USER="${DB_USER:-dtaxi}"
 # Mavjud .env dagi parol saqlanadi; prod'da yangi tasodifiy parol.
-# .env.example dan nusxalangan "ibtaxi" paroli prod'da qoldirilmaydi (rol paroli ham pastda yangilanadi)
+# .env.example dan nusxalangan "dtaxi" paroli prod'da qoldirilmaydi (rol paroli ham pastda yangilanadi)
 DB_PASS="${DB_PASS:-$(grep -s '^DB_PASSWORD=' "${APP_DIR}/.env" | cut -d= -f2 || true)}"
-if [[ "$MODE" == "--prod" && ( -z "$DB_PASS" || "$DB_PASS" == "ibtaxi" ) ]]; then
+if [[ "$MODE" == "--prod" && ( -z "$DB_PASS" || "$DB_PASS" == "dtaxi" ) ]]; then
     DB_PASS="$(openssl rand -hex 16)"
 fi
-DB_PASS="${DB_PASS:-ibtaxi}"
+DB_PASS="${DB_PASS:-dtaxi}"
 PHP_VERSION="8.3"
 PG_VERSION="16"
 
@@ -104,7 +104,7 @@ if [[ "$MODE" == "--prod" ]]; then
     ufw --force enable
     # Jail log fayli bo'lmasa fail2ban umuman ishga tushmaydi
     touch /var/log/asterisk/messages && chown asterisk:asterisk /var/log/asterisk/messages
-    cat > /etc/fail2ban/jail.d/ibtaxi.conf <<'JAIL'
+    cat > /etc/fail2ban/jail.d/dtaxi.conf <<'JAIL'
 [sshd]
 enabled = true
 
@@ -162,8 +162,8 @@ REDIS_CONF="/etc/redis/redis.conf"
 if [[ "$MODE" == "--dev" ]]; then
     log "Dev: PostgreSQL va Redis Mac'dan ulanish uchun ochiladi"
     sed -i "s/^#\?listen_addresses.*/listen_addresses = '*'/" "${PG_CONF_DIR}/postgresql.conf"
-    grep -q "ibtaxi-dev" "${PG_CONF_DIR}/pg_hba.conf" ||
-        echo "host all ${DB_USER} 0.0.0.0/0 scram-sha-256 # ibtaxi-dev" >> "${PG_CONF_DIR}/pg_hba.conf"
+    grep -q "dtaxi-dev" "${PG_CONF_DIR}/pg_hba.conf" ||
+        echo "host all ${DB_USER} 0.0.0.0/0 scram-sha-256 # dtaxi-dev" >> "${PG_CONF_DIR}/pg_hba.conf"
     sed -i 's/^bind .*/bind 0.0.0.0 ::/' "${REDIS_CONF}"
     sed -i 's/^protected-mode yes/protected-mode no/' "${REDIS_CONF}"
 
@@ -226,7 +226,7 @@ log "Telefoniya: Asterisk (PJSIP Realtime, ARI, WebRTC)"
 ARI_PASSWORD="$(grep -s '^ASTERISK_ARI_PASSWORD=' "${APP_DIR}/.env" | cut -d= -f2 || true)"
 if [[ -z "$ARI_PASSWORD" ]]; then
     ARI_PASSWORD="$(openssl rand -hex 16)"
-    printf '\nASTERISK_ARI_URL=http://127.0.0.1:8088\nASTERISK_ARI_USER=ibtaxi\nASTERISK_ARI_PASSWORD=%s\n' "$ARI_PASSWORD" >> "${APP_DIR}/.env"
+    printf '\nASTERISK_ARI_URL=http://127.0.0.1:8088\nASTERISK_ARI_USER=dtaxi\nASTERISK_ARI_PASSWORD=%s\n' "$ARI_PASSWORD" >> "${APP_DIR}/.env"
 fi
 [[ "$MODE" == "--prod" ]] && chmod 600 "${APP_DIR}/.env"
 PUBLIC_IP="${PUBLIC_IP:-$(hostname -I | awk '{print $1}')}"
@@ -235,7 +235,7 @@ if [[ "$MODE" == "--dev" ]]; then LOCAL_NET="${LOCAL_NET:-192.168.0.0/16}"; fi
 # WebRTC media shifrlash (DTLS) sertifikati — o'z-o'zidan imzolangan yetarli (barmoq izi orqali tekshiriladi)
 mkdir -p /etc/asterisk/keys
 if [[ ! -f /etc/asterisk/keys/asterisk.pem ]]; then
-    openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=ibtaxi" \
+    openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=dtaxi" \
         -keyout /etc/asterisk/keys/asterisk.key -out /etc/asterisk/keys/asterisk.crt 2>/dev/null
     cat /etc/asterisk/keys/asterisk.key /etc/asterisk/keys/asterisk.crt > /etc/asterisk/keys/asterisk.pem
 fi
@@ -249,7 +249,7 @@ if [[ "$MODE" == "--prod" ]]; then
 fi
 chown asterisk:asterisk /var/spool/asterisk/recording
 chmod 2775 /var/spool/asterisk/recording
-ln -sfn "${APP_DIR}/storage/app/private/sounds/uz" /usr/share/asterisk/sounds/ibtaxi
+ln -sfn "${APP_DIR}/storage/app/private/sounds/uz" /usr/share/asterisk/sounds/dtaxi
 # Asterisk ovozi uzilmasligi uchun yuqori ustuvorlik (reja §9)
 mkdir -p /etc/systemd/system/asterisk.service.d
 printf '[Service]\nNice=-10\n' > /etc/systemd/system/asterisk.service.d/priority.conf
@@ -262,28 +262,28 @@ APP_DIR="${APP_DIR}" DB_NAME="${DB_NAME}" DB_USER="${DB_USER}" DB_PASS="${DB_PAS
 
 if [[ "$MODE" == "--dev" ]]; then
     log "Dev: https (o'z-o'zidan imzolangan) — brauzer mikrofoni faqat https'da ishlaydi"
-    if [[ ! -f /etc/ssl/ibtaxi-dev.crt ]]; then
+    if [[ ! -f /etc/ssl/dtaxi-dev.crt ]]; then
         openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=${PUBLIC_IP}" \
             -addext "subjectAltName=IP:${PUBLIC_IP}" \
-            -keyout /etc/ssl/ibtaxi-dev.key -out /etc/ssl/ibtaxi-dev.crt 2>/dev/null
+            -keyout /etc/ssl/dtaxi-dev.key -out /etc/ssl/dtaxi-dev.crt 2>/dev/null
     fi
 fi
 
 log "Nginx"
 DEV_TLS=""
-[[ "$MODE" == "--dev" ]] && DEV_TLS="listen 443 ssl default_server; ssl_certificate /etc/ssl/ibtaxi-dev.crt; ssl_certificate_key /etc/ssl/ibtaxi-dev.key;"
+[[ "$MODE" == "--dev" ]] && DEV_TLS="listen 443 ssl default_server; ssl_certificate /etc/ssl/dtaxi-dev.crt; ssl_certificate_key /etc/ssl/dtaxi-dev.key;"
 SERVER_NAME="_"
 [[ "$MODE" == "--prod" ]] && SERVER_NAME="${DOMAIN}"
 # Bitta IP'dan ko'p urinish (parol tanlash) cheklanadi. Asterisk /ws ulanishlarini 127.0.0.1 dan ko'radi —
 # fail2ban ularni bloklay olmaydi, shuning uchun cheklov nginx'da. Ofis NAT'i ortida ko'p operator bo'lishi mumkin — burst katta
-cat > /etc/nginx/conf.d/ibtaxi-limits.conf <<'NGINX'
-limit_req_zone $binary_remote_addr zone=ibtaxi_auth:10m rate=20r/m;
-limit_req_zone $binary_remote_addr zone=ibtaxi_ws:10m rate=30r/m;
-limit_conn_zone $binary_remote_addr zone=ibtaxi_conn:10m;
+cat > /etc/nginx/conf.d/dtaxi-limits.conf <<'NGINX'
+limit_req_zone $binary_remote_addr zone=dtaxi_auth:10m rate=20r/m;
+limit_req_zone $binary_remote_addr zone=dtaxi_ws:10m rate=30r/m;
+limit_conn_zone $binary_remote_addr zone=dtaxi_conn:10m;
 limit_req_status 429;
 limit_conn_status 429;
 NGINX
-cat > /etc/nginx/sites-available/ibtaxi <<NGINX
+cat > /etc/nginx/sites-available/dtaxi <<NGINX
 server {
     listen 80 default_server;
     ${DEV_TLS}
@@ -300,7 +300,7 @@ server {
 
     # Kirish (panel va haydovchi ilovasi): Laravel cheklovi login+IP bo'yicha, bu esa IP bo'yicha umumiy
     location ~ ^/(login|two-factor-challenge|forgot-password|api/driver/v1/auth/login)$ {
-        limit_req zone=ibtaxi_auth burst=20 nodelay;
+        limit_req zone=dtaxi_auth burst=20 nodelay;
         try_files \$uri /index.php?\$query_string;
     }
 
@@ -326,8 +326,8 @@ server {
 
     # WebRTC SIP (operator brauzeri, haydovchi ilovasi) → Asterisk WebSocket
     location /ws {
-        limit_req zone=ibtaxi_ws burst=60 nodelay;
-        limit_conn ibtaxi_conn 100;
+        limit_req zone=dtaxi_ws burst=60 nodelay;
+        limit_conn dtaxi_conn 100;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "Upgrade";
@@ -355,7 +355,7 @@ server {
     }
 }
 NGINX
-ln -sf /etc/nginx/sites-available/ibtaxi /etc/nginx/sites-enabled/ibtaxi
+ln -sf /etc/nginx/sites-available/dtaxi /etc/nginx/sites-enabled/dtaxi
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
@@ -373,7 +373,7 @@ if [[ "$MODE" == "--prod" ]]; then
     log "Prod: birinchi filial va superadmin"
     INIT_ARGS=""
     [[ -n "$COMPANY" ]] && INIT_ARGS="--company=$(printf '%q' "$COMPANY")"
-    INIT_OUTPUT="$(as_app "php artisan ibtaxi:init ${INIT_ARGS}")"
+    INIT_OUTPUT="$(as_app "php artisan dtaxi:init ${INIT_ARGS}")"
     echo "$INIT_OUTPUT"
 
     # Sertifikat uzoq bosqichlardan (xarita) oldin; olinmasa ham o'rnatish davom etadi (supervisor, cron sozlanadi)
@@ -392,7 +392,7 @@ if [[ "$MODE" == "--prod" ]]; then
 yoki install.sh ni qayta ishga tushiring. Sertifikatsiz panelga kirib bo'lmaydi (cookie faqat https)."
     fi
 
-    cat > /etc/cron.d/ibtaxi-sip <<CRON
+    cat > /etc/cron.d/dtaxi-sip <<CRON
 */5 * * * * root APP_DIR=${APP_DIR} APP_USER=${APP_USER} ${APP_DIR}/deploy/sip-firewall.sh
 CRON
     APP_DIR="${APP_DIR}" APP_USER="${APP_USER}" "${APP_DIR}/deploy/sip-firewall.sh" || true
@@ -410,13 +410,13 @@ else
         as_app "php artisan migrate --force"
     fi
     log "Dev: birinchi filial va superadmin (bor bo'lsa o'zgarmaydi)"
-    INIT_OUTPUT="$(as_app "php artisan ibtaxi:init" 2>&1 || true)"
+    INIT_OUTPUT="$(as_app "php artisan dtaxi:init" 2>&1 || true)"
     echo "$INIT_OUTPUT"
 fi
 
 log "Loglarni aylantirish (disk to'lmasin)"
-cat > /etc/logrotate.d/ibtaxi <<LOGROTATE
-${APP_DIR}/storage/logs/*.log /var/log/ibtaxi-*.log {
+cat > /etc/logrotate.d/dtaxi <<LOGROTATE
+${APP_DIR}/storage/logs/*.log /var/log/dtaxi-*.log {
     daily
     rotate 14
     compress
@@ -430,8 +430,8 @@ LOGROTATE
 log "Fon xizmatlari: Reverb, Horizon, scheduler"
 REVERB_HOST_BIND="127.0.0.1"
 [[ "$MODE" == "--dev" ]] && REVERB_HOST_BIND="0.0.0.0"
-cat > /etc/supervisor/conf.d/ibtaxi.conf <<SUPERVISOR
-[program:ibtaxi-reverb]
+cat > /etc/supervisor/conf.d/dtaxi.conf <<SUPERVISOR
+[program:dtaxi-reverb]
 command=php ${APP_DIR}/artisan reverb:start --host=${REVERB_HOST_BIND} --port=8080
 user=${APP_USER}
 autostart=true
@@ -439,9 +439,9 @@ autorestart=true
 startretries=50
 stopwaitsecs=10
 redirect_stderr=true
-stdout_logfile=/var/log/ibtaxi-reverb.log
+stdout_logfile=/var/log/dtaxi-reverb.log
 
-[program:ibtaxi-horizon]
+[program:dtaxi-horizon]
 command=php ${APP_DIR}/artisan horizon
 user=${APP_USER}
 autostart=true
@@ -449,9 +449,9 @@ autorestart=true
 startretries=50
 stopwaitsecs=60
 redirect_stderr=true
-stdout_logfile=/var/log/ibtaxi-horizon.log
+stdout_logfile=/var/log/dtaxi-horizon.log
 
-[program:ibtaxi-ari]
+[program:dtaxi-ari]
 command=php ${APP_DIR}/artisan ari:listen
 user=${APP_USER}
 autostart=true
@@ -460,13 +460,13 @@ startretries=50
 startsecs=3
 stopwaitsecs=10
 redirect_stderr=true
-stdout_logfile=/var/log/ibtaxi-ari.log
+stdout_logfile=/var/log/dtaxi-ari.log
 SUPERVISOR
-echo "* * * * * ${APP_USER} php ${APP_DIR}/artisan schedule:run >> /dev/null 2>&1" > /etc/cron.d/ibtaxi
+echo "* * * * * ${APP_USER} php ${APP_DIR}/artisan schedule:run >> /dev/null 2>&1" > /etc/cron.d/dtaxi
 # Qayta yuklanganda: supervisor baza/Redis/Asterisk'dan keyin ko'tarilsin; dasturlar baribir kechiksa
 # (dev: Mac papkasi ulanishi) startretries=50 bilan kutadi — standart 3 urinishdan keyin FATAL bo'lib qolardi
 mkdir -p /etc/systemd/system/supervisor.service.d
-cat > /etc/systemd/system/supervisor.service.d/ibtaxi.conf <<'UNIT'
+cat > /etc/systemd/system/supervisor.service.d/dtaxi.conf <<'UNIT'
 [Unit]
 After=postgresql.service redis-server.service asterisk.service
 Wants=postgresql.service redis-server.service
@@ -475,27 +475,27 @@ systemctl daemon-reload
 supervisorctl reread
 supervisorctl update
 
-# ibtaxi:update (ilova foydalanuvchisi nomidan) migratsiya va bazani tiklash vaqtida Horizon va ARI'ni to'xtatadi —
+# dtaxi:update (ilova foydalanuvchisi nomidan) migratsiya va bazani tiklash vaqtida Horizon va ARI'ni to'xtatadi —
 # faqat shu ikki dasturni start/stop qilish ruxsati (root shell emas)
 SUPERVISORCTL="$(command -v supervisorctl)"
 SUDOERS_TMP="$(mktemp)"
 {
-    printf '# ibtaxi:update — install.sh yozadi\n'
+    printf '# dtaxi:update — install.sh yozadi\n'
     for action in start stop; do
-        for program in ibtaxi-horizon ibtaxi-ari; do
+        for program in dtaxi-horizon dtaxi-ari; do
             printf '%s ALL=(root) NOPASSWD: %s %s %s\n' "${APP_USER}" "${SUPERVISORCTL}" "$action" "$program"
         done
     done
 } > "$SUDOERS_TMP"
 if visudo -cf "$SUDOERS_TMP" >/dev/null; then
-    install -m 440 -o root -g root "$SUDOERS_TMP" /etc/sudoers.d/ibtaxi-supervisor
+    install -m 440 -o root -g root "$SUDOERS_TMP" /etc/sudoers.d/dtaxi-supervisor
 else
-    warn "sudoers qoidasi tekshiruvdan o'tmadi — ibtaxi:update fon xizmatlarini to'xtatmasdan yangilaydi"
+    warn "sudoers qoidasi tekshiruvdan o'tmadi — dtaxi:update fon xizmatlarini to'xtatmasdan yangilaydi"
 fi
 rm -f "$SUDOERS_TMP"
 
-# Boshqa serverdan ko'chirish: xarita to'plami (ibtaxi:map-export) — internetdan qayta yasalmaydi.
-# Migratsiya va ibtaxi:init'dan keyin: map.dump jadvallari mavjud bo'lishi kerak; birinchi filial hududga bog'lanmagan
+# Boshqa serverdan ko'chirish: xarita to'plami (dtaxi:map-export) — internetdan qayta yasalmaydi.
+# Migratsiya va dtaxi:init'dan keyin: map.dump jadvallari mavjud bo'lishi kerak; birinchi filial hududga bog'lanmagan
 MAP_DB=0
 if [[ -n "$MAP_BUNDLE" ]]; then
     log "Xarita to'plamidan tiklash: $MAP_BUNDLE"
@@ -512,7 +512,7 @@ if [[ "$MODE" == "--prod" && "$SKIP_MAPS" == 0 ]]; then
     log "Prod: xarita, marshrutlash (OSRM), hududlar va mo'ljallar (OSM)"
     [[ -f "${APP_DIR}/storage/app/osm/boundaries.geojsonseq" ]] || bash "${APP_DIR}/deploy/osm-prepare.sh"
     [[ -f "${APP_DIR}/public/map/region.pmtiles" ]] || bash "${APP_DIR}/deploy/map-prepare.sh"
-    systemctl is-active --quiet ibtaxi-osrm || bash "${APP_DIR}/deploy/osrm-prepare.sh"
+    systemctl is-active --quiet dtaxi-osrm || bash "${APP_DIR}/deploy/osrm-prepare.sh"
     chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/storage/app/osm" "${APP_DIR}/public/map"
     if [[ "$MAP_DB" == 1 ]]; then
         # Qayta import o'chirilgan mo'ljallarni qaytarib, tuzatilgan xaritani buzardi (qaror #65)
@@ -535,7 +535,7 @@ log "Tayyor"
 if [[ "$MODE" == "--prod" ]]; then
     echo "Panel: $([[ "$SKIP_SSL" == 1 ]] && echo http || echo https)://${DOMAIN}"
     if [[ "$SSL_FAILED" == 1 ]]; then echo "  (sertifikat olinmadi — yuqoridagi ogohlantirishga qarang)"; fi
-    echo "Zaxira: har kuni 02:30 Toshkent vaqti (storage/app/private/backups), yangilash: sudo -u ${APP_USER} php artisan ibtaxi:update"
+    echo "Zaxira: har kuni 02:30 Toshkent vaqti (storage/app/private/backups), yangilash: sudo -u ${APP_USER} php artisan dtaxi:update"
     echo "SIP provayderga server IP: ${PUBLIC_IP}"
     if [[ "$TURN" == 1 ]]; then echo "TURN: $(grep -s '^TURN_URL=' "${APP_DIR}/.env" | cut -d= -f2-)"; fi
     echo
@@ -543,7 +543,7 @@ if [[ "$MODE" == "--prod" ]]; then
         echo "Superadmin (faqat hozir ko'rsatiladi; nusxasi ${APP_DIR}/storage/app/private/first-login.txt — kirgach o'chiring):"
         grep -E '^(Manzil|Login|Parol):' <<<"$INIT_OUTPUT" | sed 's/^/    /'
     else
-        echo "Superadmin avval yaratilgan. Parolni tiklash: sudo -u ${APP_USER} php artisan ibtaxi:admin-password"
+        echo "Superadmin avval yaratilgan. Parolni tiklash: sudo -u ${APP_USER} php artisan dtaxi:admin-password"
     fi
 else
     echo "PostgreSQL: ${DB_NAME} / ${DB_USER}  (test bazasi: ${DB_NAME}_test)"

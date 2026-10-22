@@ -25,9 +25,9 @@ class SoundClip extends Model
         return ['generated_at' => 'datetime'];
     }
 
-    /** Asterisk uchun media URI: sound:ibtaxi/<kategoriya>/<kalit> */
+    /** Asterisk uchun media URI: sound:dtaxi/<kategoriya>/<kalit> */
     public function media(): ?string
     {
-        return $this->file_path ? 'sound:ibtaxi/'.$this->file_path : null;
+        return $this->file_path ? 'sound:dtaxi/'.$this->file_path : null;
     }
 }

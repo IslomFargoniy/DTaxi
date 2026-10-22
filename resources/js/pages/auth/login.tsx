@@ -31,7 +31,7 @@ export default function Login({ status, canResetPassword, needsInit }: Props) {
                 <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
                     {t('No administrator yet. Run on the server:')}
                     <code className="mt-1 block font-mono">
-                        php artisan ibtaxi:init
+                        php artisan dtaxi:init
                     </code>
                 </div>
             )}

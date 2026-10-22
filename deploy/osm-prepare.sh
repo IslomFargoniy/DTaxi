@@ -9,7 +9,7 @@ OUT_DIR="${1:-$(cd "$(dirname "$0")/.." && pwd)/storage/app/osm}"
 # Farg'ona vodiysi chegaralari Qirg'iziston va Tojikiston bilan kesishadi — ularning
 # ma'lumotisiz Geofabrik ekstraktida vodiy viloyatlari chegarasi to'liq yopilmaydi
 COUNTRIES="${COUNTRIES:-uzbekistan kyrgyzstan tajikistan}"
-WORK_DIR="${OSM_WORK_DIR:-/var/lib/ibtaxi/osm}"
+WORK_DIR="${OSM_WORK_DIR:-/var/lib/dtaxi/osm}"
 
 if ! command -v osmium >/dev/null; then
     sudo apt-get -o DPkg::Lock::Timeout=600 install -y -q osmium-tool

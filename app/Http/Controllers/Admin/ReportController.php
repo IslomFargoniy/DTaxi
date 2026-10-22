@@ -48,7 +48,7 @@ class ReportController extends Controller
         abort_unless(in_array($report, ['daily', 'drivers'], true), 404);
         [$branchIds, $from, $to, $tz] = $this->scope($request);
         $rows = $report === 'daily' ? $this->daily($branchIds, $from, $to, $tz) : $this->drivers($branchIds, $from, $to, 10_000);
-        $name = "ibtaxi-{$report}-{$from->setTimezone($tz)->toDateString()}_{$to->setTimezone($tz)->toDateString()}.csv";
+        $name = "dtaxi-{$report}-{$from->setTimezone($tz)->toDateString()}_{$to->setTimezone($tz)->toDateString()}.csv";
 
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');

@@ -97,7 +97,7 @@ class CompanyController extends Controller
             }
             fputcsv($out, ['', '', '', '', '', '', '', __('Total'), $orders->sum('price_final')], ';');
             fclose($out);
-        }, "ibtaxi-{$company->id}-{$from->format('Y-m')}.csv", ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }, "dtaxi-{$company->id}-{$from->format('Y-m')}.csv", ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     /**

@@ -37,7 +37,7 @@ function scheduledEvent(string $command): Event
 test('night jobs run on Tashkent time while the app stays in UTC', function () {
     expect(config('app.timezone'))->toBe('UTC');
 
-    $backup = scheduledEvent('ibtaxi:backup');
+    $backup = scheduledEvent('dtaxi:backup');
     Carbon::setTestNow(Carbon::parse('2026-10-22 12:00', 'UTC'));
 
     // 02:30 Toshkent = 21:30 UTC
@@ -55,7 +55,7 @@ test('every overlapping guard expires so a killed run does not block the job for
         expect($event->expiresAt)->toBeLessThan(1440, (string) $event->command);
     }
     expect(scheduledEvent('orders:rebroadcast')->expiresAt)->toBe(2)
-        ->and(scheduledEvent('ibtaxi:map-export')->runInBackground)->toBeTrue();
+        ->and(scheduledEvent('dtaxi:map-export')->runInBackground)->toBeTrue();
 });
 
 test('trunk-ips fails instead of shrinking the list when a trunk host does not resolve', function () {
@@ -69,8 +69,8 @@ test('trunk-ips fails instead of shrinking the list when a trunk host does not r
 test('restore drops tables a newer migration created so the old code can migrate again', function () {
     // Zaxira ro'yxati — hozirgi jadvallar; yangi migratsiya jadvali zaxirada yo'q
     $toc = collect(DB::select("SELECT tablename FROM pg_tables WHERE schemaname = 'public'"))
-        ->map(fn ($t, $i) => ($i + 200)."; 1259 1{$i} TABLE public {$t->tablename} ibtaxi")->implode("\n");
-    $toc .= "\n9000; 0 16420 TABLE DATA public orders ibtaxi";
+        ->map(fn ($t, $i) => ($i + 200)."; 1259 1{$i} TABLE public {$t->tablename} dtaxi")->implode("\n");
+    $toc .= "\n9000; 0 16420 TABLE DATA public orders dtaxi";
     DB::statement('CREATE TABLE future_feature (id bigserial PRIMARY KEY)');
     DB::statement('CREATE SEQUENCE future_counter');
     DB::statement("CREATE TYPE future_state AS ENUM ('a', 'b')");
@@ -124,14 +124,14 @@ test('update goes into maintenance before the backup and stops workers before mi
         };
     });
 
-    $this->artisan('ibtaxi:update', ['--skip-build' => true])->assertSuccessful();
+    $this->artisan('dtaxi:update', ['--skip-build' => true])->assertSuccessful();
 
     $at = fn (string $prefix) => collect($log)->search(fn ($c) => str_starts_with($c, $prefix));
     expect($at('down:pg_dump'))->not->toBeFalse()
-        ->and($at('sudo -n supervisorctl stop ibtaxi-horizon'))->toBeLessThan($at('migrate'))
-        ->and($at('sudo -n supervisorctl stop ibtaxi-ari'))->toBeLessThan($at('migrate'))
-        ->and($at('sudo -n supervisorctl start ibtaxi-horizon'))->toBeGreaterThan($at('migrate'))
-        ->and($at('sudo -n supervisorctl start ibtaxi-ari'))->toBeGreaterThan($at('migrate'))
+        ->and($at('sudo -n supervisorctl stop dtaxi-horizon'))->toBeLessThan($at('migrate'))
+        ->and($at('sudo -n supervisorctl stop dtaxi-ari'))->toBeLessThan($at('migrate'))
+        ->and($at('sudo -n supervisorctl start dtaxi-horizon'))->toBeGreaterThan($at('migrate'))
+        ->and($at('sudo -n supervisorctl start dtaxi-ari'))->toBeGreaterThan($at('migrate'))
         ->and(app()->isDownForMaintenance())->toBeFalse();
 });
 
@@ -141,7 +141,7 @@ test('update without supervisor access still restarts workers the old way', func
         ? Process::result(exitCode: 1)
         : Process::result());
 
-    $this->artisan('ibtaxi:update', ['--skip-build' => true])
+    $this->artisan('dtaxi:update', ['--skip-build' => true])
         ->expectsOutputToContain('Supervisor\'ga ruxsat yo\'q')
         ->expectsOutputToContain('ari:listen qayta ishga tushadi')
         ->assertSuccessful();
@@ -152,7 +152,7 @@ test('failed backup does not leave the site in maintenance', function () {
         ? Process::result(errorOutput: 'disk full', exitCode: 1)
         : Process::result('old'));
 
-    $this->artisan('ibtaxi:update', ['--skip-build' => true])->expectsOutputToContain('disk full')->assertFailed();
+    $this->artisan('dtaxi:update', ['--skip-build' => true])->expectsOutputToContain('disk full')->assertFailed();
     expect(app()->isDownForMaintenance())->toBeFalse()
         ->and(File::exists(Backup::updateStateFile()))->toBeFalse();
 });

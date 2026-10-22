@@ -52,8 +52,8 @@ To'liq reja, qabul qilingan qarorlar va bosqichlar [docs/plan.md](docs/plan.md) 
 Toza Ubuntu 24.04 server, domen DNS'da server IP'siga yo'naltirilgan bo'lishi kerak:
 
 ```bash
-sudo git clone <repo> /var/www/ibtaxi
-sudo /var/www/ibtaxi/deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz
+sudo git clone <repo> /var/www/dtaxi
+sudo /var/www/dtaxi/deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz
 ```
 
 Skript hammasini o'rnatadi (PostgreSQL+PostGIS, Redis, Asterisk, OSRM, xarita, hududlar, HTTPS, ufw, fail2ban).
@@ -61,7 +61,7 @@ Hudud standart — butun O'zbekiston; kichikroq hudud uchun `BBOX=lon1,lat1,lon2
 sozlash ustasi ochiladi (firma nomi, superadmin, birinchi filial). So'ng panelda: Integratsiyalar (Click, Payme,
 SpeechKit, Firebase), Telefoniya (SIP trunk, raqamlar), Ovozli bo'laklar.
 
-Yangilash: `php artisan ibtaxi:update` (avval zaxira oladi), muammo bo'lsa `php artisan ibtaxi:update --rollback`.
+Yangilash: `php artisan dtaxi:update` (avval zaxira oladi), muammo bo'lsa `php artisan dtaxi:update --rollback`.
 Haydovchi ilovasini firma uchun build qilish: [android/firms/README.md](android/firms/README.md).
 
 ## Lokal ishlab chiqish
@@ -69,9 +69,9 @@ Haydovchi ilovasini firma uchun build qilish: [android/firms/README.md](android/
 Multipass virtual mashinasi (Ubuntu 24.04), kod Mac'dan ulanadi:
 
 ```bash
-multipass launch 24.04 --name ibtaxi --cpus 2 --memory 4G --disk 30G
-multipass mount . ibtaxi:/home/ubuntu/ibTaxi
-multipass exec ibtaxi -- sudo /home/ubuntu/ibTaxi/deploy/install.sh --dev
+multipass launch 24.04 --name dtaxi --cpus 2 --memory 4G --disk 30G
+multipass mount . dtaxi:/home/ubuntu/ibTaxi
+multipass exec dtaxi -- sudo /home/ubuntu/ibTaxi/deploy/install.sh --dev
 composer install && npm install && php artisan migrate --seed
 php artisan simulate:drivers    # soxta haydovchilar (sinov uchun)
 ```

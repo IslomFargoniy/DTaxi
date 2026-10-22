@@ -17,13 +17,13 @@ jobs:
       postgres:
         image: postgis/postgis:16-3.4
         env:
-          POSTGRES_USER: ibtaxi
-          POSTGRES_PASSWORD: ibtaxi
-          POSTGRES_DB: ibtaxi
+          POSTGRES_USER: dtaxi
+          POSTGRES_PASSWORD: dtaxi
+          POSTGRES_DB: dtaxi
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ibtaxi"
+          --health-cmd "pg_isready -U dtaxi"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -32,9 +32,9 @@ jobs:
       DB_CONNECTION: pgsql
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
-      DB_DATABASE: ibtaxi
-      DB_USERNAME: ibtaxi
-      DB_PASSWORD: ibtaxi
+      DB_DATABASE: dtaxi
+      DB_USERNAME: dtaxi
+      DB_PASSWORD: dtaxi
       CACHE_STORE: array
       QUEUE_CONNECTION: sync
       BROADCAST_CONNECTION: log
@@ -60,8 +60,8 @@ jobs:
 
       - name: Create test database
         run: |
-          PGPASSWORD=ibtaxi psql -h 127.0.0.1 -U ibtaxi -d ibtaxi -c "CREATE DATABASE ibtaxi_test"
-          PGPASSWORD=ibtaxi psql -h 127.0.0.1 -U ibtaxi -d ibtaxi_test -c "CREATE EXTENSION postgis; CREATE EXTENSION pg_trgm;"
+          PGPASSWORD=dtaxi psql -h 127.0.0.1 -U dtaxi -d dtaxi -c "CREATE DATABASE dtaxi_test"
+          PGPASSWORD=dtaxi psql -h 127.0.0.1 -U dtaxi -d dtaxi_test -c "CREATE EXTENSION postgis; CREATE EXTENSION pg_trgm;"
 
       - name: Setup Application
         run: composer setup

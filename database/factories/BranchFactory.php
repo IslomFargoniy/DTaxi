@@ -14,7 +14,7 @@ class BranchFactory extends Factory
     {
         return [
             'name' => UzbekNames::city(),
-            'service_name' => 'ibTaxi',
+            'service_name' => 'Dtaxi',
             'timezone' => 'Asia/Tashkent',
             'is_active' => true,
         ];

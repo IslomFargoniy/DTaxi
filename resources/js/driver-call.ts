@@ -1,6 +1,6 @@
 /**
  * Haydovchi → dispetcher qo'ng'irog'i (qaror #47): ilova WebView'ida ochiladi.
- * Token va yopish Android JS ko'prigi (window.IbTaxi) orqali; SIP ma'lumotlari API'dan.
+ * Token va yopish Android JS ko'prigi (window.Dtaxi) orqali; SIP ma'lumotlari API'dan.
  * Operator qo'ng'irog'iga javob (qaror #59): ilova target() = answer-{callId} beradi — darhol suhbat.
  */
 import { UA, WebSocketInterface } from 'jssip';
@@ -30,9 +30,9 @@ type Phone = {
 
 declare global {
     interface Window {
-        IbTaxi?: Bridge;
+        Dtaxi?: Bridge;
         /** Ilova yangi qo'ng'iroqqa o'tishdan oldin chaqiradi: eski qo'ng'iroq yopiladi, oyna yopilmaydi */
-        ibtaxiHangup?: () => void;
+        dtaxiHangup?: () => void;
     }
 }
 
@@ -83,7 +83,7 @@ const TEXT = {
     },
 };
 
-const bridge = window.IbTaxi;
+const bridge = window.Dtaxi;
 const locale = bridge?.locale() ?? 'uz';
 const t = TEXT[(locale in TEXT ? locale : 'uz') as keyof typeof TEXT];
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
@@ -147,7 +147,7 @@ const close = (delay = 1200) =>
         }
     }, delay);
 
-window.ibtaxiHangup = () => {
+window.dtaxiHangup = () => {
     replaced = true;
     stopAll();
     if (session && !session.isEnded()) {

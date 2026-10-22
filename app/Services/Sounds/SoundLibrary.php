@@ -12,7 +12,7 @@ use RuntimeException;
 
 /**
  * Ovozli bo'laklar kutubxonasi: storage/app/private/sounds/uz/<kategoriya>/<kalit>.sln
- * (Asterisk'da /usr/share/asterisk/sounds/ibtaxi → shu papka, install.sh).
+ * (Asterisk'da /usr/share/asterisk/sounds/dtaxi → shu papka, install.sh).
  */
 class SoundLibrary
 {

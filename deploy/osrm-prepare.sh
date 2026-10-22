@@ -8,8 +8,8 @@
 #   SKIP_BUILD=1 ./osrm-prepare.sh             ma'lumot tayyor (xarita to'plamidan) — faqat xizmat
 set -euo pipefail
 
-WORK_DIR="${OSM_WORK_DIR:-/var/lib/ibtaxi/osm}"
-OSRM_DIR="${OSRM_DIR:-/var/lib/ibtaxi/osrm}"
+WORK_DIR="${OSM_WORK_DIR:-/var/lib/dtaxi/osm}"
+OSRM_DIR="${OSRM_DIR:-/var/lib/dtaxi/osrm}"
 BBOX="${BBOX:-55.9,37.1,73.2,45.6}"
 OSRM_BIND="${OSRM_BIND:-127.0.0.1}"
 IMAGE="${OSRM_IMAGE:-ghcr.io/project-osrm/osrm-backend:v6.0.0}"
@@ -40,11 +40,11 @@ if [[ "$SKIP_BUILD" != 1 ]]; then
     sudo docker run --rm -v "$OSRM_DIR:/data" "$IMAGE" osrm-partition /data/area.osrm
     sudo docker run --rm -v "$OSRM_DIR:/data" "$IMAGE" osrm-customize /data/area.osrm
 fi
-# osrm-extract fileIndex'ni 0700 yaratadi — ilova (ibtaxi:map-export) uni arxivlay olmasdi; ma'lumot maxfiy emas
+# osrm-extract fileIndex'ni 0700 yaratadi — ilova (dtaxi:map-export) uni arxivlay olmasdi; ma'lumot maxfiy emas
 sudo chmod -R a+rX "$OSRM_DIR"
 
 echo "==> Xizmat (systemd): $OSRM_BIND:5000"
-sudo tee /etc/systemd/system/ibtaxi-osrm.service >/dev/null <<UNIT
+sudo tee /etc/systemd/system/dtaxi-osrm.service >/dev/null <<UNIT
 [Unit]
 Description=Dtaxi OSRM
 After=docker.service
@@ -52,9 +52,9 @@ Requires=docker.service
 
 [Service]
 Restart=always
-ExecStartPre=-/usr/bin/docker rm -f ibtaxi-osrm
-ExecStart=/usr/bin/docker run --rm --name ibtaxi-osrm -p ${OSRM_BIND}:5000:5000 -v ${OSRM_DIR}:/data ${IMAGE} osrm-routed --algorithm mld --max-table-size 1000 /data/area.osrm
-ExecStop=/usr/bin/docker stop ibtaxi-osrm
+ExecStartPre=-/usr/bin/docker rm -f dtaxi-osrm
+ExecStart=/usr/bin/docker run --rm --name dtaxi-osrm -p ${OSRM_BIND}:5000:5000 -v ${OSRM_DIR}:/data ${IMAGE} osrm-routed --algorithm mld --max-table-size 1000 /data/area.osrm
+ExecStop=/usr/bin/docker stop dtaxi-osrm
 # Ovoz sifati uchun: Asterisk'dan past ustuvorlik (reja §9)
 CPUWeight=50
 
@@ -62,7 +62,7 @@ CPUWeight=50
 WantedBy=multi-user.target
 UNIT
 sudo systemctl daemon-reload
-sudo systemctl enable ibtaxi-osrm
-sudo systemctl restart ibtaxi-osrm
+sudo systemctl enable dtaxi-osrm
+sudo systemctl restart dtaxi-osrm
 
 echo "==> Tayyor"

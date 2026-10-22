@@ -258,7 +258,7 @@ test('auto call tells the client the order was cancelled and retries when unansw
 
     $call = Call::query()->withoutGlobalScopes()->sole();
     expect($call->kind)->toBe('tts')
-        ->and($call->meta['media'])->toBe(['sound:ibtaxi/phrase/cancelled'])
+        ->and($call->meta['media'])->toBe(['sound:dtaxi/phrase/cancelled'])
         ->and(ariRequests('appArgs=tts,'.$call->id))->toHaveCount(1);
 
     $this->center->handle(['type' => 'ChannelDestroyed', 'channel' => ['id' => $call->channel_id], 'cause' => 19]);
@@ -271,7 +271,7 @@ test('answered auto call plays the message twice and hangs up', function () {
     $order = Order::factory()->create(['branch_id' => $this->branch->id]);
     $call = Call::query()->create([
         'channel_id' => 'ch-tts', 'branch_id' => $this->branch->id, 'direction' => 'outbound', 'kind' => 'tts',
-        'order_id' => $order->id, 'status' => 'ringing', 'started_at' => now(), 'meta' => ['message' => 'arrived', 'media' => ['sound:ibtaxi/phrase/driver-waiting']],
+        'order_id' => $order->id, 'status' => 'ringing', 'started_at' => now(), 'meta' => ['message' => 'arrived', 'media' => ['sound:dtaxi/phrase/driver-waiting']],
     ]);
     $this->center->remember('ch-tts', $call, 'client');
 
@@ -385,7 +385,7 @@ test('after the trip the client is called and rates it by pressing a digit', fun
 
     $call = Call::query()->create([
         'channel_id' => 'ch-rate', 'branch_id' => $this->branch->id, 'direction' => 'outbound', 'kind' => 'tts',
-        'order_id' => $order->id, 'status' => 'ringing', 'started_at' => now(), 'meta' => ['message' => 'rate', 'media' => ['sound:ibtaxi/phrase/rate-trip']],
+        'order_id' => $order->id, 'status' => 'ringing', 'started_at' => now(), 'meta' => ['message' => 'rate', 'media' => ['sound:dtaxi/phrase/rate-trip']],
     ]);
     $this->center->remember('ch-rate', $call, 'client');
     $this->center->handle(stasis('ch-rate', ['tts', (string) $call->id]));

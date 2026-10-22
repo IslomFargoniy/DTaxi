@@ -9,7 +9,7 @@ Shuning uchun skript ishga tushganda VM'dagi Asterisk'ga Mac'ning Wi-Fi manzilin
 (rtp.conf → ice_host_candidates) va RTP portlarini shu yerdan VM'ga uzatadi.
 Wi-Fi almashsa — skriptni qayta ishga tushiring.
 
-    python3 deploy/dev-lan-proxy.py            # VM: 192.168.252.2
+    python3 deploy/dev-lan-proxy.py            # VM: 192.168.252.5
     VM_IP=192.168.252.3 python3 deploy/dev-lan-proxy.py
 """
 import asyncio
@@ -17,8 +17,8 @@ import os
 import socket
 import subprocess
 
-VM_IP = os.environ.get("VM_IP", "192.168.252.2")
-VM_NAME = os.environ.get("VM_NAME", "ibtaxi")
+VM_IP = os.environ.get("VM_IP", "192.168.252.5")
+VM_NAME = os.environ.get("VM_NAME", "dtaxi")
 PORTS = [80, 443]
 # Lokal sinovda bir nechta qo'ng'iroq yetadi — 100 ta port (har qo'ng'iroqqa 2 ta)
 RTP_START = int(os.environ.get("RTP_START", "10000"))

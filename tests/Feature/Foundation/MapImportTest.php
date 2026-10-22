@@ -138,7 +138,7 @@ test('map import accepts only map tables', function () {
     }
 });
 
-test('ibtaxi:map-import converts the dump with pg_restore and loads it', function () {
+test('dtaxi:map-import converts the dump with pg_restore and loads it', function () {
     seedEditedMap();
     $sql = mapSqlFromDatabase();
     foreach (array_reverse(Backup::MAP_TABLES) as $table) {
@@ -155,7 +155,7 @@ test('ibtaxi:map-import converts the dump with pg_restore and loads it', functio
     }]);
 
     try {
-        $this->artisan('ibtaxi:map-import', ['file' => $dump])
+        $this->artisan('dtaxi:map-import', ['file' => $dump])
             ->expectsConfirmation("Bazadagi hududlar, mo'ljallar va ko'cha nomlari {$dump} dagisiga almashtiriladi. Davom etilsinmi?", 'yes')
             ->expectsOutputToContain("Tayyor: 2 hudud, 2 mo'ljal, 1 ko'cha nomi.")
             ->assertSuccessful();

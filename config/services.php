@@ -38,8 +38,8 @@ return [
     // O'z serverimizdagi xizmatlar (firmaga xos emas — har serverda bir xil manzil)
     'osrm' => [
         'url' => env('OSRM_URL', 'http://127.0.0.1:5000'),
-        // Marshrut ma'lumoti (deploy/osrm-prepare.sh) — xarita to'plamiga (ibtaxi:map-export) kiradi
-        'data_dir' => env('OSRM_DIR', '/var/lib/ibtaxi/osrm'),
+        // Marshrut ma'lumoti (deploy/osrm-prepare.sh) — xarita to'plamiga (dtaxi:map-export) kiradi
+        'data_dir' => env('OSRM_DIR', '/var/lib/dtaxi/osrm'),
     ],
 
     'tiles' => [
@@ -49,9 +49,9 @@ return [
     // Asterisk (ARI) — shu serverda, firmaga xos emas
     'asterisk' => [
         'ari_url' => env('ASTERISK_ARI_URL', 'http://127.0.0.1:8088'),
-        'ari_user' => env('ASTERISK_ARI_USER', 'ibtaxi'),
+        'ari_user' => env('ASTERISK_ARI_USER', 'dtaxi'),
         'ari_password' => env('ASTERISK_ARI_PASSWORD'),
-        'app' => 'ibtaxi',
+        'app' => 'dtaxi',
         'dtls_cert' => env('ASTERISK_DTLS_CERT', '/etc/asterisk/keys/asterisk.pem'),
         // Asterisk ko'prik yozuvlarini shu yerga yozadi; job MP3 ga o'girib storage'ga ko'chiradi
         'recordings_dir' => env('ASTERISK_RECORDINGS_DIR', '/var/spool/asterisk/recording'),

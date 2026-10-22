@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # deploy/asterisk/*.conf shablonlari → /etc/asterisk va /etc/odbc.ini, so'ng Asterisk qayta yuklanadi.
-# install.sh chaqiradi; yangilanishda shablonlar o'zgarsa ibtaxi:update shu buyruqni ko'rsatadi:
-#   sudo /var/www/ibtaxi/deploy/asterisk-config.sh            # core reload (qo'ng'iroqlar uzilmaydi)
-#   sudo /var/www/ibtaxi/deploy/asterisk-config.sh --restart  # to'liq qayta ishga tushirish
+# install.sh chaqiradi; yangilanishda shablonlar o'zgarsa dtaxi:update shu buyruqni ko'rsatadi:
+#   sudo /var/www/dtaxi/deploy/asterisk-config.sh            # core reload (qo'ng'iroqlar uzilmaydi)
+#   sudo /var/www/dtaxi/deploy/asterisk-config.sh --restart  # to'liq qayta ishga tushirish
 # Baza va ARI parollari .env dan; PUBLIC_IP, LOCAL_NET, STUN — muhit o'zgaruvchisi yoki oldingi
-# o'rnatishda saqlangan /etc/ibtaxi/asterisk.env dan.
+# o'rnatishda saqlangan /etc/dtaxi/asterisk.env dan.
 set -euo pipefail
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-STATE=/etc/ibtaxi/asterisk.env
+STATE=/etc/dtaxi/asterisk.env
 RESTART=0
 [[ "${1:-}" == "--restart" ]] && RESTART=1
 

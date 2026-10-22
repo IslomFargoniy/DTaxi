@@ -78,7 +78,7 @@ val autoBuildNumber: Int = runCatching {
 }.getOrDefault(1)
 
 android {
-    namespace = "uz.ibtaxi.driver"
+    namespace = "uz.dtaxi.driver"
     compileSdk = 35
 
     defaultConfig {

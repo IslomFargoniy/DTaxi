@@ -33,7 +33,7 @@ keytool -genkeypair -v -keystore firms/<firma>/keystore.jks -alias driver -keyal
 faqat **debug** build ishonishi uchun uni firma papkasiga qo'ying (git'ga tushmaydi):
 
 ```bash
-multipass exec ibtaxi -- cat /etc/ssl/ibtaxi-dev.crt > firms/dev/dev-ca.pem
+multipass exec dtaxi -- cat /etc/ssl/dtaxi-dev.crt > firms/dev/dev-ca.pem
 ```
 
 Firma serverida haqiqiy (Let's Encrypt) sertifikat bo'ladi — bu fayl kerak emas.

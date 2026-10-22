@@ -40,8 +40,8 @@ test('first run creates one branch and a superadmin with a random password, only
         ->and(User::query()->count())->toBe(1);
 });
 
-test('ibtaxi:init prints credentials once and saves them to a private file', function () {
-    $this->artisan('ibtaxi:init', ['--company' => 'Ibrat taksi', '--username' => 'Boss', '--email' => 'boss@firma.uz'])
+test('dtaxi:init prints credentials once and saves them to a private file', function () {
+    $this->artisan('dtaxi:init', ['--company' => 'Ibrat taksi', '--username' => 'Boss', '--email' => 'boss@firma.uz'])
         ->expectsOutputToContain('Login:  boss')
         ->expectsOutputToContain('Parol:')
         ->assertSuccessful();
@@ -55,25 +55,25 @@ test('ibtaxi:init prints credentials once and saves them to a private file', fun
     $this->post(route('login.store'), ['login' => 'boss', 'password' => $password])->assertRedirect(route('dashboard'));
     auth()->logout();
 
-    $this->artisan('ibtaxi:init')
+    $this->artisan('dtaxi:init')
         ->expectsOutputToContain('allaqachon mavjud')
         ->doesntExpectOutputToContain('Parol:')
         ->assertSuccessful();
 });
 
-test('ibtaxi:admin-password sets a new random password', function () {
-    $this->artisan('ibtaxi:admin-password')->assertFailed();
+test('dtaxi:admin-password sets a new random password', function () {
+    $this->artisan('dtaxi:admin-password')->assertFailed();
 
-    Artisan::call('ibtaxi:init', ['--email' => 'boss@firma.uz']);
+    Artisan::call('dtaxi:init', ['--email' => 'boss@firma.uz']);
     $old = User::query()->sole()->password;
 
-    $this->artisan('ibtaxi:admin-password', ['login' => 'admin'])
+    $this->artisan('dtaxi:admin-password', ['login' => 'admin'])
         ->expectsOutputToContain('Parol:')
         ->assertSuccessful();
     expect(User::query()->sole()->password)->not->toBe($old);
 
-    $this->artisan('ibtaxi:admin-password', ['login' => 'boss@firma.uz'])->assertSuccessful();
-    $this->artisan('ibtaxi:admin-password', ['login' => 'nobody'])->assertFailed();
+    $this->artisan('dtaxi:admin-password', ['login' => 'boss@firma.uz'])->assertSuccessful();
+    $this->artisan('dtaxi:admin-password', ['login' => 'nobody'])->assertFailed();
 });
 
 test('local environment uses the shared test password', function () {
@@ -84,7 +84,7 @@ test('local environment uses the shared test password', function () {
     expect($seeder->credentials)->toBe(['login' => 'admin', 'password' => FirstRunSeeder::DEV_PASSWORD]);
 });
 
-test('login works without a superadmin and hints to run ibtaxi:init; setup wizard is gone', function () {
+test('login works without a superadmin and hints to run dtaxi:init; setup wizard is gone', function () {
     $this->get('/setup')->assertNotFound();
     $this->get(route('login'))->assertOk()->assertInertia(fn ($page) => $page->component('auth/login')->where('needsInit', true));
 

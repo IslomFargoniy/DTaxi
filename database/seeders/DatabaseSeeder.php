@@ -11,13 +11,13 @@ use Illuminate\Database\Seeder;
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Lokal ishlab chiqish uchun boshlang'ich ma'lumotlar. Production'da superadmin `ibtaxi:init` bilan yaratiladi (FirstRunSeeder).
+     * Lokal ishlab chiqish uchun boshlang'ich ma'lumotlar. Production'da superadmin `dtaxi:init` bilan yaratiladi (FirstRunSeeder).
      */
     public function run(): void
     {
         $this->call(RolesSeeder::class);
 
-        $branch = Branch::query()->firstOrCreate(['name' => "Farg'ona"], ['service_name' => 'ibTaxi']);
+        $branch = Branch::query()->firstOrCreate(['name' => "Farg'ona"], ['service_name' => 'Dtaxi']);
 
         // Hududlar import qilingan bo'lsa — filial hududi Farg'ona shahridan (qaror #31)
         $city = Region::query()->where('name_uz', 'like', 'Farg%shahri')->first();

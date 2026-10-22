@@ -6,15 +6,15 @@ set -euo pipefail
 # cron PATH'ida /usr/sbin yo'q — ufw topilmay, 5060 trunk'larga hech qachon ochilmasdi
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-APP_DIR="${APP_DIR:-/var/www/ibtaxi}"
+APP_DIR="${APP_DIR:-/var/www/dtaxi}"
 APP_USER="${APP_USER:-www-data}"
-STATE=/var/lib/ibtaxi/sip-ips
+STATE=/var/lib/dtaxi/sip-ips
 
 mkdir -p "$(dirname "$STATE")"
 # Baza yoki kod vaqtincha ishlamasa (yangilanish paytida) yoki trunk host nomi DNS'da topilmasa (buyruq xato kodi
 # bilan chiqadi) — mavjud qoidalarga tegilmaydi, aks holda barcha yoki ba'zi trunk'lar uzilib qolardi
 if ! RAW=$(sudo -u "$APP_USER" php "$APP_DIR/artisan" telephony:trunk-ips 2>/dev/null); then
-    logger -t ibtaxi-sip "telephony:trunk-ips ishlamadi — qoidalar o'zgartirilmadi"
+    logger -t dtaxi-sip "telephony:trunk-ips ishlamadi — qoidalar o'zgartirilmadi"
     exit 0
 fi
 WANT=$(echo "$RAW" | grep -E '^[0-9a-fA-F:.]+$' || true)
@@ -25,11 +25,11 @@ HAVE=$(cat "$STATE" 2>/dev/null || true)
 # Eski qoidalar (izoh bo'yicha) o'chiriladi, yangilari qo'shiladi
 while read -r num; do
     ufw --force delete "$num" >/dev/null
-done < <(ufw status numbered | grep 'ibtaxi-sip' | sed -E 's/^\[ *([0-9]+)\].*/\1/' | sort -rn)
+done < <(ufw status numbered | grep 'dtaxi-sip' | sed -E 's/^\[ *([0-9]+)\].*/\1/' | sort -rn)
 
 for ip in $WANT; do
-    ufw allow from "$ip" to any port 5060 proto udp comment 'ibtaxi-sip' >/dev/null
+    ufw allow from "$ip" to any port 5060 proto udp comment 'dtaxi-sip' >/dev/null
 done
 
 echo "$WANT" > "$STATE"
-logger -t ibtaxi-sip "SIP trunk IP'lari yangilandi: $(echo $WANT | tr '\n' ' ')"
+logger -t dtaxi-sip "SIP trunk IP'lari yangilandi: $(echo $WANT | tr '\n' ' ')"

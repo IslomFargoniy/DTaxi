@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Process;
  */
 class RestoreApp extends Command
 {
-    protected $signature = 'ibtaxi:restore
+    protected $signature = 'dtaxi:restore
         {dump : Baza zaxirasi (*.dump)}
         {--files=* : Fayllar arxivi (*.files.tar.gz) va/yoki suhbat yozuvlari (*_recordings.tar), bir nechta bo\'lishi mumkin}';
 
@@ -21,7 +21,7 @@ class RestoreApp extends Command
     public function handle(Backup $backup): int
     {
         if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
-            $this->error('root sifatida ishlatmang: sudo -u ibtaxi php artisan ibtaxi:restore ...');
+            $this->error('root sifatida ishlatmang: sudo -u dtaxi php artisan dtaxi:restore ...');
 
             return self::FAILURE;
         }
@@ -65,7 +65,7 @@ class RestoreApp extends Command
             }
         } catch (\Throwable $e) {
             $this->error('Tiklash to\'xtadi: '.$e->getMessage());
-            $this->warn('Sayt texnik rejimda qoldi. Tuzatib, qayta ishga tushiring yoki: sudo -u ibtaxi php artisan up');
+            $this->warn('Sayt texnik rejimda qoldi. Tuzatib, qayta ishga tushiring yoki: sudo -u dtaxi php artisan up');
 
             return self::FAILURE;
         }

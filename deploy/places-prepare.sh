@@ -22,7 +22,7 @@ BBOX="${BBOX:-55.9,37.1,73.2,45.6}"
 SOURCES="${SOURCES:-overture wikidata geonames}"
 GEONAMES_COUNTRIES="${GEONAMES_COUNTRIES:-UZ KG TJ}"
 MIN_CONFIDENCE="${OVERTURE_MIN_CONFIDENCE:-0.5}"
-WORK_DIR="${PLACES_WORK_DIR:-${OSM_WORK_DIR:-/var/lib/ibtaxi/osm}/places}"
+WORK_DIR="${PLACES_WORK_DIR:-${OSM_WORK_DIR:-/var/lib/dtaxi/osm}/places}"
 DUCKDB_VERSION="1.4.4"
 
 IFS=, read -r X1 Y1 X2 Y2 <<<"$BBOX"
