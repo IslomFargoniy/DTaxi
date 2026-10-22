@@ -1,7 +1,11 @@
 import { Head, router } from '@inertiajs/react';
 import { useEcho } from '@laravel/echo-react';
 import { Marker } from 'maplibre-gl';
-import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
+import type {
+    ExpressionSpecification,
+    GeoJSONSource,
+    Map as MapLibreMap,
+} from 'maplibre-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TaxiMap } from '@/components/map/taxi-map';
 import { globalSip } from '@/components/webphone/sip-state';
@@ -33,6 +37,60 @@ const ACTIVE: Order['status'][] = [
     'arrived',
     'in_progress',
 ];
+
+function areaBounds(
+    area: NonNullable<Branch['area']>,
+): [[number, number], [number, number]] {
+    const points = (
+        area.type === 'Polygon' ? area.coordinates : area.coordinates.flat()
+    ).flat();
+    const lngs = points.map((p) => p[0]);
+    const lats = points.map((p) => p[1]);
+
+    return [
+        [Math.min(...lngs), Math.min(...lats)],
+        [Math.max(...lngs), Math.max(...lats)],
+    ];
+}
+
+// Tanlangan filial hududi ajralib turadi, qolganlari xira
+function highlightBranch(map: MapLibreMap, branchId: number): void {
+    const selected: ExpressionSpecification = ['==', ['get', 'id'], branchId];
+    map.setPaintProperty('branch-areas-fill', 'fill-opacity', [
+        'case',
+        selected,
+        0.1,
+        0.03,
+    ]);
+    map.setPaintProperty('branch-areas-line', 'line-opacity', [
+        'case',
+        selected,
+        1,
+        0.35,
+    ]);
+}
+
+/** Xarita buyurtma formasida tanlangan filialga o'tadi (hudud bo'lsa — butun hudud, aks holda markaz) */
+function focusBranch(
+    map: MapLibreMap,
+    branch: Branch | undefined,
+    animate: boolean,
+): void {
+    if (!branch) {
+        return;
+    }
+    highlightBranch(map, branch.id);
+    const duration = animate ? 600 : 0;
+    if (branch.area) {
+        map.fitBounds(areaBounds(branch.area), { padding: 24, duration });
+    } else if (branch.center) {
+        map.easeTo({
+            center: [branch.center.lng, branch.center.lat],
+            zoom: 12,
+            duration,
+        });
+    }
+}
 
 function driversGeoJson(
     drivers: MapDriver[],
@@ -113,6 +171,13 @@ export default function OperatorIndex({
         target?: 'pickup' | 'dropoff';
     } | null>(null);
     const [incoming, setIncoming] = useState<CallCard | null>(null);
+    // Buyurtma formasida tanlangan filial — xarita shu filialga o'tadi
+    const [branchId, setBranchId] = useState<number | undefined>(
+        branches[0]?.id,
+    );
+    const selectedBranch = branches.find((b) => b.id === branchId);
+    const branchRef = useRef(selectedBranch);
+    branchRef.current = selectedBranch;
 
     // Kiruvchi qo'ng'iroq kartochkasi webfondan (layout'da) — buyurtma formasi mijoz raqami bilan ochiladi.
     // Qo'ng'iroq boshqa sahifada kelgan bo'lsa — sahifa ochilganda global holatdan olinadi
@@ -241,23 +306,7 @@ export default function OperatorIndex({
                     'line-dasharray': [2, 2],
                 },
             });
-            const first = branches.find((b) => b.area)?.area;
-            if (first) {
-                const points = (
-                    first.type === 'Polygon'
-                        ? first.coordinates
-                        : first.coordinates.flat()
-                ).flat();
-                const lngs = points.map((p) => p[0]);
-                const lats = points.map((p) => p[1]);
-                map.fitBounds(
-                    [
-                        [Math.min(...lngs), Math.min(...lats)],
-                        [Math.max(...lngs), Math.max(...lats)],
-                    ],
-                    { padding: 24, duration: 0 },
-                );
-            }
+            focusBranch(map, branchRef.current, false);
             map.addSource('drivers', {
                 type: 'geojson',
                 data: driversGeoJson(drivers, locationTtlSeconds),
@@ -297,6 +346,15 @@ export default function OperatorIndex({
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [],
     );
+
+    // Filial almashtirilganda (qo'lda yoki kiruvchi qo'ng'iroq raqami bo'yicha) xarita o'sha filialga o'tadi
+    useEffect(() => {
+        const map = mapRef.current;
+        if (map?.getLayer('branch-areas-fill')) {
+            focusBranch(map, selectedBranch, true);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [branchId]);
 
     // Formadagi A va B nuqtalar
     const onPlacesChange = useCallback(
@@ -398,6 +456,16 @@ export default function OperatorIndex({
                             {t('Click on the map to set the point')}
                         </div>
                     )}
+                    {!picking &&
+                        selectedBranch &&
+                        !selectedBranch.area &&
+                        !selectedBranch.center && (
+                            <div className="absolute top-2 left-1/2 max-w-[90%] -translate-x-1/2 rounded-md bg-amber-100 px-3 py-1 text-center text-xs text-amber-900 shadow dark:bg-amber-950 dark:text-amber-200">
+                                {t(
+                                    'This branch has no service area yet — choose its city or district on the Branches page.',
+                                )}
+                            </div>
+                        )}
                     <div className="absolute bottom-2 left-2 flex gap-3 rounded-md bg-background/90 px-2 py-1 text-xs shadow">
                         <span>
                             🟢 {t('Free')}:{' '}
@@ -432,6 +500,7 @@ export default function OperatorIndex({
                         onPlacesChange={onPlacesChange}
                         incoming={incoming}
                         onShowOrder={setSelectedId}
+                        onBranchChange={setBranchId}
                     />
                 </section>
             </div>

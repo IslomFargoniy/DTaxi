@@ -721,5 +721,6 @@
     "Only if a street with the same name exists in another city.": "Только если улица с таким названием есть и в другом городе.",
     "Many streets were renamed, but the map data (OpenStreetMap) still has the old names. Add the new name here: map labels, navigation and address search will show it, and the old name still finds the street.": "Многие улицы переименованы, а в данных карты (OpenStreetMap) ещё старые названия. Укажите новое название здесь: подписи на карте, навигация и поиск адресов покажут его, а по старому названию улица тоже найдётся.",
     "Old name": "Старое название",
-    "Delete? Streets and addresses get the old name back.": "Удалить? Улицам и адресам вернётся старое название."
+    "Delete? Streets and addresses get the old name back.": "Удалить? Улицам и адресам вернётся старое название.",
+    "This branch has no service area yet — choose its city or district on the Branches page.": "У этого филиала не задана зона обслуживания — выберите город или район на странице «Филиалы»."
 }

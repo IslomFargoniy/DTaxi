@@ -71,6 +71,8 @@ type Props = {
     incoming?: CallCard | null;
     /** Mijozning faol buyurtmasini ro'yxatda ko'rsatish */
     onShowOrder?: (id: number) => void;
+    /** Tanlangan filial o'zgardi — xarita o'sha filialga o'tadi */
+    onBranchChange?: (id: number) => void;
 };
 
 const ACTIVE_STATUSES = [
@@ -100,6 +102,7 @@ export function OrderForm({
     onPlacesChange,
     incoming,
     onShowOrder,
+    onBranchChange,
 }: Props) {
     const { t } = useTrans();
     const phoneRef = useRef<HTMLInputElement>(null);
@@ -129,6 +132,10 @@ export function OrderForm({
     });
 
     const form = useForm(blank(branches[0]?.id ?? 0));
+
+    useEffect(() => {
+        onBranchChange?.(form.data.branch_id);
+    }, [form.data.branch_id, onBranchChange]);
 
     const classes = tariffClasses.filter(
         (c) => c.branch_id === form.data.branch_id,

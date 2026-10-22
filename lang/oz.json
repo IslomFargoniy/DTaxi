@@ -721,5 +721,6 @@
     "Only if a street with the same name exists in another city.": "Фақат шу номли кўча бошқа шаҳарда ҳам бўлса танланг.",
     "Many streets were renamed, but the map data (OpenStreetMap) still has the old names. Add the new name here: map labels, navigation and address search will show it, and the old name still finds the street.": "Кўп кўчалар қайта номланган, харита маълумотида (OpenStreetMap) эса ҳали эски номлар. Янги номни шу ерга киритинг: харитадаги ёзув, навигатсия ва манзил қидируви янги номни кўрсатади, эски ном билан қидирса ҳам топилади.",
     "Old name": "Эски ном",
-    "Delete? Streets and addresses get the old name back.": "Ўчирилсинми? Кўча ва манзилларга эски ном қайтади."
+    "Delete? Streets and addresses get the old name back.": "Ўчирилсинми? Кўча ва манзилларга эски ном қайтади.",
+    "This branch has no service area yet — choose its city or district on the Branches page.": "Бу филиалнинг ҳудуди белгиланмаган — «Филиаллар» саҳифасида шаҳар ёки туманини танланг."
 }
