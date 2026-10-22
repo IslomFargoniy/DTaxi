@@ -310,3 +310,10 @@ test('operator goes offline on logout', function () {
 
     expect($this->operator->fresh()->operator_status)->toBe('offline');
 });
+
+test('operator page sends server time so GPS freshness does not depend on the operator PC clock', function () {
+    $this->freezeTime();
+
+    $this->actingAs($this->operator)->get(route('operator.index'))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('serverTime', now()->getTimestampMs()));
+});

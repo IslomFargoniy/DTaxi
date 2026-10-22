@@ -59,6 +59,9 @@ class OperatorController extends Controller
             ],
             // Shundan eski GPS'li haydovchi "bo'sh" deb sanalmaydi va tayinlash ro'yxatida chiqmaydi
             'locationTtlSeconds' => (int) app(Settings::class)->get('dispatch.location_ttl_seconds'),
+            // GPS eskirganini brauzer server vaqti bo'yicha hisoblaydi — operator kompyuteri soati xato bo'lsa
+            // bo'sh haydovchilar kulrang (yoki o'chgan telefon yashil) ko'rinardi
+            'serverTime' => now()->getTimestampMs(),
         ]);
     }
 

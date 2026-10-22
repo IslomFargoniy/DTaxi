@@ -12,6 +12,7 @@ import { globalSip } from '@/components/webphone/sip-state';
 import { useResyncOnReconnect } from '@/hooks/use-resync-on-reconnect';
 import { useTrans } from '@/hooks/use-trans';
 import { markGpsEvent } from '@/lib/gps-health';
+import { syncServerClock } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
 import { index } from '@/routes/operator';
 import type { Branch, MapDriver, Order, TariffClass } from '@/types/operator';
@@ -28,6 +29,8 @@ type Props = {
     drivers: MapDriver[];
     map: { tiles: string; center: { lat: number; lng: number } | null };
     locationTtlSeconds: number;
+    /** Server vaqti (ms) — GPS eskirganini shu bo'yicha hisoblash */
+    serverTime?: number;
 };
 
 const ACTIVE: Order['status'][] = [
@@ -158,8 +161,11 @@ export default function OperatorIndex({
     drivers: initialDrivers,
     map: mapConfig,
     locationTtlSeconds,
+    serverTime,
 }: Props) {
     const { t } = useTrans();
+    // Render paytida: birinchi chizishdayoq haydovchi ranglari server vaqti bo'yicha
+    syncServerClock(serverTime);
     const [orders, setOrders] = useState<Order[]>(initialOrders);
     const [drivers, setDrivers] = useState<MapDriver[]>(initialDrivers);
     const [selectedId, setSelectedId] = useState<number | null>(null);

@@ -13,7 +13,7 @@ Telefon orqali ishlaydigan taksi dispetcherlik tizimi. Mahsulot nomi — **Dtaxi
 
 ## Muhit
 
-- Lokal: Multipass virtual mashinasi `dtaxi` (Ubuntu 24.04, IP `192.168.252.5`) — PostgreSQL+PostGIS, Redis, Nginx shu yerda. Loyiha papkasi VM ichida `/home/ubuntu/ibTaxi` ga ulangan. Qayta ishga tushirish: `multipass stop dtaxi && multipass start dtaxi` (`restart` ulangan papkani uzib qo'yishi mumkin). VM qayta yaratilsa IP o'zgaradi — `.env`, shu fayl, `deploy/deploy.md`, `deploy/dev-lan-proxy.py`, `android/firms/dev/firm.properties`.
+- Lokal: Multipass virtual mashinasi `dtaxi` (Ubuntu 24.04, IP `192.168.252.5`) — PostgreSQL+PostGIS, Redis, Nginx shu yerda. Loyiha papkasi VM ichida `/home/ubuntu/ibTaxi` ga ulangan. Qayta ishga tushirish: `multipass stop dtaxi && multipass start dtaxi` (`restart` ulangan papkani uzib qo'yishi mumkin); keyin soat orqada qolsa (haydovchilar kulrang, GPS "eskirgan") — `multipass exec dtaxi -- sudo systemctl restart systemd-timesyncd`. VM qayta yaratilsa IP o'zgaradi — `.env`, shu fayl, `deploy/deploy.md`, `deploy/dev-lan-proxy.py`, `android/firms/dev/firm.properties`.
 - Kod, `composer`, `npm`, `php artisan` va testlar — Mac'da (`.env` VM'dagi bazaga ulanadi).
 - Server o'rnatish: `deploy/install.sh` (toza Ubuntu; `--dev` lokal VM, `--prod --domain= --email=` firma serveri). OSM ma'lumoti: `deploy/osm-prepare.sh` → `php artisan regions:import` (butun O'zbekiston, qaror #67).
 - Telefoniya: Asterisk VM'da; qo'ng'iroq mantig'i `App\Services\Telephony\CallCenter` (ARI), daemon `php artisan ari:listen` (supervisor `dtaxi-ari`; yangi kod uchun `ari:restart`). Panel brauzerda `https://192.168.252.5` (self-signed) — mikrofon faqat https'da.

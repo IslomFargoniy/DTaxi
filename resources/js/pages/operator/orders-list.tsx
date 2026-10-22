@@ -18,6 +18,7 @@ import { useCan } from '@/hooks/use-can';
 import { useTrans } from '@/hooks/use-trans';
 import { formatNumber, formatPhone, formatPlate } from '@/lib/format';
 import { orderStatusColor, orderStatusLabel } from '@/lib/order-status';
+import { serverNow } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
 import type { MapDriver, Order, TariffClass } from '@/types/operator';
 import { CancelOrderDialog, EditOrderDialog } from './order-dialogs';
@@ -41,7 +42,7 @@ function distanceMeters(
 export function isFresh(driver: MapDriver, ttlSeconds: number): boolean {
     return (
         !!driver.last_seen_at &&
-        Date.now() - new Date(driver.last_seen_at).getTime() <=
+        serverNow() - new Date(driver.last_seen_at).getTime() <=
             ttlSeconds * 1000
     );
 }
@@ -190,7 +191,7 @@ export function placeOrders(
 }
 
 const sortIds = (orders: Order[], sort: OrderSort) =>
-    [...orders].sort(compareOrders(sort, Date.now())).map((o) => o.id);
+    [...orders].sort(compareOrders(sort, serverNow())).map((o) => o.id);
 
 type ViewPrefs = { filter: OrderFilter; sort: OrderSort };
 const DEFAULT_VIEW: ViewPrefs = { filter: 'all', sort: 'newest' };
@@ -226,10 +227,10 @@ function saveView(userId: number | undefined, view: ViewPrefs) {
 
 /** Har necha soniyada yangilanadigan "hozir" — sanoqlar va "uzoq qidiruv" uchun */
 function useNow(intervalMs: number): number {
-    const [now, setNow] = useState(() => Date.now());
+    const [now, setNow] = useState(() => serverNow());
 
     useEffect(() => {
-        const id = setInterval(() => setNow(Date.now()), intervalMs);
+        const id = setInterval(() => setNow(serverNow()), intervalMs);
 
         return () => clearInterval(id);
     }, [intervalMs]);
@@ -312,10 +313,10 @@ function CallButtons({ order }: { order: Order }) {
 
 /** Buyurtma yaratilganidan beri o'tgan vaqt (mm:ss) — operator kutish vaqtini ko'radi */
 function useElapsed(since: string): string {
-    const [now, setNow] = useState(() => Date.now());
+    const [now, setNow] = useState(() => serverNow());
 
     useEffect(() => {
-        const id = setInterval(() => setNow(Date.now()), 1000);
+        const id = setInterval(() => setNow(serverNow()), 1000);
 
         return () => clearInterval(id);
     }, []);
@@ -374,7 +375,7 @@ function OrderRow({
         order.status === 'searching' &&
         !exhausted &&
         !!order.searching_at &&
-        Date.now() - new Date(order.searching_at).getTime() >
+        serverNow() - new Date(order.searching_at).getTime() >
             SLOW_SEARCH_SECONDS * 1000;
     const waiting = order.status === 'new' || order.status === 'searching';
 
@@ -602,7 +603,7 @@ export function OrdersList({
     const [placedFrom, setPlacedFrom] = useState(orders);
     if (placedFrom !== orders) {
         setPlacedFrom(orders);
-        setIds(placeOrders(ids, orders, compareOrders(view.sort, Date.now())));
+        setIds(placeOrders(ids, orders, compareOrders(view.sort, serverNow())));
     }
     const byId = new Map(orders.map((o) => [o.id, o]));
     const chipRefs = useRef<
