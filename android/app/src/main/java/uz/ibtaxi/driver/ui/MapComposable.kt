@@ -73,7 +73,7 @@ fun TaxiMap(
     route: List<List<Double>>?,
     modifier: Modifier = Modifier,
     stops: List<MapPoint> = emptyList(),
-    // Buyurtma paytida — Yandex Navigator kabi: yaqin, qiya, harakat yo'nalishida, strelka pastroqda
+    // Buyurtma paytida — navigator kabi: yaqin, qiya, harakat yo'nalishida, strelka pastroqda
     navigating: Boolean = false,
     bearing: Float? = null,
     speedKmh: Int = 0,
@@ -82,7 +82,7 @@ fun TaxiMap(
     val mapView = remember { MapView(context).apply { onCreate(Bundle()) } }
     val holder = remember { arrayOfNulls<MapLibreMap>(1) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    // Kuzatish rejimi: haydovchi xaritani surgach o'chadi, "joylashuvim" tugmasi qayta yoqadi (Yandex kabi)
+    // Kuzatish rejimi: haydovchi xaritani surgach o'chadi, "joylashuvim" tugmasi qayta yoqadi
     var follow by remember { mutableStateOf(true) }
     var recenter by remember { mutableIntStateOf(0) }
 
@@ -278,7 +278,7 @@ private fun update(style: Style, me: MapPoint?, pickup: MapPoint?, dropoff: MapP
     )
 }
 
-/** Yandex'dagidek sariq strelka (o'q uchi tepaga) */
+/** Navigator uchun sariq strelka (o'q uchi tepaga) */
 private fun navArrow(context: Context): Bitmap {
     val size = (64 * context.resources.displayMetrics.density).toInt()
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)

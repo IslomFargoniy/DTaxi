@@ -91,7 +91,7 @@ private val FinishRed = Color(0xFFE5484D)
 
 /**
  * Buyurtmalar tarixi: qayerda olindi va qayerda yakunlandi (sahifalab, pastga surganda keyingisi yuklanadi).
- * Bosilganda — xaritada haqiqiy yurilgan yo'l (Yandex Taxi'dagidek).
+ * Bosilganda — xaritada haqiqiy yurilgan yo'l.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

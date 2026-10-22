@@ -39,7 +39,7 @@ val LocalAppColors = staticCompositionLocalOf {
     AppColors(Color(0xFF1FA463), Color.White, Color(0xFF555555), Color(0xFFF4F4F2), false)
 }
 
-/** Navigator banneri ikkala rejimda ham qora (Yandex kabi), strelka sariq */
+/** Navigator banneri ikkala rejimda ham qora, strelka sariq */
 val NavBannerColor = Color(0xFF111111)
 
 /** Qora banner ustidagi ikkinchi darajali matn (ko'cha nomi) */
