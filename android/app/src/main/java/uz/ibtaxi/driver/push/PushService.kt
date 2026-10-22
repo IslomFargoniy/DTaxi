@@ -2,8 +2,6 @@ package uz.ibtaxi.driver.push
 
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import uz.ibtaxi.driver.IbTaxiApp
 import uz.ibtaxi.driver.data.DriverState
@@ -17,7 +15,8 @@ class PushService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         val app = application as IbTaxiApp
         if (app.session.token != null) {
-            CoroutineScope(Dispatchers.IO).launch { app.repository.registerPushToken(token) }
+            // Ilova scope'i — boshqariladigan, servis yopilsa ham so'rov tugaydi (Retrofit o'zi fon oqimida)
+            app.scope.launch { app.repository.registerPushToken(token) }
         }
     }
 

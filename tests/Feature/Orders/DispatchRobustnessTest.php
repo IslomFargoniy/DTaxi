@@ -90,8 +90,21 @@ test('completing twice charges commission once', function () {
     $this->orders->complete($order->fresh(), $driver->fresh(), 3000);
     $this->orders->complete($order->fresh(), $driver->fresh(), 3000);
 
-    expect(fn () => $this->orders->complete($stale, $driver->fresh(), 3000))->toThrow(InvalidArgumentException::class);
-    expect($driver->transactions()->where('type', TransactionType::Commission)->count())->toBe(1);
+    // Parallel takroriy so'rov (eskirgan model bilan) ham muvaffaqiyat — ilova 422 olib qotib qolmasin
+    expect($this->orders->complete($stale, $driver->fresh(), 3000)->status)->toBe(OrderStatus::Completed)
+        ->and($driver->transactions()->where('type', TransactionType::Commission)->count())->toBe(1);
+});
+
+test('a stale complete by another driver is still refused', function () {
+    $driver = driverNear($this->branch, 500, ['balance' => 50000]);
+    $other = driverNear($this->branch, 600, ['balance' => 50000]);
+    $order = $this->orders->create(orderData($this->branch));
+    $this->dispatcher->accept($order, $driver);
+    $this->orders->start($order->fresh(), $driver->fresh());
+    $stale = $order->fresh();
+    $this->orders->complete($order->fresh(), $driver->fresh(), 3000);
+
+    expect(fn () => $this->orders->complete($stale, $other->fresh(), 3000))->toThrow(InvalidArgumentException::class);
 });
 
 test('under-reported distance is charged commission by the GPS track', function () {

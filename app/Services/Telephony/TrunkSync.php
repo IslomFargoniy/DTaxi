@@ -84,11 +84,38 @@ class TrunkSync
 
     public function remove(SipTrunk $trunk): void
     {
-        $id = $trunk->endpoint();
+        $this->removeEndpoint($trunk->endpoint());
+    }
+
+    /**
+     * Trunkning barcha Realtime yozuvlari (id lar endpoint nomidan: trunk-X, aor-trunk-X, ...).
+     */
+    public function removeEndpoint(string $id): void
+    {
         PsEndpoint::query()->whereKey($id)->delete();
         PsAor::query()->whereKey("aor-{$id}")->delete();
         PsAuth::query()->whereKey("auth-{$id}")->delete();
         PsRegistration::query()->whereKey("reg-{$id}")->delete();
         PsEndpointIdIp::query()->whereKey("ip-{$id}")->delete();
+    }
+
+    /**
+     * Bazada faol trunki yo'q trunk yozuvlari (eski nom, o'chirilgan trunk). Qaytaradi: tozalangan endpointlar soni.
+     */
+    public function pruneOrphans(): int
+    {
+        $known = SipTrunk::query()->where('is_active', true)->get()->map(fn (SipTrunk $trunk) => $trunk->endpoint())->all();
+
+        $ids = collect([
+            PsEndpoint::query()->where('id', 'like', 'trunk-%')->pluck('id'),
+            PsAor::query()->where('id', 'like', 'aor-trunk-%')->pluck('id')->map(fn (string $id) => substr($id, 4)),
+            PsAuth::query()->where('id', 'like', 'auth-trunk-%')->pluck('id')->map(fn (string $id) => substr($id, 5)),
+            PsRegistration::query()->where('id', 'like', 'reg-trunk-%')->pluck('id')->map(fn (string $id) => substr($id, 4)),
+            PsEndpointIdIp::query()->where('id', 'like', 'ip-trunk-%')->pluck('id')->map(fn (string $id) => substr($id, 3)),
+        ])->flatten()->unique()->diff($known)->values();
+
+        $ids->each(fn (string $id) => $this->removeEndpoint($id));
+
+        return $ids->count();
     }
 }

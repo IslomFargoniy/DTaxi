@@ -8,6 +8,7 @@ use App\Models\ChatMessage;
 use App\Models\Driver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Haydovchi ↔ dispetcher chati (qaror #47).
@@ -29,12 +30,13 @@ class ChatController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $driver = $this->driver($request);
         $data = $request->validate([
             'body' => ['required_without:photo', 'nullable', 'string', 'max:1000'],
             'photo' => ['nullable', 'image', 'max:5120'],
-            'order_id' => ['nullable', 'integer'],
+            // Faqat o'z buyurtmasi — aks holda begona buyurtma operator chatida shu haydovchiga bog'lanib ko'rinadi
+            'order_id' => ['nullable', 'integer', Rule::exists('orders', 'id')->where('driver_id', $driver->id)],
         ]);
-        $driver = $this->driver($request);
 
         $message = ChatMessage::query()->create([
             'driver_id' => $driver->id,

@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useResyncOnReconnect } from '@/hooks/use-resync-on-reconnect';
 import { useTrans } from '@/hooks/use-trans';
 import { getJson, postJson } from '@/lib/http';
 import { cn } from '@/lib/utils';
@@ -286,10 +287,18 @@ export function ChatPanel({
     const [hasMoreThreads, setHasMoreThreads] = useState(false);
     const loadingThreads = useRef(false);
 
+    // Ketma-ket so'rovlardan faqat oxirgisining javobi olinadi — eski javob o'qilmaganlar sonini qaytarmasin
+    const threadsSeq = useRef(0);
+    const threadsTimer = useRef<number | undefined>(undefined);
+
     // Birinchi sahifa yangilanadi, pastga aylantirib yuklanganlari saqlanadi
-    const loadThreads = useCallback(() => {
+    const fetchThreads = useCallback(() => {
+        const seq = ++threadsSeq.current;
         getJson<Thread[]>(threadsRoute.url())
             .then((page) => {
+                if (seq !== threadsSeq.current) {
+                    return;
+                }
                 setThreads((prev) => {
                     const ids = new Set(page.map((th) => th.driver_id));
                     const rest = prev
@@ -302,6 +311,14 @@ export function ChatPanel({
             })
             .catch(() => undefined);
     }, []);
+
+    // Xabarlar ketma-ket kelsa har biriga so'rov ketmasin — 300 ms ichidagilar bitta so'rovga birlashadi
+    const loadThreads = useCallback(() => {
+        window.clearTimeout(threadsTimer.current);
+        threadsTimer.current = window.setTimeout(fetchThreads, 300);
+    }, [fetchThreads]);
+
+    useEffect(() => () => window.clearTimeout(threadsTimer.current), []);
 
     const loadMoreThreads = () => {
         if (!hasMoreThreads || loadingThreads.current) {
@@ -327,8 +344,8 @@ export function ChatPanel({
     };
 
     useEffect(() => {
-        loadThreads();
-    }, [loadThreads]);
+        fetchThreads();
+    }, [fetchThreads]);
 
     // Suhbatni ochish xabarlarni o'qilgan qiladi — hisoblagich darhol yangilansin.
     // initial — yangi suhbat: ro'yxat almashadi; aks holda — yuklanganlarga qo'shiladi
@@ -434,6 +451,16 @@ export function ChatPanel({
         [active, open, userId, loadThreads, loadMessages],
     );
 
+    // Uzilish paytida kelgan xabarlar Reverb'dan qayta kelmaydi — suhbatlar va ochiq suhbat qayta olinadi
+    useResyncOnReconnect(
+        useCallback(() => {
+            fetchThreads();
+            if (open && activeRef.current !== null) {
+                loadMessages(activeRef.current);
+            }
+        }, [open, fetchThreads, loadMessages]),
+    );
+
     // Matn faqat yuborilgach tozalanadi; xatoda maydonda qoladi va qayta yuborish mumkin
     const send = (body: string) => {
         if (!active || !body.trim() || sending) {
@@ -482,6 +509,7 @@ export function ChatPanel({
             <Button
                 size="icon"
                 title={t('Drivers chat')}
+                aria-label={t('Drivers chat')}
                 className={cn(
                     'fixed z-50 size-14 cursor-grab touch-none rounded-full border-2 border-background shadow-xl active:cursor-grabbing',
                     unread > 0 && 'bg-red-600 text-white hover:bg-red-700',
@@ -532,6 +560,7 @@ export function ChatPanel({
                             size="icon"
                             variant="ghost"
                             className="ml-auto size-7"
+                            aria-label={t('Close')}
                             onClick={() => setOpen(false)}
                         >
                             <X />
@@ -814,6 +843,7 @@ export function ChatPanel({
                                             size="icon"
                                             className="shrink-0 rounded-full"
                                             disabled={!text.trim() || sending}
+                                            aria-label={t('Send')}
                                         >
                                             <Send />
                                         </Button>

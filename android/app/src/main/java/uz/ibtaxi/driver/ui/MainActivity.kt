@@ -12,6 +12,7 @@ import kotlinx.coroutines.delay
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.activity.compose.BackHandler
 import android.Manifest
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -34,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
@@ -56,15 +58,20 @@ class MainActivity : ComponentActivity() {
     /** Joylashuv ruxsati yetarli emas — tushuntirish va "Sozlamalarni ochish" oynasi (matn resursi) */
     private var locationProblem by mutableStateOf<Int?>(null)
 
-    /** Qabul so'rovi ketayotgan taklif (offer_id) — tugma o'chiq */
-    private var accepting by mutableStateOf<Int?>(null)
+    /** Liniyaga chiqqanda: bildirishnoma yoki to'liq ekran ruxsati yo'q — buyurtma va qo'ng'iroq fonda bilinmay qolardi */
+    private var alertProblem by mutableStateOf<AlertProblem?>(null)
+
+    private enum class AlertProblem { Notifications, FullScreen }
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         val then = afterPermissions
         afterPermissions = null
         // Android 12+: haydovchi "Taxminiy" ni tanlashi mumkin — taksometr va xaritada ~km xato, liniyaga chiqmaydi
         when {
-            hasLocationPermission() -> then?.invoke()
+            hasLocationPermission() -> {
+                then?.invoke()
+                checkAlerts()
+            }
             DriverService.hasLocationPermission(this) -> locationProblem = R.string.location_precise_text
             else -> locationProblem = R.string.location_denied_text
         }
@@ -90,6 +97,7 @@ class MainActivity : ComponentActivity() {
                 val profile by DriverState.profile.collectAsState()
                 val offer by DriverState.offer.collectAsState()
                 val toast by DriverState.toast.collectAsState()
+                val accepting by DriverState.accepting.collectAsState()
                 // rememberSaveable: til yoki rejim almashib Activity qayta yaratilsa ham ochiq ekran saqlanadi
                 var screen by rememberSaveable { mutableStateOf(if (intent?.getStringExtra("open") == "chat") Screen.Chat else Screen.Home) }
                 // Tizimning "orqaga" tugmasi ichki ekrandan bosh ekranga (ilovadan chiqib ketmasin)
@@ -167,12 +175,14 @@ class MainActivity : ComponentActivity() {
                         onAccept = {
                             // Ikki marta bosilsa ikkita so'rov ketardi; ilova scope'ida — ekran burilsa ham so'rov uzilmaydi
                             if (accepting == current.offerId) return@OfferDialog
-                            accepting = current.offerId
+                            DriverState.setAccepting(current.offerId)
                             OfferNotifier.cancel(this)
+                            // Matn oldindan olinadi — ilova scope'idagi korutina Activity'ni ushlab qolmasin
+                            val taken = getString(R.string.order_taken)
                             app.scope.launch {
                                 val result = app.repository.accept(current.orderId)
-                                if (result is Result.Error) DriverState.toast(result.message ?: getString(R.string.order_taken))
-                                accepting = null
+                                if (result is Result.Error) DriverState.toast(result.message ?: taken)
+                                DriverState.setAccepting(null)
                             }
                         },
                         onReject = {
@@ -197,6 +207,22 @@ class MainActivity : ComponentActivity() {
                             }) { Text(stringResource(R.string.open_settings)) }
                         },
                         dismissButton = { TextButton(onClick = { locationProblem = null }) { Text(stringResource(R.string.cancel)) } },
+                    )
+                }
+
+                alertProblem?.let { problem ->
+                    val full = problem == AlertProblem.FullScreen
+                    AlertDialog(
+                        onDismissRequest = { alertProblem = null },
+                        title = { Text(stringResource(if (full) R.string.full_screen_denied_title else R.string.notifications_denied_title)) },
+                        text = { Text(stringResource(if (full) R.string.full_screen_denied_text else R.string.notifications_denied_text)) },
+                        confirmButton = {
+                            Button(onClick = {
+                                alertProblem = null
+                                openAlertSettings(problem)
+                            }) { Text(stringResource(R.string.open_settings)) }
+                        },
+                        dismissButton = { TextButton(onClick = { alertProblem = null }) { Text(stringResource(R.string.later)) } },
                     )
                 }
 
@@ -268,6 +294,7 @@ class MainActivity : ComponentActivity() {
         }
         if (needed.isEmpty()) {
             then()
+            checkAlerts()
         } else {
             afterPermissions = then
             permissionLauncher.launch(needed.toTypedArray())
@@ -288,6 +315,25 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun checkAlerts() {
+        alertProblem = when {
+            // Android 13+ ruxsat rad etilgan yoki haydovchi bildirishnomalarni o'zi o'chirgan
+            !NotificationManagerCompat.from(this).areNotificationsEnabled() -> AlertProblem.Notifications
+            // Android 14+: to'liq ekran ruxsati alohida, Play'dan tashqari ilovalarda ko'pincha o'chiq turadi
+            Build.VERSION.SDK_INT >= 34 && !getSystemService(NotificationManager::class.java).canUseFullScreenIntent() -> AlertProblem.FullScreen
+            else -> null
+        }
+    }
+
+    private fun openAlertSettings(problem: AlertProblem) {
+        val intent = when {
+            problem == AlertProblem.FullScreen && Build.VERSION.SDK_INT >= 34 ->
+                Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.fromParts("package", packageName, null))
+            else -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        }
+        runCatching { startActivity(intent) }.onFailure { openAppSettings() }
+    }
+
     private fun openAppSettings() {
         runCatching {
             startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
@@ -301,7 +347,7 @@ class MainActivity : ComponentActivity() {
         if (FirebaseApp.getApps(this).isEmpty()) return
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
             val app = application as IbTaxiApp
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { app.repository.registerPushToken(token) }
+            app.scope.launch { app.repository.registerPushToken(token) }
         }
     }
 }

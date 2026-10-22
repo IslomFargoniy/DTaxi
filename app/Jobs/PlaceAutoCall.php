@@ -13,8 +13,10 @@ use App\Services\Telephony\AriClient;
 use App\Services\Telephony\CallCenter;
 use App\Services\Telephony\ChannelLimits;
 use App\Services\Telephony\ClientNotifier;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -61,6 +63,7 @@ class PlaceAutoCall implements ShouldQueue
         }
 
         $branch = Branch::query()->findOrFail($order->branch_id);
+        // Qulfsiz tez tekshiruv: liniya band bo'lsa xabar yig'ilmaydi (yo'nalish so'rovi ham yo'q)
         if (! $limits->canPlaceAutoCall($number->trunk, $branch)) {
             $this->release(10);
 
@@ -74,9 +77,43 @@ class PlaceAutoCall implements ShouldQueue
             return;
         }
 
-        $channelId = (string) Str::uuid();
-        $call = Call::query()->create([
-            'channel_id' => $channelId,
+        // Tekshiruv va qator yozish bitta qulf ostida: Horizon'ning bir nechta jarayoni bir vaqtda oxirgi bo'sh liniyani ko'rib,
+        // limitdan oshib ketmasin (qator 'ringing' bo'lib yozilgach, keyingisi uni sanaydi)
+        $lock = Cache::lock("autocall:trunk:{$number->sip_trunk_id}", 15);
+        try {
+            $lock->block(3);
+        } catch (LockTimeoutException) {
+            $this->release(5);
+
+            return;
+        }
+
+        try {
+            if (! $limits->canPlaceAutoCall($number->trunk, $branch)) {
+                $this->release(10);
+
+                return;
+            }
+            $call = $this->createCall($order, $number, $media);
+        } finally {
+            $lock->release();
+        }
+        $channelId = (string) $call->channel_id;
+        $center->remember($channelId, $call, 'client');
+
+        if (! $ari->originate($number->dialString($order->client->phone), "tts,{$call->id}", $number->number, 30, channelId: $channelId)) {
+            $call->forceFill(['status' => 'failed', 'ended_at' => now()])->save();
+            $notifier->retry($call);
+        }
+    }
+
+    /**
+     * @param  list<string>  $media
+     */
+    private function createCall(Order $order, PhoneNumber $number, array $media): Call
+    {
+        return Call::query()->create([
+            'channel_id' => (string) Str::uuid(),
             'branch_id' => $order->branch_id,
             'direction' => 'outbound',
             'kind' => 'tts',
@@ -91,12 +128,6 @@ class PlaceAutoCall implements ShouldQueue
             'started_at' => now(),
             'meta' => ['message' => $this->message, 'media' => $media],
         ]);
-        $center->remember($channelId, $call, 'client');
-
-        if (! $ari->originate($number->dialString($order->client->phone), "tts,{$call->id}", $number->number, 30, channelId: $channelId)) {
-            $call->forceFill(['status' => 'failed', 'ended_at' => now()])->save();
-            $notifier->retry($call);
-        }
     }
 
     private function stillRelevant(Order $order): bool

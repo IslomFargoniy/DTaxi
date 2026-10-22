@@ -1,10 +1,11 @@
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useEcho } from '@laravel/echo-react';
 import { Marker } from 'maplibre-gl';
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TaxiMap } from '@/components/map/taxi-map';
 import { globalSip } from '@/components/webphone/sip-state';
+import { useResyncOnReconnect } from '@/hooks/use-resync-on-reconnect';
 import { useTrans } from '@/hooks/use-trans';
 import { markGpsEvent } from '@/lib/gps-health';
 import { cn } from '@/lib/utils';
@@ -136,6 +137,14 @@ export default function OperatorIndex({
     useEffect(() => {
         setOrders(initialOrders);
     }, [initialOrders]);
+    useEffect(() => {
+        setDrivers(initialDrivers);
+    }, [initialDrivers]);
+
+    // Uzilish paytida kelmagan buyurtma holatlari va haydovchi joylashuvlari serverdan olinadi
+    useResyncOnReconnect(
+        useCallback(() => router.reload({ only: ['orders', 'drivers'] }), []),
+    );
 
     // Filial markazi kiritilmagan bo'lsa — xarita fayli qamragan hudud
     const center = branches[0]?.center ?? mapConfig.center;

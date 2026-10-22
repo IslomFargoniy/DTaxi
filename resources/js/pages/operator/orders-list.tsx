@@ -12,6 +12,7 @@ import type { KeyboardEvent } from 'react';
 import OrderController from '@/actions/App/Http/Controllers/Operator/OrderController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { globalSip } from '@/components/webphone/sip-state';
 import { dial, useSip } from '@/components/webphone/use-sip';
 import { useCan } from '@/hooks/use-can';
 import { useTrans } from '@/hooks/use-trans';
@@ -239,7 +240,12 @@ function useNow(intervalMs: number): number {
 /** Hech kim olmagan yangi buyurtma paydo bo'lganda qisqa signal */
 function beep() {
     try {
-        const ctx = new AudioContext();
+        // Webfon bilan umumiy bitta kontekst: har signalga yangisi ochilsa, to'xtatilgan (suspended) kontekstda
+        // onended kelmay yopilmay qolardi va brauzer kontekstlar chegarasiga yetardi
+        const ctx = globalSip.getAudioContext();
+        if (!ctx) {
+            return;
+        }
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.frequency.value = 880;
@@ -247,7 +253,6 @@ function beep() {
         osc.connect(gain).connect(ctx.destination);
         osc.start();
         osc.stop(ctx.currentTime + 0.35);
-        osc.onended = () => void ctx.close();
     } catch {
         // Brauzer ovozni bloklagan bo'lishi mumkin — vizual belgi baribir bor
     }

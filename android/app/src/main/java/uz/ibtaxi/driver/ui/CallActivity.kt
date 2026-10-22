@@ -6,6 +6,7 @@ import uz.ibtaxi.driver.R
 import uz.ibtaxi.driver.data.DriverState
 import android.webkit.WebResourceError
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.media.AudioManager
 import android.net.Uri
 import android.net.http.SslError
@@ -37,8 +38,12 @@ class CallActivity : ComponentActivity() {
     private val host = Uri.parse(callUrl).host
 
     /** Operator qo'ng'irog'iga javob (answer-{callId}); bo'sh — dispetcher navbatiga qo'ng'iroq */
-    private val target by lazy { intent.getStringExtra(EXTRA_TARGET).orEmpty() }
-    private val caller by lazy { intent.getStringExtra(EXTRA_CALLER).orEmpty() }
+    // singleTask: oyna ochiq turganda yangi qo'ng'iroq onNewIntent orqali keladi — qiymat yangilanadi
+    @Volatile
+    private var target = ""
+
+    @Volatile
+    private var caller = ""
 
     /** Hozir ochiq sahifa (asosiy freym) — JS ko'prik oqimidan o'qiladi, WebView.url esa faqat UI oqimida */
     @Volatile
@@ -52,11 +57,7 @@ class CallActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        // Qulflangan ekranda javob berilgan qo'ng'iroq qulf ortida qolib ketmasin
-        if (target.isNotEmpty()) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-        }
+        readTarget(intent)
         volumeControlStream = AudioManager.STREAM_VOICE_CALL
         audio.mode = AudioManager.MODE_IN_COMMUNICATION
         // Mashinada odatda karnay orqali gaplashiladi
@@ -101,8 +102,9 @@ class CallActivity : ComponentActivity() {
                 @SuppressLint("WebViewClientOnReceivedSslError")
                 override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                     // Lokal sinov serveri (self-signed): debug yoki LAN build (server manzili qo'lda kiritiladi).
+                    // Faqat lokal tarmoq manzili — qo'lda kiritilgan ommaviy manzilda soxta sertifikat o'tib ketmasin.
                     // Firma ilovasida faqat haqiqiy sertifikat — aks holda qora ekran o'rniga xabar
-                    if (BuildConfig.DEBUG || BuildConfig.SERVER_EDITABLE) {
+                    if ((BuildConfig.DEBUG || BuildConfig.SERVER_EDITABLE) && isPrivateHost(Uri.parse(error.url).host)) {
                         handler.proceed()
                     } else {
                         handler.cancel()
@@ -117,6 +119,34 @@ class CallActivity : ComponentActivity() {
         }
         setContentView(web)
         web.loadUrl(callUrl)
+    }
+
+    private fun readTarget(intent: Intent) {
+        target = intent.getStringExtra(EXTRA_TARGET).orEmpty()
+        caller = intent.getStringExtra(EXTRA_CALLER).orEmpty()
+        // Qulflangan ekranda javob berilgan qo'ng'iroq qulf ortida qolib ketmasin
+        if (target.isNotEmpty()) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        }
+    }
+
+    /**
+     * Qo'ng'iroq oynasi ochiq turganda operator qo'ng'irog'iga javob berildi: eski qo'ng'iroq sahifada
+     * yopiladi (BYE yuborilishiga ulgursin), keyin sahifa yangi target bilan qayta ochiladi.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val next = intent.getStringExtra(EXTRA_TARGET).orEmpty()
+        if (next.isNotEmpty() && next == target) return
+        web.evaluateJavascript("window.ibtaxiHangup && window.ibtaxiHangup()") {
+            web.postDelayed({
+                if (isDestroyed) return@postDelayed
+                readTarget(intent)
+                web.loadUrl(callUrl)
+            }, 600)
+        }
     }
 
     /** Qo'ng'iroq sahifasi ochilmadi — qora ekranda qolib ketmasin */
@@ -213,5 +243,16 @@ class CallActivity : ComponentActivity() {
     companion object {
         const val EXTRA_TARGET = "target"
         const val EXTRA_CALLER = "caller"
+
+        /** 192.168.x, 10.x, 172.16-31.x va *.local — faqat shu manzillarda self-signed sertifikatga ruxsat */
+        fun isPrivateHost(host: String?): Boolean {
+            if (host.isNullOrEmpty()) return false
+            if (host.endsWith(".local", ignoreCase = true)) return true
+            val parts = host.split('.').map { it.toIntOrNull() ?: return false }
+            if (parts.size != 4 || parts.any { it !in 0..255 }) return false
+            return parts[0] == 10 ||
+                (parts[0] == 192 && parts[1] == 168) ||
+                (parts[0] == 172 && parts[1] in 16..31)
+        }
     }
 }

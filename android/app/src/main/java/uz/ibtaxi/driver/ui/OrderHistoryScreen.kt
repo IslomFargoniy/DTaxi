@@ -361,7 +361,7 @@ private fun TripMap(styleUrl: String, start: GeoPoint?, finish: GeoPoint?, track
                 holder[0] = map
                 map.uiSettings.isRotateGesturesEnabled = false
                 map.uiSettings.isCompassEnabled = false
-                map.cameraPosition = CameraPosition.Builder().target(LatLng(40.3864, 71.7864)).zoom(12.0).build()
+                map.cameraPosition = CameraPosition.Builder().target(UZBEKISTAN_CENTER).zoom(UZBEKISTAN_ZOOM).build()
                 map.setStyle(Style.Builder().fromUri(styleUrl)) { style ->
                     addTripLayers(style)
                     styleReady = true

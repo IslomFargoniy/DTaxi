@@ -123,6 +123,7 @@ private fun transactionLabel(type: String): String = when (type) {
     "penalty" -> stringResource(R.string.tx_penalty)
     "bonus" -> stringResource(R.string.tx_bonus)
     "corporate" -> stringResource(R.string.tx_corporate)
+    "refund" -> stringResource(R.string.tx_refund)
     else -> stringResource(R.string.tx_adjustment)
 }
 

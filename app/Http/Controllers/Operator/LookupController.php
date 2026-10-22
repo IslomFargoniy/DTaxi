@@ -13,6 +13,7 @@ use App\Models\Vehicle;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Operator formasi uchun tezkor so'rovlar: mijoz kartochkasi va mo'ljal qidiruvi.
@@ -142,7 +143,9 @@ class LookupController extends Controller
     public function storeLandmark(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:150'],
+            // Xaritada nomi topilmagan nuqtaning zaxira matni mo'ljal nomi bo'lib qolmasin (eski panel ham yuborishi mumkin)
+            'name' => ['required', 'string', 'max:150', Rule::notIn(collect(['uz', 'oz', 'ru', 'en'])
+                ->map(fn (string $locale) => __('Point on the map', locale: $locale))->unique()->values()->all())],
             'aliases' => ['nullable', 'array', 'max:10'],
             'aliases.*' => ['string', 'max:150'],
             'category' => ['nullable', 'string', 'max:32'],

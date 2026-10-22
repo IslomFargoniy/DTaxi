@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api\Driver;
 
 use App\Enums\DriverStatus;
 use App\Enums\OrderStatus;
+use App\Events\DriverLocationUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\SetLocale;
 use App\Http\Resources\DriverProfileResource;
 use App\Http\Resources\OrderResource;
+use App\Models\Branch;
 use App\Models\Call;
 use App\Models\DeviceToken;
 use App\Models\Driver;
@@ -49,7 +51,10 @@ class DriverController extends Controller
         if ($online) {
             $reason = match (true) {
                 ! $driver->is_approved || ! $driver->vehicle?->is_approved => __('Your account or car is not approved yet.'),
-                $driver->isBlocked() => __('You are temporarily blocked until :time.', ['time' => $driver->blocked_until?->format('H:i')]),
+                // Vaqt haydovchi filiali vaqtida (bazada UTC)
+                $driver->isBlocked() => __('You are temporarily blocked until :time.', ['time' => $driver->blocked_until
+                    ?->copy()->setTimezone(Branch::query()->withoutGlobalScopes()->whereKey($driver->branch_id)->value('timezone') ?? (string) config('app.timezone'))
+                    ->format('H:i')]),
                 ! $balance->canTakeOrders($driver) => __('Not enough balance. Please top up.'),
                 default => null,
             };
@@ -58,7 +63,21 @@ class DriverController extends Controller
             }
         }
 
-        $driver->forceFill(['status' => $online ? DriverStatus::Free : DriverStatus::Offline])->save();
+        // Shartli UPDATE: shu paytda efirdan qabul qilingan buyurtma "band" holatini eski model bilan yozib yubormasin
+        $status = $online ? DriverStatus::Free : DriverStatus::Offline;
+        $changed = Driver::query()->withoutGlobalScopes()->whereKey($driver->id)
+            ->where('status', '<>', DriverStatus::Busy->value)
+            ->update(['status' => $status->value, 'updated_at' => now()]);
+        if ($changed !== 1) {
+            return response()->json(['message' => __('Finish the current order first.')], 422);
+        }
+
+        $previous = $driver->status;
+        $driver->forceFill(['status' => $status])->syncOriginalAttribute('status');
+        // Model hodisasi yo'q (so'rov bilan yozildi) — operator xaritasi darhol yangilansin
+        if ($previous !== $status) {
+            DriverLocationUpdated::dispatch($driver);
+        }
         $online ? $shifts->start($driver) : $shifts->end($driver);
         if (! $online) {
             $queue->leave($driver);
@@ -151,7 +170,17 @@ class DriverController extends Controller
     {
         $data = $request->validate(['token' => ['required', 'string', 'max:512']]);
 
-        DeviceToken::query()->updateOrCreate(['token' => $data['token']], ['user_id' => $request->user()?->id, 'platform' => 'android']);
+        /** @var User $user */
+        $user = $request->user();
+
+        // FCM token — bitta telefondagi ilova o'rnatmasi: unda bir vaqtda faqat bitta haydovchi kirgan bo'ladi.
+        // Telefon boshqa haydovchiga o'tsa token oxirgi kirganga o'tadi (aks holda takliflar avvalgisiga ketardi).
+        // Bitta atomik INSERT ... ON CONFLICT: parallel ikki so'rov unique xatosi bermaydi
+        DeviceToken::query()->upsert(
+            [['token' => $data['token'], 'user_id' => $user->id, 'platform' => 'android']],
+            ['token'],
+            ['user_id', 'platform'],
+        );
 
         return response()->json(['ok' => true]);
     }

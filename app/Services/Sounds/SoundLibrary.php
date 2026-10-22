@@ -105,6 +105,10 @@ class SoundLibrary
     {
         $relative = "{$clip->category}/{$clip->key}";
         Storage::put($this->path($relative), $pcm);
+        // Local disk 0600/0700 yaratadi — Asterisk (ilova guruhida) bo'lakni o'qiy olmasdi; boshqa private fayllar yopiq qoladi
+        $file = Storage::path($this->path($relative));
+        @chmod(dirname($file), 0750);
+        @chmod($file, 0640);
 
         $clip->fill([
             'file_path' => $relative,

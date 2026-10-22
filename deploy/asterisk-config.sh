@@ -46,20 +46,27 @@ if [[ -z "${LOCAL_NET:-}" ]]; then
 fi
 STUN="${STUN:-stun.l.google.com:19302}"
 
+# sed emas: parolda & | \\ bo'lsa sed almashtirishi buziladi. Bash'da qo'shtirnoqli almashtirish matni aynan qo'yiladi
 render() {
-    sed -e "s|{{DB_NAME}}|${DB_NAME}|g" -e "s|{{DB_USER}}|${DB_USER}|g" -e "s|{{DB_PASS}}|${DB_PASS}|g" \
-        -e "s|{{ARI_PASSWORD}}|${ARI_PASSWORD}|g" -e "s|{{PUBLIC_IP}}|${PUBLIC_IP}|g" \
-        -e "s|{{LOCAL_NET}}|${LOCAL_NET}|g" -e "s|{{STUN}}|${STUN}|g" "$1"
+    local content key
+    content="$(cat "$1"; printf x)"
+    content="${content%x}"
+    for key in DB_NAME DB_USER DB_PASS ARI_PASSWORD PUBLIC_IP LOCAL_NET STUN; do
+        content="${content//"{{${key}}}"/"${!key}"}"
+    done
+    printf '%s' "$content"
 }
 
+# Parolli fayllar yozilish paytida ham boshqalarga ochiq bo'lmasin
+umask 027
 for f in "${APP_DIR}"/deploy/asterisk/*.conf; do
     render "$f" > "/etc/asterisk/$(basename "$f")"
 done
 render "${APP_DIR}/deploy/asterisk/odbc.ini" > /etc/odbc.ini
 chown -R asterisk:asterisk /etc/asterisk
-# ODBC paroli faqat Asterisk uchun
-chown root:asterisk /etc/odbc.ini
-chmod 640 /etc/odbc.ini
+# ARI va ODBC parollari faqat Asterisk uchun (o'qiydi, o'zgartira olmaydi)
+chown root:asterisk /etc/odbc.ini /etc/asterisk/ari.conf /etc/asterisk/res_odbc.conf
+chmod 640 /etc/odbc.ini /etc/asterisk/ari.conf /etc/asterisk/res_odbc.conf
 
 mkdir -p "$(dirname "$STATE")"
 printf 'PUBLIC_IP=%s\nLOCAL_NET=%s\nSTUN=%s\n' "$PUBLIC_IP" "$LOCAL_NET" "$STUN" > "$STATE"

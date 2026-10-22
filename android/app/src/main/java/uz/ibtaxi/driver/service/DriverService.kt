@@ -368,7 +368,7 @@ class DriverService : LifecycleService() {
             "IncomingCallEnded" -> data.get("call_id")?.takeIf { !it.isJsonNull }?.asInt?.let { IncomingCallNotifier.ended(this, it) }
             "ChatMessageSent" -> {
                 // O'zimiz yuborgan xabar ham shu kanalga keladi — faqat dispetcherdan kelganlar sanaladi
-                if (data.get("sender_id")?.asInt != DriverState.profile.value?.userId) {
+                if (data.get("sender_id")?.takeIf { !it.isJsonNull }?.asInt != DriverState.profile.value?.userId) {
                     DriverState.incrementUnread()
                     data.get("body")?.takeIf { !it.isJsonNull }?.asString?.let { OfferNotifier.message(this, it) }
                 }

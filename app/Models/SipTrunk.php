@@ -35,7 +35,13 @@ class SipTrunk extends Model
     protected static function booted(): void
     {
         // Panelda o'zgartirilsa — darhol Asterisk Realtime'ga (qayta ishga tushirmasdan)
-        static::saved(fn (SipTrunk $trunk) => app(TrunkSync::class)->sync($trunk));
+        static::saved(function (SipTrunk $trunk) {
+            // Id lar nomdan yasaladi — eski nomli yozuvlar qolsa Asterisk eski trunk bilan ham ro'yxatdan o'taveradi
+            if ($trunk->wasChanged('name') && is_string($old = $trunk->getOriginal('name')) && $old !== '') {
+                app(TrunkSync::class)->removeEndpoint(self::endpointFor($old));
+            }
+            app(TrunkSync::class)->sync($trunk);
+        });
         static::deleted(fn (SipTrunk $trunk) => app(TrunkSync::class)->remove($trunk));
     }
 
@@ -62,6 +68,11 @@ class SipTrunk extends Model
     /** Asterisk'dagi endpoint nomi */
     public function endpoint(): string
     {
-        return 'trunk-'.$this->name;
+        return self::endpointFor($this->name);
+    }
+
+    public static function endpointFor(string $name): string
+    {
+        return 'trunk-'.$name;
     }
 }

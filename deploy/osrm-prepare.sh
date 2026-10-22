@@ -2,15 +2,15 @@
 # OSRM: yo'l masofasi va ETA uchun o'z serverimizdagi marshrut xizmati (reja §4).
 # Manba — deploy/osm-prepare.sh yuklagan PBF; hudud BBOX bilan kesiladi (RAM kamroq).
 #
-#   ./osrm-prepare.sh                          standart — Farg'ona vodiysi
-#   BBOX=55.9,37.1,73.2,45.6 ./osrm-prepare.sh    butun O'zbekiston
+#   ./osrm-prepare.sh                          standart — butun O'zbekiston (qaror #67)
+#   BBOX=70.4,39.9,73.3,41.6 ./osrm-prepare.sh    faqat Farg'ona vodiysi (RAM kamroq)
 #   OSRM_BIND=0.0.0.0 ./osrm-prepare.sh        (faqat lokal VM: Mac'dan ulanish uchun)
 #   SKIP_BUILD=1 ./osrm-prepare.sh             ma'lumot tayyor (xarita to'plamidan) — faqat xizmat
 set -euo pipefail
 
 WORK_DIR="${OSM_WORK_DIR:-/var/lib/ibtaxi/osm}"
 OSRM_DIR="${OSRM_DIR:-/var/lib/ibtaxi/osrm}"
-BBOX="${BBOX:-70.4,39.9,73.3,41.6}"
+BBOX="${BBOX:-55.9,37.1,73.2,45.6}"
 OSRM_BIND="${OSRM_BIND:-127.0.0.1}"
 IMAGE="${OSRM_IMAGE:-ghcr.io/project-osrm/osrm-backend:v6.0.0}"
 
@@ -40,6 +40,8 @@ if [[ "$SKIP_BUILD" != 1 ]]; then
     sudo docker run --rm -v "$OSRM_DIR:/data" "$IMAGE" osrm-partition /data/area.osrm
     sudo docker run --rm -v "$OSRM_DIR:/data" "$IMAGE" osrm-customize /data/area.osrm
 fi
+# osrm-extract fileIndex'ni 0700 yaratadi — ilova (ibtaxi:map-export) uni arxivlay olmasdi; ma'lumot maxfiy emas
+sudo chmod -R a+rX "$OSRM_DIR"
 
 echo "==> Xizmat (systemd): $OSRM_BIND:5000"
 sudo tee /etc/systemd/system/ibtaxi-osrm.service >/dev/null <<UNIT

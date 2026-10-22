@@ -8,10 +8,11 @@
 #       xaridor serveri: kod shu repozitoriy papkasida (masalan /var/www/ibtaxi), ufw, fail2ban,
 #       Let's Encrypt, kunlik zaxira. Oxirida superadmin login va paroli chiqariladi (ibtaxi:init).
 #       Server IP'si domen DNS'ida ko'rsatilgan bo'lishi kerak (Let's Encrypt tekshiradi).
-#       Xizmat hududi: BBOX=lon1,lat1,lon2,lat2 (standart — Farg'ona vodiysi), xarita va marshrutlar shu hudud uchun.
+#       Xizmat hududi: BBOX=lon1,lat1,lon2,lat2 (standart — butun O'zbekiston, qaror #67), xarita va marshrutlar shu hudud uchun.
 #       Xarita (bir necha soat) eng oxirida — undan oldin sayt to'liq ishlaydi.
 #       --map-bundle=/yo'l/..._map.tar — boshqa serverdan ko'chirishda xarita to'plami (php artisan ibtaxi:map-export):
-#       tile'lar, OSM va OSRM qayta yasalmaydi, admin tuzatgan mo'ljallar esa baza zaxirasidan tiklanadi.
+#       tile'lar, OSM va OSRM qayta yasalmaydi; to'plamda map.dump bo'lsa (qaror #65) hududlar, tuzatilgan mo'ljallar va
+#       ko'cha nomlari ham shu holatda yuklanadi — OSM importi (regions:import, landmarks:import) o'tkazib yuboriladi.
 #       --turn — ixtiyoriy TURN server (coturn, deploy/turn-config.sh): server NAT ortida yoki operator/haydovchi
 #       tarmog'i UDP'ni yopsa WebRTC ovozi TCP/TLS orqali o'tadi.
 #
@@ -137,8 +138,14 @@ fi
 
 log "PostgreSQL: baza va foydalanuvchi"
 sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1 ||
-    sudo -u postgres psql -c "CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DB_PASS}' CREATEDB"
+    sudo -u postgres psql -c "CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DB_PASS}'"
 sudo -u postgres psql -qc "ALTER ROLE ${DB_USER} PASSWORD '${DB_PASS}'"
+# Parallel testlar o'z bazalarini yaratadi — faqat dasturchi VM'ida; firma serverida ilova roli baza yarata olmaydi
+if [[ "$MODE" == "--dev" ]]; then
+    sudo -u postgres psql -qc "ALTER ROLE ${DB_USER} CREATEDB"
+else
+    sudo -u postgres psql -qc "ALTER ROLE ${DB_USER} NOCREATEDB"
+fi
 DATABASES=("${DB_NAME}")
 # Test bazasi faqat dasturchi VM'ida
 [[ "$MODE" == "--dev" ]] && DATABASES+=("${DB_NAME}_test")
@@ -174,6 +181,10 @@ if [[ "$MODE" == "--prod" ]]; then
     usermod -aG "${APP_USER}" www-data
     chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
     chmod 750 "${APP_DIR}"
+    # Guruhda www-data va asterisk bor (public/ va ovozli bo'laklar uchun) — kalitlar faqat ilova foydalanuvchisiga:
+    # .env pastda 600, config keshi (optimize — barcha parollar), sessiya/kesh fayllari va loglar ham guruhga yopiq
+    mkdir -p "${APP_DIR}/bootstrap/cache" "${APP_DIR}/storage/framework" "${APP_DIR}/storage/logs"
+    chmod 700 "${APP_DIR}/bootstrap/cache" "${APP_DIR}/storage/framework" "${APP_DIR}/storage/logs"
 
     log "Prod: .env"
     ENV_FILE="${APP_DIR}/.env"
@@ -184,6 +195,8 @@ if [[ "$MODE" == "--prod" ]]; then
     set_env_once() { grep -q "^$1=.\+" "$ENV_FILE" || set_env "$1" "$2"; }
     set_env APP_ENV production
     set_env APP_DEBUG false
+    # debug/info loglari kuniga yuzlab MB va so'rov ma'lumotlari bilan — prod'da faqat ogohlantirish va xatolar
+    set_env LOG_LEVEL warning
     set_env APP_URL "$([[ "$SKIP_SSL" == 1 ]] && echo http || echo https)://${DOMAIN}"
     set_env DB_HOST 127.0.0.1
     set_env DB_DATABASE "${DB_NAME}"
@@ -198,7 +211,7 @@ if [[ "$MODE" == "--prod" ]]; then
     set_env REVERB_PORT 8080
     set_env REVERB_SCHEME http
     chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
-    chmod 640 "$ENV_FILE"
+    chmod 600 "$ENV_FILE"
     PUBLIC_IP="${PUBLIC_IP:-$(curl -4 -fs --max-time 5 https://api.ipify.org || hostname -I | awk '{print $1}')}"
 fi
 
@@ -215,6 +228,7 @@ if [[ -z "$ARI_PASSWORD" ]]; then
     ARI_PASSWORD="$(openssl rand -hex 16)"
     printf '\nASTERISK_ARI_URL=http://127.0.0.1:8088\nASTERISK_ARI_USER=ibtaxi\nASTERISK_ARI_PASSWORD=%s\n' "$ARI_PASSWORD" >> "${APP_DIR}/.env"
 fi
+[[ "$MODE" == "--prod" ]] && chmod 600 "${APP_DIR}/.env"
 PUBLIC_IP="${PUBLIC_IP:-$(hostname -I | awk '{print $1}')}"
 # Dev: Mac LAN'i ham ichki tarmoq (dev-lan-proxy.py); prod'da asterisk-config.sh interfeysdan aniqlaydi
 if [[ "$MODE" == "--dev" ]]; then LOCAL_NET="${LOCAL_NET:-192.168.0.0/16}"; fi
@@ -229,6 +243,10 @@ fi
 usermod -aG "${APP_USER}" asterisk
 usermod -aG asterisk "${APP_USER}"
 mkdir -p "${APP_DIR}/storage/app/private/sounds/uz" /var/spool/asterisk/recording
+# root yaratgan papkaga ilova bo'laklarni yoza olmasdi (dev: Mac'dan ulangan papkada chown ishlamaydi va kerak emas)
+if [[ "$MODE" == "--prod" ]]; then
+    chown "${APP_USER}:${APP_USER}" "${APP_DIR}/storage/app/private/sounds" "${APP_DIR}/storage/app/private/sounds/uz"
+fi
 chown asterisk:asterisk /var/spool/asterisk/recording
 chmod 2775 /var/spool/asterisk/recording
 ln -sfn "${APP_DIR}/storage/app/private/sounds/uz" /usr/share/asterisk/sounds/ibtaxi
@@ -386,6 +404,11 @@ CRON
             bash "${APP_DIR}/deploy/turn-config.sh" || warn "TURN sozlanmadi — keyin: sudo DOMAIN=${DOMAIN} ${APP_DIR}/deploy/turn-config.sh"
     fi
 else
+    # Toza VM'da baza bo'sh: init va xarita to'plami (map.dump) jadvallarsiz yiqilardi. vendor Mac'da o'rnatiladi
+    if [[ -f "${APP_DIR}/vendor/autoload.php" ]]; then
+        log "Dev: migratsiyalar"
+        as_app "php artisan migrate --force"
+    fi
     log "Dev: birinchi filial va superadmin (bor bo'lsa o'zgarmaydi)"
     INIT_OUTPUT="$(as_app "php artisan ibtaxi:init" 2>&1 || true)"
     echo "$INIT_OUTPUT"
@@ -413,6 +436,7 @@ command=php ${APP_DIR}/artisan reverb:start --host=${REVERB_HOST_BIND} --port=80
 user=${APP_USER}
 autostart=true
 autorestart=true
+startretries=50
 stopwaitsecs=10
 redirect_stderr=true
 stdout_logfile=/var/log/ibtaxi-reverb.log
@@ -422,6 +446,7 @@ command=php ${APP_DIR}/artisan horizon
 user=${APP_USER}
 autostart=true
 autorestart=true
+startretries=50
 stopwaitsecs=60
 redirect_stderr=true
 stdout_logfile=/var/log/ibtaxi-horizon.log
@@ -431,19 +456,54 @@ command=php ${APP_DIR}/artisan ari:listen
 user=${APP_USER}
 autostart=true
 autorestart=true
+startretries=50
 startsecs=3
 stopwaitsecs=10
 redirect_stderr=true
 stdout_logfile=/var/log/ibtaxi-ari.log
 SUPERVISOR
 echo "* * * * * ${APP_USER} php ${APP_DIR}/artisan schedule:run >> /dev/null 2>&1" > /etc/cron.d/ibtaxi
+# Qayta yuklanganda: supervisor baza/Redis/Asterisk'dan keyin ko'tarilsin; dasturlar baribir kechiksa
+# (dev: Mac papkasi ulanishi) startretries=50 bilan kutadi — standart 3 urinishdan keyin FATAL bo'lib qolardi
+mkdir -p /etc/systemd/system/supervisor.service.d
+cat > /etc/systemd/system/supervisor.service.d/ibtaxi.conf <<'UNIT'
+[Unit]
+After=postgresql.service redis-server.service asterisk.service
+Wants=postgresql.service redis-server.service
+UNIT
+systemctl daemon-reload
 supervisorctl reread
 supervisorctl update
 
-# Boshqa serverdan ko'chirish: xarita to'plami (ibtaxi:map-export) — internetdan qayta yasalmaydi
+# ibtaxi:update (ilova foydalanuvchisi nomidan) migratsiya va bazani tiklash vaqtida Horizon va ARI'ni to'xtatadi —
+# faqat shu ikki dasturni start/stop qilish ruxsati (root shell emas)
+SUPERVISORCTL="$(command -v supervisorctl)"
+SUDOERS_TMP="$(mktemp)"
+{
+    printf '# ibtaxi:update — install.sh yozadi\n'
+    for action in start stop; do
+        for program in ibtaxi-horizon ibtaxi-ari; do
+            printf '%s ALL=(root) NOPASSWD: %s %s %s\n' "${APP_USER}" "${SUPERVISORCTL}" "$action" "$program"
+        done
+    done
+} > "$SUDOERS_TMP"
+if visudo -cf "$SUDOERS_TMP" >/dev/null; then
+    install -m 440 -o root -g root "$SUDOERS_TMP" /etc/sudoers.d/ibtaxi-supervisor
+else
+    warn "sudoers qoidasi tekshiruvdan o'tmadi — ibtaxi:update fon xizmatlarini to'xtatmasdan yangilaydi"
+fi
+rm -f "$SUDOERS_TMP"
+
+# Boshqa serverdan ko'chirish: xarita to'plami (ibtaxi:map-export) — internetdan qayta yasalmaydi.
+# Migratsiya va ibtaxi:init'dan keyin: map.dump jadvallari mavjud bo'lishi kerak; birinchi filial hududga bog'lanmagan
+MAP_DB=0
 if [[ -n "$MAP_BUNDLE" ]]; then
     log "Xarita to'plamidan tiklash: $MAP_BUNDLE"
-    APP_DIR="$APP_DIR" APP_USER="$APP_USER" bash "${APP_DIR}/deploy/map-restore.sh" "$MAP_BUNDLE"
+    # Dev: Mac OSRM'ga VM IP orqali ulanadi (.env OSRM_URL)
+    OSRM_BIND="$([[ "$MODE" == "--dev" ]] && echo 0.0.0.0 || echo 127.0.0.1)" \
+        APP_DIR="$APP_DIR" APP_USER="$APP_USER" bash "${APP_DIR}/deploy/map-restore.sh" "$MAP_BUNDLE"
+    # grep -q o'qishni erta to'xtatib tar'ga SIGPIPE berardi (pipefail) — to'liq o'qiladi
+    if tar -tf "$MAP_BUNDLE" | grep -x 'map.dump' >/dev/null; then MAP_DB=1; fi
 fi
 
 if [[ "$MODE" == "--prod" && "$SKIP_MAPS" == 0 ]]; then
@@ -454,23 +514,28 @@ if [[ "$MODE" == "--prod" && "$SKIP_MAPS" == 0 ]]; then
     [[ -f "${APP_DIR}/public/map/region.pmtiles" ]] || bash "${APP_DIR}/deploy/map-prepare.sh"
     systemctl is-active --quiet ibtaxi-osrm || bash "${APP_DIR}/deploy/osrm-prepare.sh"
     chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/storage/app/osm" "${APP_DIR}/public/map"
-    as_app "php artisan regions:import && php artisan landmarks:import && php artisan landmarks:import --file=storage/app/osm/streets.geojsonseq && php artisan landmarks:import --file=storage/app/osm/addresses.geojsonseq"
-    # Ochiq joylar (Overture, Wikidata — qaror #60; GeoNames — #64): qo'shimcha, yuklab bo'lmasa o'rnatish to'xtamaydi
-    [[ -f "${APP_DIR}/storage/app/osm/places-overture.geojsonseq" ]] || bash "${APP_DIR}/deploy/places-prepare.sh" \
-        || warn "Ochiq joylar yuklanmadi — keyinroq: deploy/places-prepare.sh va landmarks:import --source=..."
-    chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/storage/app/osm"
-    for source in overture wikidata geonames; do
-        if [[ -f "${APP_DIR}/storage/app/osm/places-${source}.geojsonseq" ]]; then
-            as_app "php artisan landmarks:import --source=${source}" || warn "landmarks:import --source=${source} xato bilan tugadi"
-        fi
-    done
+    if [[ "$MAP_DB" == 1 ]]; then
+        # Qayta import o'chirilgan mo'ljallarni qaytarib, tuzatilgan xaritani buzardi (qaror #65)
+        log "Hududlar va mo'ljallar xarita to'plamidan yuklangan — OSM va ochiq joylar importi o'tkazib yuborildi"
+    else
+        as_app "php artisan regions:import && php artisan landmarks:import && php artisan landmarks:import --file=storage/app/osm/streets.geojsonseq && php artisan landmarks:import --file=storage/app/osm/addresses.geojsonseq"
+        # Ochiq joylar (Overture, Wikidata — qaror #60; GeoNames — #64): qo'shimcha, yuklab bo'lmasa o'rnatish to'xtamaydi
+        [[ -f "${APP_DIR}/storage/app/osm/places-overture.geojsonseq" ]] || bash "${APP_DIR}/deploy/places-prepare.sh" \
+            || warn "Ochiq joylar yuklanmadi — keyinroq: deploy/places-prepare.sh va landmarks:import --source=..."
+        chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/storage/app/osm"
+        for source in overture wikidata geonames; do
+            if [[ -f "${APP_DIR}/storage/app/osm/places-${source}.geojsonseq" ]]; then
+                as_app "php artisan landmarks:import --source=${source}" || warn "landmarks:import --source=${source} xato bilan tugadi"
+            fi
+        done
+    fi
 fi
 
 log "Tayyor"
 if [[ "$MODE" == "--prod" ]]; then
     echo "Panel: $([[ "$SKIP_SSL" == 1 ]] && echo http || echo https)://${DOMAIN}"
     if [[ "$SSL_FAILED" == 1 ]]; then echo "  (sertifikat olinmadi — yuqoridagi ogohlantirishga qarang)"; fi
-    echo "Zaxira: har kuni 02:30 (storage/app/private/backups), yangilash: sudo -u ${APP_USER} php artisan ibtaxi:update"
+    echo "Zaxira: har kuni 02:30 Toshkent vaqti (storage/app/private/backups), yangilash: sudo -u ${APP_USER} php artisan ibtaxi:update"
     echo "SIP provayderga server IP: ${PUBLIC_IP}"
     if [[ "$TURN" == 1 ]]; then echo "TURN: $(grep -s '^TURN_URL=' "${APP_DIR}/.env" | cut -d= -f2-)"; fi
     echo

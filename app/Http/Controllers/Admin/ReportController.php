@@ -71,6 +71,7 @@ class ReportController extends Controller
      */
     private function scope(Request $request): array
     {
+        $request->validate(['from' => ['nullable', 'date'], 'to' => ['nullable', 'date']]);
         $allowed = $this->allowedBranchIds($request);
         $branchIds = $request->filled('branch_id') && in_array($request->integer('branch_id'), $allowed, true)
             ? [$request->integer('branch_id')]

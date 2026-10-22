@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\SendPushNotification;
 use App\Models\ChatMessage;
 use App\Models\Driver;
+use App\Models\Order;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -83,7 +84,15 @@ class ChatController extends Controller
 
     public function send(Request $request, Driver $driver): JsonResponse
     {
-        $data = $request->validate(['body' => ['required', 'string', 'max:1000'], 'order_id' => ['nullable', 'integer']]);
+        $data = $request->validate([
+            'body' => ['required', 'string', 'max:1000'],
+            // Buyurtma operator filialida (global scope) va aynan shu haydovchiniki bo'lsin
+            'order_id' => ['nullable', 'integer', function (string $attribute, mixed $value, \Closure $fail) use ($driver) {
+                if (! Order::query()->whereKey($value)->where('driver_id', $driver->id)->exists()) {
+                    $fail(__('validation.exists', ['attribute' => $attribute]));
+                }
+            }],
+        ]);
         /** @var User $user */
         $user = $request->user();
 

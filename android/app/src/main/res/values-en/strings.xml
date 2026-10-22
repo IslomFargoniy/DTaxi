@@ -74,6 +74,7 @@
     <string name="tx_penalty">Penalty</string>
     <string name="tx_bonus">Bonus</string>
     <string name="tx_adjustment">Adjustment</string>
+    <string name="tx_refund">Refund</string>
     <string name="voice_guidance">Voice navigation</string>
     <string name="server_address">Server address (Mac IP)</string>
     <string name="retry">Retry</string>
@@ -172,4 +173,8 @@
     <string name="price">Price</string>
     <string name="corporate_short">Corporate</string>
     <string name="track_missing">GPS track not saved — start and finish are joined with a straight line</string>
+    <string name="notifications_denied_title">Notifications are off</string>
+    <string name="notifications_denied_text">Notifications are not allowed — while the app is in the background you won\'t see new orders or dispatcher calls. Turn on notifications in Settings.</string>
+    <string name="full_screen_denied_title">Orders won\'t show on the lock screen</string>
+    <string name="full_screen_denied_text">The app can\'t show orders and calls full screen while the phone is locked. Allow \"Full screen notifications\" in Settings.</string>
 </resources>

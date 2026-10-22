@@ -18,6 +18,9 @@ cd android
 # natija: app/build/outputs/apk/release/app-release.apk → firma serveriga driver-app/ papkasiga
 ```
 
+Firma papkasida `keystore.jks` va `keystore.properties` bo'lmasa `assembleRelease` xato bilan to'xtaydi —
+debug kalit bilan chiqqan ilova keyin firma kaliti bilan yangilanmaydi. Debug kalit faqat `dev` va `lan` uchun.
+
 Yangi keystore:
 
 ```bash

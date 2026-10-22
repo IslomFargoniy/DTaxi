@@ -67,6 +67,8 @@ enum IntegrationProvider: string
                 ['key' => 'username', 'label' => 'Login', 'secret' => false],
                 ['key' => 'password', 'label' => 'Password', 'secret' => true],
                 ['key' => 'path', 'label' => 'Folder', 'secret' => false],
+                // Bo'sh bo'lsa server kaliti tekshirilmaydi; `ssh-keyscan host | ssh-keygen -lf -` dagi SHA256:...
+                ['key' => 'host_fingerprint', 'label' => 'Host key fingerprint (SHA256)', 'secret' => false],
             ],
         };
     }

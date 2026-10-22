@@ -215,6 +215,7 @@ export default function StreetRenames({
                                 <Button
                                     size="icon"
                                     variant="ghost"
+                                    aria-label={t('Delete')}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (

@@ -74,6 +74,7 @@
     <string name="tx_penalty">Jarima</string>
     <string name="tx_bonus">Bonus</string>
     <string name="tx_adjustment">Tuzatish</string>
+    <string name="tx_refund">Qaytarildi</string>
     <string name="voice_guidance">Ovozli navigatsiya</string>
     <string name="server_address">Server manzili (Mac IP)</string>
     <string name="retry">Qayta urinish</string>
@@ -172,4 +173,8 @@
     <string name="price">Narx</string>
     <string name="corporate_short">Korporativ</string>
     <string name="track_missing">GPS yo\'li saqlanmagan — boshlanish va tugash nuqtalari to\'g\'ri chiziq bilan</string>
+    <string name="notifications_denied_title">Bildirishnomalar o\'chiq</string>
+    <string name="notifications_denied_text">Bildirishnomalarga ruxsat yo\'q — ilova fonda bo\'lganda yangi buyurtma va dispetcher qo\'ng\'irog\'i bilinmaydi. Sozlamalarda bildirishnomalarni yoqing.</string>
+    <string name="full_screen_denied_title">Qulflangan ekranda buyurtma ko\'rinmaydi</string>
+    <string name="full_screen_denied_text">Ilova qulflangan ekranda buyurtma va qo\'ng\'iroqni to\'liq ekranda ko\'rsata olmaydi. Sozlamalarda \"To\'liq ekranli bildirishnomalar\" ruxsatini yoqing.</string>
 </resources>

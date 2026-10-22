@@ -6,6 +6,7 @@ use App\Enums\DriverStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DriverProfileResource;
 use App\Models\Client;
+use App\Models\DeviceToken;
 use App\Models\Driver;
 use App\Models\User;
 use App\Rules\UzPhone;
@@ -47,6 +48,8 @@ class AuthController extends Controller
         $driver = Driver::query()->withoutGlobalScopes()->where('user_id', $user->id)->first();
         $driver?->forceFill(['status' => DriverStatus::Offline])->save();
 
+        // Chiqqan telefonga takliflar va qo'ng'iroqlar push'i ketmasin
+        DeviceToken::query()->where('user_id', $user->id)->delete();
         $user->currentAccessToken()->delete();
 
         return response()->json(['ok' => true]);

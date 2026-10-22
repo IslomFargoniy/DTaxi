@@ -3,10 +3,8 @@
 namespace App\Services\Payments;
 
 use App\Enums\TransactionSource;
-use App\Enums\TransactionType;
 use App\Jobs\SendPushNotification;
 use App\Models\Driver;
-use App\Models\DriverTransaction;
 use App\Models\PaymentTransaction;
 use App\Services\Drivers\DriverBalance;
 use Illuminate\Support\Facades\DB;
@@ -68,6 +66,8 @@ class PaymentTopUp
 
     /**
      * Bekor qilish. Bajarilgan to'lov bekor qilinsa (Payme qaytarish) — summa balansdan qaytariladi.
+     *
+     * @throws PaymentNotCancellable haydovchi pulni allaqachon ishlatgan (balans summadan kam)
      */
     public function cancel(PaymentTransaction $payment, TransactionSource $source, ?int $reason = null): void
     {
@@ -79,8 +79,12 @@ class PaymentTopUp
 
             $refund = $locked->state === 'performed';
             if ($refund) {
-                $driver = Driver::query()->withoutGlobalScopes()->findOrFail($locked->driver_id);
-                $this->reverse($driver, $locked, $source);
+                // Qulf ostida tekshiriladi: parallel komissiya yoki jarima balansni shu orada kamaytira olmaydi
+                $driver = Driver::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($locked->driver_id);
+                if ($driver->balance < $locked->amount) {
+                    throw new PaymentNotCancellable;
+                }
+                $this->balance->refund($driver, $locked->amount, $source, ucfirst($source->value)." #{$locked->provider_transaction_id} bekor qilindi");
             }
 
             $locked->forceFill([
@@ -90,22 +94,5 @@ class PaymentTopUp
             ])->save();
             $payment->setRawAttributes($locked->getAttributes(), true);
         });
-    }
-
-    private function reverse(Driver $driver, PaymentTransaction $payment, TransactionSource $source): void
-    {
-        $locked = Driver::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($driver->id);
-        $locked->balance -= $payment->amount;
-        $locked->save();
-
-        DriverTransaction::query()->create([
-            'driver_id' => $driver->id,
-            'type' => TransactionType::Adjustment,
-            'source' => $source,
-            'amount' => -$payment->amount,
-            'balance_after' => $locked->balance,
-            'comment' => ucfirst($source->value)." #{$payment->provider_transaction_id} bekor qilindi",
-            'created_at' => now(),
-        ]);
     }
 }

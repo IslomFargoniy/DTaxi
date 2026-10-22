@@ -26,6 +26,8 @@ enum Role: string
                 'tariffs.manage',
                 'orders.view',
                 'orders.manage',
+                'chat.drivers',
+                'landmarks.manage',
                 'balance.adjust',
                 'reports.view',
                 'calls.listen',

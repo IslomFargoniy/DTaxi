@@ -28,13 +28,13 @@ done
 echo "==> Birlashtirish"
 osmium merge --overwrite -o "$WORK_DIR/region.osm.pbf" "${parts[@]}"
 
-echo "==> Ma'muriy chegaralar (admin_level 4 va 6)"
+echo "==> Ma'muriy chegaralar (admin_level 3 — Qoraqalpog'iston, 4 va 6)"
 osmium tags-filter --overwrite -o "$WORK_DIR/boundaries.osm.pbf" "$WORK_DIR/region.osm.pbf" \
     r/boundary=administrative
 osmium export --overwrite -f geojsonseq -a type,id \
     -o "$WORK_DIR/boundaries.geojsonseq" "$WORK_DIR/boundaries.osm.pbf"
 # Faqat poligonli chegaralar va kerakli darajalar — fayl kichikroq bo'ladi
-grep -E '"admin_level":"(4|6)"' "$WORK_DIR/boundaries.geojsonseq" | grep -E '"type":"MultiPolygon"' > "$OUT_DIR/boundaries.geojsonseq"
+grep -E '"admin_level":"(3|4|6)"' "$WORK_DIR/boundaries.geojsonseq" | grep -E '"type":"MultiPolygon"' > "$OUT_DIR/boundaries.geojsonseq"
 
 echo "==> Tayyor: $OUT_DIR/boundaries.geojsonseq ($(wc -l < "$OUT_DIR/boundaries.geojsonseq") ta chegara)"
 

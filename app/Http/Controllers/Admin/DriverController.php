@@ -211,7 +211,7 @@ class DriverController extends Controller
             'branch_id' => ['required', Rule::in($branchIds)],
             'name' => ['required', 'string', 'max:100'],
             'phone' => ['required', 'string', 'max:25', new UzPhone],
-            'password' => [$driver ? 'nullable' : 'required', Password::min(6)],
+            'password' => [$driver ? 'nullable' : 'required', Password::min(8)],
             // Pozivnoy faqat raqamlardan (haydovchi ichki raqami ham shu); eski qiymat o'zgarmasa tekshirilmaydi
             'callsign' => ['required', 'string', 'max:16', Rule::unique('drivers')->ignore($driver?->id),
                 ...($driver !== null && $driver->callsign === $request->input('callsign') ? [] : ['regex:/^\d{1,6}$/'])],

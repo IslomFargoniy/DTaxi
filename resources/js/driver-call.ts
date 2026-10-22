@@ -31,6 +31,8 @@ type Phone = {
 declare global {
     interface Window {
         IbTaxi?: Bridge;
+        /** Ilova yangi qo'ng'iroqqa o'tishdan oldin chaqiradi: eski qo'ng'iroq yopiladi, oyna yopilmaydi */
+        ibtaxiHangup?: () => void;
     }
 }
 
@@ -134,11 +136,25 @@ const stopAll = () => {
     window.clearInterval(poll);
 };
 
+// Yangi qo'ng'iroqqa almashtirilganda eski qo'ng'iroqning "ended" hodisasi oynani yopib yubormasin
+let replaced = false;
+
 const close = (delay = 1200) =>
     window.setTimeout(() => {
         ua?.stop();
-        bridge?.close();
+        if (!replaced) {
+            bridge?.close();
+        }
     }, delay);
+
+window.ibtaxiHangup = () => {
+    replaced = true;
+    stopAll();
+    if (session && !session.isEnded()) {
+        session.terminate();
+    }
+    ua?.stop();
+};
 
 async function start(): Promise<void> {
     $('title').textContent = t.title;

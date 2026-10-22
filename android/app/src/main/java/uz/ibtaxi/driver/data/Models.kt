@@ -37,6 +37,8 @@ data class AppConfig(
     val payments: PaymentsConfig? = null,
     /** Filial vaqt zonasi (masalan "Asia/Tashkent") — tungi tarif server bilan bir xil hisoblanishi uchun */
     val timezone: String? = null,
+    /** Filial markazi — GPS kelguncha xarita shu yerda ochiladi (firma O'zbekistonning istalgan joyida) */
+    @SerializedName("map_center") val mapCenter: GeoPoint? = null,
 )
 
 /** Firma Click/Payme bilan shartnoma qilgan bo'lsa — balansni to'ldirish havolalari uchun */

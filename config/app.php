@@ -70,6 +70,10 @@ return [
 
     'timezone' => 'UTC',
 
+    // Baza va ilova UTC'da qoladi, jadval esa mahalliy vaqtda: tungi zaxira va tozalash (02:30–04:00)
+    // UTC bo'yicha Toshkentda ertalabki eng band soatga to'g'ri kelardi. Mahsulot faqat O'zbekiston uchun
+    'schedule_timezone' => 'Asia/Tashkent',
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

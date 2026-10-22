@@ -30,6 +30,9 @@ use InvalidArgumentException;
  */
 class Dispatcher
 {
+    /** Ilova "qabul qildim" ni taklif muddati tugashiga yaqin yuborsa, tarmoq kechikishi uchun zaxira */
+    private const ACCEPT_GRACE_SECONDS = 5;
+
     public function __construct(
         private DriverLocator $locator,
         private Settings $settings,
@@ -221,16 +224,32 @@ class Dispatcher
      */
     public function accept(Order $order, Driver $driver): bool
     {
+        $now = now();
+        $stepSeconds = (int) $this->settings->get('dispatch.step_seconds', $order->branch_id) + self::ACCEPT_GRACE_SECONDS;
+        $directSeconds = (int) $this->settings->get('dispatch.direct_offer_seconds', $order->branch_id) + self::ACCEPT_GRACE_SECONDS;
+        $minBalance = (int) $this->settings->get('drivers.min_balance', $order->branch_id);
+
         try {
-            DB::transaction(function () use ($order, $driver) {
-                // Shartli UPDATE: parallel so'rovlardan faqat bittasi 1 qatorni o'zgartiradi
+            DB::transaction(function () use ($order, $driver, $now, $stepSeconds, $directSeconds, $minBalance) {
+                // Shartli UPDATE: parallel so'rovlardan faqat bittasi 1 qatorni o'zgartiradi.
+                // Taklif joriy raunddan va muddati o'tmagan bo'lishi kerak (efir takliflari serverda tugatilmaydi),
+                // haydovchi esa shu paytgacha bloklanmagan, balansi yetarli va tasdiqlangan
                 $orderUpdated = Order::query()->withoutGlobalScopes()
                     ->whereKey($order->id)
                     ->where('status', OrderStatus::Searching->value)
                     ->whereExists(fn ($q) => $q->from('order_offers')
                         ->whereColumn('order_offers.order_id', 'orders.id')
+                        ->whereColumn('order_offers.round', 'orders.search_round')
                         ->where('order_offers.driver_id', $driver->id)
-                        ->whereNull('order_offers.response'))
+                        ->whereNull('order_offers.response')
+                        ->where(fn ($fresh) => $fresh
+                            ->where(fn ($d) => $d->where('order_offers.is_direct', true)->where('order_offers.offered_at', '>=', $now->copy()->subSeconds($directSeconds)))
+                            ->orWhere(fn ($b) => $b->where('order_offers.is_direct', false)->where('order_offers.offered_at', '>=', $now->copy()->subSeconds($stepSeconds)))))
+                    ->whereExists(fn ($q) => $q->from('drivers')
+                        ->where('drivers.id', $driver->id)
+                        ->where('drivers.is_approved', true)
+                        ->where('drivers.balance', '>=', $minBalance)
+                        ->where(fn ($b) => $b->whereNull('drivers.blocked_until')->orWhere('drivers.blocked_until', '<=', $now)))
                     ->update([
                         'status' => OrderStatus::Assigned->value,
                         'driver_id' => $driver->id,
@@ -315,7 +334,7 @@ class Dispatcher
         OrderEvents::record($order, 'direct_offer', $operator, ['driver_id' => $driver->id]);
         $this->notify($order, $offer, $driver, $expiresIn);
 
-        ExpireDirectOffer::dispatch($offer->id)->delay(now()->addSeconds($expiresIn));
+        ExpireDirectOffer::dispatch($offer->id, $offer->offered_at->format($offer->getDateFormat()))->delay(now()->addSeconds($expiresIn));
 
         return $offer;
     }

@@ -155,6 +155,7 @@ class OrderService
             // Kutish: "Yetib keldim" dan "Yo'lovchi o'tirdi" gacha (qaror #33)
             'waiting_s' => $order->arrived_at ? (int) $order->arrived_at->diffInSeconds(now()) : 0,
         ]);
+        $this->rememberPlaceName($order, 'start');
         OrderEvents::record($order, 'started', $driver->user);
     }
 
@@ -186,25 +187,37 @@ class OrderService
         $breakdown = $bonus > 0 ? [...$fare->breakdown, 'bonus' => $bonus] : $fare->breakdown;
         $commissionBase = $commissionBase !== null ? $commissionBase + $bonus : null;
 
-        DB::transaction(function () use ($order, $driver, $total, $breakdown, $reported, $commissionBase, $at) {
-            $this->transition($order, $driver, [OrderStatus::InProgress], [
-                'status' => OrderStatus::Completed,
-                'completed_at' => now(),
-                'finish_location' => $this->positionOf($driver, $at),
-                'price_final' => $total,
-                'price_breakdown' => $breakdown,
-                'distance_m' => $reported,
-                'duration_s' => $order->started_at ? (int) $order->started_at->diffInSeconds(now()) : null,
-            ]);
+        try {
+            DB::transaction(function () use ($order, $driver, $total, $breakdown, $reported, $commissionBase, $at) {
+                $this->transition($order, $driver, [OrderStatus::InProgress], [
+                    'status' => OrderStatus::Completed,
+                    'completed_at' => now(),
+                    'finish_location' => $this->positionOf($driver, $at),
+                    'price_final' => $total,
+                    'price_breakdown' => $breakdown,
+                    'distance_m' => $reported,
+                    'duration_s' => $order->started_at ? (int) $order->started_at->diffInSeconds(now()) : null,
+                ]);
 
-            $this->balance->chargeCommission($order, $commissionBase);
-            // Korporativ: mijoz naqd to'lamaydi — firma haydovchiga balans orqali to'laydi, kompaniyaga hisob-faktura
-            if ($order->company_id) {
-                $this->balance->corporatePayout($order);
+                $this->balance->chargeCommission($order, $commissionBase);
+                // Korporativ: mijoz naqd to'lamaydi — firma haydovchiga balans orqali to'laydi, kompaniyaga hisob-faktura
+                if ($order->company_id) {
+                    $this->balance->corporatePayout($order);
+                }
+                $driver->forceFill(['status' => DriverStatus::Free])->save();
+                $order->client()->increment('orders_count');
+            });
+        } catch (InvalidArgumentException $e) {
+            // Parallel takroriy so'rov (ilova qayta yubordi) birinchisidan keyin keldi — xato emas (qaror #51)
+            $order->refresh();
+            if ($order->status === OrderStatus::Completed && $order->driver_id === $driver->id) {
+                return $order;
             }
-            $driver->forceFill(['status' => DriverStatus::Free])->save();
-            $order->client()->increment('orders_count');
-        });
+
+            throw $e;
+        }
+
+        $this->rememberPlaceName($order, 'finish');
 
         $this->discipline->completed($driver);
 
@@ -228,6 +241,29 @@ class OrderService
      */
     public function update(Order $order, array $data, User $operator): Order
     {
+        [$tariffChanged, $dirty] = DB::transaction(fn () => $this->applyEdit($order, $data));
+        OrderEvents::record($order, 'edited', $operator, ['fields' => $dirty]);
+
+        // Yangi tarif yoki joy — boshqa haydovchilar mos keladi, ustama — ko'proq haydovchi qiziqadi
+        if ($order->status === OrderStatus::Searching && ($tariffChanged || in_array('pickup_location', $dirty, true) || in_array('price_bonus', $dirty, true))) {
+            $this->redispatch($order, $operator);
+        }
+
+        return $order;
+    }
+
+    /**
+     * Qator qulflanib holat qayta o'qiladi: operator ekrani eskirgan bo'lsa ham, shu soniyada haydovchi qabul qilgan
+     * buyurtmaning tarifi va olish joyi o'zgarmaydi (qabul qilish UPDATE'i qulf bo'shaguncha kutadi).
+     *
+     * @param  array{comment?: string|null, dropoff_text?: string|null, dropoff_lat?: float|null, dropoff_lng?: float|null, tariff_class_id?: int|null, price_bonus?: int|null, pickup_text?: string|null, pickup_lat?: float|null, pickup_lng?: float|null, stops?: list<array{text: string, lat: float, lng: float}>}  $data
+     * @return array{bool, list<string>} tarif o'zgardimi va o'zgargan ustunlar
+     */
+    private function applyEdit(Order $order, array $data): array
+    {
+        $locked = Order::query()->withoutGlobalScopes()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+        $order->setRawAttributes($locked->getAttributes(), true);
+
         $editable = [OrderStatus::New, OrderStatus::Searching, OrderStatus::Assigned, OrderStatus::Arrived];
         if (! in_array($order->status, $editable, true)) {
             throw new InvalidArgumentException(__('The order can no longer be changed.'));
@@ -274,16 +310,10 @@ class OrderService
                 : $this->fares->calculate($order->tariff_snapshot, $order->distance_m, startedAt: CarbonImmutable::now($branch->timezone))->total;
         }
 
-        $dirty = array_keys($order->getDirty());
+        $dirty = array_map('strval', array_keys($order->getDirty()));
         $order->save();
-        OrderEvents::record($order, 'edited', $operator, ['fields' => $dirty]);
 
-        // Yangi tarif yoki joy — boshqa haydovchilar mos keladi, ustama — ko'proq haydovchi qiziqadi
-        if ($order->status === OrderStatus::Searching && ($tariffChanged || in_array('pickup_location', $dirty, true) || in_array('price_bonus', $dirty, true))) {
-            $this->redispatch($order, $operator);
-        }
-
-        return $order;
+        return [$tariffChanged, $dirty];
     }
 
     /**
@@ -472,6 +502,24 @@ class OrderService
         }
 
         return sprintf('SRID=4326;POINT(%F %F)', $at->getLongitude(), $at->getLatitude());
+    }
+
+    /**
+     * Safar boshlangan/tugagan joy nomi buyurtmaga bir marta yoziladi (tarix ro'yxatida har qator uchun qidirilmasin).
+     *
+     * @param  'start'|'finish'  $which
+     */
+    private function rememberPlaceName(Order $order, string $which): void
+    {
+        $point = $which === 'start' ? $order->start_location : $order->finish_location;
+        if ($point === null) {
+            return;
+        }
+
+        $column = $which.'_name';
+        $name = Landmark::nameAt($point) ?? '';
+        Order::query()->withoutGlobalScopes()->whereKey($order->id)->update([$column => $name]);
+        $order->forceFill([$column => $name])->syncOriginalAttribute($column);
     }
 
     private function placeName(string $text, Point $point): string

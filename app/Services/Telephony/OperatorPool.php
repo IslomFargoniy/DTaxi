@@ -21,7 +21,8 @@ class OperatorPool
     public function setStatus(User $user, string $status): void
     {
         $user->forceFill(['operator_status' => $status, 'operator_status_at' => now()])->saveQuietly();
-        OperatorCallEvent::dispatch($user->id, 'status', ['status' => $status]);
+        // Reverb ishlamasa holat baribir saqlansin (ari:listen ichida ham chaqiriladi — tsikl to'xtamasin)
+        rescue(fn () => OperatorCallEvent::dispatch($user->id, 'status', ['status' => $status]));
     }
 
     /**

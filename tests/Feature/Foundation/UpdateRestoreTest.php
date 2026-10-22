@@ -95,14 +95,18 @@ test('successful update waits for active calls and tells how to apply changed As
 });
 
 test('prune keeps the dump of the last update for rollback', function () {
-    $backup = app(Backup::class);
-    File::ensureDirectoryExists($backup->directory());
-    $old = $backup->directory().'/2000-01-01_000000_daily.dump';
-    $kept = $backup->directory().'/2000-01-01_000000_before-update.dump';
+    // Alohida papka: prune haqiqiy backups/ dagi eski zaxiralarni o'chirib yuborardi
+    $directory = storage_path('framework/testing/prune-backups');
+    $backup = Mockery::mock(Backup::class)->makePartial();
+    $backup->shouldReceive('directory')->andReturn($directory);
+    File::ensureDirectoryExists($directory);
+    $old = $directory.'/2000-01-01_000000_daily.dump';
+    $kept = $directory.'/2000-01-01_000000_before-update.dump';
     File::put($old, 'x');
     File::put($kept, 'x');
     touch($old, now()->subDays(30)->getTimestamp());
     touch($kept, now()->subDays(30)->getTimestamp());
+    $state = File::exists(Backup::updateStateFile()) ? File::get(Backup::updateStateFile()) : null;
     File::put(Backup::updateStateFile(), json_encode(['commit' => 'old', 'backup' => $kept]));
 
     try {
@@ -110,7 +114,8 @@ test('prune keeps the dump of the last update for rollback', function () {
             ->and(File::exists($old))->toBeFalse()
             ->and(File::exists($kept))->toBeTrue();
     } finally {
-        File::delete([$old, $kept]);
+        File::deleteDirectory($directory);
+        $state === null ? File::delete(Backup::updateStateFile()) : File::put(Backup::updateStateFile(), $state);
     }
 });
 

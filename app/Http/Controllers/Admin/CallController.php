@@ -29,6 +29,7 @@ class CallController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
+        $request->validate(['from' => ['nullable', 'date'], 'to' => ['nullable', 'date']]);
         // Sanalar filial vaqt zonasida, bazada UTC
         $tz = Branch::query()->whereIn('id', $user->isSuperadmin() ? Branch::query()->select('id') : $user->branchIds())->value('timezone') ?? 'Asia/Tashkent';
         $from = ($request->date('from', tz: $tz) ?? today($tz))->startOfDay()->utc();

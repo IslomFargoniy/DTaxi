@@ -183,6 +183,7 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
             navigating = order?.status in setOf("assigned", "arrived", "in_progress"),
             bearing = motion.bearing,
             speedKmh = motion.speedKmh,
+            initialCenter = p.config.mapCenter?.let { MapPoint(it.lat, it.lng) },
         )
 
         // Yuqori panel (maket A/B): pozivnoy, davlat raqami, balans, chat

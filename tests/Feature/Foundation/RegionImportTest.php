@@ -53,3 +53,26 @@ test('branch service area is filled from the selected district', function () {
 
     expect($covered->inside)->toBeTrue()->and($covered->outside)->toBeFalse();
 });
+
+test('karakalpakstan (admin_level 3) is imported as a region with its districts', function () {
+    $square = fn (float $x, float $y, float $size) => ['type' => 'MultiPolygon', 'coordinates' => [[[
+        [$x, $y], [$x + $size, $y], [$x + $size, $y + $size], [$x, $y + $size], [$x, $y],
+    ]]]];
+    $line = fn (array $props, array $geometry) => "\x1E".json_encode(['type' => 'Feature', 'geometry' => $geometry, 'properties' => $props]);
+    $file = tempnam(sys_get_temp_dir(), 'bnd');
+    file_put_contents($file, implode("\n", [
+        $line(['@type' => 'relation', '@id' => 196241, 'admin_level' => '3', 'ISO3166-2' => 'UZ-QR', 'name' => 'Qaraqalpaqstan Respublikası', 'name:uz' => 'Qoraqalpogʻiston Respublikasi'], $square(58.0, 42.0, 2.0)),
+        $line(['@type' => 'relation', '@id' => 900001, 'admin_level' => '6', 'name' => 'Nókis rayonı'], $square(59.0, 42.5, 0.5)),
+        $line(['@type' => 'relation', '@id' => 900002, 'admin_level' => '6', 'name' => 'Nókis'], $square(59.5, 42.3, 0.2)),
+    ])."\n");
+
+    $stats = app(OsmRegionImporter::class)->import($file);
+    unlink($file);
+
+    $republic = Region::query()->where('osm_id', 196241)->firstOrFail();
+    expect($stats)->toBe(['regions' => 1, 'children' => 2])
+        ->and($republic->type)->toBe(RegionType::Region)
+        ->and($republic->name_uz)->toBe('Qoraqalpogʻiston Respublikasi')
+        ->and($republic->children()->orderBy('name_uz')->get()->map(fn (Region $r) => [$r->name_uz, $r->type]))
+        ->toEqual(collect([['Nókis', RegionType::City], ['Nókis rayonı', RegionType::District]]));
+});

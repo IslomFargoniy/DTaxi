@@ -57,7 +57,7 @@ sudo /var/www/ibtaxi/deploy/install.sh --prod --domain=taxi.firma.uz --email=adm
 ```
 
 Skript hammasini o'rnatadi (PostgreSQL+PostGIS, Redis, Asterisk, OSRM, xarita, hududlar, HTTPS, ufw, fail2ban).
-Hudud standart — Farg'ona vodiysi; boshqasi uchun `BBOX=lon1,lat1,lon2,lat2`. Tugagach `https://<domen>` da
+Hudud standart — butun O'zbekiston; kichikroq hudud uchun `BBOX=lon1,lat1,lon2,lat2`. Tugagach `https://<domen>` da
 sozlash ustasi ochiladi (firma nomi, superadmin, birinchi filial). So'ng panelda: Integratsiyalar (Click, Payme,
 SpeechKit, Firebase), Telefoniya (SIP trunk, raqamlar), Ovozli bo'laklar.
 

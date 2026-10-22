@@ -35,9 +35,11 @@ use App\Services\Telephony\Extensions;
 use App\Services\Telephony\OperatorPool;
 use App\Support\Settings;
 use Database\Seeders\RolesSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -178,9 +180,29 @@ test('calls over the trunk channel limit are rejected', function () {
     $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
     $this->center->handle(stasis('ch-2', ['inbound', '712000000'], caller: '998907654321'));
 
+    // Yangi qo'ng'iroqning o'z qatori limitga sanalmaydi: bitta liniyada birinchisi qabul qilinadi
+    expect(Call::query()->withoutGlobalScopes()->where('channel_id', 'ch-1')->sole())
+        ->status->toBe('waiting')
+        ->operator_id->toBe($this->operator->id);
     expect(Call::query()->withoutGlobalScopes()->where('channel_id', 'ch-2')->sole())
         ->status->toBe('rejected')
         ->meta->toMatchArray(['reason' => 'channels']);
+});
+
+test('branch channel share does not count the new call itself', function () {
+    $this->branch->update(['max_channels' => 1]);
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+
+    expect(Call::query()->withoutGlobalScopes()->sole()->status)->toBe('waiting');
+});
+
+test('operator callback fits into a single free line', function () {
+    $this->trunk->update(['max_channels' => 1]);
+
+    operatorDials($this, '901234567');
+
+    expect(Call::query()->withoutGlobalScopes()->sole()->status)->toBe('ringing')
+        ->and(ariRequests('endpoint=PJSIP/998901234567@trunk-sarkor'))->toHaveCount(1);
 });
 
 test('driver calling the dispatcher waits in his branch queue', function () {
@@ -798,4 +820,195 @@ test('the listener loop survives any exception', function () {
     app(AriListen::class)->guard(fn () => throw new RuntimeException('boom'));
 
     expect(true)->toBeTrue();
+});
+
+test('a failing broadcast does not hang up or stall the call', function () {
+    Event::fake([OperatorCallEvent::class]);
+    Event::listen(CallUpdated::class, fn () => throw new RuntimeException('reverb down'));
+
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    $this->center->handle(stasis($call->meta['operator_channel'], ['operator', (string) $call->id], 'PJSIP/op1-0001'));
+
+    expect($call->refresh()->status)->toBe('answered')
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-1'))->count())->toBe(0);
+});
+
+test('a closing message whose playback never finishes is ended after the deadline', function () {
+    SoundClip::query()->create(['category' => 'ivr', 'key' => 'lines-busy', 'text' => 'x', 'file_path' => 'ivr/lines-busy']);
+    $this->trunk->update(['max_channels' => 0]);
+
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    expect($call->status)->toBe('rejected')->and($call->meta['playback_until'])->not->toBeNull();
+
+    $this->travel(60)->seconds();
+    $this->center->tick();
+    expect($call->refresh()->ended_at)->toBeNull();
+
+    $this->travel(61)->seconds();
+    $this->center->tick();
+    expect($call->refresh())
+        ->status->toBe('rejected')
+        ->ended_at->not->toBeNull()
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-1'))->count())->toBe(1);
+});
+
+test('a finished playback clears its deadline', function () {
+    regularClient($this->branch);
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+
+    $this->center->handle(['type' => 'PlaybackFinished', 'playback' => ['id' => $call->meta['playback']]]);
+
+    expect($call->refresh()->meta['playback_until'])->toBeNull()
+        ->and($call->meta['auto_offer_until'])->not->toBeNull();
+});
+
+test('an auto order offer that cannot be played goes straight to the operator queue', function () {
+    regularClient($this->branch);
+    $this->ari['down'] = ['/play/'];
+
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+
+    expect(Call::query()->withoutGlobalScopes()->sole())
+        ->operator_id->toBe($this->operator->id)
+        ->meta->toMatchArray(['auto_offer' => null, 'playback' => null]);
+});
+
+test('a closing message that cannot be played hangs up at once', function () {
+    SoundClip::query()->create(['category' => 'ivr', 'key' => 'lines-busy', 'text' => 'x', 'file_path' => 'ivr/lines-busy']);
+    $this->trunk->update(['max_channels' => 0]);
+    $this->ari['down'] = ['/play/'];
+
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+
+    expect(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-1'))->count())->toBe(1);
+});
+
+test('if the operator leg cannot be bridged the client goes back to the queue', function () {
+    $this->ari['down'] = ['addChannel'];
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    $operatorChannel = $call->meta['operator_channel'];
+
+    $this->center->handle(stasis($operatorChannel, ['operator', (string) $call->id], 'PJSIP/op1-0001'));
+
+    expect($call->refresh())
+        ->status->toBe('waiting')
+        ->operator_id->toBeNull()
+        ->and($call->meta['operator_channel'])->toBeNull()
+        ->and($call->meta['bridge'])->toBeNull()
+        ->and(bridgeDeletes())->toBe(1)
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), "/ari/channels/{$operatorChannel}"))->count())->toBe(1);
+
+    // Operator kanali yopilishi "javob bermadi" emas — pauza yo'q; keyingi tick'da yana taklif
+    $this->center->handle(['type' => 'ChannelDestroyed', 'channel' => ['id' => $operatorChannel], 'cause' => 16]);
+    expect($this->operator->refresh()->operator_status)->toBe('ready');
+    $this->ari['down'] = [];
+    $this->center->tick();
+    expect($call->refresh()->operator_id)->toBe($this->operator->id);
+});
+
+test('a callback that cannot be bridged fails instead of showing as answered', function () {
+    $this->ari['down'] = ['addChannel'];
+    operatorDials($this, '901234567');
+    $call = Call::query()->withoutGlobalScopes()->sole();
+
+    $this->center->handle(stasis($call->meta['peer_channel'], ['peer', (string) $call->id]));
+
+    expect($call->refresh())
+        ->status->toBe('failed')
+        ->ended_at->not->toBeNull()
+        ->answered_at->toBeNull();
+});
+
+test('a new call does not jump ahead of an older call waiting for an operator', function () {
+    $this->operator->forceFill(['operator_status' => 'paused'])->save();
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $this->travel(5)->seconds();
+
+    $this->operator->forceFill(['operator_status' => 'ready'])->save();
+    $this->center->handle(stasis('ch-2', ['inbound', '712000000'], caller: '998907654321'));
+
+    expect(Call::query()->withoutGlobalScopes()->where('channel_id', 'ch-2')->sole()->operator_id)->toBeNull();
+
+    $this->center->tick();
+    expect(Call::query()->withoutGlobalScopes()->where('channel_id', 'ch-1')->sole()->operator_id)->toBe($this->operator->id)
+        ->and(Call::query()->withoutGlobalScopes()->where('channel_id', 'ch-2')->sole()->operator_id)->toBeNull();
+});
+
+test('a call of another branch is not held back by an older call', function () {
+    $this->operator->forceFill(['operator_status' => 'paused'])->save();
+    $other = Branch::factory()->create();
+    Call::query()->create([
+        'channel_id' => 'ch-old', 'branch_id' => $other->id, 'direction' => 'inbound', 'kind' => 'client',
+        'status' => 'waiting', 'started_at' => now()->subMinute(), 'meta' => ['branch_ids' => [$other->id]],
+    ]);
+    $this->operator->forceFill(['operator_status' => 'ready'])->save();
+
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+
+    expect(Call::query()->withoutGlobalScopes()->where('channel_id', 'ch-1')->sole()->operator_id)->toBe($this->operator->id);
+});
+
+test('a missed ring moves the operator to the back of the queue when pausing is off', function () {
+    app(Settings::class)->set('calls.pause_on_missed_ring', false);
+    $this->operator->forceFill(['operator_status_at' => now()->subHour()])->save();
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+
+    $this->center->handle(['type' => 'ChannelDestroyed', 'channel' => ['id' => $call->meta['operator_channel']], 'cause' => 19]);
+
+    expect($this->operator->refresh())
+        ->operator_status->toBe('ready')
+        ->operator_status_at->greaterThan(now()->subMinute())->toBeTrue();
+});
+
+test('meta updates merge with keys written by another process', function () {
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $stale = Call::query()->withoutGlobalScopes()->sole();
+    DB::table('calls')->where('id', $stale->id)->update(['meta' => DB::raw("meta || '{\"reason\": \"declined\"}'::jsonb")]);
+
+    (fn () => $this->updateMeta($stale, ['plays' => 1]))->call($this->center);
+
+    expect($stale->meta)->toMatchArray(['reason' => 'declined', 'plays' => 1])
+        ->and($stale->isDirty('meta'))->toBeFalse()
+        ->and($stale->fresh()->meta)->toMatchArray(['reason' => 'declined', 'plays' => 1, 'branch_ids' => [$this->branch->id]]);
+});
+
+test('a lost database connection is rethrown for the listener to retry, without hanging up', function () {
+    $lost = new QueryException('pgsql', 'select 1', [], new PDOException('SQLSTATE[08006]: server closed the connection unexpectedly'));
+    $this->partialMock(OperatorPool::class, fn ($mock) => $mock->shouldReceive('pick')->andThrow($lost));
+
+    expect(fn () => app(CallCenter::class)->handle(stasis('ch-1', ['inbound', '712000000'])))->toThrow(QueryException::class)
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-1'))->count())->toBe(0);
+});
+
+test('the listener retries only lost-connection errors', function () {
+    $runs = 0;
+    app(AriListen::class)->guard(function () use (&$runs) {
+        $runs++;
+        throw new QueryException('pgsql', 'insert', [], new PDOException('SQLSTATE[23505]: duplicate key'));
+    });
+
+    expect($runs)->toBe(1);
+});
+
+test('concurrent auto calls wait for the trunk lock instead of overshooting the limit', function () {
+    SoundClip::query()->create(['category' => 'phrase', 'key' => 'cancelled', 'text' => 'x', 'file_path' => 'phrase/cancelled']);
+    $order = Order::factory()->create(['branch_id' => $this->branch->id, 'status' => OrderStatus::CancelledByOperator]);
+    $lock = Cache::lock("autocall:trunk:{$this->trunk->id}", 30);
+    $lock->get();
+
+    try {
+        (new PlaceAutoCall($order->id, 'cancelled'))->handle(...array_map('app', [
+            AriClient::class, ChannelLimits::class, MessageComposer::class,
+            Router::class, CallCenter::class, ClientNotifier::class,
+        ]));
+    } finally {
+        $lock->release();
+    }
+
+    expect(Call::query()->withoutGlobalScopes()->count())->toBe(0);
 });

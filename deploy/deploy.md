@@ -28,16 +28,16 @@ Har bir taksi firmasi o'z serverida alohida nusxa oladi. Firmaga xos hech narsa 
 
 ### Firmadan olinadigan ma'lumotlar
 
-| Nima                                                                    | Qayerga kiritiladi                      | Majburiymi                  |
-| ----------------------------------------------------------------------- | --------------------------------------- | --------------------------- |
-| Domen, admin e-mail (sertifikat uchun)                                  | `install.sh` parametrlari               | ha                          |
-| Firma (xizmat) nomi                                                     | `--company=` yoki keyin Panel → Firma   | yo'q (standart — Dtaxi)     |
-| SIP trunk: provayder (Sarkor va h.k.), login, parol, server, raqam(lar) | Panel → Telefoniya                      | qo'ng'iroqlar uchun         |
-| Firebase loyihasi (`google-services.json` + server kaliti)              | Android build + Panel → Integratsiyalar | push uchun                  |
-| Click / Payme kalitlari                                                 | Panel → Integratsiyalar                 | onlayn to'ldirish uchun     |
-| Yandex SpeechKit kaliti                                                 | Panel → Integratsiyalar                 | IVR ovozli iboralar uchun   |
-| Zaxira uchun SFTP server                                                | Panel → Integratsiyalar                 | tavsiya etiladi             |
-| Xizmat hududi (viloyatlar)                                              | `BBOX` o'zgaruvchisi                    | standart — Farg'ona vodiysi |
+| Nima                                                                    | Qayerga kiritiladi                      | Majburiymi                   |
+| ----------------------------------------------------------------------- | --------------------------------------- | ---------------------------- |
+| Domen, admin e-mail (sertifikat uchun)                                  | `install.sh` parametrlari               | ha                           |
+| Firma (xizmat) nomi                                                     | `--company=` yoki keyin Panel → Firma   | yo'q (standart — Dtaxi)      |
+| SIP trunk: provayder (Sarkor va h.k.), login, parol, server, raqam(lar) | Panel → Telefoniya                      | qo'ng'iroqlar uchun          |
+| Firebase loyihasi (`google-services.json` + server kaliti)              | Android build + Panel → Integratsiyalar | push uchun                   |
+| Click / Payme kalitlari                                                 | Panel → Integratsiyalar                 | onlayn to'ldirish uchun      |
+| Yandex SpeechKit kaliti                                                 | Panel → Integratsiyalar                 | IVR ovozli iboralar uchun    |
+| Zaxira uchun SFTP server                                                | Panel → Integratsiyalar                 | tavsiya etiladi              |
+| Xizmat hududi (viloyatlar)                                              | `BBOX` o'zgaruvchisi                    | standart — butun O'zbekiston |
 
 ---
 
@@ -60,7 +60,7 @@ Parametrlar:
 | `--skip-maps`               | xarita/OSRM tayyorlashni o'tkazib yuborish (keyin qo'lda)                 |
 | `--skip-ssl`                | sertifikatsiz — **faqat sinov uchun** (mikrofon https'siz ishlamaydi)     |
 | `--turn`                    | ixtiyoriy TURN server (coturn) — §2.1                                     |
-| `BBOX=lon1,lat1,lon2,lat2`  | xizmat hududi (standart — Farg'ona vodiysi)                               |
+| `BBOX=lon1,lat1,lon2,lat2`  | xizmat hududi (standart — butun O'zbekiston)                              |
 | `PUBLIC_IP=`                | avtomatik aniqlanmasa                                                     |
 | `LOCAL_NET=`                | server ichki tarmog'i (standart — asosiy interfeys tarmog'idan avtomatik) |
 
@@ -98,16 +98,17 @@ Tekshirish: `systemctl status coturn`, `journalctl -u coturn`; brauzerda `chrome
 1. Paketlar: nginx, supervisor, redis, php8.3-fpm, PostgreSQL 16 + PostGIS 3, Asterisk, certbot, ufw, fail2ban; `ibtaxi` tizim foydalanuvchisi.
 2. **Darhol** firewall (ufw: SSH, 80/443, RTP 10000–20000/udp) va fail2ban (sshd, asterisk) — server uzoq bosqichlar paytida ham himoyada.
 3. RAM+swap 8 GB dan kam bo'lsa — 4 GB swap. Composer, Node 22.
-4. PostgreSQL: `ibtaxi` roli va bazasi, `postgis`, `pg_trgm` (parol tasodifiy; `.env` da `.env.example` dagi `ibtaxi` paroli qolgan bo'lsa — almashtiriladi). Test bazasi faqat `--dev` da.
-5. Huquqlar: php-fpm `ibtaxi` nomidan ishlaydi, papka `750`. `.env` (production, baza, Reverb kalitlari) — `640`.
+4. PostgreSQL: `ibtaxi` roli va bazasi, `postgis`, `pg_trgm` (parol tasodifiy; `.env` da `.env.example` dagi `ibtaxi` paroli qolgan bo'lsa — almashtiriladi). Test bazasi va rolga `CREATEDB` faqat `--dev` da.
+5. Huquqlar: php-fpm `ibtaxi` nomidan ishlaydi, papka `750` (guruhda `www-data` — `public/` uchun, `asterisk` — ovozli bo'laklar uchun). `.env` (production, `LOG_LEVEL=warning`, baza, Reverb kalitlari) — `600`; `bootstrap/cache` (config keshi — barcha parollar), `storage/framework`, `storage/logs` — `700`.
 6. Asterisk + ODBC: `deploy/asterisk-config.sh` — `deploy/asterisk/*.conf` → `/etc/asterisk` (PUBLIC_IP, LOCAL_NET `/etc/ibtaxi/asterisk.env` da saqlanadi), DTLS sertifikati, yozuvlar papkasi, ARI paroli `.env` ga.
 7. Nginx: `/` → PHP, `/app` → Reverb (8080), `/ws` → Asterisk WebSocket (8088), `/map/` → xarita tile'lari; kirish manzillari va `/ws` uchun IP bo'yicha so'rov cheklovi (`limit_req`).
 8. `composer install`, `npm ci && npm run build`, `migrate`, `storage:link`, `optimize`, `telephony:sync`.
 9. **`ibtaxi:init`**: rollar, bitta filial ("Asosiy filial"), superadmin `admin@<domen>` tasodifiy parol bilan (superadmin bor bo'lsa hech narsa o'zgarmaydi).
 10. Let's Encrypt (`certbot --nginx --redirect`), yangilanish — certbot timer. Qayta ishga tushirilganda mavjud sertifikat nginx'ga qayta ulanadi. **Olinmasa o'rnatish to'xtamaydi** — ogohlantirish va qayta urinish buyrug'i chiqadi.
-11. SIP firewall cron'i (5060 faqat trunk IP'lariga); `--turn` bo'lsa coturn (§2.1); logrotate, supervisor dasturlari, cron (`schedule:run` har daqiqada).
-12. Xarita (`--skip-maps` bo'lmasa, **bir necha soat**, eng oxirida): OSM → tile'lar → OSRM (Docker, `ibtaxi-osrm`) → hududlar, mo'ljallar, ko'cha/uy raqamlari → ochiq joylar (`places-prepare.sh`: Overture Maps, Wikidata va GeoNames, BBOX bo'yicha; yuklanmasa o'rnatish to'xtamaydi). To'xtab qolsa ham sayt va telefoniya ishlaydi; `install.sh` ni qayta ishga tushirish tayyor qismlarni o'tkazib yuboradi.
-13. Yakunda: panel manzili, SIP provayderga beriladigan IP va **superadmin login/paroli**.
+11. SIP firewall cron'i (5060 faqat trunk IP'lariga; trunk host nomi DNS'da topilmasa eski qoidalar qoladi); `--turn` bo'lsa coturn (§2.1); logrotate, supervisor dasturlari, cron (`schedule:run` har daqiqada); `/etc/sudoers.d/ibtaxi-supervisor` — `ibtaxi` foydalanuvchisi faqat `ibtaxi-horizon` va `ibtaxi-ari` ni start/stop qila oladi (`ibtaxi:update` uchun).
+12. `--map-bundle=` bo'lsa — xarita to'plami (§7): fayllar va, `map.dump` bo'lsa, bazadagi xarita (migratsiya va `ibtaxi:init` dan keyin).
+13. Xarita (`--skip-maps` bo'lmasa, **bir necha soat**, eng oxirida; to'plam bilan kelgan qismlar o'tkazib yuboriladi, `map.dump` bo'lsa OSM va ochiq joylar importi ham): OSM → tile'lar → OSRM (Docker, `ibtaxi-osrm`) → hududlar, mo'ljallar, ko'cha/uy raqamlari → ochiq joylar (`places-prepare.sh`: Overture Maps, Wikidata va GeoNames, BBOX bo'yicha; yuklanmasa o'rnatish to'xtamaydi). To'xtab qolsa ham sayt va telefoniya ishlaydi; `install.sh` ni qayta ishga tushirish tayyor qismlarni o'tkazib yuboradi.
+14. Yakunda: panel manzili, SIP provayderga beriladigan IP va **superadmin login/paroli**.
 
 ### O'rnatishdan so'ng darhol
 
@@ -149,7 +150,9 @@ Rejali vazifalar (cron → `schedule:run`):
 
 - har daqiqada: `orders:dispatch-scheduled`, `orders:rebroadcast`;
 - har 5 daqiqada: `ibtaxi:health`, `drivers:release-stuck`;
-- 02:30 `ibtaxi:backup`, 03:30 `recordings:cleanup`, 04:00 `locations:prune`.
+- 02:30 `ibtaxi:backup`, 03:00 `drivers:balance-check`, 03:30 `recordings:cleanup`, 04:00 `locations:prune`; yakshanba 03:00 `ibtaxi:map-export --upload`.
+
+Vaqtlar — **Toshkent vaqti** (`config/app.php` → `schedule_timezone`; baza va ilova UTC'da). Zaxira va xarita eksporti fonda ishlaydi — har daqiqalik vazifalar to'xtamaydi. Har vazifaning qulfi (`withoutOverlapping`) muddatli: jarayon o'lib qolsa ham vazifa keyingi safar ishlaydi.
 
 Nginx so'rov cheklovi (bitta IP'dan): `/login`, `/two-factor-challenge`, `/forgot-password`, `/api/driver/v1/auth/login` — daqiqasiga 20 (+20 burst);
 `/ws` (SIP over WSS) — daqiqasiga 30 yangi ulanish (+60 burst), bir vaqtda 100 tagacha. Oshsa — HTTP 429.
@@ -219,9 +222,11 @@ sudo -u ibtaxi php artisan ibtaxi:update --rollback # muammo bo'lsa — oldingi 
 ```
 
 - **Har doim `sudo -u ibtaxi` bilan.** root nomidan buyruq ishlamaydi (git "dubious ownership" va fayllar root'ga o'tib qolardi).
-- Yangilash: zaxira (`*_before-update.dump`) → texnik rejim → `git pull` → composer, build, migratsiya → kesh, Horizon, Reverb, `telephony:sync` → sayt ochiladi → ARI daemon qayta ishga tushadi.
+- Yangilash: texnik rejim → zaxira (`*_before-update.dump`; zaxira olinmasa yangilanish boshlanmaydi, sayt ochiladi) → `git pull` → composer, build → Horizon to'xtaydi, faol qo'ng'iroqlar kutiladi, ARI daemon to'xtaydi → migratsiya → Horizon va ARI ishga tushadi → kesh, Reverb, `telephony:sync` → sayt ochiladi. Texnik rejim zaxiradan oldin — zaxiradan keyin tushgan buyurtmalar `--rollback` da yo'qolmaydi.
 - **Xato bo'lsa** (composer, npm yoki migratsiya): kod avtomatik oldingi commit'ga qaytariladi, uning bog'liqliklari qayta o'rnatiladi va sayt ochiladi. Migratsiya qisman bajarilgan bo'lishi mumkin — kerak bo'lsa `--rollback`. Qaytarishning o'zi ham muvaffaqiyatsiz bo'lsa, sayt texnik rejimda qoladi (yangi kod eski bog'liqliklar bilan ishlamasin).
-- ARI daemon faol qo'ng'iroqlar tugashini kutadi (standart 10 daqiqagacha, `--wait-calls=<soniya>`), keyin qayta ishga tushadi. Sayt bu paytda ochiq. Baribir kechasi yangilagan ma'qul.
+- ARI daemon to'xtashidan oldin faol qo'ng'iroqlar tugashi kutiladi (standart 10 daqiqagacha, `--wait-calls=<soniya>`). Sayt bu paytda texnik rejimda — kechasi yangilang.
+- `--rollback` ham Horizon va ARI'ni to'xtatib bazani tiklaydi. Tiklashdan oldin zaxirada yo'q jadvallar (yangi versiya migratsiyalari yaratgan) o'chiriladi — eski kod bilan keyingi `migrate` "already exists" bilan to'xtamaydi.
+- Supervisor'ga ruxsat bo'lmasa (`sudoers` yozilmagan eski o'rnatish yoki dev) — Horizon va ARI to'xtatilmaydi, oxirida eski usulda qayta ishga tushadi; `install.sh` ni qayta ishga tushirish ruxsatni qo'shadi.
 - `--ref=<teg>` dan keyingi oddiy `ibtaxi:update` avval asosiy tarmoqqa (`main`) qaytadi.
 - `--rollback` yangilanishdan keyin yozilgan ma'lumotlarni (buyurtmalar, to'lovlar) o'chiradi — faqat yangilanishdan keyin darhol ishlating. Oxirgi yangilanish zaxirasi keyingi yangilanishgacha o'chirilmaydi (14 kunlik tozalashdan qat'i nazar).
 - `deploy/asterisk/*.conf` o'zgargan bo'lsa, `ibtaxi:update` oxirida buyruqni ko'rsatadi (root kerak):
@@ -231,7 +236,9 @@ sudo -u ibtaxi php artisan ibtaxi:update --rollback # muammo bo'lsa — oldingi 
 
 ## 7. Zaxira va tiklash
 
-- Har kuni 02:30 `ibtaxi:backup`: baza (`*.dump`) + fayllar va `.env` (`*.files.tar.gz`) → `storage/app/private/backups`, 14 kun saqlanadi.
+- Har kuni 02:30 (Toshkent) `ibtaxi:backup`: baza (`*.dump`) + fayllar va `.env` (`*.files.tar.gz`) → `storage/app/private/backups`, 14 kun saqlanadi (`--keep=`).
+- Zaxira serverida (SFTP) ham eski nusxalar o'chiriladi: kunlik — `--keep` kundan eski, suhbat yozuvlari — yozuvlarni saqlash muddatidan (Sozlamalar, standart 90 kun) eski, xarita to'plamidan — oxirgi ikkitasi qoladi. Boshqa fayllarga tegilmaydi.
+- SFTP host kaliti: integratsiyada `host_fingerprint` (masalan `ssh-keyscan -t ed25519 <host> | ssh-keygen -lf -` dagi `SHA256:...`) bo'lsa — boshqa server o'zini zaxira serveri deb ko'rsata olmaydi.
 - **Suhbat yozuvlari kunlik arxivga kirmaydi** (oyiga GB'lab o'sadi). Zaxira SFTP sozlangan bo'lsa, har kuni faqat **kechagi kun** yozuvlari alohida arxiv (`<sana>_recordings.tar`) bo'lib SFTP'ga yuboriladi va mahalliy nusxasi o'chiriladi (yozuvlar serverda baribir bor). Yuborilmay qolganlari keyingi kuni qayta yuboriladi.
   SFTP keyinroq sozlansa, eski yozuvlarni bir marta yuborish: `sudo -u ibtaxi php artisan ibtaxi:backup --recordings-from=2026-01-01`.
 - **Zaxira serverning o'zida turadi** — disk buzilsa yo'qoladi. Panel → Integratsiyalar → zaxira SFTP'ni albatta sozlang.
@@ -254,12 +261,12 @@ Tiklangan bazada eski superadmin bo'ladi — `ibtaxi:init` yaratgan login ishlam
 
 Xarita ikki joyda turadi:
 
-| Nima                                                                                          | Qayerda                          | Zaxirasi            |
-| --------------------------------------------------------------------------------------------- | -------------------------------- | ------------------- |
-| Mo'ljallar, ko'chalar, manzillar, hududlar; admin tuzatgan nomlar va operator qo'shgan joylar | baza                             | har kuni (`*.dump`) |
-| Xarita tile'lari va shriftlar                                                                 | `public/map` (~200 MB)           | **xarita to'plami** |
-| OSM eksportlari                                                                               | `storage/app/osm` (~350 MB)      | **xarita to'plami** |
-| OSRM marshrut ma'lumoti                                                                       | `/var/lib/ibtaxi/osrm` (~350 MB) | **xarita to'plami** |
+| Nima                                                                                          | Qayerda                          | Zaxirasi                                            |
+| --------------------------------------------------------------------------------------------- | -------------------------------- | --------------------------------------------------- |
+| Mo'ljallar, ko'chalar, manzillar, hududlar; admin tuzatgan nomlar va operator qo'shgan joylar | baza                             | har kuni (`*.dump`) va xarita to'plami (`map.dump`) |
+| Xarita tile'lari va shriftlar                                                                 | `public/map` (~200 MB)           | **xarita to'plami**                                 |
+| OSM eksportlari                                                                               | `storage/app/osm` (~350 MB)      | **xarita to'plami**                                 |
+| OSRM marshrut ma'lumoti                                                                       | `/var/lib/ibtaxi/osrm` (~350 MB) | **xarita to'plami**                                 |
 
 Xarita to'plami — `php artisan ibtaxi:map-export` (har yakshanba 03:00 avtomatik, SFTP sozlangan bo'lsa u yerga ham yuboriladi; mahalliy faqat oxirgisi saqlanadi):
 
@@ -267,7 +274,21 @@ Xarita to'plami — `php artisan ibtaxi:map-export` (har yakshanba 03:00 avtomat
 sudo -u ibtaxi php artisan ibtaxi:map-export --upload     # qo'lda: storage/app/private/backups/<sana>_map.tar
 ```
 
-Yangi serverga ko'chirish — xarita internetdan qayta yasalmaydi (bir necha soat va Protomaps/Geofabrik'ga bog'liqlik yo'q):
+To'plam ichida (qaror #65) bazadagi xarita qismi ham bor — `map.dump` (`pg_dump --data-only`, faqat `regions`, `landmarks`, `street_renames`; ID'lar saqlanadi). Buyurtma, mijoz, haydovchi, pul ma'lumotlari va foydalanuvchilar **kirmaydi**.
+
+**Tuzatilgan xaritani yangi firmaga berish** (masalan Farg'onada ishlayotgan firmaning xaritasi shu shahardagi yangi xaridorga):
+
+```bash
+# 1. Manba serverda (tuzatilgan xarita shu yerda)
+sudo -u ibtaxi php artisan ibtaxi:map-export            # storage/app/private/backups/<sana>_map.tar
+# 2. Faylni yangi firma serveriga ko'chiring (scp), so'ng u yerda
+sudo ./deploy/install.sh --prod --domain=taxi.yangifirma.uz --email=admin@yangifirma.uz --map-bundle=/root/<sana>_map.tar
+```
+
+`install.sh` migratsiya va `ibtaxi:init` dan keyin `map-restore.sh` ni chaqiradi: fayllar joyiga tushadi, so'ng `ibtaxi:map-import` bitta tranzaksiyada 3 jadvalni tozalab yuklaydi — `created_by` → NULL (eski firma foydalanuvchilari), `usage_count` → 0 (eski firma statistikasi), `edited_at` saqlanadi, sequence'lar yangilanadi. OSM importi (`regions:import`, `landmarks:import`) va ochiq joylar importi **o'tkazib yuboriladi** — ular o'chirilgan mo'ljallarni qaytarardi. Tahrirlangan nomlar, qo'lda qo'shilgan va o'chirilgan mo'ljallar, qayta nomlangan ko'chalar aynan manba serverdagidek bo'ladi.
+Ishlab turgan serverda (filial hududi yoki mijoz manzillari mavjud xaritaga bog'langan) `ibtaxi:map-import` rad etadi va hech narsa o'zgarmaydi; ataylab almashtirish — `sudo -u ibtaxi php artisan ibtaxi:map-import <fayl> --force` (ID'lari saqlangan bog'lanishlar tiklanadi, qolganlari bo'shatiladi). Manba va yangi server bir xil versiyada bo'lishi kerak (ustunlar mos kelmasa import rad etiladi).
+
+**Shu firmaning o'zi serverini almashtirsa** — xarita to'plami + to'liq zaxira (baza to'liq tiklanadi, `map.dump` ustidan yoziladi):
 
 ```bash
 # eski serverdan <sana>_map.tar, <sana>_daily.dump, <sana>_daily.files.tar.gz ni yangi serverga ko'chiring
@@ -279,7 +300,7 @@ Qayta nomlangan ko'chalar (admin → "Ko'cha nomlari") OSM importidan keyin avto
 
 Ochiq joylarni yangilash (mavjud serverda ham): `sudo ./deploy/places-prepare.sh`, so'ng `php artisan landmarks:import --source=overture`, `--source=wikidata` va `--source=geonames`. OSM'dagi mo'ljaldan 150 m ichidagi o'xshash nomlilar takror sifatida o'tkazib yuboriladi (GeoNames qishloq/mahallalari — boshqa qishloq/mahalladan 2 km ichida); litsenziya eslatmalari `storage/app/osm/places-overture.NOTICE.txt` va `places-geonames.NOTICE.txt` (to'plam bilan birga tarqatiladi). GeoNames CC-BY 4.0 — xaritadagi "GeoNames" atributsiyasini olib tashlamang (qaror #64).
 
-To'plamni o'rnatilgan serverga alohida tiklash: `sudo ./deploy/map-restore.sh /root/<sana>_map.tar` (tile'lar, OSM fayllari, OSRM ma'lumoti va `ibtaxi-osrm` xizmati).
+To'plamni o'rnatilgan serverga alohida tiklash: `sudo ./deploy/map-restore.sh /root/<sana>_map.tar` (tile'lar, OSM fayllari, OSRM ma'lumoti va `ibtaxi-osrm` xizmati; `map.dump` bo'lsa — `ibtaxi:map-import`, yuqoridagi cheklov bilan).
 
 > Xarita fayllari va mo'ljallar faqat **ochiq manbalardan** (OpenStreetMap, Protomaps; mo'ljallar uchun Overture Maps places — CDLA-Permissive-2.0/Apache-2.0/CC0, Wikidata — CC0, qaror #60; GeoNames — CC-BY 4.0, qaror #64) yoki firmaning o'z xodimlari kiritgan ma'lumotdan bo'lishi kerak.
 > Yandex, Google, 2GIS kabi xaritalardan nom yoki koordinata ko'chirilgan bo'lsa — bu mualliflik huquqini buzadi; bunday ma'lumot to'plamga ham, firmaga sotiladigan serverga ham tushmasligi kerak.

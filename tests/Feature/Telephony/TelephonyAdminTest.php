@@ -5,8 +5,10 @@ use App\Models\Branch;
 use App\Models\Call;
 use App\Models\Driver;
 use App\Models\PhoneNumber;
+use App\Models\Pjsip\PsAor;
 use App\Models\Pjsip\PsAuth;
 use App\Models\Pjsip\PsEndpoint;
+use App\Models\Pjsip\PsRegistration;
 use App\Models\SipTrunk;
 use App\Models\SoundClip;
 use App\Models\User;
@@ -240,4 +242,39 @@ test('telephony:sync converts legacy plaintext extension auth rows to md5', func
     expect($auth->auth_type)->toBe('md5')
         ->and($auth->password)->toBeNull()
         ->and($auth->md5_cred)->toBe(md5("{$id}:".Extensions::REALM.':'.$operator->sip_password));
+});
+
+test('renaming a trunk removes the Asterisk rows of the old name', function () {
+    $trunk = SipTrunk::query()->create(['name' => 'sarkor', 'title' => 'Sarkor', 'host' => '10.0.0.5', 'username' => '712000000', 'password' => 'secret', 'is_active' => true]);
+    expect(PsRegistration::query()->find('reg-trunk-sarkor'))->not->toBeNull();
+
+    $trunk->update(['name' => 'uztelecom']);
+
+    expect(PsEndpoint::query()->find('trunk-sarkor'))->toBeNull()
+        ->and(PsAor::query()->find('aor-trunk-sarkor'))->toBeNull()
+        ->and(PsAuth::query()->find('auth-trunk-sarkor'))->toBeNull()
+        ->and(PsRegistration::query()->find('reg-trunk-sarkor'))->toBeNull()
+        ->and(PsEndpoint::query()->find('trunk-uztelecom'))->not->toBeNull()
+        ->and(PsRegistration::query()->find('reg-trunk-uztelecom'))->not->toBeNull();
+});
+
+test('sync prunes trunk rows left without an active trunk', function () {
+    SipTrunk::query()->create(['name' => 'sarkor', 'title' => 'Sarkor', 'host' => '10.0.0.5', 'is_active' => true]);
+    PsEndpoint::query()->create(['id' => 'trunk-old', 'aors' => 'aor-trunk-old']);
+    PsAor::query()->create(['id' => 'aor-trunk-old']);
+    PsAor::query()->create(['id' => 'aor-trunk-gone']);
+
+    expect(app(Extensions::class)->pruneOrphans())->toBe(2)
+        ->and(PsEndpoint::query()->find('trunk-old'))->toBeNull()
+        ->and(PsAor::query()->whereIn('id', ['aor-trunk-old', 'aor-trunk-gone'])->exists())->toBeFalse()
+        ->and(PsEndpoint::query()->find('trunk-sarkor'))->not->toBeNull();
+});
+
+test('caller ID names cannot break out of the quoted name', function () {
+    expect(Extensions::callerName("Ali \"x\" <999>\\\n"))->toBe('Ali x 999');
+
+    $operator = User::factory()->create(['name' => 'Eve" <1000>', 'branch_id' => $this->branch->id])->assignRole(Role::Operator);
+    app(Extensions::class)->syncFor($operator);
+
+    expect(PsEndpoint::query()->find('op'.$operator->id)->callerid)->toBe('"Eve 1000" <op'.$operator->id.'>');
 });

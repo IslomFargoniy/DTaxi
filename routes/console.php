@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\PersonalAccessToken;
 
 Artisan::command('regions:import
     {--file= : GeoJSON fayl (standart: storage/app/osm/boundaries.geojsonseq)}
@@ -77,7 +78,7 @@ Artisan::command('telephony:sync', function (Extensions $extensions, TrunkSync $
     SipTrunk::query()->each(fn (SipTrunk $trunk) => $trunks->sync($trunk));
     $orphans = $extensions->pruneOrphans();
 
-    $this->info("Tayyor: {$users} foydalanuvchi va trunklar Asterisk Realtime'ga yozildi, {$orphans} ta eski ichki raqam o'chirildi.");
+    $this->info("Tayyor: {$users} foydalanuvchi va trunklar Asterisk Realtime'ga yozildi, {$orphans} ta eski yozuv (ichki raqam yoki trunk) o'chirildi.");
 })->purpose('Ichki raqamlar va SIP trunklarni Asterisk jadvallariga qayta yozish');
 
 Artisan::command('recordings:cleanup', function (Settings $settings) {
@@ -98,11 +99,11 @@ Artisan::command('recordings:cleanup', function (Settings $settings) {
     $this->info("O'chirildi: {$deleted} ta yozuv ({$days} kundan eski).");
 })->purpose("Muddati o'tgan suhbat yozuvlarini o'chirish (qaror #34)");
 
-Schedule::command('recordings:cleanup')->dailyAt('03:30')->withoutOverlapping();
+Schedule::command('recordings:cleanup')->dailyAt('03:30')->withoutOverlapping(120);
 
 Artisan::command('ibtaxi:backup
     {--keep=14 : Necha kunlik zaxira saqlanadi}
-    {--recordings-from= : Suhbat yozuvlarini shu kundan (Y-m-d) kechagacha zaxira serveriga yuborish (birinchi sozlashda)}', function (Backup $backup) {
+    {--recordings-from= : Suhbat yozuvlarini shu kundan (Y-m-d) kechagacha zaxira serveriga yuborish (birinchi sozlashda)}', function (Backup $backup, Settings $settings) {
     $file = $backup->create();
     $files = $backup->createFiles();
     $pruned = $backup->prune((int) $this->option('keep'));
@@ -130,6 +131,11 @@ Artisan::command('ibtaxi:backup
             if ($pending !== []) {
                 $this->info('Suhbat yozuvlari: '.count($pending).' kunlik arxiv yuborildi.');
             }
+
+            $remote = $backup->pruneRemote((int) $this->option('keep'), (int) $settings->get('calls.recordings_retention_days'));
+            if ($remote > 0) {
+                $this->info("Zaxira serverida o'chirildi: {$remote} ta eski nusxa.");
+            }
         }
     } catch (Throwable $e) {
         // Mahalliy zaxira baribir bor; monitoring (ibtaxi:health) ogohlantiradi
@@ -146,7 +152,8 @@ Artisan::command('ari:restart', function () {
     $this->info('ari:listen qayta ishga tushadi (supervisor).');
 })->purpose('ARI daemonini yangi kod bilan qayta ishga tushirish');
 
-Schedule::command('ibtaxi:backup')->dailyAt('02:30')->withoutOverlapping();
+// Fonda: bir soatlab davom etishi mumkin, shu vaqtda har daqiqalik vazifalar (efir, oflayn) to'xtamasin
+Schedule::command('ibtaxi:backup')->dailyAt('02:30')->withoutOverlapping(720)->runInBackground();
 
 Artisan::command('ibtaxi:map-export {--upload : Zaxira serveriga (SFTP) ham yuborish}', function (Backup $backup) {
     $file = $backup->createMap();
@@ -168,10 +175,10 @@ Artisan::command('ibtaxi:map-export {--upload : Zaxira serveriga (SFTP) ham yubo
             $this->error('Zaxira serveriga yuborilmadi: '.$e->getMessage());
         }
     }
-})->purpose('Xarita to\'plami (tile, OSM, OSRM) — boshqa serverga ko\'chirishda xarita qayta yasalmaydi');
+})->purpose('Xarita to\'plami (tile, OSM, OSRM va bazadagi hududlar, mo\'ljallar, ko\'cha nomlari) — boshqa serverga ko\'chirishda xarita qayta yasalmaydi');
 
 // Har hafta: xarita deyarli o'zgarmaydi, lekin admin tuzatgan nomlar va yangilangan tile'lar ham saqlansin
-Schedule::command('ibtaxi:map-export --upload')->weeklyOn(0, '03:00')->withoutOverlapping();
+Schedule::command('ibtaxi:map-export --upload')->weeklyOn(0, '03:00')->withoutOverlapping(720)->runInBackground();
 
 Artisan::command('orders:dispatch-scheduled', function (OrderService $orders) {
     $count = $orders->dispatchScheduled();
@@ -180,14 +187,15 @@ Artisan::command('orders:dispatch-scheduled', function (OrderService $orders) {
     }
 })->purpose('Vaqti yaqinlashgan oldindan buyurtmalarni efirga chiqarish');
 
-Schedule::command('orders:dispatch-scheduled')->everyMinute()->withoutOverlapping();
+// Muddat — jarayon o'lib qolsa (OOM, server qayta yuklandi) qulf abadiy qolib, vazifa boshqa ishlamay qolmasin
+Schedule::command('orders:dispatch-scheduled')->everyMinute()->withoutOverlapping(2);
 
 Artisan::command('ibtaxi:health', function (HealthCheck $health) {
     $problems = $health->run();
     $problems === [] ? $this->info('Hammasi joyida') : array_map(fn ($p) => $this->warn($p), $problems);
 })->purpose('Tizim holatini tekshirish (Asterisk, trunk, OSRM, navbatlar, disk, zaxira)');
 
-Schedule::command('ibtaxi:health')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('ibtaxi:health')->everyFiveMinutes()->withoutOverlapping(10);
 
 Artisan::command('drivers:release-stuck', function () {
     // Faol buyurtmasi yo'q "band" haydovchi (masalan bekor qilish va qabul qilish bir vaqtga to'g'ri kelgan) —
@@ -205,7 +213,7 @@ Artisan::command('drivers:release-stuck', function () {
     }
 })->purpose("Faol buyurtmasiz \"band\" qolib ketgan haydovchilarni bo'shatish");
 
-Schedule::command('drivers:release-stuck')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('drivers:release-stuck')->everyFiveMinutes()->withoutOverlapping(10);
 
 Artisan::command('drivers:mark-offline', function (DriverHeartbeat $heartbeat) {
     $count = $heartbeat->markSilentOffline();
@@ -214,7 +222,7 @@ Artisan::command('drivers:mark-offline', function (DriverHeartbeat $heartbeat) {
     }
 })->purpose("GPS yubormay qo'ygan \"bo'sh\" haydovchilarni oflayn qilish");
 
-Schedule::command('drivers:mark-offline')->everyMinute()->withoutOverlapping();
+Schedule::command('drivers:mark-offline')->everyMinute()->withoutOverlapping(2);
 
 Artisan::command('drivers:balance-check', function (DriverBalance $balance) {
     $mismatches = $balance->mismatches();
@@ -231,7 +239,7 @@ Artisan::command('drivers:balance-check', function (DriverBalance $balance) {
     array_map(fn (string $line) => $this->warn($line), $lines);
 })->purpose('Haydovchi balanslarini harakatlar tarixi bilan solishtirish');
 
-Schedule::command('drivers:balance-check')->dailyAt('03:00')->withoutOverlapping();
+Schedule::command('drivers:balance-check')->dailyAt('03:00')->withoutOverlapping(120);
 
 Artisan::command('locations:prune', function (Settings $settings) {
     $days = (int) $settings->get('drivers.locations_retention_days');
@@ -246,9 +254,22 @@ Artisan::command('locations:prune', function (Settings $settings) {
     $this->info("O'chirildi: {$deleted} ta GPS nuqta ({$days} kundan eski).");
 })->purpose("Eski GPS nuqtalarini o'chirish");
 
-Schedule::command('locations:prune')->dailyAt('04:00')->withoutOverlapping();
+Schedule::command('locations:prune')->dailyAt('04:00')->withoutOverlapping(120);
 Schedule::command('queue:prune-failed --hours=720')->daily();
 Schedule::command('auth:clear-resets')->daily();
+
+Artisan::command('tokens:prune-idle', function () {
+    // Bunday token baribir rad etiladi (sanctum.idle_expiration_days) — faqat jadvalni tozalaymiz
+    $before = now()->subDays((int) config('sanctum.idle_expiration_days', 60));
+    $deleted = PersonalAccessToken::query()
+        ->where(fn ($q) => $q->where('last_used_at', '<', $before)
+            ->orWhere(fn ($q) => $q->whereNull('last_used_at')->where('created_at', '<', $before)))
+        ->delete();
+
+    $this->info("O'chirildi: {$deleted} ta ishlatilmagan token.");
+})->purpose("Uzoq ishlatilmagan API tokenlarini o'chirish");
+
+Schedule::command('tokens:prune-idle')->dailyAt('04:30')->withoutOverlapping(120);
 
 Artisan::command('orders:rebroadcast', function (Dispatcher $dispatcher, OrderService $orders) {
     $expired = $orders->expireUnanswered();
@@ -262,13 +283,24 @@ Artisan::command('orders:rebroadcast', function (Dispatcher $dispatcher, OrderSe
     }
 })->purpose('Hech kim olmagan buyurtmalarni qayta efirga chiqarish');
 
-Schedule::command('orders:rebroadcast')->everyMinute()->withoutOverlapping();
+Schedule::command('orders:rebroadcast')->everyMinute()->withoutOverlapping(2);
 
 Artisan::command('telephony:trunk-ips', function () {
     // deploy/sip-firewall.sh (root, cron) shu ro'yxat bo'yicha 5060/udp ni faqat trunk'larga ochadi
-    SipTrunk::query()->where('is_active', true)->pluck('host')
-        ->flatMap(fn (string $host) => filter_var($host, FILTER_VALIDATE_IP) ? [$host] : (gethostbynamel($host) ?: []))
-        ->unique()->sort()->each(fn (string $ip) => $this->line($ip));
+    $ips = [];
+    foreach (SipTrunk::query()->where('is_active', true)->pluck('host') as $host) {
+        $resolved = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : gethostbynamel($host);
+        if ($resolved === false) {
+            // DNS vaqtincha javob bermasa ro'yxat qisqarib, trunk uzilib qolmasin — skript eski qoidalarni saqlaydi
+            $this->error("DNS: {$host} topilmadi");
+
+            return 1;
+        }
+        array_push($ips, ...$resolved);
+    }
+    collect($ips)->unique()->sort()->each(fn (string $ip) => $this->line($ip));
+
+    return 0;
 })->purpose("Faol SIP trunk'larning IP manzillari (xavfsizlik devori uchun)");
 
 Artisan::command('lang:cyrillic', function () {

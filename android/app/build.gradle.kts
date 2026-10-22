@@ -21,6 +21,20 @@ val keystoreProps = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
+// Debug kalit bilan imzolash faqat lokal sinov ilovalarida: firma ilovasi keyin o'z kaliti bilan chiqsa,
+// telefonlardagi eski ilova ustiga yangilanish o'rnatilmaydi (imzo boshqa) — shuning uchun release to'xtatiladi
+val debugSigningAllowed = firm in setOf("dev", "lan")
+val firmSigningReady = keystoreProps.isNotEmpty() && File(firmDir, "keystore.jks").exists()
+gradle.taskGraph.whenReady {
+    val releaseRequested = allTasks.any { it.project == project && it.name.contains("Release") }
+    if (releaseRequested && !firmSigningReady && !debugSigningAllowed) {
+        throw GradleException(
+            "firms/$firm/keystore.jks yoki keystore.properties topilmadi — firma ilovasi faqat o'z kaliti bilan " +
+                "imzolanadi (firms/README.md). Debug kalit faqat -Pfirm=dev/lan uchun.",
+        )
+    }
+}
+
 // Tarmoq xavfsizligi: cleartext faqat http serverda (lokal sinov); firms/<firm>/dev-ca.pem bo'lsa —
 // lokal sinov serverining self-signed sertifikatiga faqat debug build ishonadi (WebRTC qo'ng'iroq WSS uchun)
 val devCa = File(firmDir, "dev-ca.pem")
@@ -86,7 +100,7 @@ android {
     }
 
     signingConfigs {
-        if (keystoreProps.isNotEmpty()) {
+        if (firmSigningReady) {
             create("firm") {
                 storeFile = File(firmDir, "keystore.jks")
                 storePassword = keystoreProps.getProperty("storePassword")
@@ -101,7 +115,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.findByName("firm") ?: signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("firm") ?: signingConfigs.getByName("debug").takeIf { debugSigningAllowed }
         }
     }
 

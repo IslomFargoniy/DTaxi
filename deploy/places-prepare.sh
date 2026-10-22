@@ -9,8 +9,8 @@
 # Chiqish: <papka>/places-<manba>.geojsonseq (+ overture uchun litsenziya NOTICE fayli).
 # Qayta ishga tushirish xavfsiz: fayllar vaqtinchalik nomga yozilib, oxirida almashtiriladi.
 #
-#   ./places-prepare.sh [chiqish_papkasi]          standart: <loyiha>/storage/app/osm
-#   BBOX=55.9,37.1,73.2,45.6 ./places-prepare.sh    butun O'zbekiston
+#   ./places-prepare.sh [chiqish_papkasi]          standart: <loyiha>/storage/app/osm, butun O'zbekiston (qaror #67)
+#   BBOX=70.4,39.9,73.3,41.6 ./places-prepare.sh    faqat Farg'ona vodiysi
 #   SOURCES=wikidata ./places-prepare.sh            faqat bitta manba
 #   OVERTURE_MIN_CONFIDENCE=0.5                     Overture ishonch chegarasi (pastlari — ko'pincha axlat)
 #   GEONAMES_COUNTRIES="UZ KG TJ"                   GeoNames mamlakat fayllari (BBOX bo'yicha kesiladi)
@@ -18,7 +18,7 @@
 set -euo pipefail
 
 OUT_DIR="${1:-$(cd "$(dirname "$0")/.." && pwd)/storage/app/osm}"
-BBOX="${BBOX:-70.4,39.9,73.3,41.6}"
+BBOX="${BBOX:-55.9,37.1,73.2,45.6}"
 SOURCES="${SOURCES:-overture wikidata geonames}"
 GEONAMES_COUNTRIES="${GEONAMES_COUNTRIES:-UZ KG TJ}"
 MIN_CONFIDENCE="${OVERTURE_MIN_CONFIDENCE:-0.5}"

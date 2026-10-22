@@ -143,15 +143,25 @@ class OrderController extends Controller
             'dropoff_text' => $order->dropoff_text,
             'dropoff' => $this->latLng($order->dropoff_location),
             'start' => $this->latLng($start),
-            'start_name' => $start ? Landmark::nameAt($start) : null,
+            'start_name' => $start ? $this->placeName($order->start_name, $start) : null,
             'finish' => $this->latLng($finish),
-            'finish_name' => $finish ? Landmark::nameAt($finish) : null,
+            'finish_name' => $finish ? $this->placeName($order->finish_name, $finish) : null,
             'distance_m' => $mine ? $order->distance_m : null,
             'duration_s' => $mine ? $order->duration_s : null,
             'price' => $mine ? $order->price_final : null,
             'commission' => $mine ? $order->commission : null,
             'cashless' => $order->company_id !== null,
         ];
+    }
+
+    /**
+     * Nom safar paytida yozilgan; faqat eski buyurtmalarda (ustun bo'sh) joyida qidiriladi. Bo'sh satr — nom topilmagan.
+     */
+    private function placeName(?string $stored, Point $point): ?string
+    {
+        $name = $stored ?? Landmark::nameAt($point);
+
+        return $name === '' ? null : $name;
     }
 
     /**

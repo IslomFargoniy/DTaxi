@@ -127,6 +127,14 @@ test('operator adds a new landmark from the map', function () {
     expect(Landmark::query()->where('name', "Yangi to'yxona")->exists())->toBeTrue();
 });
 
+test('the unnamed map point placeholder is never saved as a landmark', function (string $name) {
+    $this->actingAs($this->operator)->postJson(route('operator.landmarks.store'), [
+        'name' => $name, 'lat' => 42.46, 'lng' => 59.61,
+    ])->assertJsonValidationErrors('name');
+
+    expect(Landmark::query()->where('name', $name)->exists())->toBeFalse();
+})->with(['Xaritadagi nuqta', 'Харитадаги нуқта', 'Точка на карте', 'Point on the map']);
+
 test('operator assigns a driver manually', function () {
     $driver = driverNear($this->branch, 400);
     $order = app(OrderService::class)->create(orderData($this->branch), dispatch: false);

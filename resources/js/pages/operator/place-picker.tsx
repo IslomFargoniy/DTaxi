@@ -147,9 +147,12 @@ export function PlacePicker({
 
     const hasValue = value.text !== '' || value.lat !== null;
 
+    // Xaritadan avtomatik qo'yilgan matn ("Xaritadagi nuqta" yoki yaqin uy manzili) mo'ljal nomi emas —
+    // operator nomni o'zi yozgandagina saqlanadi
     const canSaveLandmark =
         value.lat !== null &&
         !value.landmarkId &&
+        !value.auto &&
         value.text.trim().length >= 2;
 
     return (

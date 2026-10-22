@@ -35,6 +35,7 @@ class LandmarkController extends Controller
                 'lng' => $l->location->getLongitude(),
             ]),
             'filters' => ['q' => $q],
+            'canManage' => $request->user()?->can('landmarks.manage') ?? false,
             'map' => ['tiles' => config('services.tiles.url')],
         ]);
     }

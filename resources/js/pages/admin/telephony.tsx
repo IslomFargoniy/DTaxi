@@ -854,6 +854,7 @@ export default function Telephony({
                                     <Button
                                         size="icon"
                                         variant="ghost"
+                                        aria-label={t('Delete')}
                                         onClick={(ev) => {
                                             ev.stopPropagation();
                                             remove(
@@ -946,6 +947,7 @@ export default function Telephony({
                                     <Button
                                         size="icon"
                                         variant="ghost"
+                                        aria-label={t('Delete')}
                                         onClick={(ev) => {
                                             ev.stopPropagation();
                                             remove(

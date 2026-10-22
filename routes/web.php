@@ -144,6 +144,10 @@ Route::middleware(['auth', 'permission:orders.view'])->prefix('admin')->name('ad
     Route::post('orders/{order}/rating', [OrderHistoryController::class, 'rate'])->name('orders.rate');
     Route::put('clients/{client}', [ClientController::class, 'update'])->name('clients.update');
     Route::get('landmarks', [LandmarkController::class, 'index'])->name('landmarks.index');
+});
+
+// Mo'ljallar firma bo'yicha umumiy — tahrirlash/o'chirish admin; operator faqat yangisini qo'shadi (operator.landmarks.store)
+Route::middleware(['auth', 'permission:landmarks.manage'])->prefix('admin')->name('admin.')->group(function () {
     Route::put('landmarks/{landmark}', [LandmarkController::class, 'update'])->name('landmarks.update');
     Route::delete('landmarks/{landmark}', [LandmarkController::class, 'destroy'])->name('landmarks.destroy');
 });
@@ -182,7 +186,9 @@ Route::middleware(['auth', 'permission:orders.manage'])->prefix('operator')->nam
     Route::get('phone', [PhoneController::class, 'show'])->name('phone.show');
     Route::post('phone/status', [PhoneController::class, 'status'])->name('phone.status');
     Route::get('phone/missed', [PhoneController::class, 'missed'])->name('phone.missed');
+});
 
+Route::middleware(['auth', 'permission:chat.drivers'])->prefix('operator')->name('operator.')->group(function () {
     Route::get('chat', [ChatController::class, 'threads'])->name('chat.threads');
     Route::get('chat/{driver}', [ChatController::class, 'messages'])->name('chat.messages');
     Route::post('chat/{driver}', [ChatController::class, 'send'])->name('chat.send');

@@ -11,8 +11,8 @@ APP_USER="${APP_USER:-www-data}"
 STATE=/var/lib/ibtaxi/sip-ips
 
 mkdir -p "$(dirname "$STATE")"
-# Baza yoki kod vaqtincha ishlamasa (yangilanish paytida) — mavjud qoidalarga tegilmaydi,
-# aks holda barcha trunk'lar uzilib qolardi
+# Baza yoki kod vaqtincha ishlamasa (yangilanish paytida) yoki trunk host nomi DNS'da topilmasa (buyruq xato kodi
+# bilan chiqadi) — mavjud qoidalarga tegilmaydi, aks holda barcha yoki ba'zi trunk'lar uzilib qolardi
 if ! RAW=$(sudo -u "$APP_USER" php "$APP_DIR/artisan" telephony:trunk-ips 2>/dev/null); then
     logger -t ibtaxi-sip "telephony:trunk-ips ishlamadi — qoidalar o'zgartirilmadi"
     exit 0

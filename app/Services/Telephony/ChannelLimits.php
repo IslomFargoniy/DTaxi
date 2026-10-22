@@ -12,9 +12,14 @@ use App\Models\SipTrunk;
  */
 class ChannelLimits
 {
-    public function canAcceptInbound(SipTrunk $trunk, ?Branch $branch = null): bool
+    /**
+     * @phpstan-impure
+     *
+     * @param  int|null  $exceptCallId  tekshirilayotgan qo'ng'iroqning o'zi (qator limit tekshiruvidan oldin yozilgan) — sanalmaydi
+     */
+    public function canAcceptInbound(SipTrunk $trunk, ?Branch $branch = null, ?int $exceptCallId = null): bool
     {
-        $active = $this->active($trunk);
+        $active = $this->active($trunk, $exceptCallId);
 
         if ($active['total'] >= $trunk->max_channels) {
             return false;
@@ -23,11 +28,13 @@ class ChannelLimits
             return false;
         }
 
-        return ! $branch?->max_channels || $this->activeForBranch($branch) < $branch->max_channels;
+        return ! $branch?->max_channels || $this->activeForBranch($branch, $exceptCallId) < $branch->max_channels;
     }
 
     /**
      * Avto-qo'ng'iroqlar (TTS) operator liniyalarini band qilib qo'ymasligi uchun alohida ulush.
+     *
+     * @phpstan-impure
      */
     public function canPlaceAutoCall(SipTrunk $trunk, Branch $branch): bool
     {
@@ -51,10 +58,12 @@ class ChannelLimits
 
     /**
      * Operatorning qayta qo'ng'irog'i (callback): avto-qo'ng'iroq ulushiga kirmaydi.
+     *
+     * @phpstan-impure
      */
-    public function canPlaceOutbound(SipTrunk $trunk, ?Branch $branch = null): bool
+    public function canPlaceOutbound(SipTrunk $trunk, ?Branch $branch = null, ?int $exceptCallId = null): bool
     {
-        $active = $this->active($trunk);
+        $active = $this->active($trunk, $exceptCallId);
 
         if ($active['total'] >= $trunk->max_channels) {
             return false;
@@ -63,16 +72,17 @@ class ChannelLimits
             return false;
         }
 
-        return ! $branch?->max_channels || $this->activeForBranch($branch) < $branch->max_channels;
+        return ! $branch?->max_channels || $this->activeForBranch($branch, $exceptCallId) < $branch->max_channels;
     }
 
     /**
      * @return array{total: int, inbound: int, outbound: int}
      */
-    public function active(SipTrunk $trunk): array
+    public function active(SipTrunk $trunk, ?int $exceptCallId = null): array
     {
         $rows = Call::query()->withoutGlobalScopes()
             ->where('sip_trunk_id', $trunk->id)
+            ->when($exceptCallId, fn ($q) => $q->whereKeyNot($exceptCallId))
             ->whereIn('status', Call::ACTIVE)
             ->selectRaw('direction, COUNT(*) AS total')
             ->groupBy('direction')
@@ -84,9 +94,10 @@ class ChannelLimits
         return ['total' => $inbound + $outbound, 'inbound' => $inbound, 'outbound' => $outbound];
     }
 
-    private function activeForBranch(Branch $branch): int
+    private function activeForBranch(Branch $branch, ?int $exceptCallId = null): int
     {
         return Call::query()->withoutGlobalScopes()->where('branch_id', $branch->id)
+            ->when($exceptCallId, fn ($q) => $q->whereKeyNot($exceptCallId))
             ->whereNotNull('sip_trunk_id')->whereIn('status', Call::ACTIVE)->count();
     }
 }

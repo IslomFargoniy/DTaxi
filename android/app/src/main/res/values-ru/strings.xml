@@ -74,6 +74,7 @@
     <string name="tx_penalty">Штраф</string>
     <string name="tx_bonus">Бонус</string>
     <string name="tx_adjustment">Корректировка</string>
+    <string name="tx_refund">Возврат</string>
     <string name="voice_guidance">Голосовые подсказки</string>
     <string name="server_address">Адрес сервера (IP Mac)</string>
     <string name="retry">Повторить</string>
@@ -172,4 +173,8 @@
     <string name="price">Цена</string>
     <string name="corporate_short">Корпоративный</string>
     <string name="track_missing">GPS-трек не сохранён — начало и конец соединены прямой линией</string>
+    <string name="notifications_denied_title">Уведомления выключены</string>
+    <string name="notifications_denied_text">Нет разрешения на уведомления — когда приложение в фоне, новые заказы и звонки диспетчера не будут видны. Включите уведомления в настройках.</string>
+    <string name="full_screen_denied_title">Заказы не видны на заблокированном экране</string>
+    <string name="full_screen_denied_text">Приложение не может показывать заказ и звонок на весь экран при блокировке. Включите в настройках разрешение \"Полноэкранные уведомления\".</string>
 </resources>

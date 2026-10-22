@@ -47,6 +47,10 @@ return [
 
     'expiration' => null,
 
+    // Haydovchi tokeni yaratilgan vaqtdan emas, oxirgi ishlatilgandan hisoblanadi: uzoq smenadagi
+    // haydovchi chiqarib yuborilmaydi, yo'qolgan/tashlab ketilgan telefon tokeni esa o'z-o'zidan o'ladi
+    'idle_expiration_days' => 60,
+
     /*
     |--------------------------------------------------------------------------
     | Token Prefix

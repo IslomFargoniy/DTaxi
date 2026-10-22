@@ -6,6 +6,7 @@ use App\Models\SipTrunk;
 use App\Services\Telephony\CallCenter;
 use App\Services\Telephony\TrunkSync;
 use Illuminate\Console\Command;
+use Illuminate\Database\DetectsLostConnections;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,8 @@ use function Ratchet\Client\connect;
  */
 class AriListen extends Command
 {
+    use DetectsLostConnections;
+
     protected $signature = 'ari:listen {--debug : Har bir ARI hodisasini chiqarish}';
 
     protected $description = "Asterisk ARI hodisalarini tinglash va qo'ng'iroqlarni boshqarish";
@@ -101,6 +104,10 @@ class AriListen extends Command
             try {
                 $fn();
             } catch (QueryException $e) {
+                // Faqat uzilgan ulanish: boshqa SQL xatosini takrorlash ishni ikki marta bajarardi (masalan ikkita qator)
+                if (! $this->causedByLostConnection($e)) {
+                    throw $e;
+                }
                 DB::reconnect();
                 $fn();
             }

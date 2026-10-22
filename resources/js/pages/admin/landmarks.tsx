@@ -126,9 +126,12 @@ function LandmarkDialog({
 export default function Landmarks({
     landmarks,
     filters,
+    canManage,
 }: {
     landmarks: Paginated<Landmark>;
     filters: { q: string };
+    /** Operator mo'ljal qo'sha oladi, lekin tahrirlash va o'chirish faqat boshqaruvchida (server 403 beradi) */
+    canManage: boolean;
 }) {
     const { t } = useTrans();
     const [editing, setEditing] = useState<Landmark | null>(null);
@@ -146,7 +149,7 @@ export default function Landmarks({
                 </div>
                 <DataTable
                     rows={landmarks.data}
-                    onRowClick={setEditing}
+                    onRowClick={canManage ? setEditing : undefined}
                     columns={[
                         {
                             key: 'name',
@@ -170,39 +173,48 @@ export default function Landmarks({
                             className: 'text-right',
                             render: (l) => l.usage_count,
                         },
-                        {
-                            key: 'actions',
-                            title: '',
-                            className: 'w-10',
-                            render: (l) => (
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (
-                                            window.confirm(
-                                                t('Delete this landmark?'),
-                                            )
-                                        ) {
-                                            router.delete(
-                                                LandmarkController.destroy.url(
-                                                    l.id,
-                                                ),
-                                                { preserveScroll: true },
-                                            );
-                                        }
-                                    }}
-                                >
-                                    <Trash2 />
-                                </Button>
-                            ),
-                        },
+                        ...(canManage
+                            ? [
+                                  {
+                                      key: 'actions',
+                                      title: '',
+                                      className: 'w-10',
+                                      render: (l: Landmark) => (
+                                          <Button
+                                              size="icon"
+                                              variant="ghost"
+                                              aria-label={t('Delete')}
+                                              onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  if (
+                                                      window.confirm(
+                                                          t(
+                                                              'Delete this landmark?',
+                                                          ),
+                                                      )
+                                                  ) {
+                                                      router.delete(
+                                                          LandmarkController.destroy.url(
+                                                              l.id,
+                                                          ),
+                                                          {
+                                                              preserveScroll: true,
+                                                          },
+                                                      );
+                                                  }
+                                              }}
+                                          >
+                                              <Trash2 />
+                                          </Button>
+                                      ),
+                                  },
+                              ]
+                            : []),
                     ]}
                 />
                 <Pagination links={landmarks.links} />
             </div>
-            {editing && (
+            {canManage && editing && (
                 <LandmarkDialog
                     landmark={editing}
                     onClose={() => setEditing(null)}

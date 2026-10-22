@@ -64,6 +64,24 @@ export function DataTable<T extends { id: number }>({
                                     'cursor-pointer hover:bg-accent/50',
                             )}
                             onClick={() => onRowClick?.(row)}
+                            // Klaviatura bilan ham ochilsin: Tab bilan qatorga kelib Enter/Space
+                            tabIndex={onRowClick ? 0 : undefined}
+                            role={onRowClick ? 'button' : undefined}
+                            onKeyDown={
+                                onRowClick
+                                    ? (e) => {
+                                          // Qator ichidagi tugma/havoladagi Enter o'ziniki bo'lib qolsin
+                                          if (
+                                              e.target === e.currentTarget &&
+                                              (e.key === 'Enter' ||
+                                                  e.key === ' ')
+                                          ) {
+                                              e.preventDefault();
+                                              onRowClick(row);
+                                          }
+                                      }
+                                    : undefined
+                            }
                         >
                             {columns.map((column) => (
                                 <td
@@ -90,6 +108,25 @@ export type Paginated<T> = {
     total: number;
 };
 
+const ENTITIES: Record<string, string> = {
+    '&laquo;': '«',
+    '&raquo;': '»',
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#039;': "'",
+    '&nbsp;': ' ',
+};
+
+/** Laravel sahifalash yorliqlarida HTML belgilar (&laquo;) keladi — HTML sifatida emas, matn sifatida chiqariladi */
+function pageLabel(label: string): string {
+    return label.replace(
+        /&(laquo|raquo|amp|lt|gt|quot|#039|nbsp);/g,
+        (m) => ENTITIES[m] ?? m,
+    );
+}
+
 export function Pagination({ links }: { links: Paginated<unknown>['links'] }) {
     if (links.length <= 3) {
         return null;
@@ -108,8 +145,9 @@ export function Pagination({ links }: { links: Paginated<unknown>['links'] }) {
                         link.active && 'bg-primary text-primary-foreground',
                         !link.url && 'pointer-events-none opacity-40',
                     )}
-                    dangerouslySetInnerHTML={{ __html: link.label }}
-                />
+                >
+                    {pageLabel(link.label)}
+                </Link>
             ))}
         </nav>
     );

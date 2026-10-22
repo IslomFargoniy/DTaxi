@@ -27,11 +27,14 @@ class OsmRegionImporter
 
         $stats = ['regions' => 0, 'children' => 0];
 
-        // 1-o'tish: viloyatlar — faqat O'zbekistonniki (fayl ichida qo'shni davlatlar ham bor)
-        foreach ($this->features($path, '4') as $feature) {
-            if (str_starts_with($feature['properties']['ISO3166-2'] ?? '', 'UZ-')) {
-                $this->store($feature, RegionType::Region, null);
-                $stats['regions']++;
+        // 1-o'tish: viloyatlar — faqat O'zbekistonniki (fayl ichida qo'shni davlatlar ham bor).
+        // Qoraqalpog'iston (UZ-QR) avtonom respublika sifatida admin_level=3 — busiz uning shahar/tumanlari va mo'ljallari tushib qolardi
+        foreach (['3', '4'] as $level) {
+            foreach ($this->features($path, $level) as $feature) {
+                if (str_starts_with($feature['properties']['ISO3166-2'] ?? '', 'UZ-')) {
+                    $this->store($feature, RegionType::Region, null);
+                    $stats['regions']++;
+                }
             }
         }
 
@@ -131,7 +134,8 @@ class OsmRegionImporter
     {
         $names = Str::lower(($tags['name:uz'] ?? '').' '.($tags['name'] ?? '').' '.($tags['name:ru'] ?? ''));
 
-        return Str::contains($names, ['tuman', 'район', 'district']) ? RegionType::District : RegionType::City;
+        // "rayon" — Qoraqalpog'istonda tumanlar qoraqalpoqcha "… rayonı" deb nomlangan
+        return Str::contains($names, ['tuman', 'rayon', 'район', 'district']) ? RegionType::District : RegionType::City;
     }
 
     /**

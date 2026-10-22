@@ -23,7 +23,7 @@ Route::prefix('payments')->middleware('throttle:120,1')->group(function () {
 });
 
 Route::prefix('driver/v1')->group(function () {
-    Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:driver-login');
     Route::get('app-version', [DriverAppController::class, 'version']);
 
     Route::middleware(['auth:sanctum', 'abilities:driver'])->group(function () {

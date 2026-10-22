@@ -11,4 +11,6 @@ enum TransactionType: string
     case Adjustment = 'adjustment';
     // Korporativ safar narxi — haydovchi naqd olmagan
     case Corporate = 'corporate';
+    // To'lov tizimi bajarilgan to'lovni qaytardi (Payme CancelTransaction)
+    case Refund = 'refund';
 }

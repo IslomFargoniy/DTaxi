@@ -10,11 +10,18 @@ use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Sleep;
 
 /**
- * Xavfsiz yangilanish (Bosqich 3b): zaxira → kod → bog'liqliklar → frontend → migratsiya → fon xizmatlarini qayta ishga tushirish.
+ * Xavfsiz yangilanish (Bosqich 3b): texnik rejim → zaxira → kod → bog'liqliklar → frontend → fon xizmatlarini to'xtatish →
+ * migratsiya → fon xizmatlarini qayta ishga tushirish.
  * Muammo bo'lsa: `php artisan ibtaxi:update --rollback` — oldingi kod va yangilanishdan oldingi baza.
  */
 class UpdateApp extends Command
 {
+    /** Supervisor dasturlari (install.sh); ilova foydalanuvchisiga faqat shularni start/stop qilish ruxsati (sudoers) */
+    private const WORKERS = ['ibtaxi-horizon', 'ibtaxi-ari'];
+
+    /** Fon xizmatlari supervisor orqali to'xtatildimi (dev/lokalda supervisor yo'q — eski usulda qayta ishga tushiriladi) */
+    private bool $workersStopped = false;
+
     protected $signature = 'ibtaxi:update
         {--ref= : Git teg yoki tarmoq (standart — asosiy tarmoqning oxirgi holati)}
         {--rollback : Oxirgi yangilanishni bekor qilish}
@@ -40,11 +47,19 @@ class UpdateApp extends Command
         $previous = $this->git(['rev-parse', 'HEAD']);
         $this->info("Joriy versiya: {$this->version()} ({$previous})");
 
+        // Avval texnik rejim: zaxiradan keyin tushgan buyurtma va to'lovlar --rollback'da yo'qolmasin
+        $this->call('down', ['--retry' => 15]);
         $this->step('Zaxira');
-        $dump = $backup->create('before-update');
+        try {
+            $dump = $backup->create('before-update');
+        } catch (\Throwable $e) {
+            $this->error('Zaxira olinmadi, yangilanish boshlanmadi: '.$e->getMessage());
+            $this->call('up');
+
+            return self::FAILURE;
+        }
         File::put(Backup::updateStateFile(), (string) json_encode(['commit' => $previous, 'backup' => $dump, 'at' => now()->toIso8601String()]));
 
-        $this->call('down', ['--retry' => 15]);
         $codeChanged = false;
         try {
             $this->step('Kod');
@@ -62,6 +77,8 @@ class UpdateApp extends Command
             $codeChanged = $this->git(['rev-parse', 'HEAD']) !== $previous;
 
             $this->install();
+            // Eski kodli Horizon va ARI daemon yangi sxema bilan ishlamasin
+            $this->stopWorkers();
             if ($this->call('migrate', ['--force' => true]) !== self::SUCCESS) {
                 throw new \RuntimeException('migrate');
             }
@@ -98,6 +115,7 @@ class UpdateApp extends Command
             return self::FAILURE;
         }
 
+        $this->startWorkers();
         $this->call('up');
         $this->warn('Oldingi kod tiklandi. Migratsiya qisman bajarilgan bo\'lishi mumkin; baza ham kerak bo\'lsa: sudo -u ibtaxi php artisan ibtaxi:update --rollback');
 
@@ -124,6 +142,7 @@ class UpdateApp extends Command
             $this->step('Kod');
             $this->git(['checkout', '--quiet', $state['commit']]);
             $this->install();
+            $this->stopWorkers();
             $this->step('Baza');
             $backup->restore($state['backup']);
         } catch (\Throwable $e) {
@@ -157,14 +176,62 @@ class UpdateApp extends Command
     {
         $this->step('Kesh va fon xizmatlari');
         $this->call('optimize');
-        $this->call('horizon:terminate');
         $this->call('reverb:restart');
         $this->call('telephony:sync');
+        if ($this->workersStopped) {
+            $this->startWorkers();
+            $this->call('up');
+
+            return;
+        }
+
+        $this->call('horizon:terminate');
         // Sayt qo'ng'iroqlar tugashini kutmasdan ochiladi — operatorlar buyurtma qabul qilishda davom etadi
         $this->call('up');
 
         $this->waitForCalls();
         $this->call('ari:restart');
+    }
+
+    /**
+     * Horizon va ARI daemon'ni migratsiya (yoki bazani tiklash) vaqtiga to'xtatish. ARI'dan oldin faol qo'ng'iroqlar
+     * tugashi kutiladi. Supervisor'ga ruxsat bo'lmasa (dev) — to'xtatilmaydi, finish() eski usulda qayta ishga tushiradi.
+     */
+    private function stopWorkers(): void
+    {
+        if ($this->workersStopped) {
+            return;
+        }
+        $this->step('Fon xizmatlarini to\'xtatish');
+        if (! $this->supervisor('stop', 'ibtaxi-horizon')) {
+            $this->warn('Supervisor\'ga ruxsat yo\'q — Horizon va ARI to\'xtatilmadi, oxirida qayta ishga tushiriladi.');
+
+            return;
+        }
+        $this->workersStopped = true;
+        $this->waitForCalls();
+        $this->supervisor('stop', 'ibtaxi-ari');
+    }
+
+    private function startWorkers(): void
+    {
+        if (! $this->workersStopped) {
+            return;
+        }
+        foreach (self::WORKERS as $program) {
+            if (! $this->supervisor('start', $program)) {
+                $this->warn("{$program} ishga tushmadi: sudo supervisorctl start {$program}");
+            }
+        }
+        $this->workersStopped = false;
+    }
+
+    /**
+     * install.sh sudoers'da ilova foydalanuvchisiga faqat shu buyruqlarga ruxsat beradi; -n — parol so'ralmaydi (dev'da xato qaytadi).
+     */
+    private function supervisor(string $action, string $program): bool
+    {
+        return Process::timeout(120)->run(['sudo', '-n', 'supervisorctl', $action, $program])->successful();
     }
 
     /**

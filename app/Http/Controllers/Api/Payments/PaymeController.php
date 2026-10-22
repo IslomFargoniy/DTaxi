@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Driver;
 use App\Models\Integration;
 use App\Models\PaymentTransaction;
+use App\Services\Payments\PaymentNotCancellable;
 use App\Services\Payments\PaymentTopUp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -72,29 +73,40 @@ class PaymeController extends Controller
     private function create(array $params): array
     {
         $payment = $this->find($params, required: false);
-
         if ($payment) {
-            if ($payment->state !== 'created') {
-                throw new PaymeError(-31008, 'Unable to complete operation');
-            }
-            if ($this->expired($payment)) {
-                $this->topUp->cancel($payment, TransactionSource::Payme, 4);
-                throw new PaymeError(-31008, 'Transaction timed out');
-            }
-
-            return $this->createResult($payment);
+            return $this->existingCreate($payment);
         }
 
         [$driver, $amount] = $this->driverAndAmount($params);
-        $payment = PaymentTransaction::query()->create([
-            'provider' => 'payme',
-            'provider_transaction_id' => (string) $params['id'],
-            'driver_id' => $driver->id,
-            'amount' => $amount,
-            'state' => 'created',
-            'provider_time' => (int) ($params['time'] ?? 0),
-            'raw_request' => $params,
-        ]);
+        // Payme javobni kutmay qayta yuborsa, ikkinchi so'rov unique xatosi (500) o'rniga mavjud tranzaksiyani oladi
+        $payment = PaymentTransaction::query()->createOrFirst(
+            ['provider' => 'payme', 'provider_transaction_id' => (string) $params['id']],
+            [
+                'driver_id' => $driver->id,
+                'amount' => $amount,
+                'state' => 'created',
+                'provider_time' => (int) ($params['time'] ?? 0),
+                'raw_request' => $params,
+            ],
+        );
+
+        return $payment->wasRecentlyCreated ? $this->createResult($payment) : $this->existingCreate($payment);
+    }
+
+    /**
+     * Takroriy CreateTransaction: faqat hali bajarilmagan va muddati o'tmagan tranzaksiya qaytariladi.
+     *
+     * @return array<string, mixed>
+     */
+    private function existingCreate(PaymentTransaction $payment): array
+    {
+        if ($payment->state !== 'created') {
+            throw new PaymeError(-31008, 'Unable to complete operation');
+        }
+        if ($this->expired($payment)) {
+            $this->topUp->cancel($payment, TransactionSource::Payme, 4);
+            throw new PaymeError(-31008, 'Transaction timed out');
+        }
 
         return $this->createResult($payment);
     }
@@ -133,7 +145,12 @@ class PaymeController extends Controller
     private function cancel(array $params): array
     {
         $payment = $this->find($params);
-        $this->topUp->cancel($payment, TransactionSource::Payme, isset($params['reason']) ? (int) $params['reason'] : null);
+        try {
+            $this->topUp->cancel($payment, TransactionSource::Payme, isset($params['reason']) ? (int) $params['reason'] : null);
+        } catch (PaymentNotCancellable) {
+            // Haydovchi pulni ishlatib bo'lgan — balans manfiy bo'lmasin, Payme qaytarishni rad etadi
+            throw new PaymeError(-31007, 'Unable to cancel transaction');
+        }
         $payment->refresh();
 
         return [

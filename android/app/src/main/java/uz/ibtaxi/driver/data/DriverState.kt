@@ -49,6 +49,12 @@ object DriverState {
     private val _pendingComplete = MutableStateFlow<Int?>(null)
     val pendingComplete: StateFlow<Int?> = _pendingComplete.asStateFlow()
 
+    /** Qabul so'rovi ketayotgan taklif (offer_id) — tugma o'chiq; Activity'da emas, so'rov ekran qayta yaratilishidan omon qoladi */
+    private val _accepting = MutableStateFlow<Int?>(null)
+    val accepting: StateFlow<Int?> = _accepting.asStateFlow()
+
+    fun setAccepting(offerId: Int?) = _accepting.update { offerId }
+
     /** Takrorni e'tiborsiz qoldirish: Reverb va FCM bir xil taklifni yuboradi */
     private val seenOffers = LinkedHashSet<String>()
 

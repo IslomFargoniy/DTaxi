@@ -21,6 +21,8 @@ use App\Models\User;
 use App\Services\Orders\OrderService;
 use App\Services\Sounds\MessageComposer;
 use App\Support\Settings;
+use Illuminate\Database\DetectsLostConnections;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -42,6 +44,8 @@ use Illuminate\Support\Str;
  */
 class CallCenter
 {
+    use DetectsLostConnections;
+
     /** Chaqiruv ohangi (gudok): Asterisk indications.conf, ru zonasi — O'zbekistondagi bilan bir xil */
     private const RINGBACK = 'tone:ring;tonezone=ru';
 
@@ -52,6 +56,14 @@ class CallCenter
 
     /** Solishtirishda shundan yangi qo'ng'iroqlar yopilmaydi (kanal hali yaratilayotgan bo'lishi mumkin) */
     private const RECONCILE_GRACE_SECONDS = 10;
+
+    /**
+     * Shu ijrolar faqat PlaybackFinished bilan davom etadi (tick() ularni kutish chegarasidan chetlaydi) —
+     * hodisa yo'qolsa mijoz abadiy osilib qolmasligi uchun muddat
+     */
+    private const GUARDED_PLAYBACKS = ['close', 'ivr', 'auto_offer', 'tts'];
+
+    private const PLAYBACK_DEADLINE_SECONDS = 120;
 
     public function __construct(
         private AriClient $ari,
@@ -75,6 +87,10 @@ class CallCenter
                 default => null,
             };
         } catch (\Throwable $e) {
+            // Baza uzilgan — ari:listen qayta ulanib hodisani takrorlaydi (kanal uzilmaydi)
+            if ($e instanceof QueryException && $this->causedByLostConnection($e)) {
+                throw $e;
+            }
             Log::error('CallCenter: '.$e->getMessage(), ['event' => data_get($event, 'type'), 'exception' => $e]);
 
             // Ishlov yarim qolgan kanal Stasis'da abadiy osilib qolmasin (mijoz jimlikni eshitib turardi)
@@ -120,7 +136,38 @@ class CallCenter
             $this->offerToOperator($call);
         }
 
+        $this->expirePlaybacks();
         $this->expireDriverRings();
+    }
+
+    /**
+     * PlaybackFinished kelmagan (yo'qolgan yoki Asterisk ijro qilmagan) IVR / yakuniy xabar / taklif / TTS —
+     * muddat o'tgach xuddi ijro tugagandek emas, xavfsiz tomonga: navbatga yoki yakun.
+     */
+    private function expirePlaybacks(): void
+    {
+        $stale = Call::query()->withoutGlobalScopes()
+            ->whereNull('ended_at')
+            ->whereRaw("(meta->>'playback_until')::bigint <= ?", [now()->getTimestamp()])
+            ->orderBy('id')
+            ->get();
+
+        foreach ($stale as $call) {
+            $purpose = (string) data_get($call->meta, 'playback_purpose');
+            Log::warning('CallCenter: ijro tugashi hodisasi kelmadi', ['call' => $call->id, 'purpose' => $purpose]);
+            if ($playback = data_get($call->meta, 'playback')) {
+                Cache::forget("ari:pb:{$playback}");
+                $this->ari->stopPlayback((string) $playback);
+            }
+            $this->updateMeta($call, ['playback_until' => null]);
+
+            match (true) {
+                $purpose === 'ivr' && $call->status === 'waiting' && (bool) data_get($call->meta, 'ivr') => $this->ivrFallback($call),
+                $purpose === 'auto_offer' && $call->status === 'waiting' && (bool) data_get($call->meta, 'auto_offer') => $this->leaveAutoOffer($call),
+                $purpose === 'close', $purpose === 'tts' => $this->finish($call, $this->endStatus($call, 0)),
+                default => null,
+            };
+        }
     }
 
     /**
@@ -306,7 +353,7 @@ class CallCenter
             return;
         }
 
-        if (! $this->limits->canAcceptInbound($number->trunk, $branchId ? Branch::query()->find($branchId) : null)) {
+        if (! $this->limits->canAcceptInbound($number->trunk, $branchId ? Branch::query()->find($branchId) : null, $call->id)) {
             $this->updateMeta($call, ['reason' => 'channels']);
             $call->forceFill(['status' => 'rejected'])->save();
             $this->ari->answer($channelId);
@@ -334,10 +381,10 @@ class CallCenter
             $this->playFor($call, $channelId, [...$this->greeting($branchId), ...$this->composer()->phrase('ivr', 'auto-order-offer')], 'auto_offer');
         } else {
             $this->playFor($call, $channelId, $this->greeting($branchId), 'greeting');
-            $this->offerToOperator($call);
+            $this->offerInTurn($call);
         }
 
-        CallUpdated::dispatch($call);
+        $this->broadcast(new CallUpdated($call));
     }
 
     /**
@@ -390,7 +437,7 @@ class CallCenter
         $call->forceFill(['status' => 'answered', 'answered_at' => now(), 'order_id' => $order->id])->save();
         $this->updateMeta($call, ['auto_offer' => null, 'reason' => 'auto_order']);
         $this->playFor($call, (string) $call->channel_id, $this->composer()->phrase('ivr', 'order-accepted'), 'close');
-        CallUpdated::dispatch($call);
+        $this->broadcast(new CallUpdated($call));
     }
 
     /**
@@ -403,7 +450,7 @@ class CallCenter
         }
         $this->updateMeta($call, ['auto_offer' => null, 'auto_offer_until' => null]);
         $this->ari->startMoh((string) $call->channel_id);
-        $this->offerToOperator($call);
+        $this->offerInTurn($call);
     }
 
     /**
@@ -501,8 +548,8 @@ class CallCenter
         }
         // Haydovchi oddiy telefondagidek gudok eshitadi (425 Hz, 1/4 s) — operator javob berganda to'xtaydi
         $this->playFor($call, $channelId, [self::RINGBACK], 'ringback');
-        $this->offerToOperator($call);
-        CallUpdated::dispatch($call);
+        $this->offerInTurn($call);
+        $this->broadcast(new CallUpdated($call));
     }
 
     /**
@@ -528,14 +575,18 @@ class CallCenter
         if (($gain = (int) $this->settings()->get('calls.driver_gain', $call->branch_id)) !== 0) {
             $this->ari->setVariable($channelId, 'VOLUME(TX)', (string) $gain);
         }
-        $this->bridge($call, $operatorChannel, $channelId);
+        if (! $this->bridge($call, $operatorChannel, $channelId)) {
+            $this->finish($call, 'failed', ['reason' => 'bridge']);
+
+            return;
+        }
         $call->forceFill([
             'status' => 'answered',
             'answered_at' => now(),
             'wait_seconds' => (int) $call->started_at->diffInSeconds(now()),
         ])->save();
 
-        CallUpdated::dispatch($call);
+        $this->broadcast(new CallUpdated($call));
     }
 
     /**
@@ -615,7 +666,7 @@ class CallCenter
         ]);
         $this->remember($channelId, $call, 'operator');
 
-        if (! $this->limits->canPlaceOutbound($number->trunk, $operator->branch)) {
+        if (! $this->limits->canPlaceOutbound($number->trunk, $operator->branch, $call->id)) {
             $this->finish($call, 'rejected', ['reason' => 'channels']);
 
             return;
@@ -640,7 +691,7 @@ class CallCenter
             return;
         }
 
-        CallUpdated::dispatch($call);
+        $this->broadcast(new CallUpdated($call));
     }
 
     /**
@@ -685,7 +736,7 @@ class CallCenter
 
         $name = $operator->name ?: 'Dispetcher';
         // Reverb ishlamasa ham push yetib borsin (va aksincha)
-        rescue(fn () => IncomingCall::dispatch($driver->id, $call->id, $name, $seconds));
+        $this->broadcast(new IncomingCall($driver->id, $call->id, $name, $seconds));
         SendPushNotification::dispatch($driver->user_id, [
             'type' => 'incoming_call',
             'call_id' => $call->id,
@@ -694,7 +745,7 @@ class CallCenter
             'sent_at' => now()->getTimestamp(),
         ]);
 
-        CallUpdated::dispatch($call);
+        $this->broadcast(new CallUpdated($call));
     }
 
     /**
@@ -746,10 +797,7 @@ class CallCenter
 
         /** @var list<int> $tried */
         $tried = array_map('intval', (array) data_get($call->meta, 'tried', []));
-        /** @var list<int> $branchIds */
-        $branchIds = array_map('intval', (array) data_get($call->meta, 'branch_ids', array_filter([$call->branch_id])));
-
-        $operator = $this->operators->pick($branchIds, $tried);
+        $operator = $this->operators->pick($this->queueBranches($call), $tried);
         if (! $operator) {
             // Hamma sinab ko'rilgan bo'lsa — qaytadan aylanadi
             if ($tried !== []) {
@@ -764,9 +812,10 @@ class CallCenter
         $this->updateMeta($call, ['operator_channel' => $channelId, 'tried' => [...$tried, $operator->id]]);
         $this->remember($channelId, $call, 'operator');
 
+        // Trunkdan kelgan raqam va pozivnoy tashqi/admin matni — qo'shtirnoq yoki <> bilan Caller ID buzilmasin
         $callerId = $call->kind === 'driver'
-            ? '"'.($call->driver_id ? 'Haydovchi #'.Driver::query()->withoutGlobalScopes()->whereKey($call->driver_id)->value('callsign') : 'Haydovchi').'" <'.$call->caller.'>'
-            : "\"{$call->caller}\" <".preg_replace('/\D/', '', (string) $call->caller).'>';
+            ? '"'.Extensions::callerName($call->driver_id ? 'Haydovchi #'.Driver::query()->withoutGlobalScopes()->whereKey($call->driver_id)->value('callsign') : 'Haydovchi').'" <'.Extensions::callerName((string) $call->caller).'>'
+            : '"'.Extensions::callerName((string) $call->caller).'" <'.preg_replace('/\D/', '', (string) $call->caller).'>';
 
         $ok = $this->ari->originate(
             "PJSIP/{$operator->sip_extension}",
@@ -785,7 +834,7 @@ class CallCenter
             return;
         }
 
-        OperatorCallEvent::dispatch($operator->id, 'incoming', $this->card($call));
+        $this->broadcast(new OperatorCallEvent($operator->id, 'incoming', $this->card($call)));
     }
 
     private function operatorAnswered(string $operatorChannel, int $callId): void
@@ -803,7 +852,11 @@ class CallCenter
             $this->ari->stopPlayback((string) $playback);
         }
 
-        $this->bridge($call, $clientChannel, $operatorChannel);
+        if (! $this->bridge($call, $clientChannel, $operatorChannel)) {
+            $this->requeueAfterFailedBridge($call, $operatorChannel);
+
+            return;
+        }
         $call->forceFill([
             'status' => 'answered',
             'answered_at' => now(),
@@ -811,9 +864,9 @@ class CallCenter
         ])->save();
 
         if ($call->operator_id) {
-            OperatorCallEvent::dispatch($call->operator_id, 'connected', $this->card($call));
+            $this->broadcast(new OperatorCallEvent($call->operator_id, 'connected', $this->card($call)));
         }
-        CallUpdated::dispatch($call);
+        $this->broadcast(new CallUpdated($call));
     }
 
     private function peerAnswered(string $peerChannel, int $callId): void
@@ -827,14 +880,18 @@ class CallCenter
 
         $operatorChannel = (string) $call->channel_id;
         $this->ari->answer($operatorChannel);
-        $this->bridge($call, $operatorChannel, $peerChannel);
+        if (! $this->bridge($call, $operatorChannel, $peerChannel)) {
+            $this->finish($call, 'failed', ['reason' => 'bridge']);
+
+            return;
+        }
         $call->forceFill([
             'status' => 'answered',
             'answered_at' => now(),
             'wait_seconds' => (int) $call->started_at->diffInSeconds(now()),
         ])->save();
 
-        CallUpdated::dispatch($call);
+        $this->broadcast(new CallUpdated($call));
     }
 
     private function ttsAnswered(string $channelId, int $callId): void
@@ -848,7 +905,7 @@ class CallCenter
 
         $call->forceFill(['status' => 'answered', 'answered_at' => now()])->save();
         $this->playTts($call, $channelId);
-        CallUpdated::dispatch($call);
+        $this->broadcast(new CallUpdated($call));
     }
 
     // ── Boshqa hodisalar ───────────────────────────────────────────────
@@ -875,9 +932,12 @@ class CallCenter
             $this->updateMeta($call, ['operator_channel' => null]);
 
             if ($operatorId) {
-                OperatorCallEvent::dispatch($operatorId, 'missed', ['call_id' => $call->id]);
+                $this->broadcast(new OperatorCallEvent($operatorId, 'missed', ['call_id' => $call->id]));
                 if ($this->settings()->get('calls.pause_on_missed_ring') && ($user = User::query()->find($operatorId))) {
                     $this->operators->setStatus($user, 'paused');
+                } else {
+                    // Navbat oxiriga: aks holda keyingi qo'ng'iroq ham yana shu (eng uzoq bo'sh turgan) operatorga borardi
+                    User::query()->whereKey($operatorId)->update(['operator_status_at' => now()]);
                 }
             }
             $this->offerToOperator($call);
@@ -911,6 +971,9 @@ class CallCenter
             return;
         }
         $channelId = (string) $call->channel_id;
+        if (data_get($call->meta, 'playback') === $playbackId && data_get($call->meta, 'playback_until')) {
+            $this->updateMeta($call, ['playback_until' => null]);
+        }
 
         match ($ref['purpose']) {
             'greeting' => $call->status === 'waiting' && $this->ari->startMoh($channelId),
@@ -1012,6 +1075,15 @@ class CallCenter
         $branchId ? $this->chooseBranch($call, (int) $branchId) : $this->closeWithMessage($call, 'call-later');
     }
 
+    /**
+     * Menyu eshittirilmadi (ijro xatosi yoki muddat o'tdi) — qayta urinmasdan asosiy filial navbatiga.
+     */
+    private function ivrFallback(Call $call): void
+    {
+        $this->updateMeta($call, ['ivr_plays' => 1]);
+        $this->ivrTimeout($call);
+    }
+
     private function chooseBranch(Call $call, int $branchId): void
     {
         if (! $this->anyOpen([$branchId])) {
@@ -1030,8 +1102,8 @@ class CallCenter
         $call->forceFill(['branch_id' => $branchId])->save();
         $this->updateMeta($call, ['ivr' => false, 'branch_ids' => [$branchId]]);
         $this->playFor($call, (string) $call->channel_id, $this->composer()->phrase('ivr', 'please-wait'), 'greeting');
-        $this->offerToOperator($call);
-        CallUpdated::dispatch($call);
+        $this->offerInTurn($call);
+        $this->broadcast(new CallUpdated($call));
     }
 
     // ── Yordamchilar ───────────────────────────────────────────────────
@@ -1073,7 +1145,7 @@ class CallCenter
         if ($operatorId = $call->operator_id) {
             $call->forceFill(['operator_id' => null])->save();
             $this->updateMeta($call, ['operator_channel' => null]);
-            OperatorCallEvent::dispatch($operatorId, 'ended', ['call_id' => $call->id, 'status' => 'missed']);
+            $this->broadcast(new OperatorCallEvent($operatorId, 'ended', ['call_id' => $call->id, 'status' => 'missed']));
         }
         $this->ari->stopMoh($channelId);
 
@@ -1087,36 +1159,83 @@ class CallCenter
     private function playFor(Call $call, string $channelId, array $media, string $purpose): void
     {
         if ($media === []) {
-            if ($purpose === 'greeting' && $call->status === 'waiting') {
-                $this->ari->startMoh($channelId);
-            } elseif ($purpose === 'close') {
-                $this->ari->hangup($channelId);
-            } elseif ($purpose === 'ivr') {
-                $this->ivrTimeout($call);
-            } elseif ($purpose === 'auto_offer') {
-                $this->leaveAutoOffer($call);
-            }
+            $this->playbackSkipped($call, $channelId, $purpose);
 
             return;
         }
 
         $playbackId = (string) Str::uuid();
         Cache::put("ari:pb:{$playbackId}", ['call' => $call->id, 'purpose' => $purpose], self::CHANNEL_TTL);
-        $this->updateMeta($call, ['playback' => $playbackId]);
-        $this->ari->play($channelId, $media, $playbackId);
+        $this->updateMeta($call, [
+            'playback' => $playbackId,
+            'playback_purpose' => $purpose,
+            'playback_until' => in_array($purpose, self::GUARDED_PLAYBACKS, true) ? now()->addSeconds(self::PLAYBACK_DEADLINE_SECONDS)->getTimestamp() : null,
+        ]);
+
+        if ($this->ari->play($channelId, $media, $playbackId) === null) {
+            // PlaybackFinished kelmaydi — kutib o'tirmasdan keyingi qadamga
+            Cache::forget("ari:pb:{$playbackId}");
+            $this->updateMeta($call, ['playback' => null, 'playback_until' => null]);
+            $this->playbackSkipped($call, $channelId, $purpose);
+        }
     }
 
-    private function bridge(Call $call, string $a, string $b): void
+    /**
+     * Xabar eshittirilmadi (bo'lak yo'q yoki ARI xatosi): yakuniy xabar — uzish, IVR/taklif — operator navbatiga.
+     */
+    private function playbackSkipped(Call $call, string $channelId, string $purpose): void
+    {
+        match ($purpose) {
+            'greeting' => $call->status === 'waiting' && $this->ari->startMoh($channelId),
+            'close', 'tts' => $this->ari->hangup($channelId),
+            'ivr' => $this->ivrFallback($call),
+            'auto_offer' => $this->leaveAutoOffer($call),
+            default => null,
+        };
+    }
+
+    /**
+     * Ikki kanalni ulash va yozib olish. false — ulanmadi (chaqiruvchi "javob berildi" deb belgilamasin).
+     */
+    private function bridge(Call $call, string $a, string $b): bool
     {
         $bridgeId = $this->ari->createBridge();
         if (! $bridgeId) {
-            return;
+            return false;
         }
 
         $recording = "call-{$call->id}";
         $this->updateMeta($call, ['bridge' => $bridgeId, 'recording' => $recording]);
-        $this->ari->addToBridge($bridgeId, [$a, $b]);
+        if (! $this->ari->addToBridge($bridgeId, [$a, $b])) {
+            // Yopilmasa reconcileBridges() egasiz ko'prik sifatida yopadi
+            $this->ari->destroyBridge($bridgeId);
+            $this->updateMeta($call, ['bridge' => null, 'recording' => null]);
+
+            return false;
+        }
         $this->ari->recordBridge($bridgeId, $recording, (int) $this->settings()->get('calls.max_recording_seconds'));
+
+        return true;
+    }
+
+    /**
+     * Operator javob berdi, lekin ulab bo'lmadi: operator kanali uziladi, mijoz navbatda qoladi (keyingi tick).
+     */
+    private function requeueAfterFailedBridge(Call $call, string $operatorChannel): void
+    {
+        // Operator kanali yopilishi "javob bermadi" (pauza) deb hisoblanmasin
+        Cache::forget("ari:ch:{$operatorChannel}");
+        $this->ari->hangup($operatorChannel);
+
+        $operatorId = $call->operator_id;
+        $call->forceFill(['operator_id' => null])->save();
+        // Operator javob bergan edi — "sinab ko'rilgan" sanalmaydi, keyingi tick'da yana unga taklif qilinishi mumkin
+        $tried = array_values(array_diff(array_map('intval', (array) data_get($call->meta, 'tried', [])), [(int) $operatorId]));
+        $this->updateMeta($call, ['operator_channel' => null, 'tried' => $tried]);
+        if ($operatorId) {
+            $this->broadcast(new OperatorCallEvent($operatorId, 'ended', ['call_id' => $call->id, 'status' => 'failed']));
+        }
+        $this->ari->startMoh((string) $call->channel_id);
     }
 
     /**
@@ -1169,13 +1288,13 @@ class CallCenter
 
         if ($call->operator_id) {
             User::query()->whereKey($call->operator_id)->update(['operator_status_at' => $now]);
-            OperatorCallEvent::dispatch($call->operator_id, 'ended', ['call_id' => $call->id, 'status' => $status]);
+            $this->broadcast(new OperatorCallEvent($call->operator_id, 'ended', ['call_id' => $call->id, 'status' => $status]));
         }
         // Haydovchi ilovasida jiringlayotgan ekran yopilsin (operator qo'ydi, rad etildi, vaqt o'tdi)
         if ($call->driver_id && ! $call->answered_at && data_get($call->meta, 'driver_ring_until')) {
             $this->notifyRingEnded($call, $status);
         }
-        CallUpdated::dispatch($call);
+        $this->broadcast(new CallUpdated($call));
     }
 
     private function notifyRingEnded(Call $call, string $status): void
@@ -1185,7 +1304,7 @@ class CallCenter
             return;
         }
 
-        rescue(fn () => IncomingCallEnded::dispatch($driver->id, $call->id, $status));
+        $this->broadcast(new IncomingCallEnded($driver->id, $call->id, $status));
         SendPushNotification::dispatch($driver->user_id, ['type' => 'incoming_call_ended', 'call_id' => $call->id, 'status' => $status]);
     }
 
@@ -1261,6 +1380,58 @@ class CallCenter
      */
     private function updateMeta(Call $call, array $values): void
     {
-        $call->forceFill(['meta' => [...($call->meta ?? []), ...$values]])->save();
+        if ($values === []) {
+            return;
+        }
+
+        // Bitta jsonb birlashtirish: HTTP tomoni (driverDeclined) yozgan kalitlar butun JSON qayta yozilib yo'qolmasin
+        $row = $call->getConnection()->selectOne(
+            "UPDATE calls SET meta = COALESCE(meta, '{}'::jsonb) || ?::jsonb, updated_at = ? WHERE id = ? RETURNING meta",
+            [json_encode($values, JSON_THROW_ON_ERROR), now(), $call->id],
+            false,
+        );
+        $raw = data_get($row, 'meta');
+        $meta = is_string($raw) ? json_decode($raw, true) : null;
+
+        $call->forceFill(['meta' => is_array($meta) ? $meta : [...($call->meta ?? []), ...$values]])->syncOriginalAttribute('meta');
+    }
+
+    /**
+     * Navbatdagi qo'ng'iroq qaysi filial(lar) operatorlariga taqsimlanadi.
+     *
+     * @return list<int>
+     */
+    private function queueBranches(Call $call): array
+    {
+        return array_values(array_map('intval', (array) data_get($call->meta, 'branch_ids', array_filter([$call->branch_id]))));
+    }
+
+    /**
+     * Yangi qo'ng'iroq darhol taklif qilinadi, faqat umumiy filialda undan oldin operator kutayotgan qo'ng'iroq bo'lmasa —
+     * aks holda u eskisidan oldin bo'sh operatorni egallab olardi; navbat tick() da (eng eskisidan) taqsimlanadi.
+     */
+    private function offerInTurn(Call $call): void
+    {
+        $branchIds = $this->queueBranches($call);
+        $olderWaiting = Call::query()->withoutGlobalScopes()
+            ->where('status', 'waiting')
+            ->whereNull('operator_id')
+            ->whereNull('ended_at')
+            ->where('id', '<', $call->id)
+            ->get()
+            ->contains(fn (Call $other) => ! data_get($other->meta, 'ivr') && ! data_get($other->meta, 'closing') && ! data_get($other->meta, 'auto_offer')
+                && array_intersect($this->queueBranches($other), $branchIds) !== []);
+
+        if (! $olderWaiting) {
+            $this->offerToOperator($call);
+        }
+    }
+
+    /**
+     * Reverb ishlamasa qo'ng'iroq to'xtamasin: broadcast xatosi faqat yoziladi (aks holda handle() kanalni uzardi).
+     */
+    private function broadcast(object $event): void
+    {
+        rescue(fn () => event($event));
     }
 }

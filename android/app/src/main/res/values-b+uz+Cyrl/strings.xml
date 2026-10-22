@@ -75,6 +75,7 @@
     <string name="tx_penalty">Жарима</string>
     <string name="tx_bonus">Бонус</string>
     <string name="tx_adjustment">Тузатиш</string>
+    <string name="tx_refund">Қайтарилди</string>
     <string name="voice_guidance">Овозли навигатсия</string>
     <string name="server_address">Сервер манзили (Mac IP)</string>
     <string name="retry">Қайта уриниш</string>
@@ -173,4 +174,8 @@
     <string name="price">Нарх</string>
     <string name="corporate_short">Корпоратив</string>
     <string name="track_missing">GPS йўли сақланмаган — бошланиш ва тугаш нуқталари тўғри чизиқ билан</string>
+    <string name="notifications_denied_title">Билдиришномалар ўчиқ</string>
+    <string name="notifications_denied_text">Билдиришномаларга рухсат йўқ — илова фонда бўлганда янги буюртма ва диспетчер қўнғироғи билинмайди. Созламаларда билдиришномаларни ёқинг.</string>
+    <string name="full_screen_denied_title">Қулфланган экранда буюртма кўринмайди</string>
+    <string name="full_screen_denied_text">Илова қулфланган экранда буюртма ва қўнғироқни тўлиқ экранда кўрсата олмайди. Созламаларда \"Тўлиқ экранли билдиришномалар\" рухсатини ёқинг.</string>
 </resources>

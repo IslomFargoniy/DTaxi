@@ -45,8 +45,8 @@ class ClickController extends Controller
         if (! $driver) {
             return $this->reply($request, self::USER_NOT_FOUND, 'User does not exist');
         }
-        $amount = (int) round((float) $request->input('amount'));
-        if (! $this->topUp->validAmount($amount)) {
+        $amount = $this->amount($request);
+        if ($amount === null || ! $this->topUp->validAmount($amount)) {
             return $this->reply($request, self::BAD_AMOUNT, 'Incorrect parameter amount');
         }
 
@@ -83,7 +83,7 @@ class ClickController extends Controller
         if ($payment->state === 'cancelled') {
             return $this->reply($request, self::CANCELLED, 'Transaction cancelled');
         }
-        if ((int) round((float) $request->input('amount')) !== $payment->amount) {
+        if ($this->amount($request) !== $payment->amount) {
             return $this->reply($request, self::BAD_AMOUNT, 'Incorrect parameter amount');
         }
 
@@ -97,6 +97,20 @@ class ClickController extends Controller
         $this->topUp->perform($payment, TransactionSource::Click);
 
         return $this->reply($request, self::OK, 'Success', ['merchant_confirm_id' => $payment->id]);
+    }
+
+    /**
+     * Click summani so'mda yuboradi ("5000" yoki "5000.00"). Tiyinli summa yaxlitlanmaydi — rad etiladi,
+     * aks holda balansga to'langandan boshqa summa yozilardi.
+     */
+    private function amount(Request $request): ?int
+    {
+        $raw = trim((string) $request->input('amount'));
+        if (preg_match('/^(\d+)(?:\.(\d+))?$/', $raw, $m) !== 1 || (isset($m[2]) && trim($m[2], '0') !== '')) {
+            return null;
+        }
+
+        return (int) $m[1];
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -41,11 +42,15 @@ class ClientController extends Controller
 
     public function update(Request $request, Client $client): RedirectResponse
     {
+        /** @var User $user */
+        $user = $request->user();
         $data = $request->validate([
             'name' => ['nullable', 'string', 'max:100'],
             'note' => ['nullable', 'string', 'max:500'],
             'is_blacklisted' => ['boolean'],
-            'company_id' => ['nullable', 'integer', Rule::exists('companies', 'id')],
+            // Rule::exists filial chegarasini bilmaydi — boshqa filial kompaniyasiga biriktirib bo'lmasin
+            'company_id' => ['nullable', 'integer', Rule::exists('companies', 'id')
+                ->when(! $user->isSuperadmin(), fn ($rule) => $rule->whereIn('branch_id', $user->branchIds()))],
             'discount_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
         ]);
         if (! $request->user()?->can('tariffs.manage')) {

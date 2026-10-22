@@ -1,11 +1,14 @@
 <?php
 
 use App\Enums\IntegrationProvider;
+use App\Enums\TransactionType;
 use App\Jobs\SendPushNotification;
 use App\Models\Branch;
 use App\Models\Driver;
 use App\Models\Integration;
 use App\Models\PaymentTransaction;
+use App\Services\Drivers\DriverBalance;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
@@ -117,4 +120,64 @@ test('payme cancels a created transaction without a balance change', function ()
     payme('PerformTransaction', ['id' => 'pm-2'])->assertJsonPath('error.code', -31008);
 
     expect($this->driver->refresh()->balance)->toBe(0);
+});
+
+test('payme refund is recorded as a refund through the driver balance history', function () {
+    $account = ['driver_id' => '101'];
+    payme('CreateTransaction', ['id' => 'pm-3', 'time' => 1792212000000, 'amount' => 5_000_000, 'account' => $account]);
+    payme('PerformTransaction', ['id' => 'pm-3'])->assertJsonPath('result.state', 2);
+
+    payme('CancelTransaction', ['id' => 'pm-3', 'reason' => 5])->assertJsonPath('result.state', -2);
+
+    $refund = $this->driver->transactions()->where('type', TransactionType::Refund)->sole();
+    expect($refund->amount)->toBe(-50000)
+        ->and($refund->balance_after)->toBe(0)
+        ->and(app(DriverBalance::class)->mismatches())->toBe([]);
+});
+
+test('payme cannot cancel a performed payment the driver already spent', function () {
+    $account = ['driver_id' => '101'];
+    payme('CreateTransaction', ['id' => 'pm-4', 'time' => 1792212000000, 'amount' => 5_000_000, 'account' => $account]);
+    payme('PerformTransaction', ['id' => 'pm-4']);
+    app(DriverBalance::class)->penalty($this->driver->refresh(), 30000, 'Jarima');
+
+    payme('CancelTransaction', ['id' => 'pm-4', 'reason' => 5])->assertJsonPath('error.code', -31007);
+
+    expect($this->driver->refresh()->balance)->toBe(20000)
+        ->and(PaymentTransaction::query()->where('provider_transaction_id', 'pm-4')->value('state'))->toBe('performed');
+    payme('CheckTransaction', ['id' => 'pm-4'])->assertJsonPath('result.state', 2);
+});
+
+test('payme create retried in parallel returns the existing transaction instead of an error', function () {
+    // Ikkinchi so'rov "bormi?" tekshiruvidan o'tib bo'lgach, birinchisi shu orada yozib ulgurdi
+    $raced = false;
+    DB::listen(function ($query) use (&$raced) {
+        if (! $raced && str_starts_with($query->sql, 'select') && str_contains($query->sql, 'payment_transactions')) {
+            $raced = true;
+            DB::table('payment_transactions')->insert([
+                'provider' => 'payme', 'provider_transaction_id' => 'pm-5', 'driver_id' => $this->driver->id,
+                'amount' => 50000, 'state' => 'created', 'provider_time' => 1792212000000, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+    });
+
+    $response = payme('CreateTransaction', ['id' => 'pm-5', 'time' => 1792212000000, 'amount' => 5_000_000, 'account' => ['driver_id' => '101']])
+        ->assertOk()->assertJsonPath('result.state', 1);
+
+    expect(PaymentTransaction::query()->where('provider_transaction_id', 'pm-5')->count())->toBe(1)
+        ->and($response->json('result.transaction'))->toBe((string) PaymentTransaction::query()->where('provider_transaction_id', 'pm-5')->value('id'));
+});
+
+test('click rejects amounts with tiyin instead of rounding them', function () {
+    $this->post('/api/payments/click/prepare', clickRequest(0, ['amount' => '50000.50']))->assertJsonPath('error', -2);
+    expect(PaymentTransaction::query()->count())->toBe(0);
+
+    $prepareId = $this->post('/api/payments/click/prepare', clickRequest(0, ['amount' => '50000']))->assertJsonPath('error', 0)->json('merchant_prepare_id');
+    $this->post('/api/payments/click/complete', clickRequest(1, ['merchant_prepare_id' => $prepareId, 'amount' => '50000.40']))
+        ->assertJsonPath('error', -2);
+    expect($this->driver->refresh()->balance)->toBe(0);
+
+    $this->post('/api/payments/click/complete', clickRequest(1, ['merchant_prepare_id' => $prepareId, 'amount' => '50000.00']))
+        ->assertJsonPath('error', 0);
+    expect($this->driver->refresh()->balance)->toBe(50000);
 });

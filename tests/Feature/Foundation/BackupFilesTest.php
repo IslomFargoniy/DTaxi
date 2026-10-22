@@ -1,6 +1,7 @@
 <?php
 
 use App\Support\Backup;
+use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 
@@ -34,8 +35,24 @@ test('map bundle holds tiles, OSM exports and OSRM data, keeps only the latest l
     File::put($root.'/storage/app/osm/pois.geojsonseq', '{}');
     File::put($osrm.'/area.osrm.mldgr', 'graph');
     config(['services.osrm.data_dir' => $osrm]);
+    // pg_dump Mac'da yo'q — faylni o'zi yozadi; tar haqiqiy
+    $dumps = [];
+    Process::fake(['*pg_dump*' => function (PendingProcess $process) use (&$dumps) {
+        $dumps[] = $process->command;
+        $file = substr((string) collect($process->command)->first(fn (string $arg) => str_starts_with($arg, '--file=')), 7);
+        File::put($file, 'PGDMP');
 
-    $backup = app(Backup::class);
+        return Process::result();
+    }]);
+
+    // Alohida papka: createMap eski *_map.tar'larni o'chiradi — haqiqiy backups/ dagi to'plam test tufayli yo'qolardi
+    $directory = storage_path('framework/testing/map-backups');
+    $backup = Mockery::mock(Backup::class)->makePartial();
+    $backup->shouldReceive('directory')->andReturn($directory);
+    $real = storage_path('app/private/backups/2000-01-01_000000_map.tar');
+    File::ensureDirectoryExists(dirname($real));
+    File::put($real, 'firma to\'plami');
+
     $first = $backup->createMap($root);
     $this->travel(1)->seconds();
     $second = $backup->createMap($root);
@@ -47,11 +64,17 @@ test('map bundle holds tiles, OSM exports and OSRM data, keeps only the latest l
             ->and($list)->toContain('public/map/fonts/a.pbf')
             ->and($list)->toContain('storage/app/osm/pois.geojsonseq')
             ->and($list)->toContain('osrm/area.osrm.mldgr')
+            ->and(explode("\n", $list))->toContain('map.dump')
+            ->and($dumps[0])->toContain('--data-only', '--table=public.regions', '--table=public.landmarks', '--table=public.street_renames')
+            ->and(File::isDirectory($backup->directory().'/map-export-tmp'))->toBeFalse()
             ->and($list)->not->toContain('.bak')
             ->and(File::exists($first))->toBeFalse()
+            ->and(dirname($second))->toBe($directory)
+            ->and(File::exists($real))->toBeTrue()
             ->and(substr(sprintf('%o', fileperms($second)), -3))->toBe('600');
     } finally {
-        File::delete($second);
+        File::delete([$second, $real]);
+        File::deleteDirectory($directory);
         File::deleteDirectory(storage_path('framework/testing/map-root'));
         File::deleteDirectory(storage_path('framework/testing/var'));
     }

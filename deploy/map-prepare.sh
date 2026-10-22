@@ -2,13 +2,13 @@
 # Xarita: Protomaps planet build'idan tanlangan hudud tile'larini kesib olish (`.pmtiles`) va
 # shrift/belgilarni o'z serverga yuklash — xarita uchun tashqi API va oylik to'lov yo'q (qaror #2).
 #
-#   ./map-prepare.sh                         standart hudud — Farg'ona vodiysi
-#   BBOX=55.9,37.1,73.2,45.6 ./map-prepare.sh   butun O'zbekiston
+#   ./map-prepare.sh                         standart — butun O'zbekiston (qaror #67)
+#   BBOX=70.4,39.9,73.3,41.6 ./map-prepare.sh   faqat Farg'ona vodiysi (kichikroq fayl)
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="${OUT_DIR:-$APP_DIR/public/map}"
-BBOX="${BBOX:-70.4,39.9,73.3,41.6}"
+BBOX="${BBOX:-55.9,37.1,73.2,45.6}"
 MAXZOOM="${MAXZOOM:-15}"
 PMTILES_VERSION="1.31.2"
 

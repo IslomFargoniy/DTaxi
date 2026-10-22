@@ -26,6 +26,7 @@ class DriverProfileResource extends JsonResource
     {
         $settings = app(Settings::class);
         $area = $this->serviceArea();
+        $center = Branch::query()->withoutGlobalScopes()->whereKey($this->branch_id)->first()?->center;
         $vehicle = $this->vehicle;
 
         return [
@@ -65,6 +66,8 @@ class DriverProfileResource extends JsonResource
                 'timezone' => Branch::query()->withoutGlobalScopes()->whereKey($this->branch_id)->value('timezone'),
                 // Hudud chizilmagan bo'lsa maydon yuborilmaydi (eski ilova null'ni o'qiy olmas edi)
                 'service_area' => $this->when($area !== null, $area),
+                // GPS kelguncha xarita shu yerda ochiladi — firma O'zbekistonning istalgan joyida bo'lishi mumkin
+                'map_center' => $this->when($center !== null, fn () => ['lat' => $center?->getLatitude(), 'lng' => $center?->getLongitude()]),
                 // Balansni to'ldirish havolalari uchun (maxfiy bo'lmagan) merchant ma'lumotlari; sozlanmagan bo'lsa null
                 'payments' => [
                     'click' => ($service = Integration::credential(IntegrationProvider::Click, 'service_id')) ? [

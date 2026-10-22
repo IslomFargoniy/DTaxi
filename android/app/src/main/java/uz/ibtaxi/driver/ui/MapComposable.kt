@@ -61,6 +61,10 @@ import org.maplibre.geojson.Point
 
 data class MapPoint(val lat: Double, val lng: Double)
 
+/** Filial markazi noma'lum bo'lsa — butun O'zbekiston ko'rinadi */
+internal val UZBEKISTAN_CENTER = LatLng(41.38, 64.59)
+internal const val UZBEKISTAN_ZOOM = 5.0
+
 /**
  * Ilova ichidagi xarita (qaror #3): joylashuv, A/B nuqtalar va marshrut chizig'i. Uslub — serverdan (/map/style.json).
  */
@@ -77,6 +81,8 @@ fun TaxiMap(
     navigating: Boolean = false,
     bearing: Float? = null,
     speedKmh: Int = 0,
+    // Filial markazi (serverdan); GPS kelguncha kamera shu yerda
+    initialCenter: MapPoint? = null,
 ) {
     val context = LocalContext.current
     val mapView = remember { MapView(context).apply { onCreate(Bundle()) } }
@@ -87,18 +93,26 @@ fun TaxiMap(
     var recenter by remember { mutableIntStateOf(0) }
 
     DisposableEffect(lifecycle) {
+        // Observer qo'shilganda joriy holatgacha (START, RESUME) hodisalarni o'zi yuboradi
+        var started = false
+        var resumed = false
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_START -> mapView.onStart()
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                Lifecycle.Event.ON_STOP -> mapView.onStop()
-                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
+                Lifecycle.Event.ON_START -> mapView.onStart().also { started = true }
+                Lifecycle.Event.ON_RESUME -> mapView.onResume().also { resumed = true }
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause().also { resumed = false }
+                Lifecycle.Event.ON_STOP -> mapView.onStop().also { started = false }
                 else -> Unit
             }
         }
         lifecycle.addObserver(observer)
-        onDispose { lifecycle.removeObserver(observer) }
+        // MainActivity ekranlarni almashtiradi (Activity yashaydi) — Home'dan chiqqanda xarita va GL yuzasi yopilmasa oqib ketardi
+        onDispose {
+            lifecycle.removeObserver(observer)
+            if (resumed) mapView.onPause()
+            if (started) mapView.onStop()
+            mapView.onDestroy()
+        }
     }
 
     Box(modifier) {
@@ -111,7 +125,9 @@ fun TaxiMap(
                 map.addOnCameraMoveStartedListener { reason ->
                     if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) follow = false
                 }
-                map.cameraPosition = CameraPosition.Builder().target(LatLng(40.3864, 71.7864)).zoom(13.0).build()
+                map.cameraPosition = CameraPosition.Builder()
+                    .target(initialCenter?.let { LatLng(it.lat, it.lng) } ?: UZBEKISTAN_CENTER)
+                    .zoom(if (initialCenter != null) 13.0 else UZBEKISTAN_ZOOM).build()
                 map.setStyle(Style.Builder().fromUri(styleUrl)) { style -> addLayers(style, view.context) }
             }
         }

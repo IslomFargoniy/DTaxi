@@ -26,7 +26,16 @@ class Extensions
      */
     public const REALM = 'asterisk';
 
-    public function __construct(private readonly IceServers $iceServers) {}
+    public function __construct(private readonly IceServers $iceServers, private readonly TrunkSync $trunks) {}
+
+    /**
+     * Caller ID ichidagi ism: qo'shtirnoq, <>, teskari chiziq va boshqaruv belgilari "ism" <raqam> ko'rinishini buzadi
+     * (ism yoki trunkdan kelgan raqam orqali boshqa raqam ko'rsatib yuborish mumkin edi).
+     */
+    public static function callerName(string $name): string
+    {
+        return mb_substr(trim((string) preg_replace('/["<>\\\\\p{Cc}]/u', '', $name)), 0, 64);
+    }
 
     public function syncFor(User $user): void
     {
@@ -74,7 +83,7 @@ class Extensions
                 'context' => $context,
                 'disallow' => 'all',
                 'allow' => self::CODECS,
-                'callerid' => "\"{$user->name}\" <{$extension}>",
+                'callerid' => '"'.self::callerName((string) $user->name)."\" <{$extension}>",
                 'direct_media' => 'no',
                 'rtp_symmetric' => 'yes',
                 'force_rport' => 'yes',
@@ -143,7 +152,8 @@ class Extensions
     }
 
     /**
-     * Egasi yo'q ichki raqamlar (o'chirilgan foydalanuvchilar) — telephony:sync tozalaydi.
+     * Egasi yo'q ichki raqamlar (o'chirilgan foydalanuvchilar) va trunk yozuvlari (o'chirilgan/qayta nomlangan trunk) —
+     * telephony:sync tozalaydi.
      */
     public function pruneOrphans(): int
     {
@@ -152,7 +162,7 @@ class Extensions
             ->whereNotIn('id', $known)->pluck('id');
         $orphans->each(fn (string $id) => $this->delete($id));
 
-        return $orphans->count();
+        return $orphans->count() + $this->trunks->pruneOrphans();
     }
 
     private function delete(string $extension): void

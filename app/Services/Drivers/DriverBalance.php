@@ -84,6 +84,18 @@ class DriverBalance
         );
     }
 
+    /**
+     * To'lov tizimi orqali kelgan pul qaytarildi. Chaqiruvchi haydovchi qatorini qulflab balans yetishini tekshiradi.
+     */
+    public function refund(Driver $driver, int $amount, TransactionSource $source, string $comment): DriverTransaction
+    {
+        if ($amount <= 0) {
+            throw new InvalidArgumentException('Qaytarish summasi musbat bo\'lishi kerak.');
+        }
+
+        return $this->apply($driver, -$amount, TransactionType::Refund, $source, comment: $comment);
+    }
+
     public function penalty(Driver $driver, int $amount, string $reason, ?Order $order = null): ?DriverTransaction
     {
         if ($amount <= 0) {

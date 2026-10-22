@@ -33,6 +33,8 @@ use Illuminate\Support\Carbon;
  * @property Point|null $dropoff_location
  * @property Point|null $start_location
  * @property Point|null $finish_location
+ * @property string|null $start_name
+ * @property string|null $finish_name
  * @property string|null $comment
  * @property array<string, mixed> $tariff_snapshot
  * @property int|null $price_estimate

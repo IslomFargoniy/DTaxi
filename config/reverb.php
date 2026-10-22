@@ -82,7 +82,10 @@ return [
                     'scheme' => env('REVERB_SCHEME', 'https'),
                     'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
                 ],
-                'allowed_origins' => ['*'],
+                // Brauzer har doim Origin yuboradi — begona sayt ulana olmaydi; '' — Origin yubormaydigan Android ilovasi uchun
+                'allowed_origins' => env('APP_ENV') === 'local'
+                    ? ['*']
+                    : [...array_filter([parse_url((string) env('APP_URL'), PHP_URL_HOST)]), ''],
                 'ping_interval' => env('REVERB_APP_PING_INTERVAL', 60),
                 'activity_timeout' => env('REVERB_APP_ACTIVITY_TIMEOUT', 30),
                 'max_connections' => env('REVERB_APP_MAX_CONNECTIONS'),
