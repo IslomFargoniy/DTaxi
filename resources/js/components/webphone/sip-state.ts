@@ -526,6 +526,28 @@ export const globalSip: GlobalSipState = existing ?? {
         this.isOpen = true;
         this.notify();
 
+        // Asterisk ochiq IP'da — tashqi (srflx) yoki TURN (relay) nomzodi yetarli. To'liq yig'ilishni kutish
+        // (javob bermaydigan IPv6/VPN interfeysi) javob berishni iceGatheringTimeout'gacha (~3 s) kechiktirardi
+        session.delegate = {
+            ...session.delegate,
+            onSessionDescriptionHandler: (handler) => {
+                // Web platformasida doim Web.SessionDescriptionHandler (import type — runtime tekshiruvsiz)
+                const sdh = handler as Web.SessionDescriptionHandler;
+                let timer: ReturnType<typeof setTimeout> | undefined;
+                sdh.peerConnectionDelegate = {
+                    onicecandidate: (event) => {
+                        const type = event.candidate?.type;
+                        if (!timer && (type === 'srflx' || type === 'relay')) {
+                            timer = setTimeout(
+                                () => sdh.iceGatheringComplete(),
+                                100,
+                            );
+                        }
+                    },
+                };
+            },
+        };
+
         const attachMedia = () => {
             const pc = peerConnection(session);
             if (!pc) {
