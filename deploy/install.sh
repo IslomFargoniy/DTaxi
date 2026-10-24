@@ -15,6 +15,8 @@
 #       ko'cha nomlari ham shu holatda yuklanadi — OSM importi (regions:import, landmarks:import) o'tkazib yuboriladi.
 #       --turn — ixtiyoriy TURN server (coturn, deploy/turn-config.sh): server NAT ortida yoki operator/haydovchi
 #       tarmog'i UDP'ni yopsa WebRTC ovozi TCP/TLS orqali o'tadi.
+#       --demo — demo server: superadmin (admin), filial admini (branch), operator, kassir (cashier) va bitta haydovchi
+#       (+998900000001), parollar hammasida 11221122. Firma serverida ishlatilmaydi.
 #
 # Skript qayta ishga tushirilsa ham xavfsiz (idempotent): mavjud parollar, .env, sertifikat va superadmin saqlanadi.
 set -euo pipefail
@@ -27,6 +29,7 @@ SKIP_SSL=0
 SKIP_MAPS=0
 MAP_BUNDLE=""
 TURN=0
+DEMO=0
 for arg in "$@"; do
     case "$arg" in
         --dev | --prod) MODE="$arg" ;;
@@ -40,6 +43,7 @@ for arg in "$@"; do
         --skip-maps) SKIP_MAPS=1 ;;
         --map-bundle=*) MAP_BUNDLE="${arg#*=}" ;;
         --turn) TURN=1 ;;
+        --demo) DEMO=1 ;;
         *) echo "Noma'lum parametr: $arg" >&2; exit 1 ;;
     esac
 done
@@ -373,6 +377,7 @@ if [[ "$MODE" == "--prod" ]]; then
     log "Prod: birinchi filial va superadmin"
     INIT_ARGS=""
     [[ -n "$COMPANY" ]] && INIT_ARGS="--company=$(printf '%q' "$COMPANY")"
+    [[ "$DEMO" == 1 ]] && INIT_ARGS="${INIT_ARGS} --demo"
     INIT_OUTPUT="$(as_app "php artisan dtaxi:init ${INIT_ARGS}")"
     echo "$INIT_OUTPUT"
 
@@ -531,6 +536,11 @@ if [[ "$MODE" == "--prod" && "$SKIP_MAPS" == 0 ]]; then
     fi
 fi
 
+# Hududlar endi import qilingan — demo filiali shaharga bog'lanadi (mavjud foydalanuvchilarga tegilmaydi)
+if [[ "$MODE" == "--prod" && "$DEMO" == 1 ]]; then
+    as_app "php artisan dtaxi:init --demo" >/dev/null
+fi
+
 log "Tayyor"
 if [[ "$MODE" == "--prod" ]]; then
     echo "Panel: $([[ "$SKIP_SSL" == 1 ]] && echo http || echo https)://${DOMAIN}"
@@ -544,6 +554,9 @@ if [[ "$MODE" == "--prod" ]]; then
         grep -E '^(Manzil|Login|Parol):' <<<"$INIT_OUTPUT" | sed 's/^/    /'
     else
         echo "Superadmin avval yaratilgan. Parolni tiklash: sudo -u ${APP_USER} php artisan dtaxi:admin-password"
+    fi
+    if [[ "$DEMO" == 1 ]]; then
+        echo "Demo: branch, operator, cashier (panel), haydovchi +998900000001 (ilova) — parol 11221122"
     fi
 else
     echo "PostgreSQL: ${DB_NAME} / ${DB_USER}  (test bazasi: ${DB_NAME}_test)"

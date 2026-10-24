@@ -15,7 +15,8 @@ class InitApp extends Command
     protected $signature = 'dtaxi:init
         {--company= : Firma (xizmat) nomi, standart — Dtaxi}
         {--username=admin : Superadmin logini}
-        {--email= : Superadmin e-mail\'i (ixtiyoriy, parolni tiklash uchun)}';
+        {--email= : Superadmin e-mail\'i (ixtiyoriy, parolni tiklash uchun)}
+        {--demo : Demo server: har rolga bittadan foydalanuvchi, parollar sinov paroli (qayta chaqirish xavfsiz)}';
 
     protected $description = 'Birinchi filial va superadmin yaratish (parol tasodifiy; lokal muhitda — sinov paroli)';
 
@@ -44,7 +45,12 @@ class InitApp extends Command
             $seeder->email = $email;
         }
 
+        $seeder->demo = (bool) $this->option('demo');
         $seeder->run();
+
+        if ($seeder->demo) {
+            $this->printDemoAccounts();
+        }
 
         if ($seeder->credentials === null) {
             $this->info('Superadmin allaqachon mavjud — hech narsa o\'zgartirilmadi.');
@@ -72,6 +78,16 @@ class InitApp extends Command
         $this->warn("Bu ma'lumot qayta ko'rsatilmaydi. Nusxasi: {$file} — birinchi kirishdan keyin o'chiring.");
 
         return self::SUCCESS;
+    }
+
+    private function printDemoAccounts(): void
+    {
+        $this->newLine();
+        $this->line('Demo kirishlar (parol hammasida '.FirstRunSeeder::DEV_PASSWORD.'; superadmin — faqat demo bilan yaratilgan bo\'lsa):');
+        foreach (FirstRunSeeder::DEMO_STAFF as $username => $role) {
+            $this->line("    {$role->value}: {$username}");
+        }
+        $this->line('    driver: '.FirstRunSeeder::DEMO_DRIVER_PHONE.' (ilova)');
     }
 
     public static function credentialsFile(): string

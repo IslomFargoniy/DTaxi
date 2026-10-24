@@ -3,6 +3,7 @@
 use App\Console\Commands\InitApp;
 use App\Enums\Role;
 use App\Models\Branch;
+use App\Models\Driver;
 use App\Models\User;
 use App\Support\Settings;
 use Database\Seeders\FirstRunSeeder;
@@ -90,4 +91,44 @@ test('login works without a superadmin and hints to run dtaxi:init; setup wizard
 
     (new FirstRunSeeder)->run();
     $this->get(route('login'))->assertInertia(fn ($page) => $page->where('needsInit', false));
+});
+
+test('dtaxi:init --demo creates one account per role with the test password, idempotently', function () {
+    $this->artisan('dtaxi:init', ['--demo' => true])
+        ->expectsOutputToContain('Parol:  '.FirstRunSeeder::DEV_PASSWORD)
+        ->expectsOutputToContain('operator: operator')
+        ->assertSuccessful();
+
+    $branch = Branch::query()->sole();
+    foreach (['admin' => Role::Superadmin, ...FirstRunSeeder::DEMO_STAFF] as $username => $role) {
+        $user = User::query()->where('username', $username)->sole();
+        expect($user->hasRole($role))->toBeTrue()
+            ->and(Hash::check(FirstRunSeeder::DEV_PASSWORD, $user->password))->toBeTrue()
+            ->and($user->email_verified_at)->not->toBeNull()
+            ->and($user->branch_id)->toBe($role === Role::Superadmin ? null : $branch->id);
+    }
+    expect(User::query()->where('username', 'operator')->sole()->sip_extension)->not->toBeNull();
+
+    $driver = Driver::query()->with('user', 'vehicle.tariffClasses')->sole();
+    expect($driver->user->phone)->toBe(FirstRunSeeder::DEMO_DRIVER_PHONE)
+        ->and($driver->user->hasRole(Role::Driver))->toBeTrue()
+        ->and(Hash::check(FirstRunSeeder::DEV_PASSWORD, $driver->user->password))->toBeTrue()
+        ->and($driver->is_approved)->toBeTrue()
+        ->and($driver->vehicle?->is_approved)->toBeTrue()
+        ->and($driver->vehicle?->tariffClasses)->not->toBeEmpty();
+
+    // Qayta chaqirish: o'zgartirilgan parol saqlanadi, nusxa yaratilmaydi
+    User::query()->where('username', 'operator')->sole()->update(['password' => 'yangi-parol-123']);
+    $this->artisan('dtaxi:init', ['--demo' => true])->assertSuccessful();
+    expect(User::query()->count())->toBe(5)
+        ->and(Driver::query()->count())->toBe(1)
+        ->and(Hash::check('yangi-parol-123', User::query()->where('username', 'operator')->sole()->password))->toBeTrue();
+});
+
+test('demo mode does not change an existing superadmin password', function () {
+    Artisan::call('dtaxi:init');
+    $hash = User::query()->sole()->password;
+
+    $this->artisan('dtaxi:init', ['--demo' => true])->assertSuccessful();
+    expect(User::query()->where('username', 'admin')->sole()->password)->toBe($hash);
 });
