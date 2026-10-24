@@ -34,6 +34,10 @@ object DriverState {
     private val _unread = MutableStateFlow(0)
     val unread: StateFlow<Int> = _unread.asStateFlow()
 
+    /** Dispetcher shu id gacha bo'lgan xabarlarimizni o'qidi (ChatMessagesRead) — chatda ✓ → ✓✓ */
+    private val _chatReadUpTo = MutableStateFlow(0)
+    val chatReadUpTo: StateFlow<Int> = _chatReadUpTo.asStateFlow()
+
     /** Yakunlangan safar summasi — "To'lanadi" oynasi (buyurtma kartochkasi yopilgandan keyin ham ko'rinadi) */
     private val _receipt = MutableStateFlow<Long?>(null)
     val receipt: StateFlow<Long?> = _receipt.asStateFlow()
@@ -122,6 +126,8 @@ object DriverState {
     fun setUnread(count: Int) = _unread.update { count }
 
     fun incrementUnread() = _unread.update { it + 1 }
+
+    fun chatRead(upToId: Int) = _chatReadUpTo.update { maxOf(it, upToId) }
 
     fun toast(message: String?) = _toast.update { message }
 

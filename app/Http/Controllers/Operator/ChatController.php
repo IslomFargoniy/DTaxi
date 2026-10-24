@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Operator;
 
 use App\Events\ChatMessageSent;
+use App\Events\ChatMessagesRead;
 use App\Http\Controllers\Controller;
 use App\Jobs\SendPushNotification;
 use App\Models\ChatMessage;
@@ -70,8 +71,11 @@ class ChatController extends Controller
 
         // Eskilarini yuklash (yuqoriga aylantirish) o'qilgan belgisiga tegmaydi
         if ($before === 0) {
-            ChatMessage::query()->where('driver_id', $driver->id)->where('sender_id', $driver->user_id)->whereNull('read_at')
-                ->update(['read_at' => now()]);
+            $unread = ChatMessage::query()->where('driver_id', $driver->id)->where('sender_id', $driver->user_id)->whereNull('read_at');
+            $upToId = (int) (clone $unread)->max('id');
+            if ($unread->update(['read_at' => now()]) > 0) {
+                ChatMessagesRead::dispatch($driver->id, $driver->branch_id, false, $upToId);
+            }
         }
 
         return response()->json(

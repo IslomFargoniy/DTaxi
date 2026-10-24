@@ -4,12 +4,14 @@ use App\Enums\DriverStatus;
 use App\Enums\OrderStatus;
 use App\Enums\TransactionSource;
 use App\Events\ChatMessageSent;
+use App\Events\ChatMessagesRead;
 use App\Events\DriverLocationUpdated;
 use App\Events\OfferWithdrawn;
 use App\Events\OrderOffered;
 use App\Events\OrderUpdated;
 use App\Models\Branch;
 use App\Models\Call;
+use App\Models\ChatMessage;
 use App\Models\DeviceToken;
 use App\Models\Driver;
 use App\Models\DriverLocation;
@@ -138,6 +140,23 @@ test('driver chats with the dispatcher', function () {
 
     $this->postJson('/api/driver/v1/chat', ['body' => 'Mijoz chiqmayapti'])->assertCreated()->assertJsonPath('mine', true);
     $this->getJson('/api/driver/v1/chat')->assertOk()->assertJsonCount(1)->assertJsonPath('0.body', 'Mijoz chiqmayapti');
+});
+
+test('driver reading the chat marks dispatcher messages read and tells the operators', function () {
+    Event::fake([ChatMessagesRead::class]);
+    $driver = actingDriver(driverNear($this->branch, 0));
+    $operator = User::factory()->create(['branch_id' => $this->branch->id]);
+    $mine = ChatMessage::query()->create(['driver_id' => $driver->id, 'sender_id' => $driver->user_id, 'body' => 'Keldim', 'created_at' => now()]);
+    $theirs = ChatMessage::query()->create(['driver_id' => $driver->id, 'sender_id' => $operator->id, 'body' => 'Kuting', 'created_at' => now()]);
+
+    $this->getJson('/api/driver/v1/chat')->assertOk();
+
+    expect($theirs->fresh()->read_at)->not->toBeNull()
+        ->and($mine->fresh()->read_at)->toBeNull();
+    Event::assertDispatched(ChatMessagesRead::class, fn (ChatMessagesRead $e) => $e->driverId === $driver->id && $e->byDriver && $e->upToId === $theirs->id);
+
+    $this->getJson('/api/driver/v1/chat')->assertOk();
+    Event::assertDispatchedTimes(ChatMessagesRead::class, 1);
 });
 
 test('balance history is available', function () {

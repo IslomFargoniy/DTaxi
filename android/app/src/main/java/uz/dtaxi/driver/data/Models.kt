@@ -248,6 +248,8 @@ data class ChatMessage(
     val body: String?,
     @SerializedName("attachment_url") val attachmentUrl: String?,
     @SerializedName("created_at") val createdAt: String?,
+    /** O'zimizniki uchun — dispetcher o'qigan vaqti (✓✓) */
+    @SerializedName("read_at") val readAt: String? = null,
 )
 
 data class ChatRequest(val body: String, @SerializedName("order_id") val orderId: Int?)

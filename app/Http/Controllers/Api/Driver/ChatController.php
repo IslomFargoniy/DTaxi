@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Driver;
 
 use App\Events\ChatMessageSent;
+use App\Events\ChatMessagesRead;
 use App\Http\Controllers\Controller;
 use App\Models\ChatMessage;
 use App\Models\Driver;
@@ -19,8 +20,11 @@ class ChatController extends Controller
     {
         $driver = $this->driver($request);
 
-        ChatMessage::query()->where('driver_id', $driver->id)->where('sender_id', '!=', $driver->user_id)->whereNull('read_at')
-            ->update(['read_at' => now()]);
+        $unread = ChatMessage::query()->where('driver_id', $driver->id)->where('sender_id', '!=', $driver->user_id)->whereNull('read_at');
+        $upToId = (int) (clone $unread)->max('id');
+        if ($unread->update(['read_at' => now()]) > 0) {
+            ChatMessagesRead::dispatch($driver->id, $driver->branch_id, true, $upToId);
+        }
 
         return response()->json(
             ChatMessage::query()->with(['sender:id,name', 'driver:id,user_id'])->where('driver_id', $driver->id)->latest('created_at')->limit(100)->get()

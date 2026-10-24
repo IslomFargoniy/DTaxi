@@ -4,6 +4,7 @@ use App\Enums\DriverStatus;
 use App\Enums\Role;
 use App\Enums\TransactionSource;
 use App\Events\ChatMessageSent;
+use App\Events\ChatMessagesRead;
 use App\Events\OfferWithdrawn;
 use App\Events\OrderOffered;
 use App\Events\OrderUpdated;
@@ -317,6 +318,26 @@ test('unread counts only driver messages and clears when the thread is opened', 
     $this->actingAs($operator)->getJson(route('operator.chat.threads'))->assertJsonPath('0.unread', 1);
     $this->getJson(route('operator.chat.messages', $driver))->assertOk();
     $this->getJson(route('operator.chat.threads'))->assertJsonPath('0.unread', 0);
+});
+
+test('opening the thread marks driver messages read and tells the driver (double tick)', function () {
+    Event::fake([ChatMessageSent::class, ChatMessagesRead::class]);
+    $operator = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+    $driver = driverNear($this->branch, 0);
+    $first = ChatMessage::query()->create(['driver_id' => $driver->id, 'sender_id' => $driver->user_id, 'body' => 'Keldim', 'created_at' => now()]);
+    $last = ChatMessage::query()->create(['driver_id' => $driver->id, 'sender_id' => $driver->user_id, 'body' => 'Mijoz yo\'q', 'created_at' => now()]);
+
+    $this->actingAs($operator)->getJson(route('operator.chat.messages', $driver))
+        ->assertJsonPath('0.id', $first->id)->assertJsonPath('1.read_at', fn ($v) => $v !== null);
+
+    Event::assertDispatchedTimes(ChatMessagesRead::class, 1);
+    Event::assertDispatched(ChatMessagesRead::class, fn (ChatMessagesRead $e) => $e->driverId === $driver->id
+        && $e->branchId === $driver->branch_id && ! $e->byDriver && $e->upToId === $last->id
+        && $e->broadcastWith() === ['driver_id' => $driver->id, 'by_driver' => false, 'up_to_id' => $last->id]);
+
+    // Hammasi o'qilgan — qayta ochish hodisa yubormaydi
+    $this->getJson(route('operator.chat.messages', $driver))->assertOk();
+    Event::assertDispatchedTimes(ChatMessagesRead::class, 1);
 });
 
 test('operator logs a lost item for an order and admin resolves it', function () {

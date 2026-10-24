@@ -128,6 +128,7 @@ fun ChatScreen(onBack: () -> Unit, onCall: (() -> Unit)? = null) {
     val dark = LocalAppColors.current.dark
     val messages = remember { mutableStateListOf<ChatMessage>() }
     val unread by DriverState.unread.collectAsState()
+    val readUpTo by DriverState.chatReadUpTo.collectAsState()
     val order by DriverState.order.collectAsState()
     var text by remember { mutableStateOf("") }
     var loaded by remember { mutableStateOf(false) }
@@ -168,6 +169,13 @@ fun ChatScreen(onBack: () -> Unit, onCall: (() -> Unit)? = null) {
         }
     }
     LaunchedEffect(unread) { load() }
+    // Dispetcher o'qidi — qayta yuklamasdan joyida ✓✓
+    LaunchedEffect(readUpTo) {
+        messages.indices.forEach { i ->
+            val m = messages[i]
+            if (m.mine && m.readAt == null && m.id <= readUpTo) messages[i] = m.copy(readAt = "read")
+        }
+    }
     LaunchedEffect(nearBottom) { if (nearBottom) unseen = 0 }
 
     fun send(body: String) {
@@ -348,7 +356,8 @@ private fun MessageBubble(m: ChatMessage, first: Boolean, dark: Boolean, onOpen:
                 }
                 m.body?.takeIf { it.isNotBlank() }?.let { Text(it, color = content) }
                 Text(
-                    (localTime(m.createdAt) ?: "") + if (mine) "  ✓" else "",
+                    // Telegram kabi: ✓ yuborildi, ✓✓ dispetcher o'qidi
+                    (localTime(m.createdAt) ?: "") + if (!mine) "" else if (m.readAt != null) "  ✓✓" else "  ✓",
                     Modifier.align(Alignment.End),
                     style = MaterialTheme.typography.labelSmall,
                     color = meta,

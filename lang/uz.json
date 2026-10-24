@@ -722,5 +722,7 @@
     "Many streets were renamed, but the map data (OpenStreetMap) still has the old names. Add the new name here: map labels, navigation and address search will show it, and the old name still finds the street.": "Ko'p ko'chalar qayta nomlangan, xarita ma'lumotida (OpenStreetMap) esa hali eski nomlar. Yangi nomni shu yerga kiriting: xaritadagi yozuv, navigatsiya va manzil qidiruvi yangi nomni ko'rsatadi, eski nom bilan qidirsa ham topiladi.",
     "Old name": "Eski nom",
     "Delete? Streets and addresses get the old name back.": "O'chirilsinmi? Ko'cha va manzillarga eski nom qaytadi.",
-    "This branch has no service area yet — choose its city or district on the Branches page.": "Bu filialning hududi belgilanmagan — «Filiallar» sahifasida shahar yoki tumanini tanlang."
+    "This branch has no service area yet — choose its city or district on the Branches page.": "Bu filialning hududi belgilanmagan — «Filiallar» sahifasida shahar yoki tumanini tanlang.",
+    "Read": "O'qildi",
+    "Sent": "Yuborildi"
 }

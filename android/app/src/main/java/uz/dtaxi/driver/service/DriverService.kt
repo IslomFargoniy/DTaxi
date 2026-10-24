@@ -373,6 +373,10 @@ class DriverService : LifecycleService() {
                     data.get("body")?.takeIf { !it.isJsonNull }?.asString?.let { OfferNotifier.message(this, it) }
                 }
             }
+            // Dispetcher bizning xabarlarimizni o'qidi (haydovchi o'qigani — operatorlar uchun)
+            "ChatMessagesRead" -> if (data.get("by_driver")?.asBoolean == false) {
+                data.get("up_to_id")?.takeIf { !it.isJsonNull }?.asInt?.let(DriverState::chatRead)
+            }
         }
     }
 

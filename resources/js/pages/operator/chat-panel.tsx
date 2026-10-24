@@ -1,6 +1,13 @@
 import { usePage } from '@inertiajs/react';
 import { useEcho } from '@laravel/echo-react';
-import { MessageSquare, Search, Send, X } from 'lucide-react';
+import {
+    Check,
+    CheckCheck,
+    MessageSquare,
+    Search,
+    Send,
+    X,
+} from 'lucide-react';
 import {
     useCallback,
     useEffect,
@@ -39,8 +46,10 @@ type Message = {
     mine: boolean;
     body: string | null;
     attachment_url: string | null;
+    read_at: string | null;
     created_at: string | null;
 };
+type ReadEvent = { driver_id: number; by_driver: boolean; up_to_id: number };
 
 const CHAT_WIDTH = 680;
 const BUTTON_SIZE = 56;
@@ -118,12 +127,17 @@ function shortTime(iso: string | null): string {
 function BranchChat({
     branchId,
     onMessage,
+    onRead,
 }: {
     branchId: number;
     onMessage: (m: Message) => void;
+    onRead: (e: ReadEvent) => void;
 }) {
     useEcho<Message>(`branch.${branchId}`, 'ChatMessageSent', onMessage, [
         onMessage,
+    ]);
+    useEcho<ReadEvent>(`branch.${branchId}`, 'ChatMessagesRead', onRead, [
+        onRead,
     ]);
 
     return null;
@@ -451,6 +465,21 @@ export function ChatPanel({
         [active, open, userId, loadThreads, loadMessages],
     );
 
+    // Haydovchi dispetcher xabarlarini o'qidi — ochiq suhbatda ✓ → ✓✓
+    const onRead = useCallback((e: ReadEvent) => {
+        if (!e.by_driver || e.driver_id !== activeRef.current) {
+            return;
+        }
+        const at = new Date().toISOString();
+        setMessages((list) =>
+            list.map((m) =>
+                !m.from_driver && !m.read_at && m.id <= e.up_to_id
+                    ? { ...m, read_at: at }
+                    : m,
+            ),
+        );
+    }, []);
+
     // Uzilish paytida kelgan xabarlar Reverb'dan qayta kelmaydi — suhbatlar va ochiq suhbat qayta olinadi
     useResyncOnReconnect(
         useCallback(() => {
@@ -503,7 +532,12 @@ export function ChatPanel({
     return (
         <>
             {branchIds.map((id) => (
-                <BranchChat key={id} branchId={id} onMessage={onMessage} />
+                <BranchChat
+                    key={id}
+                    branchId={id}
+                    onMessage={onMessage}
+                    onRead={onRead}
+                />
             ))}
             {/* Suzuvchi tugma — standart o'ng pastda, sudrab ko'chiriladi; har sahifada (layout'da turadi) */}
             <Button
@@ -773,7 +807,7 @@ export function ChatPanel({
                                                     {m.body}
                                                 </span>
                                                 {m.created_at && (
-                                                    <span className="float-right mt-1.5 ml-2 text-[10px] leading-none opacity-60">
+                                                    <span className="float-right mt-1.5 ml-2 inline-flex items-center gap-0.5 text-[10px] leading-none opacity-60">
                                                         {new Date(
                                                             m.created_at,
                                                         ).toLocaleTimeString(
@@ -783,6 +817,23 @@ export function ChatPanel({
                                                                 minute: '2-digit',
                                                             },
                                                         )}
+                                                        {/* Telegram kabi: ✓ yuborildi, ✓✓ haydovchi o'qidi */}
+                                                        {!m.from_driver &&
+                                                            (m.read_at ? (
+                                                                <CheckCheck
+                                                                    className="size-3.5"
+                                                                    aria-label={t(
+                                                                        'Read',
+                                                                    )}
+                                                                />
+                                                            ) : (
+                                                                <Check
+                                                                    className="size-3.5"
+                                                                    aria-label={t(
+                                                                        'Sent',
+                                                                    )}
+                                                                />
+                                                            ))}
                                                     </span>
                                                 )}
                                             </div>
