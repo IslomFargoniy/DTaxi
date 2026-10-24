@@ -50,6 +50,9 @@ class Repository(val client: ApiClient, val session: Session) {
 
     suspend fun registerPushToken(token: String) = unitCall { api.deviceToken(TokenRequest(token)) }
 
+    /** Ilova ochiq — operator chatida "online" */
+    suspend fun ping() = unitCall { api.ping() }
+
     /** Operator qo'ng'irog'ini rad etish */
     suspend fun declineCall(callId: Int) = unitCall { api.declineCall(callId) }
 

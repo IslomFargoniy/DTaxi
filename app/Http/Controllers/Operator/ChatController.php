@@ -10,6 +10,8 @@ use App\Models\ChatMessage;
 use App\Models\Driver;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\DriverPresence;
+use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,6 +46,7 @@ class ChatController extends Controller
             ->get();
 
         $drivers = Driver::query()->with('user')->findMany($latest->pluck('driver_id'))->keyBy('id');
+        $active = app(DriverPresence::class)->lastActive($drivers->map(fn (Driver $d) => $d->user_id)->all());
         // Ro'yxatda oxirgi xabar ko'rinadi (Telegram kabi)
         $last = DB::table('chat_messages')
             ->join('drivers', 'drivers.id', '=', 'chat_messages.driver_id')
@@ -62,7 +65,21 @@ class ChatController extends Controller
             'last_body' => $last->get($row->driver_id)?->body,
             'last_photo' => (bool) ($last->get($row->driver_id)->has_photo ?? false),
             'last_from_driver' => (bool) ($last->get($row->driver_id)->from_driver ?? false),
+            ...$this->presence($drivers->get($row->driver_id), $active),
         ])->values());
+    }
+
+    /**
+     * Oxirgi faollik: ilova so'rovi (kesh) yoki GPS — qaysi biri yangiroq.
+     *
+     * @param  array<int, CarbonInterface>  $active
+     * @return array{online: bool, last_active_at: string|null}
+     */
+    private function presence(?Driver $driver, array $active): array
+    {
+        $at = collect([$driver ? ($active[$driver->user_id] ?? null) : null, $driver?->last_seen_at])->filter()->max();
+
+        return ['online' => DriverPresence::isOnline($at), 'last_active_at' => $at?->toIso8601String()];
     }
 
     public function messages(Request $request, Driver $driver): JsonResponse

@@ -2,6 +2,7 @@
 
 use App\Enums\DriverStatus;
 use App\Enums\OrderStatus;
+use App\Enums\Role;
 use App\Enums\TransactionSource;
 use App\Events\ChatMessageSent;
 use App\Events\ChatMessagesRead;
@@ -18,6 +19,7 @@ use App\Models\DriverLocation;
 use App\Models\User;
 use App\Services\Drivers\DriverBalance;
 use App\Services\Orders\OrderService;
+use Database\Seeders\RolesSeeder;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Event;
@@ -157,6 +159,25 @@ test('driver reading the chat marks dispatcher messages read and tells the opera
 
     $this->getJson('/api/driver/v1/chat')->assertOk();
     Event::assertDispatchedTimes(ChatMessagesRead::class, 1);
+});
+
+test('operator chat shows the driver online while the app pings, then the last active time', function () {
+    $this->seed(RolesSeeder::class);
+    $driver = actingDriver(driverNear($this->branch, 0, ['last_seen_at' => now()->subHour()]));
+    ChatMessage::query()->create(['driver_id' => $driver->id, 'sender_id' => $driver->user_id, 'body' => 'Salom', 'created_at' => now()]);
+    $operator = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+
+    // Ilova hali so'rov yubormagan — faqat bir soat oldingi GPS
+    $this->actingAs($operator)->getJson(route('operator.chat.threads'))->assertJsonPath('0.online', false)
+        ->assertJsonPath('0.last_active_at', $driver->last_seen_at?->toIso8601String());
+
+    Sanctum::actingAs($driver->user, ['driver']);
+    $this->postJson('/api/driver/v1/ping')->assertNoContent();
+    $this->actingAs($operator)->getJson(route('operator.chat.threads'))->assertJsonPath('0.online', true);
+
+    $this->travel(2)->minutes();
+    $this->getJson(route('operator.chat.threads'))->assertJsonPath('0.online', false)
+        ->assertJsonPath('0.last_active_at', fn (?string $at) => $at !== null && now()->diffInSeconds($at, true) < 130);
 });
 
 test('balance history is available', function () {

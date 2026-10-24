@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Driver\OrderController;
 use App\Http\Controllers\Api\Payments\ClickController;
 use App\Http\Controllers\Api\Payments\PaymeController;
 use App\Http\Controllers\DriverAppController;
+use App\Http\Middleware\TouchDriverPresence;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -26,8 +27,10 @@ Route::prefix('driver/v1')->group(function () {
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:driver-login');
     Route::get('app-version', [DriverAppController::class, 'version']);
 
-    Route::middleware(['auth:sanctum', 'abilities:driver'])->group(function () {
+    Route::middleware(['auth:sanctum', 'abilities:driver', TouchDriverPresence::class])->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout']);
+        // Ilova ochiq turganda har daqiqada — chatda "online" (Telegram kabi)
+        Route::post('ping', fn () => response()->noContent());
         Route::get('me', [DriverController::class, 'me']);
         Route::get('shift', [DriverController::class, 'shiftSummary']);
         Route::put('locale', [DriverController::class, 'locale']);

@@ -36,6 +36,9 @@ type Thread = {
     last_body: string | null;
     last_photo: boolean;
     last_from_driver: boolean;
+    /** Telegram kabi: ilova ochiq (oxirgi 90 s ichida so'rov) */
+    online: boolean;
+    last_active_at: string | null;
 };
 type Message = {
     id: number;
@@ -102,14 +105,47 @@ function Avatar({
     return (
         <span
             className={cn(
-                'flex shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white',
+                'relative flex shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white',
                 size,
                 AVATAR_COLORS[thread.driver_id % AVATAR_COLORS.length],
             )}
         >
             {(thread.callsign ?? thread.name ?? '?').slice(0, 3)}
+            {thread.online && (
+                <span className="absolute right-0 bottom-0 size-3 rounded-full border-2 border-background bg-emerald-500" />
+            )}
         </span>
     );
+}
+
+/** Sarlavhadagi holat (Telegram kabi): online yoki oxirgi faollik */
+function presenceText(
+    thread: Thread,
+    t: (key: string, replace?: Record<string, string>) => string,
+): string {
+    if (thread.online) {
+        return t('online');
+    }
+    if (!thread.last_active_at) {
+        return '';
+    }
+    const date = new Date(thread.last_active_at);
+    const time = date.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date.toDateString() === new Date().toDateString()) {
+        return t('last seen at :time', { time });
+    }
+    if (date.toDateString() === yesterday.toDateString()) {
+        return t('last seen yesterday at :time', { time });
+    }
+
+    return t('last seen :date', {
+        date: date.toLocaleDateString([], { day: '2-digit', month: '2-digit' }),
+    });
 }
 
 /** Ro'yxatdagi vaqt: bugun — soat, aks holda sana */
@@ -360,6 +396,16 @@ export function ChatPanel({
     useEffect(() => {
         fetchThreads();
     }, [fetchThreads]);
+
+    // Chat ochiq — haydovchilarning online holati yangilanib tursin
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+        const id = window.setInterval(fetchThreads, 30_000);
+
+        return () => window.clearInterval(id);
+    }, [open, fetchThreads]);
 
     // Suhbatni ochish xabarlarni o'qilgan qiladi — hisoblagich darhol yangilansin.
     // initial — yangi suhbat: ro'yxat almashadi; aks holda — yuklanganlarga qo'shiladi
@@ -737,6 +783,16 @@ export function ChatPanel({
                                         <span className="block truncate text-sm font-semibold">
                                             {activeThread.callsign} ·{' '}
                                             {activeThread.name}
+                                        </span>
+                                        <span
+                                            className={cn(
+                                                'block truncate text-xs',
+                                                activeThread.online
+                                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                                    : 'text-muted-foreground',
+                                            )}
+                                        >
+                                            {presenceText(activeThread, t)}
                                         </span>
                                     </span>
                                 </div>

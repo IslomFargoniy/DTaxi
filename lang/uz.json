@@ -724,5 +724,9 @@
     "Delete? Streets and addresses get the old name back.": "O'chirilsinmi? Ko'cha va manzillarga eski nom qaytadi.",
     "This branch has no service area yet — choose its city or district on the Branches page.": "Bu filialning hududi belgilanmagan — «Filiallar» sahifasida shahar yoki tumanini tanlang.",
     "Read": "O'qildi",
-    "Sent": "Yuborildi"
+    "Sent": "Yuborildi",
+    "online": "online",
+    "last seen at :time": "oxirgi marta :time da",
+    "last seen yesterday at :time": "oxirgi marta kecha :time da",
+    "last seen :date": "oxirgi marta :date"
 }

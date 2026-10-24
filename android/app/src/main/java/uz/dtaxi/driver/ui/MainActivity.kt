@@ -8,6 +8,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.activity.compose.BackHandler
@@ -91,6 +94,15 @@ class MainActivity : ComponentActivity() {
         val app = application as DtaxiApp
         val updater = Updater(this, app.repository.client.http)
         if (savedInstanceState == null) app.scope.launch { updater.deleteInstalled() }
+        // Ekran ochiq turganda har daqiqada — operator chatida "online" (Telegram kabi); fonga o'tsa to'xtaydi
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                while (true) {
+                    if (app.session.token != null) app.repository.ping()
+                    delay(60_000)
+                }
+            }
+        }
 
         setContent {
             DtaxiTheme {

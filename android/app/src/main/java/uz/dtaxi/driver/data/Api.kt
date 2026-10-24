@@ -36,6 +36,9 @@ interface Api {
     @POST("api/driver/v1/device-token")
     suspend fun deviceToken(@Body body: TokenRequest): Response<Unit>
 
+    @POST("api/driver/v1/ping")
+    suspend fun ping(): Response<Unit>
+
     @GET("api/driver/v1/orders/current")
     suspend fun currentOrder(): Response<OrderEnvelope>
 

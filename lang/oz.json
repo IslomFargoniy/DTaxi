@@ -724,5 +724,9 @@
     "Delete? Streets and addresses get the old name back.": "Ўчирилсинми? Кўча ва манзилларга эски ном қайтади.",
     "This branch has no service area yet — choose its city or district on the Branches page.": "Бу филиалнинг ҳудуди белгиланмаган — «Филиаллар» саҳифасида шаҳар ёки туманини танланг.",
     "Read": "Ўқилди",
-    "Sent": "Юборилди"
+    "Sent": "Юборилди",
+    "online": "онлине",
+    "last seen at :time": "охирги марта :time да",
+    "last seen yesterday at :time": "охирги марта кеча :time да",
+    "last seen :date": "охирги марта :date"
 }

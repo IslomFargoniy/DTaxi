@@ -724,5 +724,9 @@
     "Delete? Streets and addresses get the old name back.": "Удалить? Улицам и адресам вернётся старое название.",
     "This branch has no service area yet — choose its city or district on the Branches page.": "У этого филиала не задана зона обслуживания — выберите город или район на странице «Филиалы».",
     "Read": "Прочитано",
-    "Sent": "Отправлено"
+    "Sent": "Отправлено",
+    "online": "в сети",
+    "last seen at :time": "был(а) в :time",
+    "last seen yesterday at :time": "был(а) вчера в :time",
+    "last seen :date": "был(а) :date"
 }
