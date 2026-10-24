@@ -83,3 +83,32 @@ test('map bundle holds tiles, OSM exports and OSRM data, keeps only the latest l
 test('no map bundle without prepared tiles', function () {
     expect(app(Backup::class)->createMap(storage_path('framework/testing/empty-root')))->toBeNull();
 });
+
+test('map-export --db-only writes only the map tables dump and keeps the latest', function () {
+    $dumps = [];
+    Process::fake(['*pg_dump*' => function (PendingProcess $process) use (&$dumps) {
+        $dumps[] = $process->command;
+        $file = substr((string) collect($process->command)->first(fn (string $arg) => str_starts_with($arg, '--file=')), 7);
+        File::put($file, 'PGDMP');
+
+        return Process::result();
+    }]);
+    $directory = storage_path('framework/testing/map-dumps');
+    $backup = Mockery::mock(Backup::class)->makePartial();
+    $backup->shouldReceive('directory')->andReturn($directory);
+    app()->instance(Backup::class, $backup);
+
+    try {
+        $this->artisan('dtaxi:map-export', ['--db-only' => true])->expectsOutputToContain('--map-dump=')->assertSuccessful();
+        $this->travel(1)->seconds();
+        $this->artisan('dtaxi:map-export', ['--db-only' => true])->assertSuccessful();
+
+        $files = File::glob($directory.'/*_map.dump');
+        expect($files)->toHaveCount(1)
+            ->and(File::glob($directory.'/*_map.tar'))->toBeEmpty()
+            ->and($dumps[0])->toContain('--data-only', '--table=public.landmarks')
+            ->and(substr(sprintf('%o', fileperms($files[0])), -3))->toBe('600');
+    } finally {
+        File::deleteDirectory($directory);
+    }
+});

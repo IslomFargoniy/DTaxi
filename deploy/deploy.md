@@ -4,6 +4,40 @@ Har bir taksi firmasi o'z serverida alohida nusxa oladi. Firmaga xos hech narsa 
 
 ---
 
+## 0. Tezkor o'rnatish — Mac'dan bitta buyruq
+
+Birinchi haqiqiy o'rnatish (demo `taxi.simulator.uz`, 2026-10-24) tajribasidan. Qo'lda bajarilgan hamma qadamlar `deploy/remote-install.sh` ga kiritilgan.
+
+**Kerak:** server IP'si, SSH foydalanuvchisi (root yoki parolsiz sudo) va paroli/kaliti, domen (A yozuvi shu IP'ga), sertifikat uchun e-mail, firma nomi, demo yoki firma serveri ekani.
+
+```bash
+# Mac'da, loyiha papkasida. Xarita demo serverdan ko'chiriladi (tile, OSRM, tuzatilgan nomlar — qayta yasalmaydi)
+DTAXI_SSH_PASSWORD='<server paroli>' DTAXI_MAP_SSH_PASSWORD='<demo paroli>' \
+deploy/remote-install.sh root@<IP> --domain=taxi.firma.uz --email=admin@firma.uz --company="Firma taksi" \
+    --map-from=taxi@193.181.218.203            # demo server — xarita manbai
+#   + --demo                                   demo server bo'lsa (har rolga foydalanuvchi, parol 11221122)
+
+# uzilsa — xuddi shu buyruqni qayta bering; faqat kuzatish:
+deploy/remote-install.sh root@<IP> --follow
+```
+
+Skript nima qiladi:
+
+1. Server hajmini ko'rsatadi; **2 vCPU / 4 GB / 25 GB** dan kichik bo'lsa to'xtab so'raydi. Kattalashtirish kerak bo'lsa — **o'rnatishdan oldin**: hosting resurs qo'shganda serverni qayta yuklaydi va o'rnatish uziladi.
+2. Domen DNS'i server IP'siga ko'rsatishini tekshiradi (aks holda SSL olinmaydi).
+3. `git` (toza Ubuntu'da yo'q), `dtaxi` foydalanuvchisi va uning SSH kaliti. **Kalitni chiqaradi va kutadi** — siz uni GitHub → DTaxi → Settings → Deploy keys ga qo'shasiz (yozish huquqisiz). Keyingi yangilanishlar (`dtaxi:update`) shu kalit orqali.
+4. `/var/www/dtaxi` ga `dtaxi` nomidan `git clone`.
+5. `--map-from`: demo serverda `dtaxi:map-export` (~2.3 GB), to'plam tasodifiy manzilda vaqtincha ochiladi, **yangi server uni demo'dan to'g'ridan-to'g'ri yuklaydi** (Mac'ning sekin interneti orqali o'tmaydi), SHA-256 tekshiriladi, manzil o'chiriladi.
+6. `install.sh --prod ...` fonda (`setsid` — SSH uzilsa ham davom etadi), log `/var/log/dtaxi-install.log` (qayta yuklanishda ham qoladi). Bosqichlar shu terminalda chiqib turadi; oxirida superadmin login/paroli.
+
+Vaqt (2 vCPU / 4 GB): to'plam bilan ~30–40 daqiqa; to'plamsiz (butun O'zbekiston OSM → tile → OSRM → importlar) ~2–3 soat.
+
+So'ng: haydovchi ilovasi (§4: `firms/<firma>`, `assembleRelease`, `deploy/upload-apk.sh`), panelda trunk va integratsiyalar (§2 "O'rnatishdan so'ng").
+
+**Demo server** — `taxi.simulator.uz` (`193.181.218.203`, foydalanuvchi `taxi`, 2 vCPU / 4 GB / 24 GB): `install.sh --demo`, xarita manbai (tuzatilgan nomlar shu yerda yuritiladi), ilova `android/firms/demo`.
+
+---
+
 ## 1. Oldindan tayyorlash
 
 ### Server
@@ -53,18 +87,21 @@ sudo ./deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz --
 
 Parametrlar:
 
-| Parametr / o'zgaruvchi      | Ma'nosi                                                                   |
-| --------------------------- | ------------------------------------------------------------------------- |
-| `--prod --domain= --email=` | firma serveri (majburiy uchtasi birga)                                    |
-| `--company=`                | firma (xizmat) nomi — faqat birinchi o'rnatishda (standart `Dtaxi`)       |
-| `--skip-maps`               | xarita/OSRM tayyorlashni o'tkazib yuborish (keyin qo'lda)                 |
-| `--skip-ssl`                | sertifikatsiz — **faqat sinov uchun** (mikrofon https'siz ishlamaydi)     |
-| `--turn`                    | ixtiyoriy TURN server (coturn) — §2.1                                     |
-| `BBOX=lon1,lat1,lon2,lat2`  | xizmat hududi (standart — butun O'zbekiston)                              |
-| `PUBLIC_IP=`                | avtomatik aniqlanmasa                                                     |
-| `LOCAL_NET=`                | server ichki tarmog'i (standart — asosiy interfeys tarmog'idan avtomatik) |
+| Parametr / o'zgaruvchi      | Ma'nosi                                                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--prod --domain= --email=` | firma serveri (majburiy uchtasi birga)                                                                     |
+| `--company=`                | firma (xizmat) nomi — faqat birinchi o'rnatishda (standart `Dtaxi`)                                        |
+| `--skip-maps`               | xarita/OSRM tayyorlashni o'tkazib yuborish (keyin qo'lda)                                                  |
+| `--skip-ssl`                | sertifikatsiz — **faqat sinov uchun** (mikrofon https'siz ishlamaydi)                                      |
+| `--turn`                    | ixtiyoriy TURN server (coturn) — §2.1                                                                      |
+| `--demo`                    | demo: `admin`, `branch`, `operator`, `cashier` va haydovchi `+998900000001` — parol `11221122` (qaror #70) |
+| `--map-bundle=`             | xarita to'plami (`dtaxi:map-export`) — tile, OSRM, bazadagi xarita (§7)                                    |
+| `--map-dump=`               | faqat bazadagi xarita (`dtaxi:map-export --db-only`, ~15 MB) — tile/OSRM shu yerda yasaladi                |
+| `BBOX=lon1,lat1,lon2,lat2`  | xizmat hududi (standart — butun O'zbekiston)                                                               |
+| `PUBLIC_IP=`                | avtomatik aniqlanmasa                                                                                      |
+| `LOCAL_NET=`                | server ichki tarmog'i (standart — asosiy interfeys tarmog'idan avtomatik)                                  |
 
-Git uchun: serverda `dtaxi` foydalanuvchisiga **faqat o'qish huquqli deploy key** qo'shing (GitHub → Settings → Deploy keys), keyingi yangilanishlar shu orqali keladi.
+Git uchun: serverda `dtaxi` foydalanuvchisiga **faqat o'qish huquqli deploy key** qo'shing (GitHub → Settings → Deploy keys), keyingi yangilanishlar shu orqali keladi. `deploy/remote-install.sh` (§0) buni o'zi tayyorlaydi.
 
 ### 2.1. TURN server (ixtiyoriy, `--turn`)
 
@@ -176,12 +213,13 @@ keytool -genkeypair -v -keystore android/firms/<firma>/keystore.jks -alias drive
 cd android
 JAVA_HOME=~/Library/Java/JavaVirtualMachines/jdk-17*/Contents/Home ./gradlew assembleRelease -Pfirm=<firma>
 # natija: public/android/dtaxi.<versiya>.apk + public/android/version.json
-scp ../public/android/dtaxi.*.apk ../public/android/version.json root@taxi.firma.uz:/var/www/dtaxi/public/android/
-ssh root@taxi.firma.uz chown -R dtaxi:dtaxi /var/www/dtaxi/public/android
+cd .. && deploy/upload-apk.sh root@taxi.firma.uz      # parol bilan: DTAXI_SSH_PASSWORD='...' deploy/upload-apk.sh ...
 ```
 
+`upload-apk.sh` APK'ni 4 MB bo'laklab yuboradi, har bo'lak va butun fayl SHA-256 bilan tekshiriladi, faqat shundan keyin `version.json` almashadi. Oddiy `scp`/`rsync` sekin yoki uziladigan tarmoqda (demo'da shunday bo'ldi) **yarim APK'ni joylab qo'yardi** — haydovchilarga buzuq yangilanish taklif qilinadi. Qayta ishga tushirilsa tayyor bo'laklar qayta yuborilmaydi. Mac'dagi `rsync` (openrsync) `--append-verify` ni bilmaydi, serverda `rsync` umuman bo'lmasligi mumkin.
+
 - **`keystore.jks` va parollarni yo'qotmang va git'ga qo'shmang.** Yo'qolsa, haydovchilar ilovani o'chirib qayta o'rnatishi kerak bo'ladi (yangilanish o'rnatilmaydi).
-- Ilova `version.json` ni o'qib, yangi versiyani o'zi taklif qiladi.
+- Ilova `version.json` ni **ochilganda** va ochiq turganda har 30 daqiqada o'qib, yangi versiyani o'zi taklif qiladi. Versiya — `1.0.<git commit'lar soni>`: yangi APK uchun avval commit.
 - Birinchi o'rnatish: haydovchi `https://taxi.firma.uz/android/dtaxi.<versiya>.apk` dan yuklaydi va "noma'lum manbalardan o'rnatish"ga ruxsat beradi.
 - Telefonda: joylashuv ruxsati — "Har doim", batareya tejash — o'chirilgan (ilova sozlamalarida tugma bor).
 
@@ -288,6 +326,8 @@ sudo ./deploy/install.sh --prod --domain=taxi.yangifirma.uz --email=admin@yangif
 `install.sh` migratsiya va `dtaxi:init` dan keyin `map-restore.sh` ni chaqiradi: fayllar joyiga tushadi, so'ng `dtaxi:map-import` bitta tranzaksiyada 3 jadvalni tozalab yuklaydi — `created_by` → NULL (eski firma foydalanuvchilari), `usage_count` → 0 (eski firma statistikasi), `edited_at` saqlanadi, sequence'lar yangilanadi. OSM importi (`regions:import`, `landmarks:import`) va ochiq joylar importi **o'tkazib yuboriladi** — ular o'chirilgan mo'ljallarni qaytarardi. Tahrirlangan nomlar, qo'lda qo'shilgan va o'chirilgan mo'ljallar, qayta nomlangan ko'chalar aynan manba serverdagidek bo'ladi.
 Ishlab turgan serverda (filial hududi yoki mijoz manzillari mavjud xaritaga bog'langan) `dtaxi:map-import` rad etadi va hech narsa o'zgarmaydi; ataylab almashtirish — `sudo -u dtaxi php artisan dtaxi:map-import <fayl> --force` (ID'lari saqlangan bog'lanishlar tiklanadi, qolganlari bo'shatiladi). Manba va yangi server bir xil versiyada bo'lishi kerak (ustunlar mos kelmasa import rad etiladi).
 
+**Demo serverdan yangi firmaga** (odatiy yo'l, §0): `deploy/remote-install.sh ... --map-from=taxi@193.181.218.203` — to'plam demo'da yaratiladi va yangi server uni to'g'ridan-to'g'ri yuklaydi. Faqat nomlar kerak bo'lsa (tile/OSRM yangi serverda yasalsin): manba serverda `dtaxi:map-export --db-only` → `install.sh --map-dump=<fayl>`. Lokal VM'dan: `multipass exec dtaxi -- bash -c "cd /home/ubuntu/ibTaxi && php artisan dtaxi:map-export --db-only"` (Mac'da `pg_dump` yo'q).
+
 **Shu firmaning o'zi serverini almashtirsa** — xarita to'plami + to'liq zaxira (baza to'liq tiklanadi, `map.dump` ustidan yoziladi):
 
 ```bash
@@ -309,21 +349,26 @@ To'plamni o'rnatilgan serverga alohida tiklash: `sudo ./deploy/map-restore.sh /r
 
 ## 8. Ma'lum muammolar va yechimlar
 
-| Belgi                                         | Sabab                                                              | Yechim                                                                                                                                                                                                       |
-| --------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| "Sertifikat olinmadi" ogohlantirishi          | DNS hali serverga ko'rsatmaydi yoki Let's Encrypt limiti           | DNS'ni tekshirib, `sudo certbot --nginx -d <domen> -m <email> --agree-tos --redirect` yoki `install.sh` ni qayta ishga tushiring (xavfsiz). Qolgan o'rnatish (firewall, supervisor, cron) baribir bajarilgan |
-| Superadmin paroli yo'qoldi                    | —                                                                  | `sudo -u dtaxi php artisan dtaxi:admin-password [email]`                                                                                                                                                     |
-| Login sahifasida "Administrator hali yo'q"    | `dtaxi:init` ishga tushmagan                                       | `sudo -u dtaxi php artisan dtaxi:init --company="..."`                                                                                                                                                       |
-| Ko'p operator bir IP'dan, `/ws` 429           | ofis NAT'i ortida juda ko'p ulanish                                | `/etc/nginx/sites-available/dtaxi` da `limit_req`/`limit_conn` qiymatlarini oshiring, `nginx -s reload`                                                                                                      |
-| Mikrofon ishlamaydi                           | sahifa `http://` orqali ochilgan                                   | faqat `https://`                                                                                                                                                                                             |
-| Ovoz bir tomonlama                            | server NAT ortida, ochiq IP yo'q                                   | ochiq IP'li server yoki TURN (§2.1); yoki `LOCAL_NET` noto'g'ri — `sudo LOCAL_NET=10.0.0.0/8 /var/www/dtaxi/deploy/asterisk-config.sh --restart`                                                             |
-| Ba'zi operatorlarda (ofis tarmog'i) ovoz yo'q | tarmoq UDP'ni yopadi                                               | TURN: `sudo DOMAIN=<domen> /var/www/dtaxi/deploy/turn-config.sh`; webfonni qayta yuklash                                                                                                                     |
-| Trunk "Unregistered"                          | login/parol, provayder IP'si                                       | Panel → Telefoniya; `asterisk -rx 'pjsip show registrations'`; `ufw status`                                                                                                                                  |
-| Kiruvchi qo'ng'iroq kelmaydi                  | 5060 trunk IP'siga ochilmagan                                      | `sudo /var/www/dtaxi/deploy/sip-firewall.sh`, `journalctl -t dtaxi-sip`                                                                                                                                      |
-| Telefoniya sozlamalari ta'sir qilmaydi        | ARI daemon eski sozlamani ushlab turadi                            | `sudo -u dtaxi php artisan ari:restart`                                                                                                                                                                      |
-| Operator "band" bo'lib qoldi                  | qo'ng'iroq holati osilib qolgan (Asterisk qayta ishga tushgan)     | `ari:restart`                                                                                                                                                                                                |
-| Haydovchiga push kelmaydi                     | Firebase kaliti yo'q yoki `google-services.json` boshqa loyihaniki | Integratsiyalar va Android build'ni tekshiring                                                                                                                                                               |
-| Xarita bo'sh                                  | tile'lar tayyorlanmagan (`--skip-maps`)                            | `deploy/osm-prepare.sh`, `map-prepare.sh`, `osrm-prepare.sh`, so'ng `regions:import`                                                                                                                         |
+| Belgi                                                            | Sabab                                                                               | Yechim                                                                                                                                                                                                       |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "Sertifikat olinmadi" ogohlantirishi                             | DNS hali serverga ko'rsatmaydi yoki Let's Encrypt limiti                            | DNS'ni tekshirib, `sudo certbot --nginx -d <domen> -m <email> --agree-tos --redirect` yoki `install.sh` ni qayta ishga tushiring (xavfsiz). Qolgan o'rnatish (firewall, supervisor, cron) baribir bajarilgan |
+| Superadmin paroli yo'qoldi                                       | —                                                                                   | `sudo -u dtaxi php artisan dtaxi:admin-password [email]`                                                                                                                                                     |
+| Login sahifasida "Administrator hali yo'q"                       | `dtaxi:init` ishga tushmagan                                                        | `sudo -u dtaxi php artisan dtaxi:init --company="..."`                                                                                                                                                       |
+| Ko'p operator bir IP'dan, `/ws` 429                              | ofis NAT'i ortida juda ko'p ulanish                                                 | `/etc/nginx/sites-available/dtaxi` da `limit_req`/`limit_conn` qiymatlarini oshiring, `nginx -s reload`                                                                                                      |
+| Mikrofon ishlamaydi                                              | sahifa `http://` orqali ochilgan                                                    | faqat `https://`                                                                                                                                                                                             |
+| Ovoz bir tomonlama                                               | server NAT ortida, ochiq IP yo'q                                                    | ochiq IP'li server yoki TURN (§2.1); yoki `LOCAL_NET` noto'g'ri — `sudo LOCAL_NET=10.0.0.0/8 /var/www/dtaxi/deploy/asterisk-config.sh --restart`                                                             |
+| Ba'zi operatorlarda (ofis tarmog'i) ovoz yo'q                    | tarmoq UDP'ni yopadi                                                                | TURN: `sudo DOMAIN=<domen> /var/www/dtaxi/deploy/turn-config.sh`; webfonni qayta yuklash                                                                                                                     |
+| Trunk "Unregistered"                                             | login/parol, provayder IP'si                                                        | Panel → Telefoniya; `asterisk -rx 'pjsip show registrations'`; `ufw status`                                                                                                                                  |
+| Kiruvchi qo'ng'iroq kelmaydi                                     | 5060 trunk IP'siga ochilmagan                                                       | `sudo /var/www/dtaxi/deploy/sip-firewall.sh`, `journalctl -t dtaxi-sip`                                                                                                                                      |
+| Telefoniya sozlamalari ta'sir qilmaydi                           | ARI daemon eski sozlamani ushlab turadi                                             | `sudo -u dtaxi php artisan ari:restart`                                                                                                                                                                      |
+| Operator "band" bo'lib qoldi                                     | qo'ng'iroq holati osilib qolgan (Asterisk qayta ishga tushgan)                      | `ari:restart`                                                                                                                                                                                                |
+| Haydovchiga push kelmaydi                                        | Firebase kaliti yo'q yoki `google-services.json` boshqa loyihaniki                  | Integratsiyalar va Android build'ni tekshiring                                                                                                                                                               |
+| Xarita bo'sh                                                     | tile'lar tayyorlanmagan (`--skip-maps`)                                             | `deploy/osm-prepare.sh`, `map-prepare.sh`, `osrm-prepare.sh`, so'ng `regions:import`                                                                                                                         |
+| O'rnatish o'rtada to'xtadi                                       | server qayta yuklandi (masalan hosting resurs qo'shdi), SSH uzildi                  | `install.sh` ni qayta ishga tushiring (yoki `remote-install.sh` ni) — tayyor qismlar o'tkaziladi. OSM bosqichi oxirgi fayl (`streets.geojsonseq`) bo'yicha tekshiriladi, yarim qolgani qayta yasaladi        |
+| `dtaxi:map-import`: "Permission denied" (`*.sql`)                | `pg_restore` dump yonida vaqtinchalik fayl yozadi                                   | dump'ni `dtaxi` yoza oladigan papkaga qo'ying (`storage/app/private/...`), `/var/lib/dtaxi` yoki `/root` emas                                                                                                |
+| Yangilashdan keyin ilovaga chat/takliflar kelmaydi               | `dtaxi:update` paytida (texnik rejim, 503) ilova kanalga obuna bo'la olmagan        | 1.0.218 dan ilova obunani o'zi qayta urinadi; eski versiyada — ilovani yopib qayta ochish                                                                                                                    |
+| Operator javob berishi ~3–4 s kechikadi                          | brauzer ICE yig'ilishini oxirigacha kutardi (javob bermaydigan IPv6/VPN interfeysi) | tuzatilgan (`ef54e27`): srflx/relay nomzodi kelishi bilan javob; panelni Cmd+Shift+R                                                                                                                         |
+| Chatda "Xabar yuborilmadi", konsolda `ERR_INTERNET_DISCONNECTED` | operator kompyuterining interneti uzilgan                                           | server emas — ulanishni tekshirib "Qayta urinish"                                                                                                                                                            |
 
 ---
 

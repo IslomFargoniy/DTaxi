@@ -156,7 +156,17 @@ Artisan::command('ari:restart', function () {
 // Fonda: bir soatlab davom etishi mumkin, shu vaqtda har daqiqalik vazifalar (efir, oflayn) to'xtamasin
 Schedule::command('dtaxi:backup')->dailyAt('02:30')->withoutOverlapping(720)->runInBackground();
 
-Artisan::command('dtaxi:map-export {--upload : Zaxira serveriga (SFTP) ham yuborish}', function (Backup $backup) {
+Artisan::command('dtaxi:map-export
+    {--upload : Zaxira serveriga (SFTP) ham yuborish}
+    {--db-only : Faqat bazadagi xarita (map.dump) — tile va OSRM yangi serverda yasaladi}', function (Backup $backup) {
+    if ($this->option('db-only')) {
+        $file = $backup->createMapDump();
+        $this->info('Bazadagi xarita: '.$file.' ('.round(File::size($file) / 1048576, 1).' MB)');
+        $this->line('Yangi serverda: sudo ./deploy/install.sh --prod ... --map-dump='.$file);
+
+        return;
+    }
+
     $file = $backup->createMap();
     if ($file === null) {
         $this->warn('Xarita tayyorlanmagan (public/map/region.pmtiles yo\'q) — to\'plam yaratilmadi.');

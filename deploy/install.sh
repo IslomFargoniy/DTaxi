@@ -13,6 +13,8 @@
 #       --map-bundle=/yo'l/..._map.tar — boshqa serverdan ko'chirishda xarita to'plami (php artisan dtaxi:map-export):
 #       tile'lar, OSM va OSRM qayta yasalmaydi; to'plamda map.dump bo'lsa (qaror #65) hududlar, tuzatilgan mo'ljallar va
 #       ko'cha nomlari ham shu holatda yuklanadi — OSM importi (regions:import, landmarks:import) o'tkazib yuboriladi.
+#       --map-dump=/yo'l/..._map.dump — faqat bazadagi xarita (php artisan dtaxi:map-export --db-only, ~15 MB): hududlar,
+#       tuzatilgan mo'ljallar va ko'cha nomlari; tile va OSRM shu serverda yasaladi, OSM importi o'tkazib yuboriladi.
 #       --turn — ixtiyoriy TURN server (coturn, deploy/turn-config.sh): server NAT ortida yoki operator/haydovchi
 #       tarmog'i UDP'ni yopsa WebRTC ovozi TCP/TLS orqali o'tadi.
 #       --demo — demo server: superadmin (admin), filial admini (branch), operator, kassir (cashier) va bitta haydovchi
@@ -28,6 +30,7 @@ COMPANY=""
 SKIP_SSL=0
 SKIP_MAPS=0
 MAP_BUNDLE=""
+MAP_DUMP=""
 TURN=0
 DEMO=0
 for arg in "$@"; do
@@ -42,11 +45,14 @@ for arg in "$@"; do
         # Xarita/OSRM/hududlar keyinroq tayyorlanadi (deploy/osm-prepare.sh va boshqalar)
         --skip-maps) SKIP_MAPS=1 ;;
         --map-bundle=*) MAP_BUNDLE="${arg#*=}" ;;
+        --map-dump=*) MAP_DUMP="${arg#*=}" ;;
         --turn) TURN=1 ;;
         --demo) DEMO=1 ;;
         *) echo "Noma'lum parametr: $arg" >&2; exit 1 ;;
     esac
 done
+
+if [[ -n "$MAP_DUMP" && ! -f "$MAP_DUMP" ]]; then echo "Fayl topilmadi: $MAP_DUMP" >&2; exit 1; fi
 
 APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 if [[ "$MODE" == "--prod" ]]; then
@@ -511,11 +517,25 @@ if [[ -n "$MAP_BUNDLE" ]]; then
     if tar -tf "$MAP_BUNDLE" | grep -x 'map.dump' >/dev/null; then MAP_DB=1; fi
 fi
 
+if [[ -n "$MAP_DUMP" ]]; then
+    log "Bazadagi xarita (hududlar, mo'ljallar, ko'cha nomlari): $MAP_DUMP"
+    # pg_restore yonida vaqtinchalik .sql yozadi — papka ilova foydalanuvchisiniki bo'lishi kerak
+    DUMP_TMP="$(mktemp -d)"
+    cp "$MAP_DUMP" "${DUMP_TMP}/map.dump"
+    chown -R "${APP_USER}:${APP_USER}" "$DUMP_TMP"
+    # Qayta ishga tushirishda filial hududga bog'langan bo'lsa import rad etadi — mavjud xarita qoladi
+    as_app "php artisan dtaxi:map-import --no-interaction '${DUMP_TMP}/map.dump'" \
+        || warn "map.dump yuklanmadi, mavjud xarita qoldi. Ataylab almashtirish: sudo -u ${APP_USER} php artisan dtaxi:map-import <fayl> --force"
+    rm -rf "$DUMP_TMP"
+    MAP_DB=1
+fi
+
 if [[ "$MODE" == "--prod" && "$SKIP_MAPS" == 0 ]]; then
     # Eng uzoq bosqich (bir necha soat) — oxirida: to'xtab qolsa ham sayt va telefoniya ishlaydi,
     # skriptni qayta ishga tushirish tayyor bo'lgan qismlarni o'tkazib yuboradi
     log "Prod: xarita, marshrutlash (OSRM), hududlar va mo'ljallar (OSM)"
-    [[ -f "${APP_DIR}/storage/app/osm/boundaries.geojsonseq" ]] || bash "${APP_DIR}/deploy/osm-prepare.sh"
+    # streets — osm-prepare yozadigan oxirgi fayl: o'rtada uzilsa (masalan server qayta yuklandi) qayta yasaladi
+    [[ -f "${APP_DIR}/storage/app/osm/streets.geojsonseq" ]] || bash "${APP_DIR}/deploy/osm-prepare.sh"
     [[ -f "${APP_DIR}/public/map/region.pmtiles" ]] || bash "${APP_DIR}/deploy/map-prepare.sh"
     systemctl is-active --quiet dtaxi-osrm || bash "${APP_DIR}/deploy/osrm-prepare.sh"
     chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/storage/app/osm" "${APP_DIR}/public/map"

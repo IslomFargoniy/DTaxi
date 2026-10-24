@@ -381,6 +381,25 @@ class Backup
     }
 
     /**
+     * Faqat bazadagi xarita (map.dump, ~15 MB) — yangi serverga `install.sh --map-dump=` bilan: tile va OSRM u yerda
+     * internetdan yasaladi, 1–2 GB'lik to'plamni sekin tarmoqda yuklash shart emas. Mahalliy faqat oxirgisi.
+     */
+    public function createMapDump(): string
+    {
+        File::ensureDirectoryExists($this->directory());
+        $file = $this->directory().'/'.now()->format('Y-m-d_His').'_map.dump';
+        $this->dumpMapData($file);
+
+        foreach (File::glob($this->directory().'/*_map.dump') as $old) {
+            if ($old !== $file) {
+                File::delete($old);
+            }
+        }
+
+        return $file;
+    }
+
+    /**
      * Faqat xarita jadvallari ma'lumoti (sxemasiz — yangi serverda migratsiyalar yaratadi). ID'lar saqlanadi.
      */
     public function dumpMapData(string $file): void
