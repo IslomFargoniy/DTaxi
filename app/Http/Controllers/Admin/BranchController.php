@@ -51,7 +51,8 @@ class BranchController extends Controller
                 'region_id' => $branch->region_id,
                 'center' => $branch->center ? ['lat' => $branch->center->getLatitude(), 'lng' => $branch->center->getLongitude()] : null,
                 'service_radius_km' => $branch->service_radius_m !== null ? $branch->service_radius_m / 1000 : null,
-                'parent_region_id' => $branch->region?->parent_id,
+                // Hudud viloyatning o'zi bo'lsa — viloyat tanlangan, shahar/tuman bo'sh
+                'parent_region_id' => $branch->region->parent_id ?? $branch->region_id,
                 'region' => $branch->region ? trim(($branch->region->parent?->name() ?? '').' / '.$branch->region->name(), ' /') : null,
                 'settings' => collect(array_keys(self::BRANCH_SETTINGS))->mapWithKeys(fn (string $key) => [
                     $key => Setting::query()->where('branch_id', $branch->id)->where('key', $key)->value('value'),
@@ -91,7 +92,8 @@ class BranchController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'service_name' => ['nullable', 'string', 'max:100'],
             'greeting_text' => ['nullable', 'string', 'max:500'],
-            'region_id' => ['nullable', Rule::exists('regions', 'id')->whereNotNull('parent_id')],
+            // Shahar/tuman yoki (tanlanmasa) butun viloyat
+            'region_id' => ['nullable', Rule::exists('regions', 'id')],
             'center_lat' => ['nullable', 'required_with:center_lng,service_radius_km', 'numeric', 'between:-90,90'],
             'center_lng' => ['nullable', 'required_with:center_lat', 'numeric', 'between:-180,180'],
             'service_radius_km' => ['nullable', 'numeric', 'min:0.5', 'max:300'],
@@ -128,7 +130,7 @@ class BranchController extends Controller
         }
         $radius = isset($data['service_radius_km']) ? (int) round((float) $data['service_radius_km'] * 1000) : null;
         if ($radius === null && $branch->service_radius_m !== null) {
-            // Radius olib tashlandi — hudud yana shahar/tuman chegarasidan
+            // Radius olib tashlandi — hudud yana shahar/tuman (yoki viloyat) chegarasidan
             $branch->service_area = $branch->region()->first()?->boundary;
         }
         $branch->service_radius_m = $radius;

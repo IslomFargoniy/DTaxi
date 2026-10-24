@@ -213,7 +213,7 @@
     "Status": "Holat",
     "Tariff classes this car works in": "Mashina ishlaydigan tarif klasslari",
     "Tariffs": "Tariflar",
-    "The service area is filled from the boundary of the chosen city or district.": "Xizmat hududi tanlangan shahar yoki tuman chegarasidan olinadi.",
+    "The service area is filled from the boundary of the chosen city or district; if none is chosen — the whole region.": "Xizmat hududi tanlangan shahar yoki tuman chegarasidan olinadi; tanlanmasa — butun viloyat.",
     "Time": "Vaqt",
     "Today": "Bugun",
     "Top up": "To'ldirish",

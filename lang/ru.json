@@ -213,7 +213,7 @@
     "Status": "Статус",
     "Tariff classes this car works in": "Классы тарифа для этого автомобиля",
     "Tariffs": "Тарифы",
-    "The service area is filled from the boundary of the chosen city or district.": "Зона обслуживания берётся из границы выбранного города или района.",
+    "The service area is filled from the boundary of the chosen city or district; if none is chosen — the whole region.": "Зона обслуживания берётся из границы выбранного города или района; если не выбран — вся область.",
     "Time": "Время",
     "Today": "Сегодня",
     "Top up": "Пополнить",

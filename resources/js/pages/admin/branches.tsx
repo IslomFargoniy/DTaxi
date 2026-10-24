@@ -365,7 +365,12 @@ function BranchDialog({
         greeting_text: existing?.greeting_text ?? '',
         timezone: existing?.timezone ?? 'Asia/Tashkent',
         is_active: existing?.is_active ?? true,
-        region_id: existing?.region_id ?? ('' as number | ''),
+        // Hudud viloyatning o'zi bo'lsa — shahar/tuman maydoni bo'sh
+        region_id:
+            existing?.region_id &&
+            existing.region_id !== existing.parent_region_id
+                ? existing.region_id
+                : ('' as number | ''),
         center_lat: existing?.center?.lat ?? (null as number | null),
         center_lng: existing?.center?.lng ?? (null as number | null),
         service_radius_km: existing?.service_radius_km ?? ('' as number | ''),
@@ -398,15 +403,22 @@ function BranchDialog({
             title={existing ? 'Edit branch' : 'New branch'}
             className="sm:max-w-6xl"
             processing={form.processing}
-            onSubmit={() =>
-                existing
-                    ? form.put(BranchController.update.url(existing.id), {
-                          onSuccess: onClose,
-                      })
-                    : form.post(BranchController.store.url(), {
-                          onSuccess: onClose,
-                      })
-            }
+            onSubmit={() => {
+                // Shahar/tuman tanlanmasa — butun viloyat
+                form.transform((data) => ({
+                    ...data,
+                    region_id: data.region_id || parent,
+                }));
+                if (existing) {
+                    form.put(BranchController.update.url(existing.id), {
+                        onSuccess: onClose,
+                    });
+                } else {
+                    form.post(BranchController.store.url(), {
+                        onSuccess: onClose,
+                    });
+                }
+            }}
         >
             <div className="grid items-start gap-6 lg:grid-cols-3">
                 <section className="grid content-start gap-3">
@@ -482,9 +494,11 @@ function BranchDialog({
                             <select
                                 className="h-9 rounded-md border bg-transparent px-2 text-sm"
                                 value={parent}
-                                onChange={(e) =>
-                                    setParent(Number(e.target.value) || '')
-                                }
+                                onChange={(e) => {
+                                    setParent(Number(e.target.value) || '');
+                                    // Boshqa viloyatning shahri saqlanib qolmasin
+                                    form.setData('region_id', '');
+                                }}
                             >
                                 <option value="">—</option>
                                 {regions.map((r) => (
@@ -517,7 +531,7 @@ function BranchDialog({
                     </div>
                     <p className="text-xs text-muted-foreground">
                         {t(
-                            'The service area is filled from the boundary of the chosen city or district.',
+                            'The service area is filled from the boundary of the chosen city or district; if none is chosen — the whole region.',
                         )}
                     </p>
                     <div className="grid gap-1.5">

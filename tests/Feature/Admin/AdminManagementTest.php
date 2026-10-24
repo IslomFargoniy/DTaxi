@@ -73,6 +73,31 @@ test('superadmin creates a branch whose service area comes from the chosen distr
         ->and(app(Settings::class)->get('drivers.commission_percent', $branch))->toBe(12);
 });
 
+test('branch without a city or district covers the whole region', function () {
+    app(OsmRegionImporter::class)->import(base_path('tests/fixtures/boundaries.geojsonseq'));
+    $province = Region::query()->whereNull('parent_id')->where('name_uz', "Farg'ona viloyati")->firstOrFail();
+    $city = Region::query()->where('name_uz', 'like', 'Farg%shahri')->firstOrFail();
+
+    $this->actingAs($this->superadmin)->post(route('admin.branches.store'), [
+        'name' => 'Vodiy', 'region_id' => $province->id, 'timezone' => 'Asia/Tashkent',
+    ])->assertSessionHasNoErrors();
+
+    $branch = Branch::query()->where('name', 'Vodiy')->firstOrFail();
+    $sameArea = (bool) DB::scalar('SELECT ST_Equals(b.service_area::geometry, r.boundary::geometry) FROM branches b, regions r WHERE b.id = ? AND r.id = ?', [$branch->id, $province->id]);
+    expect($branch->region_id)->toBe($province->id)
+        ->and($sameArea)->toBeTrue();
+
+    // Formada viloyat tanlangan, shahar bo'sh ko'rinadi
+    $this->get(route('admin.branches.index'))->assertInertia(fn ($page) => $page->where('branches', fn ($branches) => collect($branches)
+        ->contains(fn ($b) => $b['name'] === 'Vodiy' && $b['region_id'] === $province->id && $b['parent_region_id'] === $province->id)));
+
+    // Keyin shahar tanlansa — hudud shahar chegarasiga torayadi
+    $this->put(route('admin.branches.update', $branch), [
+        'name' => 'Vodiy', 'region_id' => $city->id, 'timezone' => 'Asia/Tashkent',
+    ])->assertSessionHasNoErrors();
+    expect($branch->refresh()->region_id)->toBe($city->id);
+});
+
 test('branch center and radius set on the map define the service area', function () {
     $branch = Branch::factory()->create(['center' => null, 'service_area' => null]);
     $covers = fn (float $lat, float $lng): bool => (bool) DB::scalar(

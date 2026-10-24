@@ -213,7 +213,7 @@
     "Status": "Ҳолат",
     "Tariff classes this car works in": "Машина ишлайдиган тариф класслари",
     "Tariffs": "Тарифлар",
-    "The service area is filled from the boundary of the chosen city or district.": "Хизмат ҳудуди танланган шаҳар ёки туман чегарасидан олинади.",
+    "The service area is filled from the boundary of the chosen city or district; if none is chosen — the whole region.": "Хизмат ҳудуди танланган шаҳар ёки туман чегарасидан олинади; танланмаса — бутун вилоят.",
     "Time": "Вақт",
     "Today": "Бугун",
     "Top up": "Тўлдириш",
