@@ -287,3 +287,14 @@ test('deleting the app account removes sign-in, addresses, push tokens and the n
         ->and(ClientDeviceToken::query()->where('client_id', $client->id)->exists())->toBeFalse()
         ->and(Order::query()->withoutGlobalScopes()->whereKey($order->id)->exists())->toBeTrue();
 });
+
+test('client limits do not share a counter with a driver of the same id', function () {
+    $client = actingClient();
+    // Bir xil ID'li xodim/haydovchining oddiy throttle hisoblagichi to'lib qolgan
+    foreach (range(1, 130) as $_) {
+        RateLimiter::hit(sha1((string) $client->id), 60);
+    }
+
+    $this->postJson('/api/client/v1/quote', ['pickup' => $this->pickup])->assertOk();
+    $this->postJson('/api/client/v1/orders', ['pickup' => $this->pickup])->assertCreated();
+});

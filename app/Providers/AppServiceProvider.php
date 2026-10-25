@@ -11,6 +11,7 @@ use Illuminate\Auth\Events\Logout;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Events\ConnectionEstablished;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -53,6 +54,10 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(10)->by('ip:'.$request->ip()),
         ]);
         RateLimiter::for('client-verify', fn (Request $request) => Limit::perMinute(10)->by('ip:'.$request->ip()));
+        // Nomli cheklov — kalit "client:<id>": oddiy throttle:N,1 faqat ID bo'yicha sanaydi va mijoz bilan bir xil ID'li
+        // haydovchining GPS so'rovlari (har 4 s) mijozning buyurtmasini 429 qilib qo'yardi
+        RateLimiter::for('client-lookup', fn (Request $request) => Limit::perMinute(120)->by('client:'.Auth::guard('sanctum')->id()));
+        RateLimiter::for('client-order', fn (Request $request) => Limit::perMinute(10)->by('client-order:'.Auth::guard('sanctum')->id()));
 
         // Uzoq vaqt ishlatilmagan token (yo'qolgan telefon) yaroqsiz — `expiration` yaratilgan vaqtdan sanaydi va smenadagi haydovchini chiqarib yuboradi
         Sanctum::authenticateAccessTokensUsing(function (PersonalAccessToken $token, bool $isValid): bool {

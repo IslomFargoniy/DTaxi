@@ -77,15 +77,15 @@ Route::prefix('client/v1')->group(function () {
         Route::put('me', [ClientProfileController::class, 'update']);
         Route::delete('me', [ClientProfileController::class, 'destroy']);
         Route::post('device-token', [ClientProfileController::class, 'deviceToken']);
-        Route::get('places', [ClientProfileController::class, 'places'])->middleware('throttle:60,1');
-        Route::get('places/reverse', [ClientProfileController::class, 'reverse'])->middleware('throttle:60,1');
+        Route::get('places', [ClientProfileController::class, 'places'])->middleware('throttle:client-lookup');
+        Route::get('places/reverse', [ClientProfileController::class, 'reverse'])->middleware('throttle:client-lookup');
         Route::get('addresses', [ClientProfileController::class, 'addresses']);
         Route::post('addresses', [ClientProfileController::class, 'storeAddress']);
         Route::delete('addresses/{address}', [ClientProfileController::class, 'destroyAddress'])->whereNumber('address');
 
-        Route::post('quote', [ClientOrderController::class, 'quote'])->middleware('throttle:30,1');
+        Route::post('quote', [ClientOrderController::class, 'quote'])->middleware('throttle:client-lookup');
         Route::get('orders', [ClientOrderController::class, 'index']);
-        Route::post('orders', [ClientOrderController::class, 'store'])->middleware('throttle:10,1');
+        Route::post('orders', [ClientOrderController::class, 'store'])->middleware('throttle:client-order');
         Route::get('orders/current', [ClientOrderController::class, 'current']);
         Route::post('orders/{order}/cancel', [ClientOrderController::class, 'cancel'])->whereNumber('order');
         Route::post('orders/{order}/rate', [ClientOrderController::class, 'rate'])->whereNumber('order');

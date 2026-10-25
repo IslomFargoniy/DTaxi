@@ -124,6 +124,7 @@ fun HomeScreen(
     val network = stringResource(R.string.network_error)
     val generic = stringResource(R.string.error)
     val denied = stringResource(R.string.location_denied)
+    val tooMany = stringResource(R.string.too_many_requests)
     var notice by remember { mutableStateOf<String?>(null) }
 
     suspend fun locate() {
@@ -236,7 +237,11 @@ fun HomeScreen(
                             notice = null
                             when (val result = repository.createOrder(request)) {
                                 is Result.Ok -> Unit
-                                is Result.Error -> notice = if (result.code == -1) network else (result.message ?: generic)
+                                is Result.Error -> notice = when (result.code) {
+                                    -1 -> network
+                                    429 -> tooMany
+                                    else -> result.message ?: generic
+                                }
                             }
                         }
                     }
@@ -268,7 +273,8 @@ private fun OrderForm(draft: OrderDraft, locating: Boolean, onSearch: (SearchTar
                 quoteError = null
                 if (tariffs.none { it.id == draft.tariffId }) draft.tariffId = tariffs.firstOrNull()?.id
             }
-            is Result.Error -> {
+            // Vaqtinchalik xato (tarmoq, juda ko'p so'rov) — oldingi narxlar qoladi; faqat "hududdan tashqari" kabi rad ko'rsatiladi
+            is Result.Error -> if (result.code == 422) {
                 tariffs = emptyList()
                 quoteError = result.message
             }
