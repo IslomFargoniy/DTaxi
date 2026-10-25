@@ -120,7 +120,8 @@ listOf("debug", "release").forEach { type ->
         val version = android.defaultConfig.versionName
         from(layout.buildDirectory.dir("outputs/apk/$type")) { include("*-universal-*.apk") }
         into(publicApkDir)
-        preserve { include("version.json") }
+        // Mijoz ilovasi APK'si (client/) haydovchi build'i bilan o'chmasin
+        preserve { include("version.json", "client/**") }
         rename { "dtaxi.$version" + (if (type == "debug") "-debug" else "") + ".apk" }
         // Ilova o'zini yangilashi uchun: oxirgi versiya ma'lumoti (ilova /android/version.json ni tekshiradi)
         val code = android.defaultConfig.versionCode

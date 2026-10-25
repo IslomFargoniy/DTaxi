@@ -4,7 +4,8 @@ Har bir xaridor firma uchun alohida papka (qaror #35, reja §0.1):
 
 ```
 firms/<firma>/
-  firm.properties      applicationId, ilova nomi, server manzili, rang, Firebase sozlamalari
+  firm.properties      applicationId, ilova nomi, server manzili, rang, Firebase sozlamalari;
+                       mijoz ilovasi: clientApplicationId, clientAppName (qaror #71)
   logo.png             (ixtiyoriy) ilova belgisi, 512×512
   keystore.jks         imzo kaliti — HECH QACHON git'ga qo'shilmaydi, yo'qolsa yangilanish o'rnatilmaydi
   keystore.properties  storePassword, keyAlias, keyPassword
@@ -16,7 +17,13 @@ Build:
 cd android
 ./gradlew :driver:assembleRelease -Pfirm=ibrattaxi
 # natija: public/android/dtaxi.<versiya>.apk + version.json → deploy/upload-apk.sh bilan firma serveriga
+
+# Mijoz ilovasi (qaror #71): Google Play uchun .aab, sinov uchun APK public/android/client/ ga
+./gradlew :client:bundleRelease -Pfirm=ibrattaxi    # client/build/outputs/bundle/release/client-release.aab
+./gradlew :client:assembleRelease -Pfirm=ibrattaxi
 ```
+
+Mijoz ilovasi ham shu `keystore.jks` bilan imzolanadi (Google Play'da — yuklash kaliti, Play App Signing).
 
 Firma papkasida `keystore.jks` va `keystore.properties` bo'lmasa `assembleRelease` xato bilan to'xtaydi —
 debug kalit bilan chiqqan ilova keyin firma kaliti bilan yangilanmaydi. Debug kalit faqat `dev` va `lan` uchun.

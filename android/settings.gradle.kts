@@ -21,4 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Dtaxi"
 // Haydovchi va mijoz ilovalari umumiy :core ustida (qaror #71)
-include(":core", ":driver")
+include(":core", ":driver", ":client")
