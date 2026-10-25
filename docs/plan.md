@@ -878,7 +878,7 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [x] Ilova ichida ovozli navigatsiya (qaror #49)
 - [x] §10 takliflari: soxta GPS aniqlash, audit jurnali, monitoring (panel + Telegram), zaxirani boshqa serverga (SFTP)
 - [ ] Ilovada erkin navigator rejimi (qaror #69): mo'ljal qidirish endpoint'i, "Yo'l" tugmasi, taklif ustunligi, so'rov cheklovlari — taxminan 1–2 kun
-- [ ] Mo'ljal qidiruvini tezlashtirish: hozir ~0.3 s (291 ming yozuv) — trigram indeks ishlatilishini tekshirish, maqsad ~50 ms (operator paneli ham tezlashadi)
+- [x] Mo'ljal qidiruvini tezlashtirish: demo serverda (2 vCPU) 2.6 s edi — `word_similarity() > 0.4` indeksni chetlab o'tardi va JIT 1.5 s olardi. `<%` operatori (chegara 0.4 — har ulanishda) + `jit = off`: ~0.13–0.25 s
 
 **MVP taxminiy muddati:** **16–20 hafta** (1 dasturchi + AI, bosqichlar ketma-ket). Dastlabki 12–15 haftalik baho reja kengaygani uchun oshirildi: PBX panel, mahsulotlashtirish (o'rnatish, yangilash, white-label ilova), Click/Payme, jarima/reyting, qo'shimcha narx qoidalari. Bosqich 1 tugagach qayta baholanadi.
 

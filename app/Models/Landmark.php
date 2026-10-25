@@ -81,7 +81,9 @@ class Landmark extends Model
 
         $query->where(fn (Builder $q) => $q
             ->whereRaw('search ILIKE ?', ['%'.$needle.'%'])
-            ->orWhereRaw('word_similarity(?, search) > 0.4', [$needle])
+            // Operator ko'rinishi (<%) trigram indeksini ishlatadi; word_similarity(...) > 0.4 butun jadvalni
+            // ko'rib chiqardi (291 ming yozuv — 2.5 s). Chegara 0.4 — ulanishda (AppServiceProvider)
+            ->orWhereRaw('? <% search', [$needle])
             ->when(count($words) > 1, fn (Builder $q) => $q->orWhere(function (Builder $all) use ($words) {
                 foreach ($words as $word) {
                     $all->whereRaw('search ILIKE ?', ['%'.$word.'%']);

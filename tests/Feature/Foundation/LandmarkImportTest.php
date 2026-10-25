@@ -6,7 +6,9 @@ use App\Models\Region;
 use App\Models\User;
 use App\Services\Landmarks\OsmLandmarkImporter;
 use App\Services\Regions\OsmRegionImporter;
+use Clickbar\Magellan\Data\Geometries\Point;
 use Database\Seeders\RolesSeeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
 test('house addresses and streets are imported and found by street and house number', function () {
@@ -78,4 +80,15 @@ test('a landmark renamed by the admin keeps its new name after the next OSM impo
         ->and($landmark->edited_at)->not->toBeNull()
         // Eski nom bilan qidirganda ham topiladi
         ->and(Landmark::query()->search('kirov bozori')->first()?->id)->toBe($landmark->id);
+});
+
+test('typo search uses the 0.4 word similarity threshold set on every connection, with JIT off', function () {
+    $landmark = Landmark::query()->create(['name' => 'Mustaqillik maydoni', 'location' => Point::makeGeodetic(40.3864, 71.7864)]);
+    $similarity = (float) DB::scalar("SELECT word_similarity('mustakilik', search) FROM landmarks WHERE id = ?", [$landmark->id]);
+
+    // Standart chegara (0.6) bilan topilmasdi — sozlama haqiqatan qo'llangan
+    expect($similarity)->toBeGreaterThan(0.4)->toBeLessThan(0.6)
+        ->and(DB::scalar('SHOW pg_trgm.word_similarity_threshold'))->toBe('0.4')
+        ->and(DB::scalar('SHOW jit'))->toBe('off')
+        ->and(Landmark::query()->search('mustakilik')->first()?->id)->toBe($landmark->id);
 });

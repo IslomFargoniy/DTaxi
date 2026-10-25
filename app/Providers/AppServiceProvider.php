@@ -9,6 +9,7 @@ use App\Support\Settings;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Events\ConnectionEstablished;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -51,6 +52,15 @@ class AppServiceProvider extends ServiceProvider
             $lastUsed = $token->last_used_at ?? $token->created_at;
 
             return $isValid && $lastUsed !== null && $lastUsed->gt(now()->subDays((int) config('sanctum.idle_expiration_days', 60)));
+        });
+
+        // Har ulanishda: mo'ljal qidiruvidagi "<%" chegarasi (Landmark::search) va JIT o'chiq — qisqa so'rovlarda
+        // kompilyatsiya so'rovning o'zidan uzoq davom etardi (qidiruvda 2.5 s dan 1.5 s)
+        Event::listen(ConnectionEstablished::class, function (ConnectionEstablished $event) {
+            if ($event->connection->getDriverName() === 'pgsql') {
+                $event->connection->statement('SET pg_trgm.word_similarity_threshold = 0.4');
+                $event->connection->statement('SET jit = off');
+            }
         });
 
         // Paneldan chiqqan operatorga navbatdagi qo'ng'iroqlar yuborilmasin
