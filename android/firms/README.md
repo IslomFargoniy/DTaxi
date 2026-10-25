@@ -14,8 +14,8 @@ Build:
 
 ```bash
 cd android
-./gradlew assembleRelease -Pfirm=ibrattaxi
-# natija: app/build/outputs/apk/release/app-release.apk → firma serveriga driver-app/ papkasiga
+./gradlew :driver:assembleRelease -Pfirm=ibrattaxi
+# natija: public/android/dtaxi.<versiya>.apk + version.json → deploy/upload-apk.sh bilan firma serveriga
 ```
 
 Firma papkasida `keystore.jks` va `keystore.properties` bo'lmasa `assembleRelease` xato bilan to'xtaydi —

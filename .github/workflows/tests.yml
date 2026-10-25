@@ -87,4 +87,4 @@ jobs:
           java-version: '17'
 
       - name: Unit tests and debug build
-        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain -Pfirm=dev
+        run: ./gradlew :core:testDebugUnitTest :driver:testDebugUnitTest :driver:assembleDebug --console=plain -Pfirm=dev

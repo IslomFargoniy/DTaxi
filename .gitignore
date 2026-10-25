@@ -44,7 +44,8 @@ yarn-error.log
 /public/map
 /android/.gradle
 /android/build
-/android/app/build
+/android/buildSrc/.gradle
+/android/*/build
 /android/local.properties
 /android/firms/*/keystore.jks
 /android/firms/*/keystore.properties

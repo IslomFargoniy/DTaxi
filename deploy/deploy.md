@@ -32,7 +32,7 @@ Skript nima qiladi:
 
 Vaqt (2 vCPU / 4 GB): to'plam bilan ~30–40 daqiqa; to'plamsiz (butun O'zbekiston OSM → tile → OSRM → importlar) ~2–3 soat.
 
-So'ng: haydovchi ilovasi (§4: `firms/<firma>`, `assembleRelease`, `deploy/upload-apk.sh`), panelda trunk va integratsiyalar (§2 "O'rnatishdan so'ng").
+So'ng: haydovchi ilovasi (§4: `firms/<firma>`, `:driver:assembleRelease`, `deploy/upload-apk.sh`), panelda trunk va integratsiyalar (§2 "O'rnatishdan so'ng").
 
 **Demo server** — `taxi.simulator.uz` (`193.181.218.203`, foydalanuvchi `taxi`, 2 vCPU / 4 GB / 24 GB): `install.sh --demo`, xarita manbai (tuzatilgan nomlar shu yerda yuritiladi), ilova `android/firms/demo`.
 
@@ -211,7 +211,7 @@ keytool -genkeypair -v -keystore android/firms/<firma>/keystore.jks -alias drive
 
 # har versiyada
 cd android
-JAVA_HOME=~/Library/Java/JavaVirtualMachines/jdk-17*/Contents/Home ./gradlew assembleRelease -Pfirm=<firma>
+JAVA_HOME=~/Library/Java/JavaVirtualMachines/jdk-17*/Contents/Home ./gradlew :driver:assembleRelease -Pfirm=<firma>
 # natija: public/android/dtaxi.<versiya>.apk + public/android/version.json
 cd .. && deploy/upload-apk.sh root@taxi.firma.uz      # parol bilan: DTAXI_SSH_PASSWORD='...' deploy/upload-apk.sh ...
 ```

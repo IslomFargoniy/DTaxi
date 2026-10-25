@@ -10,9 +10,9 @@ import os
 import re
 import sys
 
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'app', 'src', 'main', 'res')
-SOURCE = os.path.join(ROOT, 'values', 'strings.xml')
-TARGET = os.path.join(ROOT, 'values-b+uz+Cyrl', 'strings.xml')
+ANDROID = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+# Har modul (haydovchi, mijoz ilovasi, umumiy qism) o'z satrlari bilan — strings.xml bor bo'lsa
+MODULES = ('core', 'driver', 'client')
 
 KEEP = {'Dtaxi', 'Click', 'Payme', 'SpeechKit', 'Firebase', 'Telegram', 'Android', 'Asterisk', 'Xiaomi', 'Tecno',
         'Infinix', 'Yandex', 'Google', 'Mac', 'IP', 'ID', 'GPS', 'SIP', 'SMS', 'APK', 'URL', 'Wi-Fi'}
@@ -83,12 +83,18 @@ def convert(text: str) -> str:
 
 
 def main() -> int:
-    source = open(SOURCE, encoding='utf-8').read()
-    result = re.sub(r'(<string name="[^"]+">)(.*?)(</string>)', lambda m: m.group(1) + convert(m.group(2)) + m.group(3), source, flags=re.S)
-    result = result.replace('<resources>', '<!-- values/strings.xml dan yasalgan: python3 android/tools/uz_cyrillic.py -->\n<resources>', 1)
-    os.makedirs(os.path.dirname(TARGET), exist_ok=True)
-    open(TARGET, 'w', encoding='utf-8').write(result)
-    print(f'Tayyor: {TARGET}')
+    for module in MODULES:
+        root = os.path.join(ANDROID, module, 'src', 'main', 'res')
+        source_path = os.path.join(root, 'values', 'strings.xml')
+        if not os.path.exists(source_path):
+            continue
+        target = os.path.join(root, 'values-b+uz+Cyrl', 'strings.xml')
+        source = open(source_path, encoding='utf-8').read()
+        result = re.sub(r'(<string name="[^"]+">)(.*?)(</string>)', lambda m: m.group(1) + convert(m.group(2)) + m.group(3), source, flags=re.S)
+        result = result.replace('<resources>', '<!-- values/strings.xml dan yasalgan: python3 android/tools/uz_cyrillic.py -->\n<resources>', 1)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        open(target, 'w', encoding='utf-8').write(result)
+        print(f'Tayyor: {os.path.relpath(target, ANDROID)}')
     return 0
 
 

@@ -8,7 +8,7 @@ Telefon orqali ishlaydigan taksi dispetcherlik tizimi. Mahsulot nomi — **Dtaxi
 - **Filial chegarasi**: filialga tegishli modellar `App\Models\Concerns\BelongsToBranch` trait'ini ishlatadi — admin/operator/kassir faqat o'z filial(lar)ini ko'radi, superadmin hammasini.
 - **Rollar**: `App\Enums\Role` (superadmin, admin, operator, cashier, driver) va ularning ruxsatlari shu enum'da; superadmin `Gate::before` orqali hamma narsaga ruxsatli.
 - **Tillar**: o'zbek lotin (`uz`), o'zbek kirill (`oz`), rus (`ru`), ingliz (`en`). Frontend matnlari — inglizcha kalit + `lang/uz.json`, `lang/ru.json` (`lang/en.json` faqat kalit inglizcha matn bo'lmasa, masalan `offer.accepted`); React'da `useTrans()` → `t('Key')`. Kirill qo'lda yozilmaydi: uz o'zgargach `php artisan lang:cyrillic` (lang/oz yasaladi; test kalitlar mosligini tekshiradi). Android: values (uz), values-ru, values-en, values-b+uz+Cyrl (`android/tools/uz_cyrillic.py`).
-- **Faqat Android** haydovchi ilovasi; iOS yo'q. FastPanel ishlatilmaydi.
+- **Faqat Android**: haydovchi va mijoz ilovalari (qaror #71) — `android/` da `:core` (umumiy: tillar, saqlash, HTTP, Reverb, mavzu), `:driver`, `:client`; firma sozlamalari `android/buildSrc/Firm.kt` orqali. iOS yo'q. FastPanel ishlatilmaydi.
 - Testlar majburiy (Pest, haqiqiy PostgreSQL+PostGIS bilan). Dispatcher, narx, balans va buyurtma statuslari — albatta testlar bilan.
 
 ## Muhit
@@ -17,7 +17,7 @@ Telefon orqali ishlaydigan taksi dispetcherlik tizimi. Mahsulot nomi — **Dtaxi
 - Kod, `composer`, `npm`, `php artisan` va testlar — Mac'da (`.env` VM'dagi bazaga ulanadi).
 - Server o'rnatish: `deploy/install.sh` (toza Ubuntu; `--dev` lokal VM, `--prod --domain= --email=` firma serveri). OSM ma'lumoti: `deploy/osm-prepare.sh` → `php artisan regions:import` (butun O'zbekiston, qaror #67).
 - Telefoniya: Asterisk VM'da; qo'ng'iroq mantig'i `App\Services\Telephony\CallCenter` (ARI), daemon `php artisan ari:listen` (supervisor `dtaxi-ari`; yangi kod uchun `ari:restart`). Panel brauzerda `https://192.168.252.5` (self-signed) — mikrofon faqat https'da.
-- Android: JDK 17 (`~/Library/Java/JavaVirtualMachines/jdk-17*`), Studio'ning JBR'i (25) Gradle 8.9 bilan ishlamaydi. Har `assembleDebug`/`assembleRelease` dan keyin universal APK `public/android/dtaxi.<versiya>.apk` ga tushadi (faqat oxirgisi, git'ga tushmaydi). Versiya — `1.0.<git commit'lar soni>`. Haqiqiy telefon uchun: `./gradlew assembleRelease -Pfirm=lan` + Mac'da `python3 deploy/dev-lan-proxy.py`.
+- Android: JDK 17 (`~/Library/Java/JavaVirtualMachines/jdk-17*`), Studio'ning JBR'i (25) Gradle 8.9 bilan ishlamaydi. Har `:driver:assembleDebug`/`:driver:assembleRelease` dan keyin haydovchi ilovasining universal APK'si `public/android/dtaxi.<versiya>.apk` ga tushadi (faqat oxirgisi, git'ga tushmaydi). Versiya — `1.0.<git commit'lar soni>`. Haqiqiy telefon uchun: `./gradlew :driver:assembleRelease -Pfirm=lan` + Mac'da `python3 deploy/dev-lan-proxy.py`.
 
 ## Buyruqlar
 
