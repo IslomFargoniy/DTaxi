@@ -266,3 +266,24 @@ test('client registers a push token, a phone moving to another client takes the 
     expect(ClientDeviceToken::query()->where('token', 'fcm-1')->sole()->client_id)->toBe($second->id)
         ->and(ClientDeviceToken::query()->where('client_id', $first->id)->exists())->toBeFalse();
 });
+
+test('privacy policy is public for Google Play', function () {
+    $this->get(route('privacy'))->assertOk()->assertInertia(fn ($page) => $page->component('privacy')->has('company'));
+});
+
+test('deleting the app account removes sign-in, addresses, push tokens and the name but keeps trip history', function () {
+    $client = actingClient();
+    $client->createToken('other', ['client']);
+    $this->postJson('/api/client/v1/addresses', ['label' => 'Uy', 'text' => 'X', 'lat' => 40.39, 'lng' => 71.79])->assertCreated();
+    $this->postJson('/api/client/v1/device-token', ['token' => 'fcm-del'])->assertNoContent();
+    $order = Order::factory()->create(['branch_id' => $this->branch->id, 'client_id' => $client->id, 'status' => OrderStatus::Completed]);
+
+    $this->deleteJson('/api/client/v1/me')->assertNoContent();
+
+    $client->refresh();
+    expect($client->tokens()->count())->toBe(0)
+        ->and($client->name)->toBeNull()
+        ->and(ClientAddress::query()->where('client_id', $client->id)->exists())->toBeFalse()
+        ->and(ClientDeviceToken::query()->where('client_id', $client->id)->exists())->toBeFalse()
+        ->and(Order::query()->withoutGlobalScopes()->whereKey($order->id)->exists())->toBeTrue();
+});

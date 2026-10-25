@@ -68,4 +68,7 @@
     <string name="location_denied">Joylashuvga ruxsat berilmadi — manzilni xaritada tanlang yoki qidiring</string>
     <string name="driver_on_map">Haydovchi</string>
     <string name="channel_orders">Buyurtma holati</string>
+    <string name="privacy_policy">Maxfiylik siyosati</string>
+    <string name="delete_account">Hisobni o\'chirish</string>
+    <string name="delete_account_text">Kirish ma\'lumotlari, saqlangan manzillar va ismingiz o\'chiriladi. Safarlar tarixi firma yozuvlarida qoladi.</string>
 </resources>

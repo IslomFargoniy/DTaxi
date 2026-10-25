@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -54,6 +55,7 @@ fun LoginScreen(onLocaleChange: (String) -> Unit) {
     val repository = ClientApp.instance.repository
     val session = ClientApp.instance.session
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var phone by remember { mutableStateOf("") }
     var codeSent by remember { mutableStateOf(false) }
     var code by remember { mutableStateOf("") }
@@ -140,6 +142,9 @@ fun LoginScreen(onLocaleChange: (String) -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 if (loading) CircularProgressIndicator(Modifier.size(20.dp)) else Text(stringResource(R.string.get_code))
+            }
+            TextButton(onClick = { openPrivacy(context) }, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.privacy_policy), style = MaterialTheme.typography.bodySmall)
             }
         } else {
             Text(stringResource(R.string.code_title), style = MaterialTheme.typography.bodyLarge)

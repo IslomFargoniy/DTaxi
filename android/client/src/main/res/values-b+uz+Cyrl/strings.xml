@@ -69,4 +69,7 @@
     <string name="location_denied">Жойлашувга рухсат берилмади — манзилни харитада танланг ёки қидиринг</string>
     <string name="driver_on_map">Ҳайдовчи</string>
     <string name="channel_orders">Буюртма ҳолати</string>
+    <string name="privacy_policy">Махфийлик сиёсати</string>
+    <string name="delete_account">Ҳисобни ўчириш</string>
+    <string name="delete_account_text">Кириш маълумотлари, сақланган манзиллар ва исмингиз ўчирилади. Сафарлар тарихи фирма ёзувларида қолади.</string>
 </resources>

@@ -748,5 +748,17 @@
     "Please try again later or call the dispatcher.": "Илтимос, кейинроқ қайта уриниб кўринг ёки диспетчерга қўнғироқ қилинг.",
     "Your order was cancelled": "Буюртмангиз бекор қилинди",
     "Trip completed": "Сафар якунланди",
-    "Please rate your trip.": "Сафарингизни баҳоланг."
+    "Please rate your trip.": "Сафарингизни баҳоланг.",
+    "Privacy policy": "Махфийлик сиёсати",
+    "What we collect": "Қандай маълумот олинади",
+    "Your phone number and name, the pickup and destination addresses of your orders, and your location only while the app is open and you choose the pickup point. We do not collect location in the background.": "Телефон рақамингиз ва исмингиз, буюртмаларингиздаги қаердан ва қаерга манзиллари ҳамда жойлашувингиз — фақат илова очиқ бўлиб, олиб кетиш нуқтасини танлаётганингизда. Фонда жойлашув олинмайди.",
+    "Why": "Нима учун",
+    "To accept your order, find the nearest car, show the driver your pickup point, calculate the price and keep the trip history. Drivers see only your name, pickup point and destination; your phone number is hidden.": "Буюртмани қабул қилиш, энг яқин машинани топиш, ҳайдовчига олиб кетиш нуқтасини кўрсатиш, нархни ҳисоблаш ва сафарлар тарихини сақлаш учун. Ҳайдовчи фақат исмингиз, олиб кетиш нуқтаси ва бориладиган манзилни кўради; телефон рақамингиз яширин.",
+    "Sign-in": "Кириш",
+    "We call your number and say a 4-digit code. Calls are made only when you request a code.": "Рақамингизга қўнғироқ қилиб, 4 хонали кодни айтамиз. Қўнғироқ фақат сиз код сўраганингизда қилинади.",
+    "Storage": "Сақлаш",
+    "Data is stored on the taxi company server. Trip history is kept as accounting records of the company. Trip call recordings, if any, are deleted after the retention period set by the company.": "Маълумотлар такси фирмасининг серверида сақланади. Сафарлар тарихи фирманинг ҳисоб ёзувлари сифатида сақланади. Қўнғироқ ёзувлари (бўлса) фирма белгилаган муддатдан кейин ўчирилади.",
+    "Deleting your account": "Ҳисобни ўчириш",
+    "In the app: Settings → Delete account. Your sign-in, saved addresses and name entered in the app are deleted; trip history stays in the company records. You can also ask the dispatcher by phone.": "Иловада: Созламалар → Ҳисобни ўчириш. Кириш маълумотлари, сақланган манзиллар ва иловада киритилган исм ўчирилади; сафарлар тарихи фирма ёзувларида қолади. Диспетчердан телефон орқали ҳам сўрашингиз мумкин.",
+    "Contact": "Алоқа"
 }

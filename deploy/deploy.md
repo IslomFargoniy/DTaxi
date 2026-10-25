@@ -223,6 +223,34 @@ cd .. && deploy/upload-apk.sh root@taxi.firma.uz      # parol bilan: DTAXI_SSH_P
 - Birinchi o'rnatish: haydovchi `https://taxi.firma.uz/android/dtaxi.<versiya>.apk` dan yuklaydi va "noma'lum manbalardan o'rnatish"ga ruxsat beradi.
 - Telefonda: joylashuv ruxsati — "Har doim", batareya tejash — o'chirilgan (ilova sozlamalarida tugma bor).
 
+### 4.1. Mijoz ilovasi (qaror #71) — Google Play
+
+Haydovchi ilovasidan alohida ilova (`uz.dtaxi.client.<firma>`), shu `firms/<firma>/` papkasidan yig'iladi. Mijozlar APK o'rnatmaydi — **Google Play** orqali, firmaning o'z akkauntidan.
+
+```bash
+# firm.properties ga (ixtiyoriy — standart: applicationId dagi .driver → .client, nom — appName):
+#   clientApplicationId=uz.ibrattaxi.client
+#   clientAppName=Ibrat taksi
+#   clientFirebaseApplicationId=1:...:android:...   # push uchun (pastda)
+cd android
+./gradlew :client:bundleRelease -Pfirm=<firma>     # → client/build/outputs/bundle/release/client-release.aab (Play'ga)
+./gradlew :client:assembleRelease -Pfirm=<firma>   # sinov APK → public/android/client/
+cd .. && deploy/upload-apk.sh root@<server> --client   # sinov APK serverga: https://<domen>/android/client/dtaxi-client.<versiya>.apk
+```
+
+**Firebase (push):** firmaning Firebase loyihasiga ikkinchi Android ilova qo'shiladi (paket — `clientApplicationId`), uning `mobilesdk_app_id` → `clientFirebaseApplicationId`. Server kaliti (service account) haydovchi ilovasi bilan bir xil — Panel → Integratsiyalar. Sozlanmasa push o'chiq, holat ilova ochiq paytida Reverb orqali keladi.
+
+**Kirish kodi** avtomatik qo'ng'iroqda aytiladi (SMS yo'q, qaror #4): SIP trunk va Panel → Ovozlar → "yetishmayotganlarini generatsiya qilish" (iboralar `login-code`, `code-repeat`) kerak. Trunk yo'q demo serverda — `.env` da `CLIENT_TEST_CODE=1122` (har raqamga shu kod; **firma serverida bo'sh**).
+
+**Google Play Console** (firma akkaunti, bir martalik $25):
+
+1. Ilova yaratish → "Play App Signing" — `keystore.jks` yuklash kaliti sifatida (haydovchi ilovasi bilan bir xil fayl).
+2. `client-release.aab` → Internal testing → Production.
+3. Maxfiylik siyosati: `https://<domen>/privacy` (sahifa tayyor, firma nomi va raqami bilan).
+4. Hisobni o'chirish: ilovada Sozlamalar → "Hisobni o'chirish"; veb-havola sifatida ham `https://<domen>/privacy` (bo'limida yo'riqnoma).
+5. Data safety: telefon raqami, ism, taxminiy va aniq joylashuv (faqat ilova ochiq paytida, fon yo'q), buyurtmalar tarixi — "ilova ishlashi uchun", uchinchi tomonga berilmaydi, shifrlangan uzatish (HTTPS), o'chirish so'rovi mumkin.
+6. Joylashuv ruxsati — faqat "foreground" (fon joylashuvi yo'q), alohida deklaratsiya shart emas.
+
 ---
 
 ## 5. Tekshiruv ro'yxati

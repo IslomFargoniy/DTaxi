@@ -23,6 +23,9 @@ interface Api {
     @GET("api/client/v1/me")
     suspend fun me(): Response<Profile>
 
+    @DELETE("api/client/v1/me")
+    suspend fun deleteAccount(): Response<Unit>
+
     @PUT("api/client/v1/me")
     suspend fun updateProfile(@Body body: ProfileUpdate): Response<Profile>
 

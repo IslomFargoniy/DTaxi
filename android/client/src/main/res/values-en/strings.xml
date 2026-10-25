@@ -68,4 +68,7 @@
     <string name="location_denied">Location access denied — pick the address on the map or search</string>
     <string name="driver_on_map">Driver</string>
     <string name="channel_orders">Order status</string>
+    <string name="privacy_policy">Privacy policy</string>
+    <string name="delete_account">Delete account</string>
+    <string name="delete_account_text">Your sign-in, saved addresses and name will be deleted. Trip history stays in the company records.</string>
 </resources>

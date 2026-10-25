@@ -4,15 +4,26 @@
 # yarim yuklangan APK haydovchilarga hech qachon taklif qilinmaydi.
 #
 #   deploy/upload-apk.sh root@1.2.3.4            # public/android dagi oxirgi build
+#   deploy/upload-apk.sh root@1.2.3.4 --client   # mijoz ilovasi (sinov uchun; asosiy tarqatish — Google Play) → /android/client/
 #   DTAXI_SSH_PASSWORD='...' deploy/upload-apk.sh taxi@1.2.3.4
 set -euo pipefail
 
-[[ $# -ge 1 ]] || { sed -n '2,8p' "$0"; exit 1; }
+[[ $# -ge 1 ]] || { sed -n '2,9p' "$0"; exit 1; }
 HOST="$1"
+CLIENT=0
+[[ "${2:-}" == "--client" ]] && CLIENT=1
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VJ="$ROOT/public/android/version.json"
-APK="$ROOT/public/android/$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["url"].rsplit("/",1)[1])' "$VJ")"
-[[ -f "$APK" ]] || { echo "APK topilmadi: $APK (avval ./gradlew assembleRelease -Pfirm=<firma>)" >&2; exit 1; }
+if [[ "$CLIENT" == 1 ]]; then
+    # Mijoz ilovasi: version.json yo'q (Google Play yangilaydi), papkada faqat oxirgisi
+    APK="$(ls -t "$ROOT"/public/android/client/dtaxi-client.*.apk 2>/dev/null | grep -v -- -debug | head -1)"
+    [[ -n "$APK" ]] || { echo "APK topilmadi (avval ./gradlew :client:assembleRelease -Pfirm=<firma>)" >&2; exit 1; }
+    TARGET_DIR="/var/www/dtaxi/public/android/client"
+else
+    VJ="$ROOT/public/android/version.json"
+    APK="$ROOT/public/android/$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["url"].rsplit("/",1)[1])' "$VJ")"
+    [[ -f "$APK" ]] || { echo "APK topilmadi: $APK (avval ./gradlew :driver:assembleRelease -Pfirm=<firma>)" >&2; exit 1; }
+    TARGET_DIR="/var/www/dtaxi/public/android"
+fi
 NAME="$(basename "$APK")"
 
 if [[ -n "${DTAXI_SSH_PASSWORD:-}" ]]; then
@@ -46,9 +57,14 @@ for part in "$PARTS"/part.*; do
     echo "  $i/$total"
 done
 
-scp -q "${OPTS[@]}" "$VJ" "$HOST:$REMOTE_DIR/version.json"
+if [[ "$CLIENT" == 1 ]]; then
+    PUBLISH="sudo find $TARGET_DIR -name 'dtaxi-client.*.apk' -delete 2>/dev/null; true"
+else
+    scp -q "${OPTS[@]}" "$VJ" "$HOST:$REMOTE_DIR/version.json"
+    PUBLISH="sudo install -o dtaxi -g dtaxi -m 644 version.json $TARGET_DIR/version.json"
+fi
 ssh "${OPTS[@]}" "$HOST" "cd $REMOTE_DIR && cat part.* > app.apk && [ \"\$(sha256sum app.apk | cut -c1-64)\" = \"$WANT\" ] \
-    && sudo install -d -o dtaxi -g dtaxi /var/www/dtaxi/public/android \
-    && sudo install -o dtaxi -g dtaxi -m 644 app.apk /var/www/dtaxi/public/android/$NAME \
-    && sudo install -o dtaxi -g dtaxi -m 644 version.json /var/www/dtaxi/public/android/version.json \
+    && sudo install -d -o dtaxi -g dtaxi $TARGET_DIR \
+    && { $PUBLISH; } \
+    && sudo install -o dtaxi -g dtaxi -m 644 app.apk $TARGET_DIR/$NAME \
     && rm -rf $REMOTE_DIR && echo \"Joylandi: $NAME\" || { echo 'Tekshiruv summasi mos emas — joylanmadi' >&2; exit 1; }"

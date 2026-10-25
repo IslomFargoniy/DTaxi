@@ -899,7 +899,7 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [x] C2: backend `api/client/v1` — kirish (qo'ng'iroqda kod: `LoginCodes`, `PlaceCodeCall`; demo — `.env CLIENT_TEST_CODE`), narx (`OrderService::quote`), filial nuqta bo'yicha (`Branch::serving` — eng kichik hudud), buyurtma (bir vaqtda 1 ta, qora ro'yxat), bekor, baho, tarix, manzillar; `private-client.{id}`: `ClientOrderUpdated`, `ClientDriverMoved`; ilova buyurtmalariga ovozli qo'ng'iroq yo'q; testlar
 - [x] C3: `:client` MVP — kirish (telefon → qo'ng'iroqdagi kod → ism), xarita markazidagi pin bilan "Qayerdan" (teskari geokodlash), qidiruv va saqlangan manzillar, tariflar narxi bilan, izoh, buyurtma; holat kartochkasi, haydovchi xaritada (Reverb, 15 s zaxira so'rov), qo'ng'iroq, bekor; baho, tarix, til va mavzu
 - [x] C4: push (`client_device_tokens`, `SendClientPush` — mijoz tilida, FCM notification; ilovada `clientFirebaseApplicationId`), saqlangan manzillar, 4 til, firma brendi (`clientAppName`), operator panelida va hisobotda "Ilova" belgisi
-- [ ] C5: Google Play (firma akkaunti, maxfiylik siyosati sahifasi), demo serverda sinov
+- [ ] C5: Google Play — tayyor: `/privacy` sahifasi, ilovada hisobni o'chirish (`DELETE /api/client/v1/me`), `.aab` (`:client:bundleRelease`), deploy.md §4.1; demo serverda API sinovdan o'tdi (`CLIENT_TEST_CODE`). Qolgani: firma Play akkaunti, Firebase'da mijoz ilovasi, telefonda to'liq sinov
 
 **MVP taxminiy muddati:** **16–20 hafta** (1 dasturchi + AI, bosqichlar ketma-ket). Dastlabki 12–15 haftalik baho reja kengaygani uchun oshirildi: PBX panel, mahsulotlashtirish (o'rnatish, yangilash, white-label ilova), Click/Payme, jarima/reyting, qo'shimcha narx qoidalari. Bosqich 1 tugagach qayta baholanadi.
 

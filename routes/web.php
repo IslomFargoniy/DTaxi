@@ -29,6 +29,7 @@ use App\Http\Controllers\Operator\LookupController;
 use App\Http\Controllers\Operator\OperatorController;
 use App\Http\Controllers\Operator\OrderController;
 use App\Http\Controllers\Operator\PhoneController;
+use App\Http\Controllers\PrivacyController;
 use App\Models\ChatMessage;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -42,6 +43,8 @@ Route::get('map/landmarks/{z}/{x}/{y}.pbf', LandmarkTileController::class)->wher
 
 // Haydovchi ilovasi — Google Play'siz (qaror #37)
 Route::get('driver-app', [DriverAppController::class, 'page'])->name('driver-app.page');
+// Mijoz ilovasi maxfiylik siyosati — Google Play uchun ochiq (qaror #71)
+Route::get('privacy', PrivacyController::class)->name('privacy');
 // Haydovchi ilovasi ichidagi (WebView) dispetcherga qo'ng'iroq sahifasi; token JS ko'prik orqali beriladi
 Route::view('driver-app/call', 'driver-call')->name('driver-app.call');
 Route::get('driver-app/{abi}.apk', [DriverAppController::class, 'download'])->name('driver-app.download');

@@ -72,6 +72,21 @@ class ProfileController extends Controller
         return response()->json(self::profile($client));
     }
 
+    /**
+     * Hisobni o'chirish (Google Play talabi): kirish tokenlari, saqlangan manzillar, push tokenlari va ilovada
+     * kiritilgan ism. Buyurtmalar tarixi va telefon raqami — firmaning mijozlar bazasi (telefon orqali buyurtmalar ham).
+     */
+    public function destroy(): Response
+    {
+        $client = $this->client();
+        $client->tokens()->delete();
+        ClientAddress::query()->where('client_id', $client->id)->delete();
+        ClientDeviceToken::query()->where('client_id', $client->id)->delete();
+        $client->forceFill(['name' => null, 'app_login_at' => null])->save();
+
+        return response()->noContent();
+    }
+
     /** FCM token (ilova Firebase'i sozlangan firmada) — bitta telefonda bir vaqtda bitta mijoz */
     public function deviceToken(Request $request): Response
     {

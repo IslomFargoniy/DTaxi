@@ -43,6 +43,14 @@ class Repository(private val session: Session) {
         ClientState.reset()
     }
 
+    /** Hisobni o'chirish (Google Play talabi) — serverda tokenlar, manzillar, ism o'chadi */
+    suspend fun deleteAccount(): Result<Unit> = unitCall { api.deleteAccount() }.also {
+        if (it is Result.Ok) {
+            session.clear()
+            ClientState.reset()
+        }
+    }
+
     suspend fun refreshProfile(): Result<Profile> = call { api.me() }.map { it.also(ClientState::setProfile) }
 
     suspend fun updateProfile(name: String? = null, locale: String? = null): Result<Profile> =

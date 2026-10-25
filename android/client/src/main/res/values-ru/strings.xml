@@ -68,4 +68,7 @@
     <string name="location_denied">Нет доступа к геолокации — выберите адрес на карте или через поиск</string>
     <string name="driver_on_map">Водитель</string>
     <string name="channel_orders">Статус заказа</string>
+    <string name="privacy_policy">Политика конфиденциальности</string>
+    <string name="delete_account">Удалить аккаунт</string>
+    <string name="delete_account_text">Будут удалены данные входа, сохранённые адреса и имя. История поездок останется в записях компании.</string>
 </resources>

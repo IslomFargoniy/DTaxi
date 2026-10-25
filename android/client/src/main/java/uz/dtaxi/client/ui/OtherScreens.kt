@@ -1,5 +1,8 @@
 package uz.dtaxi.client.ui
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,10 +35,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import uz.dtaxi.client.BuildConfig
 import uz.dtaxi.client.ClientApp
 import uz.dtaxi.client.R
 import uz.dtaxi.client.data.ClientOrder
@@ -115,6 +120,8 @@ fun SettingsScreen(profile: Profile, onLocaleChange: (String) -> Unit, onThemeCh
     val session = ClientApp.instance.session
     val scope = rememberCoroutineScope()
     var confirmLogout by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     var theme by remember { mutableStateOf(session.themeMode) }
     BackHandler(onBack = onBack)
 
@@ -135,7 +142,26 @@ fun SettingsScreen(profile: Profile, onLocaleChange: (String) -> Unit, onThemeCh
                 }
             }
             OutlinedButton(onClick = { confirmLogout = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.logout)) }
+            TextButton(onClick = { openPrivacy(context) }) { Text(stringResource(R.string.privacy_policy)) }
+            TextButton(onClick = { confirmDelete = true }) {
+                Text(stringResource(R.string.delete_account), color = MaterialTheme.colorScheme.error)
+            }
         }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.delete_account)) },
+            text = { Text(stringResource(R.string.delete_account_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    scope.launch { repository.deleteAccount() }
+                }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 
     if (confirmLogout) {
@@ -151,6 +177,11 @@ fun SettingsScreen(profile: Profile, onLocaleChange: (String) -> Unit, onThemeCh
             dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
+}
+
+/** Maxfiylik siyosati — firma serverida (Google Play'da ham shu manzil) */
+fun openPrivacy(context: Context) {
+    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.SERVER_URL + "/privacy"))) }
 }
 
 @Composable
