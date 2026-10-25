@@ -80,9 +80,13 @@ class Firm(private val project: Project) {
     }
 
     companion object {
-        /** Avtomatik versiya: git commit'lar soni (har yangi commit — kattaroq raqam, ilova avto-yangilanishi uchun) */
-        fun buildNumber(project: Project): Int = runCatching {
-            ProcessBuilder("git", "rev-list", "--count", "HEAD").directory(project.rootDir).start()
+        /**
+         * Avtomatik versiya: git commit'lar soni (har yangi commit — kattaroq raqam, ilova avto-yangilanishi uchun).
+         * paths berilsa — faqat shu papkalarni o'zgartirgan commit'lar (mijoz ilovasi o'z raqami bilan, 0 dan).
+         */
+        fun buildNumber(project: Project, vararg paths: String): Int = runCatching {
+            val command = listOf("git", "rev-list", "--count", "HEAD") + (if (paths.isEmpty()) emptyList() else listOf("--", *paths))
+            ProcessBuilder(command).directory(project.rootDir).start()
                 .inputStream.bufferedReader().readText().trim().toInt()
         }.getOrDefault(1)
 

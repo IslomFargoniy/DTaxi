@@ -8,7 +8,8 @@ plugins {
 val firm = Firm(project)
 firm.requireReleaseSigning()
 val securityResDir = firm.registerNetworkSecurity()
-val autoBuildNumber: Int = Firm.buildNumber(project)
+// O'z versiyasi: faqat mijoz ilovasi va umumiy qismni o'zgartirgan commit'lar (haydovchi ilovasidan mustaqil)
+val autoBuildNumber: Int = Firm.buildNumber(project, "client", "core")
 
 android {
     namespace = "uz.dtaxi.client"
