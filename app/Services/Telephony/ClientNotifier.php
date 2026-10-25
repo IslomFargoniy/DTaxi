@@ -2,6 +2,7 @@
 
 namespace App\Services\Telephony;
 
+use App\Enums\OrderSource;
 use App\Jobs\PlaceAutoCall;
 use App\Models\Call;
 use App\Models\Order;
@@ -25,6 +26,11 @@ class ClientNotifier
 
     public function onOrderEvent(Order $order, string $type): void
     {
+        // Ilovadan berilgan buyurtma — mijoz holatni ilovada ko'radi, qo'ng'iroq bilan bezovta qilinmaydi (qaror #71)
+        if ($order->source === OrderSource::App) {
+            return;
+        }
+
         if ($type === 'completed' && $this->settings->get('calls.rating_call_enabled', $order->branch_id)) {
             PlaceAutoCall::dispatch($order->id, 'rate')
                 ->delay(now()->addMinutes((int) $this->settings->get('calls.rating_call_delay_minutes', $order->branch_id)));

@@ -728,5 +728,14 @@
     "online": "online",
     "last seen at :time": "oxirgi marta :time da",
     "last seen yesterday at :time": "oxirgi marta kecha :time da",
-    "last seen :date": "oxirgi marta :date"
+    "last seen :date": "oxirgi marta :date",
+    "The code is incorrect or expired.": "Kod noto'g'ri yoki muddati o'tgan.",
+    "Ordering from the app is not available. Please call the dispatcher.": "Ilovadan buyurtma berish mumkin emas. Iltimos, dispetcherga qo'ng'iroq qiling.",
+    "You already have an active order.": "Sizda faol buyurtma bor.",
+    "The service is closed now.": "Hozir ish vaqti emas.",
+    "This tariff is not available here.": "Bu tarif bu hududda mavjud emas.",
+    "The order can no longer be cancelled.": "Buyurtmani endi bekor qilib bo'lmaydi.",
+    "Cancelled by the client in the app": "Mijoz ilovada bekor qildi",
+    "Only completed trips can be rated.": "Faqat yakunlangan safarni baholash mumkin.",
+    "This address is outside the service area.": "Bu manzil xizmat hududidan tashqarida."
 }

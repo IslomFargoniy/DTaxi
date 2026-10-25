@@ -895,8 +895,8 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 
 ### Bosqich 6 — Mijoz ilovasi (qaror #71, ~6–7 hafta)
 
-- [ ] C1: Android `:core` + `:driver` ga ajratish, haydovchi ilovasini qayta tekshirish
-- [ ] C2: backend `api/client/v1` — kirish (qo'ng'iroqda kod), narx, buyurtma, bekor, baho, tarix, manzillar; `private-client` kanali; testlar
+- [x] C1: Android `:core` + `:driver` ga ajratish, haydovchi ilovasini qayta tekshirish
+- [x] C2: backend `api/client/v1` — kirish (qo'ng'iroqda kod: `LoginCodes`, `PlaceCodeCall`; demo — `.env CLIENT_TEST_CODE`), narx (`OrderService::quote`), filial nuqta bo'yicha (`Branch::serving` — eng kichik hudud), buyurtma (bir vaqtda 1 ta, qora ro'yxat), bekor, baho, tarix, manzillar; `private-client.{id}`: `ClientOrderUpdated`, `ClientDriverMoved`; ilova buyurtmalariga ovozli qo'ng'iroq yo'q; testlar
 - [ ] C3: `:client` MVP — kirish, buyurtma berish, kuzatish, bekor, baho, tarix
 - [ ] C4: push, saqlangan manzillar, 4 til, firma brendi, operator panelida "Ilova" belgisi
 - [ ] C5: Google Play (firma akkaunti, maxfiylik siyosati sahifasi), demo serverda sinov

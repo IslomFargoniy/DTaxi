@@ -137,6 +137,34 @@ class OrderService
         return $order;
     }
 
+    /**
+     * Mijoz ilovasi (qaror #71): har faol tarif klassi bo'yicha taxminiy narx — buyurtma yaratishdagi hisob bilan bir xil
+     * (tig'iz soat, chegirma). "Qayerga" bo'lmasa narx yo'q, faqat eng kami (boshlang'ich narx).
+     *
+     * @param  list<array{text: string, lat: float, lng: float}>  $stops
+     * @return list<array{tariff_class_id: int, name: string, is_delivery: bool, price: int|null, min_price: int}>
+     */
+    public function quote(Branch $branch, Client $client, Point $pickup, array $stops, ?Point $dropoff): array
+    {
+        $distance = $this->routeDistance($pickup, $stops, $dropoff);
+        $company = $client->company_id ? Company::query()->withoutGlobalScopes()->whereKey($client->company_id)->where('is_active', true)->first() : null;
+        $now = CarbonImmutable::now($branch->timezone);
+
+        return array_values(TariffClass::query()->withoutGlobalScopes()->where('branch_id', $branch->id)->where('is_active', true)
+            ->orderByDesc('is_default')->orderBy('sort')->get()
+            ->map(function (TariffClass $class) use ($branch, $client, $company, $distance, $now) {
+                $snapshot = $this->snapshot($class, $branch, $client, $company);
+
+                return [
+                    'tariff_class_id' => $class->id,
+                    'name' => $class->name,
+                    'is_delivery' => (bool) $class->is_delivery,
+                    'price' => $distance === null ? null : $this->fares->calculate($snapshot, $distance, startedAt: $now)->total,
+                    'min_price' => $this->fares->calculate($snapshot, 0, startedAt: $now)->total,
+                ];
+            })->all());
+    }
+
     public function arrive(Order $order, Driver $driver): void
     {
         $this->transition($order, $driver, [OrderStatus::Assigned], ['status' => OrderStatus::Arrived, 'arrived_at' => now()]);

@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\Client\AuthController as ClientAuthController;
+use App\Http\Controllers\Api\Client\OrderController as ClientOrderController;
+use App\Http\Controllers\Api\Client\ProfileController as ClientProfileController;
 use App\Http\Controllers\Api\Driver\AuthController;
 use App\Http\Controllers\Api\Driver\ChatController;
 use App\Http\Controllers\Api\Driver\DriverController;
@@ -58,5 +61,31 @@ Route::prefix('driver/v1')->group(function () {
         Route::get('phone', [DriverController::class, 'phone']);
         // Operator → haydovchi qo'ng'irog'ini rad etish (qaror #59)
         Route::post('phone/calls/{call}/decline', [DriverController::class, 'declineCall'])->whereNumber('call');
+    });
+});
+
+/*
+ * Mijoz ilovasi API (qaror #71). Kirish — qo'ng'iroqda aytiladigan kod; real vaqt — private-client.{id}.
+ */
+Route::prefix('client/v1')->group(function () {
+    Route::post('auth/request-code', [ClientAuthController::class, 'requestCode'])->middleware('throttle:client-code');
+    Route::post('auth/verify', [ClientAuthController::class, 'verify'])->middleware('throttle:client-verify');
+
+    Route::middleware(['auth:sanctum', 'abilities:client'])->group(function () {
+        Route::post('auth/logout', [ClientAuthController::class, 'logout']);
+        Route::get('me', [ClientProfileController::class, 'show']);
+        Route::put('me', [ClientProfileController::class, 'update']);
+        Route::get('places', [ClientProfileController::class, 'places'])->middleware('throttle:60,1');
+        Route::get('places/reverse', [ClientProfileController::class, 'reverse'])->middleware('throttle:60,1');
+        Route::get('addresses', [ClientProfileController::class, 'addresses']);
+        Route::post('addresses', [ClientProfileController::class, 'storeAddress']);
+        Route::delete('addresses/{address}', [ClientProfileController::class, 'destroyAddress'])->whereNumber('address');
+
+        Route::post('quote', [ClientOrderController::class, 'quote'])->middleware('throttle:30,1');
+        Route::get('orders', [ClientOrderController::class, 'index']);
+        Route::post('orders', [ClientOrderController::class, 'store'])->middleware('throttle:10,1');
+        Route::get('orders/current', [ClientOrderController::class, 'current']);
+        Route::post('orders/{order}/cancel', [ClientOrderController::class, 'cancel'])->whereNumber('order');
+        Route::post('orders/{order}/rate', [ClientOrderController::class, 'rate'])->whereNumber('order');
     });
 });

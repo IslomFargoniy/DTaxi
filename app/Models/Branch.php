@@ -125,6 +125,20 @@ class Branch extends Model
     }
 
     /**
+     * Nuqtaga xizmat ko'rsatadigan faol filial (mijoz ilovasi, qaror #71). Hududlar ustma-ust bo'lsa (viloyat va
+     * undagi shahar filiali) — eng kichigi: shahar ichidagi buyurtma shahar filialiga.
+     */
+    public static function serving(Point $point): ?self
+    {
+        return static::query()->withoutGlobalScopes()
+            ->where('is_active', true)
+            ->whereNotNull('service_area')
+            ->whereRaw('ST_Covers(service_area, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography)', [$point->getLongitude(), $point->getLatitude()])
+            ->orderByRaw('ST_Area(service_area)')
+            ->first();
+    }
+
+    /**
      * Filial hududini tanlangan shahar/tuman chegarasidan to'ldiradi (qaror #31).
      */
     public function fillAreaFromRegion(Region $region): void

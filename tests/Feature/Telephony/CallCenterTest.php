@@ -11,6 +11,7 @@ use App\Events\IncomingCallEnded;
 use App\Events\OperatorCallEvent;
 use App\Events\OrderUpdated;
 use App\Jobs\PlaceAutoCall;
+use App\Jobs\PlaceCodeCall;
 use App\Jobs\ProcessRecording;
 use App\Jobs\SendPushNotification;
 use App\Models\Branch;
@@ -265,6 +266,30 @@ test('auto call tells the client the order was cancelled and retries when unansw
 
     expect($call->refresh()->status)->toBe('no_answer');
     Queue::assertPushed(PlaceAutoCall::class, fn ($job) => $job->orderId === $order->id && $job->attempt === 2);
+});
+
+test('login code call says the code twice to the client and is not retried when unanswered', function () {
+    foreach (['login-code', 'code-repeat'] as $key) {
+        SoundClip::query()->create(['category' => 'phrase', 'key' => $key, 'text' => 'x', 'file_path' => "phrase/{$key}"]);
+    }
+    foreach (['4', '7', '2', '1'] as $digit) {
+        SoundClip::query()->create(['category' => 'number', 'key' => $digit, 'text' => 'x', 'file_path' => "number/{$digit}"]);
+    }
+
+    (new PlaceCodeCall('+998901234567', '4721'))->handle(...array_map('app', [AriClient::class, ChannelLimits::class, MessageComposer::class, CallCenter::class]));
+
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    $digits = ['sound:dtaxi/number/4', 'sound:dtaxi/number/7', 'sound:dtaxi/number/2', 'sound:dtaxi/number/1'];
+    expect($call->kind)->toBe('tts')
+        ->and($call->callee)->toBe('+998901234567')
+        ->and($call->order_id)->toBeNull()
+        ->and($call->meta['message'])->toBe('login_code')
+        ->and($call->meta['media'])->toBe(['sound:dtaxi/phrase/login-code', ...$digits, 'sound:dtaxi/phrase/code-repeat', ...$digits])
+        ->and(ariRequests('endpoint=PJSIP/998901234567@trunk-sarkor'))->toHaveCount(1);
+
+    $this->center->handle(['type' => 'ChannelDestroyed', 'channel' => ['id' => $call->channel_id], 'cause' => 19]);
+    expect($call->refresh()->status)->toBe('no_answer');
+    Queue::assertNotPushed(PlaceAutoCall::class);
 });
 
 test('answered auto call plays the message twice and hangs up', function () {

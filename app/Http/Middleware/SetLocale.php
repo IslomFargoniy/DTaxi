@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Client;
 use App\Models\User;
 use App\Support\Settings;
 use Closure;
@@ -21,7 +22,7 @@ class SetLocale
     {
         // api guruhida auth:sanctum hali ishlamagan bo'lishi mumkin — token egasi to'g'ridan-to'g'ri
         $user = $request->is('api/*') ? Auth::guard('sanctum')->user() : $request->user();
-        $locale = ($user instanceof User ? $user->locale : null)
+        $locale = ($user instanceof User || $user instanceof Client ? $user->locale : null)
             ?? ($request->is('api/*') ? $request->getPreferredLanguage(self::LOCALES) : null)
             ?? ($request->hasSession() ? $request->session()->get('locale') : null)
             ?? app(Settings::class)->get('company.default_locale');

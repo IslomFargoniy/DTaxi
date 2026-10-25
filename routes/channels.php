@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Client;
 use App\Models\Driver;
 use App\Models\User;
 use Illuminate\Support\Facades\Broadcast;
@@ -19,3 +20,6 @@ Broadcast::channel('user.{userId}', fn (User $user, int $userId) => $user->id ==
 
 // Filialsiz qo'ng'iroqlar (raqam hali filialga bog'lanmagan) — superadmin monitoringi
 Broadcast::channel('telephony', fn (User $user) => $user->isSuperadmin());
+
+// Mijoz ilovasi (qaror #71): o'z buyurtmasi holati va haydovchi joylashuvi. Token egasi Client — tur e'lon qilinmaydi
+Broadcast::channel('client.{clientId}', fn ($client, int $clientId) => $client instanceof Client && $client->id === $clientId);

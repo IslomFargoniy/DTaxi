@@ -3,16 +3,22 @@
 namespace App\Models;
 
 use Database\Factories\ClientFactory;
+use Illuminate\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * @property int $id
  * @property string $phone
  * @property string|null $name
+ * @property string $locale
+ * @property Carbon|null $app_login_at
  * @property string|null $note
  * @property bool $is_blacklisted
  * @property int $orders_count
@@ -21,15 +27,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $discount_percent
  * @property-read Company|null $company
  */
-#[Fillable(['phone', 'name', 'note', 'is_blacklisted', 'orders_count', 'last_branch_id', 'company_id', 'discount_percent'])]
-class Client extends Model
+#[Fillable(['phone', 'name', 'locale', 'note', 'is_blacklisted', 'orders_count', 'last_branch_id', 'company_id', 'discount_percent'])]
+class Client extends Model implements AuthenticatableContract
 {
+    // Mijoz ilovasi (qaror #71): telefon + qo'ng'iroqdagi kod → Sanctum tokeni (parol yo'q)
+    use Authenticatable, HasApiTokens;
+
     /** @use HasFactory<ClientFactory> */
     use HasFactory;
 
     protected function casts(): array
     {
-        return ['is_blacklisted' => 'boolean', 'orders_count' => 'integer'];
+        return ['is_blacklisted' => 'boolean', 'orders_count' => 'integer', 'app_login_at' => 'datetime'];
     }
 
     /**

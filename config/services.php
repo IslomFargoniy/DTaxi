@@ -57,6 +57,11 @@ return [
         'recordings_dir' => env('ASTERISK_RECORDINGS_DIR', '/var/spool/asterisk/recording'),
     ],
 
+    // Mijoz ilovasi (qaror #71): faqat demo serverda — trunk yo'q, kod qo'ng'iroqda aytilmaydi. Firma serverida bo'sh
+    'client_login' => [
+        'test_code' => env('CLIENT_TEST_CODE'),
+    ],
+
     // WebRTC ICE: STUN (Asterisk rtp.conf dagi bilan bir xil) va ixtiyoriy TURN (install.sh --turn, coturn shu serverda)
     'webrtc' => [
         'stun' => env('STUN_URL', 'stun:stun.l.google.com:19302'),

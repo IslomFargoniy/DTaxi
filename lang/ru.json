@@ -728,5 +728,14 @@
     "online": "в сети",
     "last seen at :time": "был(а) в :time",
     "last seen yesterday at :time": "был(а) вчера в :time",
-    "last seen :date": "был(а) :date"
+    "last seen :date": "был(а) :date",
+    "The code is incorrect or expired.": "Неверный или просроченный код.",
+    "Ordering from the app is not available. Please call the dispatcher.": "Заказ из приложения недоступен. Пожалуйста, позвоните диспетчеру.",
+    "You already have an active order.": "У вас уже есть активный заказ.",
+    "The service is closed now.": "Сейчас нерабочее время.",
+    "This tariff is not available here.": "Этот тариф недоступен в этом районе.",
+    "The order can no longer be cancelled.": "Заказ уже нельзя отменить.",
+    "Cancelled by the client in the app": "Клиент отменил в приложении",
+    "Only completed trips can be rated.": "Оценить можно только завершённую поездку.",
+    "This address is outside the service area.": "Этот адрес вне зоны обслуживания."
 }

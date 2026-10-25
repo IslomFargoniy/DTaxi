@@ -26,6 +26,9 @@ class SoundCatalog
         'repeat' => 'Xabarni takrorlash uchun bir ni bosing.',
         'rate-trip' => "Safaringizni baholang: birdan beshgacha raqamni bosing. Besh — a'lo.",
         'rate-thanks' => 'Bahoyingiz uchun rahmat!',
+        // Mijoz ilovasiga kirish kodi (qaror #71)
+        'login-code' => 'Ilovaga kirish kodingiz:',
+        'code-repeat' => 'Takrorlayman:',
     ];
 
     /** @var array<string, string> */

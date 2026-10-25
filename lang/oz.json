@@ -728,5 +728,14 @@
     "online": "онлине",
     "last seen at :time": "охирги марта :time да",
     "last seen yesterday at :time": "охирги марта кеча :time да",
-    "last seen :date": "охирги марта :date"
+    "last seen :date": "охирги марта :date",
+    "The code is incorrect or expired.": "Код нотўғри ёки муддати ўтган.",
+    "Ordering from the app is not available. Please call the dispatcher.": "Иловадан буюртма бериш мумкин эмас. Илтимос, диспетчерга қўнғироқ қилинг.",
+    "You already have an active order.": "Сизда фаол буюртма бор.",
+    "The service is closed now.": "Ҳозир иш вақти эмас.",
+    "This tariff is not available here.": "Бу тариф бу ҳудудда мавжуд эмас.",
+    "The order can no longer be cancelled.": "Буюртмани энди бекор қилиб бўлмайди.",
+    "Cancelled by the client in the app": "Мижоз иловада бекор қилди",
+    "Only completed trips can be rated.": "Фақат якунланган сафарни баҳолаш мумкин.",
+    "This address is outside the service area.": "Бу манзил хизмат ҳудудидан ташқарида."
 }

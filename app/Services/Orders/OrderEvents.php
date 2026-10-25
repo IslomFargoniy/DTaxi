@@ -2,6 +2,8 @@
 
 namespace App\Services\Orders;
 
+use App\Enums\OrderSource;
+use App\Events\ClientOrderUpdated;
 use App\Events\OrderUpdated;
 use App\Models\Order;
 use App\Models\OrderEvent;
@@ -28,6 +30,10 @@ class OrderEvents
 
         if ($broadcast) {
             OrderUpdated::dispatch($order);
+            // Ilovadan berilgan buyurtma — mijoz ilovasi ham yangilanadi (qaror #71)
+            if ($order->source === OrderSource::App) {
+                ClientOrderUpdated::dispatch($order);
+            }
         }
 
         // Mijozga ovozli xabar (§5.4)

@@ -47,6 +47,13 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(5)->by('phone:'.Client::normalizePhone($request->string('phone')->toString())),
         ]);
 
+        // Mijoz ilovasi kodi (qaror #71): har kod — trunk orqali qo'ng'iroq (pul va liniya) — raqam va IP bo'yicha qattiq
+        RateLimiter::for('client-code', fn (Request $request) => [
+            Limit::perHour(3)->by('phone:'.Client::normalizePhone($request->string('phone')->toString())),
+            Limit::perHour(10)->by('ip:'.$request->ip()),
+        ]);
+        RateLimiter::for('client-verify', fn (Request $request) => Limit::perMinute(10)->by('ip:'.$request->ip()));
+
         // Uzoq vaqt ishlatilmagan token (yo'qolgan telefon) yaroqsiz — `expiration` yaratilgan vaqtdan sanaydi va smenadagi haydovchini chiqarib yuboradi
         Sanctum::authenticateAccessTokensUsing(function (PersonalAccessToken $token, bool $isValid): bool {
             $lastUsed = $token->last_used_at ?? $token->created_at;

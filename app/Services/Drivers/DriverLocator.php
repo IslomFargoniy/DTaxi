@@ -3,6 +3,9 @@
 namespace App\Services\Drivers;
 
 use App\Enums\DriverStatus;
+use App\Enums\OrderSource;
+use App\Enums\OrderStatus;
+use App\Events\ClientDriverMoved;
 use App\Events\DriverLocationUpdated;
 use App\Models\Driver;
 use App\Models\DriverLocation;
@@ -74,6 +77,27 @@ class DriverLocator
             $driver->forceFill(['last_location' => $latest['location'], 'last_seen_at' => $live ? $now : $latest['recorded_at']])->save();
             DriverLocationUpdated::dispatch($driver);
             app(StandQueue::class)->refresh($driver);
+            $this->notifyClient($driver, $latest['location'], $latest['heading'] ?? null);
+        }
+    }
+
+    /**
+     * Ilovadan buyurtma bergan mijoz haydovchini xaritada kuzatadi (qaror #71). Faqat band haydovchi uchun so'rov —
+     * bo'sh haydovchilarning har GPS nuqtasida bazaga ortiqcha murojaat yo'q.
+     */
+    private function notifyClient(Driver $driver, Point $location, ?int $heading): void
+    {
+        if ($driver->status !== DriverStatus::Busy) {
+            return;
+        }
+
+        $order = Order::query()->withoutGlobalScopes()
+            ->where('driver_id', $driver->id)
+            ->where('source', OrderSource::App->value)
+            ->whereIn('status', [OrderStatus::Assigned->value, OrderStatus::Arrived->value, OrderStatus::InProgress->value])
+            ->first(['id', 'client_id']);
+        if ($order) {
+            ClientDriverMoved::dispatch($order->client_id, $order->id, $location->getLatitude(), $location->getLongitude(), $heading);
         }
     }
 
