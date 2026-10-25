@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Haydovchi ilovasini firma serveriga joylash (deploy.md §4): 4 MB bo'laklab, har bo'lak SHA-256 bilan tekshirilib,
 # uzilsa qayta yuboriladi; butun fayl tekshiruvdan o'tgandagina joylanadi va version.json almashtiriladi —
-# yarim yuklangan APK haydovchilarga hech qachon taklif qilinmaydi.
+# yarim yuklangan APK haydovchilarga hech qachon taklif qilinmaydi. Serverda faqat oxirgi versiya qoladi.
 #
 #   deploy/upload-apk.sh root@1.2.3.4            # public/android dagi oxirgi build
 #   deploy/upload-apk.sh root@1.2.3.4 --client   # mijoz ilovasi (sinov uchun; asosiy tarqatish — Google Play) → /android/client/
@@ -67,4 +67,5 @@ ssh "${OPTS[@]}" "$HOST" "cd $REMOTE_DIR && cat part.* > app.apk && [ \"\$(sha25
     && sudo install -d -o dtaxi -g dtaxi $TARGET_DIR \
     && { $PUBLISH; } \
     && sudo install -o dtaxi -g dtaxi -m 644 app.apk $TARGET_DIR/$NAME \
+    && { sudo find $TARGET_DIR -maxdepth 1 -name 'dtaxi.*.apk' ! -name '$NAME' -delete; true; } \
     && rm -rf $REMOTE_DIR && echo \"Joylandi: $NAME\" || { echo 'Tekshiruv summasi mos emas — joylanmadi' >&2; exit 1; }"

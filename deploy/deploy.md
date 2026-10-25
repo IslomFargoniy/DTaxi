@@ -216,7 +216,7 @@ JAVA_HOME=~/Library/Java/JavaVirtualMachines/jdk-17*/Contents/Home ./gradlew :dr
 cd .. && deploy/upload-apk.sh root@taxi.firma.uz      # parol bilan: DTAXI_SSH_PASSWORD='...' deploy/upload-apk.sh ...
 ```
 
-`upload-apk.sh` APK'ni 4 MB bo'laklab yuboradi, har bo'lak va butun fayl SHA-256 bilan tekshiriladi, faqat shundan keyin `version.json` almashadi. Oddiy `scp`/`rsync` sekin yoki uziladigan tarmoqda (demo'da shunday bo'ldi) **yarim APK'ni joylab qo'yardi** — haydovchilarga buzuq yangilanish taklif qilinadi. Qayta ishga tushirilsa tayyor bo'laklar qayta yuborilmaydi. Mac'dagi `rsync` (openrsync) `--append-verify` ni bilmaydi, serverda `rsync` umuman bo'lmasligi mumkin.
+`upload-apk.sh` APK'ni 4 MB bo'laklab yuboradi, har bo'lak va butun fayl SHA-256 bilan tekshiriladi, faqat shundan keyin `version.json` almashadi. Serverda faqat oxirgi versiya qoladi — eskilari joylangandan keyin o'chiriladi. Oddiy `scp`/`rsync` sekin yoki uziladigan tarmoqda (demo'da shunday bo'ldi) **yarim APK'ni joylab qo'yardi** — haydovchilarga buzuq yangilanish taklif qilinadi. Qayta ishga tushirilsa tayyor bo'laklar qayta yuborilmaydi. Mac'dagi `rsync` (openrsync) `--append-verify` ni bilmaydi, serverda `rsync` umuman bo'lmasligi mumkin.
 
 - **`keystore.jks` va parollarni yo'qotmang va git'ga qo'shmang.** Yo'qolsa, haydovchilar ilovani o'chirib qayta o'rnatishi kerak bo'ladi (yangilanish o'rnatilmaydi).
 - Ilova `version.json` ni **ochilganda** va ochiq turganda har 30 daqiqada o'qib, yangi versiyani o'zi taklif qiladi. Versiya — `1.0.<git commit'lar soni>`: yangi APK uchun avval commit.
