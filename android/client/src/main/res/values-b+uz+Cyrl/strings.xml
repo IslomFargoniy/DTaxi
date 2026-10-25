@@ -68,4 +68,5 @@
     <string name="menu">Меню</string>
     <string name="location_denied">Жойлашувга рухсат берилмади — манзилни харитада танланг ёки қидиринг</string>
     <string name="driver_on_map">Ҳайдовчи</string>
+    <string name="channel_orders">Буюртма ҳолати</string>
 </resources>

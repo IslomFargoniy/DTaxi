@@ -48,6 +48,8 @@ class Repository(private val session: Session) {
     suspend fun updateProfile(name: String? = null, locale: String? = null): Result<Profile> =
         call { api.updateProfile(ProfileUpdate(name, locale)) }.map { it.also(ClientState::setProfile) }
 
+    suspend fun registerPushToken(token: String) = unitCall { api.deviceToken(TokenRequest(token)) }
+
     suspend fun places(query: String, near: LatLng?) = call { api.places(query, near?.lat, near?.lng) }
 
     suspend fun reverse(lat: Double, lng: Double): Result<String?> = call { api.reverse(lat, lng) }.map { it.text }

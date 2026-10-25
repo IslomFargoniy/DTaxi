@@ -737,5 +737,16 @@
     "The order can no longer be cancelled.": "Буюртмани энди бекор қилиб бўлмайди.",
     "Cancelled by the client in the app": "Мижоз иловада бекор қилди",
     "Only completed trips can be rated.": "Фақат якунланган сафарни баҳолаш мумкин.",
-    "This address is outside the service area.": "Бу манзил хизмат ҳудудидан ташқарида."
+    "This address is outside the service area.": "Бу манзил хизмат ҳудудидан ташқарида.",
+    "App": "Илова",
+    "Ordered from the client app": "Мижоз иловасидан берилган",
+    "Your driver is on the way": "Ҳайдовчи топилди",
+    ":car is on the way": ":car йўлга чиқди",
+    "Your driver has arrived": "Ҳайдовчи етиб келди",
+    ":car is waiting for you": ":car сизни кутмоқда",
+    "No cars available": "Бўш машина топилмади",
+    "Please try again later or call the dispatcher.": "Илтимос, кейинроқ қайта уриниб кўринг ёки диспетчерга қўнғироқ қилинг.",
+    "Your order was cancelled": "Буюртмангиз бекор қилинди",
+    "Trip completed": "Сафар якунланди",
+    "Please rate your trip.": "Сафарингизни баҳоланг."
 }

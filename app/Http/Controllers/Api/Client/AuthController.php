@@ -44,6 +44,8 @@ class AuthController extends Controller
 
         $client = Client::query()->firstOrCreate(['phone' => $phone]);
         $client->forceFill(['app_login_at' => now()])->save();
+        // Yangi yozuvda bazaning standart qiymatlari (locale) modelda yo'q — ilova null olmasin
+        $client->refresh();
 
         return response()->json([
             'token' => $client->createToken($data['device_name'], ['client'])->plainTextToken,

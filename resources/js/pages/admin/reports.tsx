@@ -450,6 +450,7 @@ export default function Reports({
                                         r.label
                                             .replace(/^phone/, t('Operator'))
                                             .replace(/^ivr/, t('IVR'))
+                                            .replace(/^app/, t('App'))
                                             .replace(
                                                 '(pre-order)',
                                                 `(${t('Pre-order')})`,

@@ -1,6 +1,12 @@
 package uz.dtaxi.client
 
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
+import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.tasks.await
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +39,33 @@ class ClientApp : Application() {
         repository = Repository(session)
         ClientState.setThemeMode(session.themeMode)
         MapLibre.getInstance(this)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(CHANNEL_ORDERS, getString(R.string.channel_orders), NotificationManager.IMPORTANCE_HIGH),
+        )
+        initFirebase()
+    }
+
+    /** Firebase — firmaning o'z loyihasi (qaror #35, #71); sozlanmagan bo'lsa push o'chiq, holat faqat Reverb orqali */
+    private fun initFirebase() {
+        if (BuildConfig.FIREBASE_PROJECT_ID.isBlank() || BuildConfig.FIREBASE_APPLICATION_ID.isBlank()) return
+        if (FirebaseApp.getApps(this).isNotEmpty()) return
+        FirebaseApp.initializeApp(
+            this,
+            FirebaseOptions.Builder()
+                .setProjectId(BuildConfig.FIREBASE_PROJECT_ID)
+                .setApplicationId(BuildConfig.FIREBASE_APPLICATION_ID)
+                .setApiKey(BuildConfig.FIREBASE_API_KEY)
+                .setGcmSenderId(BuildConfig.FIREBASE_SENDER_ID)
+                .build(),
+        )
+    }
+
+    /** Kirgandan keyin va har ochilishda — token serverga (telefon boshqa mijozga o'tsa token unga o'tadi) */
+    fun registerPush() {
+        if (FirebaseApp.getApps(this).isEmpty() || !repository.loggedIn) return
+        scope.launch {
+            runCatching { FirebaseMessaging.getInstance().token.await() }.getOrNull()?.let { repository.registerPushToken(it) }
+        }
     }
 
     /**
@@ -76,6 +109,8 @@ class ClientApp : Application() {
     companion object {
         lateinit var instance: ClientApp
             private set
+
+        const val CHANNEL_ORDERS = "orders"
 
         private val EVENTS = listOf("ClientOrderUpdated", "ClientDriverMoved")
     }

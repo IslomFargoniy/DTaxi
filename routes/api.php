@@ -75,6 +75,7 @@ Route::prefix('client/v1')->group(function () {
         Route::post('auth/logout', [ClientAuthController::class, 'logout']);
         Route::get('me', [ClientProfileController::class, 'show']);
         Route::put('me', [ClientProfileController::class, 'update']);
+        Route::post('device-token', [ClientProfileController::class, 'deviceToken']);
         Route::get('places', [ClientProfileController::class, 'places'])->middleware('throttle:60,1');
         Route::get('places/reverse', [ClientProfileController::class, 'reverse'])->middleware('throttle:60,1');
         Route::get('addresses', [ClientProfileController::class, 'addresses']);

@@ -26,6 +26,9 @@ interface Api {
     @PUT("api/client/v1/me")
     suspend fun updateProfile(@Body body: ProfileUpdate): Response<Profile>
 
+    @POST("api/client/v1/device-token")
+    suspend fun deviceToken(@Body body: TokenRequest): Response<Unit>
+
     @GET("api/client/v1/places")
     suspend fun places(@Query("q") query: String, @Query("lat") lat: Double?, @Query("lng") lng: Double?): Response<List<Place>>
 

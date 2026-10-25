@@ -38,6 +38,8 @@ data class VerifyRequest(val phone: String, val code: String, @SerializedName("d
 
 data class VerifyResponse(val token: String, val client: Profile)
 
+data class TokenRequest(val token: String)
+
 data class ProfileUpdate(val name: String? = null, val locale: String? = null)
 
 data class QuoteRequest(val pickup: Place, val dropoff: Place?)

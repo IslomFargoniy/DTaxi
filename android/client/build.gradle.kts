@@ -25,6 +25,11 @@ android {
         resValue("string", "app_name", firm.prop("clientAppName").ifBlank { firm.prop("appName", "Dtaxi") })
         buildConfigField("String", "SERVER_URL", "\"${firm.prop("serverUrl").trimEnd('/')}\"")
         buildConfigField("String", "PRIMARY_COLOR", "\"${firm.prop("primaryColor", "#FFC800")}\"")
+        // Firebase — firmaning o'sha loyihasi, mijoz ilovasi alohida Android ilova sifatida qo'shiladi; bo'sh — push o'chiq
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"${firm.prop("firebaseProjectId")}\"")
+        buildConfigField("String", "FIREBASE_APPLICATION_ID", "\"${firm.prop("clientFirebaseApplicationId")}\"")
+        buildConfigField("String", "FIREBASE_API_KEY", "\"${firm.prop("firebaseApiKey")}\"")
+        buildConfigField("String", "FIREBASE_SENDER_ID", "\"${firm.prop("firebaseSenderId")}\"")
     }
 
     signingConfigs {
@@ -77,6 +82,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.maplibre)
     implementation(libs.play.services.location)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
     debugImplementation(libs.androidx.ui.tooling)
     testImplementation(libs.junit)
 }

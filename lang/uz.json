@@ -737,5 +737,16 @@
     "The order can no longer be cancelled.": "Buyurtmani endi bekor qilib bo'lmaydi.",
     "Cancelled by the client in the app": "Mijoz ilovada bekor qildi",
     "Only completed trips can be rated.": "Faqat yakunlangan safarni baholash mumkin.",
-    "This address is outside the service area.": "Bu manzil xizmat hududidan tashqarida."
+    "This address is outside the service area.": "Bu manzil xizmat hududidan tashqarida.",
+    "App": "Ilova",
+    "Ordered from the client app": "Mijoz ilovasidan berilgan",
+    "Your driver is on the way": "Haydovchi topildi",
+    ":car is on the way": ":car yo'lga chiqdi",
+    "Your driver has arrived": "Haydovchi yetib keldi",
+    ":car is waiting for you": ":car sizni kutmoqda",
+    "No cars available": "Bo'sh mashina topilmadi",
+    "Please try again later or call the dispatcher.": "Iltimos, keyinroq qayta urinib ko'ring yoki dispetcherga qo'ng'iroq qiling.",
+    "Your order was cancelled": "Buyurtmangiz bekor qilindi",
+    "Trip completed": "Safar yakunlandi",
+    "Please rate your trip.": "Safaringizni baholang."
 }

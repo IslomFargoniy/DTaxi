@@ -7,6 +7,7 @@ use App\Http\Middleware\SetLocale;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\ClientAddress;
+use App\Models\ClientDeviceToken;
 use App\Models\Landmark;
 use App\Models\PhoneNumber;
 use App\Support\Settings;
@@ -69,6 +70,15 @@ class ProfileController extends Controller
         $client->fill($data)->save();
 
         return response()->json(self::profile($client));
+    }
+
+    /** FCM token (ilova Firebase'i sozlangan firmada) — bitta telefonda bir vaqtda bitta mijoz */
+    public function deviceToken(Request $request): Response
+    {
+        $data = $request->validate(['token' => ['required', 'string', 'max:512']]);
+        ClientDeviceToken::query()->updateOrCreate(['token' => $data['token']], ['client_id' => $this->client()->id]);
+
+        return response()->noContent();
     }
 
     /**

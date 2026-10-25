@@ -3,6 +3,7 @@
 namespace App\Services\Push;
 
 use App\Enums\IntegrationProvider;
+use App\Models\ClientDeviceToken;
 use App\Models\DeviceToken;
 use App\Models\Integration;
 use Illuminate\Support\Facades\Cache;
@@ -12,7 +13,7 @@ use RuntimeException;
 
 /**
  * Firebase Cloud Messaging (HTTP v1). Kalit — firmaning o'z service account JSON'i (Integratsiyalar).
- * Faqat "data" xabar yuboriladi: ilova o'zi ovozli signal va to'liq ekranli taklifni ko'rsatadi.
+ * Haydovchiga faqat "data" xabar (ilova o'zi ovozli signal va to'liq ekranli taklifni ko'rsatadi), mijozga — oddiy bildirishnoma.
  */
 class FcmPushNotifier
 {
@@ -23,30 +24,55 @@ class FcmPushNotifier
      */
     public function sendToUser(int $userId, array $data): int
     {
+        return $this->deliver(
+            DeviceToken::query()->where('user_id', $userId)->pluck('token')->all(),
+            ['data' => self::stringify($data), 'android' => ['priority' => 'HIGH', 'ttl' => '30s']],
+            fn (string $token) => DeviceToken::query()->where('token', $token)->delete(),
+        );
+    }
+
+    /**
+     * Mijoz ilovasi (qaror #71): oddiy bildirishnoma — ilova yopiq bo'lsa ham telefon o'zi ko'rsatadi.
+     *
+     * @param  array<string, scalar|null>  $data
+     */
+    public function sendToClient(int $clientId, string $title, string $body, array $data = []): int
+    {
+        return $this->deliver(
+            ClientDeviceToken::query()->where('client_id', $clientId)->pluck('token')->all(),
+            [
+                'notification' => ['title' => $title, 'body' => $body],
+                'data' => self::stringify($data),
+                'android' => ['priority' => 'HIGH', 'notification' => ['channel_id' => 'orders']],
+            ],
+            fn (string $token) => ClientDeviceToken::query()->where('token', $token)->delete(),
+        );
+    }
+
+    /**
+     * @param  array<string>  $tokens
+     * @param  array<string, mixed>  $message
+     * @param  callable(string): mixed  $forget  eskirgan token (ilova o'chirilgan) o'chiriladi
+     */
+    private function deliver(array $tokens, array $message, callable $forget): int
+    {
         $account = $this->serviceAccount();
-        if (! $account) {
+        if (! $account || $tokens === []) {
             return 0;
         }
 
-        $data = self::stringify($data);
-
         $sent = 0;
-        foreach (DeviceToken::query()->where('user_id', $userId)->pluck('token') as $token) {
+        foreach ($tokens as $token) {
             $response = Http::withToken($this->accessToken($account))
                 ->timeout(5)
                 ->post("https://fcm.googleapis.com/v1/projects/{$account['project_id']}/messages:send", [
-                    'message' => [
-                        'token' => $token,
-                        'data' => $data,
-                        'android' => ['priority' => 'HIGH', 'ttl' => '30s'],
-                    ],
+                    'message' => ['token' => $token, ...$message],
                 ]);
 
             if ($response->successful()) {
                 $sent++;
             } elseif (in_array($response->json('error.status'), ['NOT_FOUND', 'UNREGISTERED', 'INVALID_ARGUMENT'], true)) {
-                // Ilova o'chirilgan yoki token eskirgan
-                DeviceToken::query()->where('token', $token)->delete();
+                $forget($token);
             } else {
                 Log::warning('FCM xatosi', ['status' => $response->status(), 'body' => $response->body()]);
             }

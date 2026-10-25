@@ -59,7 +59,10 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             ClientState.profile.map { it?.id }.distinctUntilChanged().collect { id ->
                 app.stopRealtime()
-                if (id != null) app.startRealtime()
+                if (id != null) {
+                    app.startRealtime()
+                    app.registerPush()
+                }
             }
         }
         setContent {

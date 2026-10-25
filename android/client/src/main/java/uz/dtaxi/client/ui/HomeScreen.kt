@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -134,12 +135,25 @@ fun HomeScreen(
         }
     }
 
+    // Android 13+: buyurtma holati ilova yopiq paytida (push) — rad etilsa ham ilova ishlayveradi.
+    // Ruxsat oynalari ketma-ket: bir vaqtda ikkitasi so'ralsa ikkinchisi chiqmay qoladi
+    val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    fun askNotifications() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         if (granted.values.any { it }) scope.launch { locate() } else notice = denied
+        askNotifications()
     }
 
     LaunchedEffect(Unit) {
         if (hasLocation(context)) {
+            askNotifications()
             locate()
         } else {
             permission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))

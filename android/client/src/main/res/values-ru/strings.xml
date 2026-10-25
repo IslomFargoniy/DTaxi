@@ -67,4 +67,5 @@
     <string name="menu">Меню</string>
     <string name="location_denied">Нет доступа к геолокации — выберите адрес на карте или через поиск</string>
     <string name="driver_on_map">Водитель</string>
+    <string name="channel_orders">Статус заказа</string>
 </resources>

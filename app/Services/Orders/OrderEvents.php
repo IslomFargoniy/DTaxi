@@ -5,6 +5,7 @@ namespace App\Services\Orders;
 use App\Enums\OrderSource;
 use App\Events\ClientOrderUpdated;
 use App\Events\OrderUpdated;
+use App\Jobs\SendClientPush;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\User;
@@ -36,7 +37,10 @@ class OrderEvents
             }
         }
 
-        // Mijozga ovozli xabar (§5.4)
+        // Mijozga ovozli xabar (§5.4); ilova buyurtmasi — ovozli emas, push (qaror #71)
         app(ClientNotifier::class)->onOrderEvent($order, $type);
+        if ($order->source === OrderSource::App && in_array($type, SendClientPush::EVENTS, true)) {
+            SendClientPush::dispatch($order->id, $type);
+        }
     }
 }

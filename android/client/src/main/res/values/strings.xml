@@ -67,4 +67,5 @@
     <string name="menu">Menyu</string>
     <string name="location_denied">Joylashuvga ruxsat berilmadi — manzilni xaritada tanlang yoki qidiring</string>
     <string name="driver_on_map">Haydovchi</string>
+    <string name="channel_orders">Buyurtma holati</string>
 </resources>

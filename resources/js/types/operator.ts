@@ -22,6 +22,8 @@ export type Order = {
     id: number;
     branch_id: number;
     status: OrderStatus;
+    /** phone — operator, ivr — avto-buyurtma, app — mijoz ilovasi (qaror #71) */
+    source?: 'phone' | 'ivr' | 'app';
     client?: { id: number; phone: string; name: string | null };
     driver?: {
         id: number;

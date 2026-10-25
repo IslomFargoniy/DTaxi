@@ -11,14 +11,17 @@ use App\Events\OrderOffered;
 use App\Events\OrderUpdated;
 use App\Jobs\PlaceAutoCall;
 use App\Jobs\PlaceCodeCall;
+use App\Jobs\SendClientPush;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\ClientAddress;
+use App\Models\ClientDeviceToken;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Drivers\DriverLocator;
 use App\Services\Orders\OrderEvents;
 use App\Services\Orders\OrderService;
+use App\Services\Push\FcmPushNotifier;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\DB;
@@ -71,7 +74,7 @@ test('client logs in with the code said in a phone call and gets a client-only t
     $this->postJson('/api/client/v1/auth/verify', ['phone' => '90 111 22 33', 'code' => $code === '0000' ? '1111' : '0000', 'device_name' => 'Redmi'])
         ->assertStatus(422)->assertJsonValidationErrors('code');
     $token = $this->postJson('/api/client/v1/auth/verify', ['phone' => '+998901112233', 'code' => $code, 'device_name' => 'Redmi'])
-        ->assertOk()->assertJsonPath('client.phone', '+998901112233')->assertJsonPath('client.needs_name', true)
+        ->assertOk()->assertJsonPath('client.phone', '+998901112233')->assertJsonPath('client.needs_name', true)->assertJsonPath('client.locale', 'uz')
         ->json('token');
 
     // Kod bir martalik
@@ -228,4 +231,38 @@ test('order service quote matches the price of the created order', function () {
     ], dispatch: false);
 
     expect($order->price_estimate)->toBe($quote[0]['price']);
+});
+
+test('app order events send a push in the client language, phone orders do not', function () {
+    $client = Client::factory()->create(['locale' => 'ru']);
+    $driver = driverNear($this->branch, 0);
+    $app = Order::factory()->create([
+        'branch_id' => $this->branch->id, 'client_id' => $client->id, 'driver_id' => $driver->id, 'vehicle_id' => $driver->vehicle?->id,
+        'status' => OrderStatus::Arrived, 'source' => OrderSource::App,
+    ]);
+    $phone = Order::factory()->create(['branch_id' => $this->branch->id, 'status' => OrderStatus::Arrived]);
+
+    OrderEvents::record($app, 'arrived');
+    OrderEvents::record($phone, 'arrived');
+    OrderEvents::record($app, 'started');
+
+    Queue::assertPushed(SendClientPush::class, 1);
+    Queue::assertPushed(SendClientPush::class, fn (SendClientPush $job) => $job->orderId === $app->id && $job->type === 'arrived');
+
+    $this->mock(FcmPushNotifier::class)->shouldReceive('sendToClient')->once()
+        ->withArgs(fn (int $id, string $title, string $body, array $data) => $id === $client->id && $title === 'Водитель на месте'
+            && str_contains($body, $driver->vehicle->plate_number) && $data === ['order_id' => $app->id, 'type' => 'arrived'])
+        ->andReturn(1);
+    (new SendClientPush($app->id, 'arrived'))->handle(app(FcmPushNotifier::class));
+});
+
+test('client registers a push token, a phone moving to another client takes the token along', function () {
+    $first = actingClient();
+    $this->postJson('/api/client/v1/device-token', ['token' => 'fcm-1'])->assertNoContent();
+
+    $second = actingClient(Client::factory()->create());
+    $this->postJson('/api/client/v1/device-token', ['token' => 'fcm-1'])->assertNoContent();
+
+    expect(ClientDeviceToken::query()->where('token', 'fcm-1')->sole()->client_id)->toBe($second->id)
+        ->and(ClientDeviceToken::query()->where('client_id', $first->id)->exists())->toBeFalse();
 });

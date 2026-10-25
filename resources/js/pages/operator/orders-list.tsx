@@ -396,6 +396,14 @@ function OrderRow({
                 >
                     {t(orderStatusLabel[order.status])}
                 </Badge>
+                {order.source === 'app' && (
+                    <Badge
+                        variant="outline"
+                        title={t('Ordered from the client app')}
+                    >
+                        {t('App')}
+                    </Badge>
+                )}
                 {order.status === 'new' && order.scheduled_at ? (
                     <span
                         className="ml-auto text-xs font-medium text-amber-600 dark:text-amber-400"

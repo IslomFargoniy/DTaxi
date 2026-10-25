@@ -737,5 +737,16 @@
     "The order can no longer be cancelled.": "Заказ уже нельзя отменить.",
     "Cancelled by the client in the app": "Клиент отменил в приложении",
     "Only completed trips can be rated.": "Оценить можно только завершённую поездку.",
-    "This address is outside the service area.": "Этот адрес вне зоны обслуживания."
+    "This address is outside the service area.": "Этот адрес вне зоны обслуживания.",
+    "App": "Приложение",
+    "Ordered from the client app": "Заказ из приложения клиента",
+    "Your driver is on the way": "Водитель найден",
+    ":car is on the way": ":car в пути",
+    "Your driver has arrived": "Водитель на месте",
+    ":car is waiting for you": ":car ждёт вас",
+    "No cars available": "Свободных машин нет",
+    "Please try again later or call the dispatcher.": "Попробуйте позже или позвоните диспетчеру.",
+    "Your order was cancelled": "Ваш заказ отменён",
+    "Trip completed": "Поездка завершена",
+    "Please rate your trip.": "Оцените поездку."
 }
