@@ -458,3 +458,15 @@ test('chat messages and threads are paginated for infinite scroll', function () 
     expect($this->getJson(route('operator.chat.threads'))->json())->toHaveCount(30)
         ->and($this->getJson(route('operator.chat.threads', ['offset' => 30]))->json())->toHaveCount(3);
 });
+
+test('new driver form suggests the next free callsign across all branches', function () {
+    $this->actingAs($this->admin)->get(route('admin.drivers.create'))
+        ->assertInertia(fn ($page) => $page->where('nextCallsign', '101'));
+
+    Driver::factory()->create(['branch_id' => $this->branch->id, 'callsign' => '150']);
+    Driver::factory()->create(['branch_id' => Branch::factory()->create()->id, 'callsign' => '205']);
+    // Eski, raqam bo'lmagan pozivnoy hisobga olinmaydi
+    Driver::factory()->create(['branch_id' => $this->branch->id, 'callsign' => 'A-900']);
+
+    $this->get(route('admin.drivers.create'))->assertInertia(fn ($page) => $page->where('nextCallsign', '206'));
+});

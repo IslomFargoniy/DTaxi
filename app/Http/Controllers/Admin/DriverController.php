@@ -67,7 +67,7 @@ class DriverController extends Controller
 
     public function create(Request $request): Response
     {
-        return Inertia::render('admin/drivers/form', ['driver' => null, ...$this->formOptions($request)]);
+        return Inertia::render('admin/drivers/form', ['driver' => null, 'nextCallsign' => Driver::nextCallsign(), ...$this->formOptions($request)]);
     }
 
     public function edit(Request $request, Driver $driver, ShiftTracker $shifts): Response

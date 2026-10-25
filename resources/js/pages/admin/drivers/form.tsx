@@ -53,6 +53,8 @@ type Props = {
     branches: { id: number; name: string }[];
     tariffClasses: { id: number; branch_id: number; name: string }[];
     documentTypes: string[];
+    /** Faqat yangi haydovchi: keyingi bo'sh pozivnoy */
+    nextCallsign?: string;
 };
 
 // Mashina maydonlari: klaviatura, uzunlik va yozilishi
@@ -118,6 +120,7 @@ export default function DriverForm({
     branches,
     tariffClasses,
     documentTypes,
+    nextCallsign,
 }: Props) {
     const { t } = useTrans();
     const { can } = useCan();
@@ -126,7 +129,8 @@ export default function DriverForm({
         name: driver?.name ?? '',
         phone: driver?.phone ?? '',
         password: '',
-        callsign: driver?.callsign ?? '',
+        // Yangi haydovchi — keyingi bo'sh pozivnoy oldindan (o'zgartirish mumkin)
+        callsign: driver?.callsign ?? nextCallsign ?? '',
         license_no: driver?.license_no ?? '',
         license_expires_at: driver?.license_expires_at ?? '',
         vehicle: {

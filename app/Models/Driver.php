@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @property int $id
@@ -71,6 +72,17 @@ class Driver extends Model
             'last_seen_at' => 'datetime',
             'mock_location_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Yangi haydovchi uchun keyingi bo'sh pozivnoy: eng katta raqamli + 1 (pozivnoy barcha filiallar bo'yicha yagona —
+     * u operator tergan ichki raqam ham). Haydovchilar hali yo'q bo'lsa — 101.
+     */
+    public static function nextCallsign(): string
+    {
+        $max = (int) DB::scalar("SELECT COALESCE(MAX(callsign::int), 100) FROM drivers WHERE callsign ~ '^[0-9]{1,6}$'");
+
+        return (string) min(999999, max(101, $max + 1));
     }
 
     /**
