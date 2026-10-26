@@ -11,7 +11,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.MaterialTheme
@@ -106,6 +109,9 @@ fun ClientMap(
     val mapView = remember { MapView(context).apply { onCreate(Bundle()) } }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val styleHolder = remember { arrayOfNulls<Style>(1) }
+    // Mavzu almashsa uslub (kunduzgi/tungi) qayta yuklanadi; versiya o'zgargach belgilar qayta chiziladi
+    val loadedStyle = remember { arrayOfNulls<String>(1) }
+    var styleVersion by remember { mutableIntStateOf(0) }
     // Tinglovchilar xarita bir marta yaratilganda o'rnatiladi — eng oxirgi qiymatlar shu orqali
     val state = remember { arrayOf<Any?>(picking, onCenter, onMoveStarted) }
     state[0] = picking
@@ -157,27 +163,10 @@ fun ClientMap(
                             (state[1] as (LatLng) -> Unit)(LatLng(target.latitude, target.longitude))
                         }
                     }
-                    map.setStyle(Style.Builder().fromUri(styleUrl)) { style ->
-                        style.addSource(GeoJsonSource(SOURCE))
-                        // A — yashil, B — qizil, haydovchi — firma rangi; oq hoshiya har ikki mavzuda ko'rinadi
-                        style.addLayer(
-                            CircleLayer("points", SOURCE).withProperties(
-                                PropertyFactory.circleRadius(Expression.match(Expression.get("kind"), Expression.literal(9f), Expression.stop("driver", 11f))),
-                                PropertyFactory.circleColor(
-                                    Expression.match(
-                                        Expression.get("kind"), Expression.color(android.graphics.Color.parseColor("#1FA463")),
-                                        Expression.stop("dropoff", Expression.color(android.graphics.Color.parseColor("#D92D20"))),
-                                        Expression.stop("driver", Expression.color(brand)),
-                                    ),
-                                ),
-                                PropertyFactory.circleStrokeWidth(3f),
-                                PropertyFactory.circleStrokeColor(
-                                    Expression.match(Expression.get("kind"), Expression.color(android.graphics.Color.WHITE), Expression.stop("driver", Expression.color(android.graphics.Color.parseColor("#111111")))),
-                                ),
-                            ),
-                        )
+                    loadStyle(map, styleUrl, brand) { style ->
                         styleHolder[0] = style
-                        update(style, if (state[0] == true) null else pickup, dropoff, driver)
+                        loadedStyle[0] = styleUrl
+                        styleVersion++
                     }
                 }
             }
@@ -202,12 +191,48 @@ fun ClientMap(
         map.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(map.cameraPosition).padding(0.0, controller.top, 0.0, controller.bottom).build()))
     }
 
-    LaunchedEffect(picking, pickup, dropoff, driver) {
+    LaunchedEffect(styleUrl) {
+        val map = controller.map ?: return@LaunchedEffect
+        if (loadedStyle[0] != null && loadedStyle[0] != styleUrl) {
+            styleHolder[0] = null
+            loadStyle(map, styleUrl, brand) { style ->
+                styleHolder[0] = style
+                loadedStyle[0] = styleUrl
+                styleVersion++
+            }
+        }
+    }
+
+    LaunchedEffect(picking, pickup, dropoff, driver, styleVersion) {
         styleHolder[0]?.let { update(it, if (picking) null else pickup, dropoff, driver) }
     }
 }
 
 private const val SOURCE = "client-points"
+
+/** Uslub va belgilar qatlami (A — yashil, B — qizil, haydovchi — firma rangida qora hoshiya bilan) */
+private fun loadStyle(map: MapLibreMap, url: String, brand: Int, onReady: (Style) -> Unit) {
+    map.setStyle(Style.Builder().fromUri(url)) { style ->
+        style.addSource(GeoJsonSource(SOURCE))
+        style.addLayer(
+            CircleLayer("points", SOURCE).withProperties(
+                PropertyFactory.circleRadius(Expression.match(Expression.get("kind"), Expression.literal(9f), Expression.stop("driver", 11f))),
+                PropertyFactory.circleColor(
+                    Expression.match(
+                        Expression.get("kind"), Expression.color(android.graphics.Color.parseColor("#1FA463")),
+                        Expression.stop("dropoff", Expression.color(android.graphics.Color.parseColor("#D92D20"))),
+                        Expression.stop("driver", Expression.color(brand)),
+                    ),
+                ),
+                PropertyFactory.circleStrokeWidth(3f),
+                PropertyFactory.circleStrokeColor(
+                    Expression.match(Expression.get("kind"), Expression.color(android.graphics.Color.WHITE), Expression.stop("driver", Expression.color(android.graphics.Color.parseColor("#111111")))),
+                ),
+            ),
+        )
+        onReady(style)
+    }
+}
 
 private fun update(style: Style, pickup: LatLng?, dropoff: LatLng?, driver: LatLng?) {
     val features = buildList {

@@ -97,6 +97,9 @@ fun TaxiMap(
     // Kuzatish rejimi: haydovchi xaritani surgach o'chadi, "joylashuvim" tugmasi qayta yoqadi
     var follow by remember { mutableStateOf(true) }
     var recenter by remember { mutableIntStateOf(0) }
+    // Mavzu almashsa uslub (kunduzgi/tungi) qayta yuklanadi; versiya o'zgargach belgilar qayta chiziladi
+    val loadedStyle = remember { arrayOfNulls<String>(1) }
+    var styleVersion by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
     val topPx = with(density) { topInset.toPx() }.toDouble()
     val bottomPx = with(density) { bottomInset.toPx() }.toDouble()
@@ -137,7 +140,11 @@ fun TaxiMap(
                 map.cameraPosition = CameraPosition.Builder()
                     .target(initialCenter?.let { LatLng(it.lat, it.lng) } ?: UZBEKISTAN_CENTER)
                     .zoom(if (initialCenter != null) 13.0 else UZBEKISTAN_ZOOM).build()
-                map.setStyle(Style.Builder().fromUri(styleUrl)) { style -> addLayers(style, view.context) }
+                map.setStyle(Style.Builder().fromUri(styleUrl)) { style ->
+                    addLayers(style, view.context)
+                    loadedStyle[0] = styleUrl
+                    styleVersion++
+                }
             }
         }
     }, modifier = Modifier.fillMaxSize())
@@ -188,7 +195,18 @@ fun TaxiMap(
     }
     }
 
-    LaunchedEffect(me, pickup, dropoff, route, recenter, stops, navigating, bearing, topPx, bottomPx) {
+    LaunchedEffect(styleUrl) {
+        val map = holder[0] ?: return@LaunchedEffect
+        if (loadedStyle[0] != null && loadedStyle[0] != styleUrl) {
+            map.setStyle(Style.Builder().fromUri(styleUrl)) { style ->
+                addLayers(style, context)
+                loadedStyle[0] = styleUrl
+                styleVersion++
+            }
+        }
+    }
+
+    LaunchedEffect(me, pickup, dropoff, route, recenter, stops, navigating, bearing, topPx, bottomPx, styleVersion) {
         val map = holder[0] ?: return@LaunchedEffect
         val style = map.style ?: return@LaunchedEffect
         update(style, me, pickup, dropoff, route, stops, if (navigating) bearing ?: 0f else null)
