@@ -134,6 +134,8 @@ fun TaxiMap(
                 holder[0] = map
                 map.uiSettings.isRotateGesturesEnabled = false
                 map.uiSettings.isCompassEnabled = false
+                // Undan yaqinda xarita fayllari yo'q — bo'sh kulrang ekran ko'rinardi
+                map.setMaxZoomPreference(19.0)
                 map.addOnCameraMoveStartedListener { reason ->
                     if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) follow = false
                 }

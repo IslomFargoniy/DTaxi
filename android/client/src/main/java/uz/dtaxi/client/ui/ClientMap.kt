@@ -148,6 +148,8 @@ fun ClientMap(
                     map.uiSettings.isRotateGesturesEnabled = false
                     map.uiSettings.isCompassEnabled = false
                     map.uiSettings.isAttributionEnabled = true
+                    // Undan yaqinda xarita fayllari yo'q — bo'sh kulrang ekran ko'rinardi
+                    map.setMaxZoomPreference(19.0)
                     map.cameraPosition = CameraPosition.Builder()
                         .target(initialCenter?.let { MapLatLng(it.lat, it.lng) } ?: UZBEKISTAN)
                         .zoom(if (initialCenter != null) 14.0 else 5.0)

@@ -366,6 +366,8 @@ private fun TripMap(styleUrl: String, start: GeoPoint?, finish: GeoPoint?, track
                 map.uiSettings.isRotateGesturesEnabled = false
                 map.uiSettings.isCompassEnabled = false
                 map.cameraPosition = CameraPosition.Builder().target(UZBEKISTAN_CENTER).zoom(UZBEKISTAN_ZOOM).build()
+                // Juda qisqa safar (bir necha metr) sig'dirilganda zoom 20+ ga chiqib, ko'chalar chizilmay kulrang qolardi
+                map.setMaxZoomPreference(17.0)
                 map.setStyle(Style.Builder().fromUri(styleUrl)) { style ->
                     addTripLayers(style)
                     styleReady = true
@@ -378,7 +380,10 @@ private fun TripMap(styleUrl: String, start: GeoPoint?, finish: GeoPoint?, track
         val map = holder[0] ?: return@LaunchedEffect
         val style = map.style ?: return@LaunchedEffect
         if (!styleReady) return@LaunchedEffect
-        val line = track ?: listOfNotNull(start, finish).takeIf { it.size == 2 }
+        // GPS izi "o'tirdi" dan keyingi va "yakunlash" dan oldingi nuqtalar — chiziq A va B nuqtalariga ulansin
+        val line = (listOfNotNull(start) + track.orEmpty() + listOfNotNull(finish))
+            .fold(emptyList<GeoPoint>()) { acc, p -> if (acc.lastOrNull() == p) acc else acc + p }
+            .takeIf { it.size >= 2 }
         style.getSourceAs<GeoJsonSource>("trip-line")?.setGeoJson(
             FeatureCollection.fromFeatures(
                 line?.let { listOf(Feature.fromGeometry(LineString.fromLngLats(it.map { p -> Point.fromLngLat(p.lng, p.lat) }))) } ?: emptyList(),
