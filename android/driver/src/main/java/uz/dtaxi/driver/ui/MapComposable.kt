@@ -16,6 +16,8 @@ import android.graphics.Bitmap
 import android.content.Context
 import uz.dtaxi.driver.R
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.runtime.setValue
@@ -83,6 +85,10 @@ fun TaxiMap(
     speedKmh: Int = 0,
     // Filial markazi (serverdan); GPS kelguncha kamera shu yerda
     initialCenter: MapPoint? = null,
+    // Xarita ustidagi panellar (yuqori — pozivnoy/banner, pastki — buyurtma kartasi): markaz va sig'dirish
+    // faqat ko'rinadigan maydon bo'yicha, aks holda haydovchi yoki manzil karta ostida qolardi
+    topInset: Dp = 0.dp,
+    bottomInset: Dp = 0.dp,
 ) {
     val context = LocalContext.current
     val mapView = remember { MapView(context).apply { onCreate(Bundle()) } }
@@ -91,6 +97,9 @@ fun TaxiMap(
     // Kuzatish rejimi: haydovchi xaritani surgach o'chadi, "joylashuvim" tugmasi qayta yoqadi
     var follow by remember { mutableStateOf(true) }
     var recenter by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val topPx = with(density) { topInset.toPx() }.toDouble()
+    val bottomPx = with(density) { bottomInset.toPx() }.toDouble()
 
     DisposableEffect(lifecycle) {
         // Observer qo'shilganda joriy holatgacha (START, RESUME) hodisalarni o'zi yuboradi
@@ -133,6 +142,8 @@ fun TaxiMap(
         }
     }, modifier = Modifier.fillMaxSize())
 
+    // Tezlik va "joylashuvim" — ko'rinadigan maydon o'rtasida (katta buyurtma kartasi ostida qolmasin)
+    Box(Modifier.fillMaxSize().padding(top = topInset, bottom = bottomInset)) {
     if (navigating && me != null) {
         Surface(
             modifier = Modifier.align(Alignment.CenterStart).padding(start = 12.dp).size(62.dp),
@@ -175,17 +186,19 @@ fun TaxiMap(
         )
     }
     }
+    }
 
-    LaunchedEffect(me, pickup, dropoff, route, recenter, stops, navigating, bearing) {
+    LaunchedEffect(me, pickup, dropoff, route, recenter, stops, navigating, bearing, topPx, bottomPx) {
         val map = holder[0] ?: return@LaunchedEffect
         val style = map.style ?: return@LaunchedEffect
         update(style, me, pickup, dropoff, route, stops, if (navigating) bearing ?: 0f else null)
         if (!follow) return@LaunchedEffect
 
         if (navigating && me != null) {
-            // Strelka ekranning pastroq qismida (pastki buyurtma kartasidan yuqorida) — oldindagi yo'l ko'proq ko'rinsin
-            val top = mapView.height * 0.40
-            val bottom = mapView.height * 0.27
+            // Strelka ko'rinadigan maydonning pastroq qismida (~70%) — oldindagi yo'l ko'proq ko'rinsin
+            val visible = (mapView.height - topPx - bottomPx).coerceAtLeast(mapView.height * 0.3)
+            val top = topPx + visible * 0.40
+            val bottom = bottomPx
             val camera = CameraPosition.Builder()
                 .target(LatLng(me.lat, me.lng))
                 .zoom(if (speedKmh > 60) 16.5 else 17.5)
@@ -199,24 +212,29 @@ fun TaxiMap(
 
         // Navigatordan chiqqanda — tekis va shimol tepada
         if (map.cameraPosition.tilt > 0 || map.cameraPosition.bearing != 0.0) {
-            map.cameraPosition = CameraPosition.Builder(map.cameraPosition).tilt(0.0).bearing(0.0).padding(0.0, 0.0, 0.0, 0.0).build()
+            map.cameraPosition = CameraPosition.Builder(map.cameraPosition).tilt(0.0).bearing(0.0).padding(0.0, topPx, 0.0, bottomPx).build()
         }
 
         // Tugma bosilganda — haydovchining o'ziga, uy raqamlari ko'rinadigan zoom'gacha
         if (recenter > 0 && me != null && pickup == null && dropoff == null) {
-            map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(me.lat, me.lng), 17.0))
+            map.animateCamera(CameraUpdateFactory.newCameraPosition(centered(me, 17.0, topPx, bottomPx)))
             return@LaunchedEffect
         }
 
         val points = listOfNotNull(me, pickup, dropoff) + stops
         if (points.size >= 2) {
             val bounds = LatLngBounds.Builder().apply { points.forEach { include(LatLng(it.lat, it.lng)) } }.build()
-            map.easeCamera(CameraUpdateFactory.newLatLngBounds(bounds, 120))
+            val margin = 120
+            map.easeCamera(CameraUpdateFactory.newLatLngBounds(bounds, margin, topPx.toInt() + margin, margin, bottomPx.toInt() + margin))
         } else if (me != null) {
-            map.easeCamera(CameraUpdateFactory.newLatLng(LatLng(me.lat, me.lng)))
+            map.easeCamera(CameraUpdateFactory.newCameraPosition(centered(me, map.cameraPosition.zoom, topPx, bottomPx)))
         }
     }
 }
+
+/** Nuqta ko'rinadigan maydon markazida (yuqori va pastki panel orasida) */
+private fun centered(point: MapPoint, zoom: Double, top: Double, bottom: Double): CameraPosition =
+    CameraPosition.Builder().target(LatLng(point.lat, point.lng)).zoom(zoom).tilt(0.0).bearing(0.0).padding(0.0, top, 0.0, bottom).build()
 
 private fun addLayers(style: Style, context: Context) {
     style.addImage("nav-arrow", navArrow(context))

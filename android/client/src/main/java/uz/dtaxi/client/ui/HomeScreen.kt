@@ -62,7 +62,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -126,6 +128,10 @@ fun HomeScreen(
     val denied = stringResource(R.string.location_denied)
     val tooMany = stringResource(R.string.too_many_requests)
     var notice by remember { mutableStateOf<String?>(null) }
+    // Xarita ustidagi panellar balandligi (dp) — pin va kamera ko'rinadigan maydon markazida
+    val density = LocalDensity.current
+    var topInset by remember { mutableStateOf(0.dp) }
+    var bottomInset by remember { mutableStateOf(0.dp) }
 
     suspend fun locate() {
         val point = currentLocation(context) ?: return
@@ -186,6 +192,8 @@ fun HomeScreen(
             dropoff = (activeOrder?.dropoff ?: draft.dropoff)?.let { LatLng(it.lat, it.lng) },
             driver = driver?.let { LatLng(it.lat, it.lng) },
             modifier = Modifier.fillMaxSize(),
+            topInset = topInset,
+            bottomInset = bottomInset,
             onCenter = { center ->
                 val current = draft.pickup
                 if (draft.pickupFromSearch && current != null && distanceMeters(center, LatLng(current.lat, current.lng)) < 25) return@ClientMap
@@ -204,7 +212,7 @@ fun HomeScreen(
         )
 
         // Yuqori: menyu
-        Box(Modifier.statusBarsPadding().padding(12.dp)) {
+        Box(Modifier.onSizeChanged { topInset = with(density) { it.height.toDp() } }.statusBarsPadding().padding(12.dp)) {
             Surface(shape = CircleShape, shadowElevation = 4.dp, color = MaterialTheme.colorScheme.surface) {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Default.Menu, stringResource(R.string.menu)) }
             }
@@ -225,7 +233,7 @@ fun HomeScreen(
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
                 shadowElevation = 12.dp,
                 color = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().onSizeChanged { bottomInset = with(density) { it.height.toDp() } },
             ) {
                 Column(Modifier.navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     finished?.let { FinishedBanner(it) { ClientState.clearFinished() } }

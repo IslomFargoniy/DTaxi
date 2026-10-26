@@ -14,7 +14,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -40,12 +44,22 @@ import org.maplibre.android.geometry.LatLng as MapLatLng
 /** O'zbekiston markazi — firma filiali hali noma'lum bo'lsa */
 private val UZBEKISTAN = MapLatLng(41.38, 64.59)
 
-/** Xarita buyruqlari ekrandan: joylashuvga o'tish, buyurtma nuqtalarini sig'dirish */
+/**
+ * Xarita buyruqlari ekrandan: joylashuvga o'tish, buyurtma nuqtalarini sig'dirish. Hammasi ko'rinadigan maydon
+ * bo'yicha — yuqoridagi tugma va pastki panel (top/bottom, px) ostidagi joy hisobga olinmaydi.
+ */
 class MapController {
     internal var map: MapLibreMap? = null
+    internal var top = 0.0
+    internal var bottom = 0.0
 
     fun moveTo(point: LatLng, zoom: Double = 16.0) {
-        map?.animateCamera(CameraUpdateFactory.newLatLngZoom(MapLatLng(point.lat, point.lng), zoom))
+        val map = map ?: return
+        map.animateCamera(
+            CameraUpdateFactory.newCameraPosition(
+                CameraPosition.Builder().target(MapLatLng(point.lat, point.lng)).zoom(zoom).padding(0.0, top, 0.0, bottom).build(),
+            ),
+        )
     }
 
     fun fit(points: List<LatLng>) {
@@ -55,7 +69,8 @@ class MapController {
             points.size == 1 -> moveTo(points.first())
             else -> {
                 val bounds = LatLngBounds.Builder().apply { points.forEach { include(MapLatLng(it.lat, it.lng)) } }.build()
-                map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 160))
+                val margin = 120
+                map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, margin, top.toInt() + margin, margin, bottom.toInt() + margin))
             }
         }
     }
@@ -75,10 +90,19 @@ fun ClientMap(
     dropoff: LatLng?,
     driver: LatLng?,
     modifier: Modifier = Modifier,
+    // Xarita ustidagi panellar: markaz (pin) va kamera shu oraliqning o'rtasida
+    topInset: Dp = 0.dp,
+    bottomInset: Dp = 0.dp,
     onCenter: (LatLng) -> Unit = {},
     onMoveStarted: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
+    controller.top = with(density) { topInset.toPx() }.toDouble()
+    controller.bottom = with(density) { bottomInset.toPx() }.toDouble()
+    // Qorong'i xaritada qora belgi ko'rinmasdi: pin — mavzu matni rangida, haydovchi — firma rangida
+    val pinColor = MaterialTheme.colorScheme.onSurface
+    val brand = MaterialTheme.colorScheme.primary.toArgb()
     val mapView = remember { MapView(context).apply { onCreate(Bundle()) } }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val styleHolder = remember { arrayOfNulls<Style>(1) }
@@ -120,7 +144,8 @@ fun ClientMap(
                     map.uiSettings.isAttributionEnabled = true
                     map.cameraPosition = CameraPosition.Builder()
                         .target(initialCenter?.let { MapLatLng(it.lat, it.lng) } ?: UZBEKISTAN)
-                        .zoom(if (initialCenter != null) 14.0 else 5.0).build()
+                        .zoom(if (initialCenter != null) 14.0 else 5.0)
+                        .padding(0.0, controller.top, 0.0, controller.bottom).build()
                     map.addOnCameraMoveStartedListener { reason ->
                         @Suppress("UNCHECKED_CAST")
                         if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) (state[2] as () -> Unit)()
@@ -142,11 +167,13 @@ fun ClientMap(
                                     Expression.match(
                                         Expression.get("kind"), Expression.color(android.graphics.Color.parseColor("#1FA463")),
                                         Expression.stop("dropoff", Expression.color(android.graphics.Color.parseColor("#D92D20"))),
-                                        Expression.stop("driver", Expression.color(android.graphics.Color.parseColor("#111111"))),
+                                        Expression.stop("driver", Expression.color(brand)),
                                     ),
                                 ),
                                 PropertyFactory.circleStrokeWidth(3f),
-                                PropertyFactory.circleStrokeColor(android.graphics.Color.WHITE),
+                                PropertyFactory.circleStrokeColor(
+                                    Expression.match(Expression.get("kind"), Expression.color(android.graphics.Color.WHITE), Expression.stop("driver", Expression.color(android.graphics.Color.parseColor("#111111")))),
+                                ),
                             ),
                         )
                         styleHolder[0] = style
@@ -156,15 +183,23 @@ fun ClientMap(
             }
         }, modifier = Modifier.fillMaxSize())
 
-        // Tanlash rejimi: pin markazda, uchi aynan markaz nuqtasida
+        // Tanlash rejimi: pin ko'rinadigan maydon markazida (kamera padding'i bilan bir xil), uchi aynan markaz nuqtasida
         if (picking) {
-            Icon(
-                Icons.Default.Place,
-                contentDescription = null,
-                tint = Color(0xFF111111),
-                modifier = Modifier.align(Alignment.Center).size(44.dp).offset(y = (-20).dp),
-            )
+            Box(Modifier.fillMaxSize().padding(top = topInset, bottom = bottomInset)) {
+                Icon(
+                    Icons.Default.Place,
+                    contentDescription = null,
+                    tint = pinColor,
+                    modifier = Modifier.align(Alignment.Center).size(44.dp).offset(y = (-20).dp),
+                )
+            }
         }
+    }
+
+    // Panel balandligi o'zgardi — kamera padding'i yangilanadi (markaz o'sha nuqtada qoladi, endi ko'rinadigan joyda)
+    LaunchedEffect(controller.top, controller.bottom) {
+        val map = controller.map ?: return@LaunchedEffect
+        map.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(map.cameraPosition).padding(0.0, controller.top, 0.0, controller.bottom).build()))
     }
 
     LaunchedEffect(picking, pickup, dropoff, driver) {

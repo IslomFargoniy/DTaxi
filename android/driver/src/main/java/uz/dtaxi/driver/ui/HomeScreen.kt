@@ -1,5 +1,7 @@
 package uz.dtaxi.driver.ui
 
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import uz.dtaxi.core.ui.LocalAppColors
 import uz.dtaxi.core.ui.NavBannerColor
 import uz.dtaxi.core.ui.NavBannerMuted
@@ -177,6 +179,10 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
     }
 
     val appColors = LocalAppColors.current
+    // Panellar balandligi — xarita markazi va sig'dirish ko'rinadigan maydon bo'yicha
+    val density = LocalDensity.current
+    var topInset by remember { mutableStateOf(0.dp) }
+    var bottomInset by remember { mutableStateOf(0.dp) }
     Box(Modifier.fillMaxSize()) {
         TaxiMap(
             styleUrl = mapStyleFor(p.config.mapStyle, appColors.dark),
@@ -190,10 +196,16 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
             bearing = motion.bearing,
             speedKmh = motion.speedKmh,
             initialCenter = p.config.mapCenter?.let { MapPoint(it.lat, it.lng) },
+            topInset = topInset,
+            bottomInset = bottomInset,
         )
 
         // Yuqori panel (maket A/B): pozivnoy, davlat raqami, balans, chat
-        Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            Modifier.align(Alignment.TopCenter).fillMaxWidth().onSizeChanged { topInset = with(density) { it.height.toDp() } }
+                .statusBarsPadding().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             TopBar(p, unread, onOpen)
 
             problem?.let { text ->
@@ -235,7 +247,7 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
         }
 
         // Pastki panel: buyurtma bo'lsa — uning bosqichlari, aks holda liniya holati va smena
-        BottomSheet(Modifier.align(Alignment.BottomCenter)) {
+        BottomSheet(Modifier.align(Alignment.BottomCenter).onSizeChanged { bottomInset = with(density) { it.height.toDp() } }) {
             val current = order
             if (current != null) {
                 OrderCard(current, passedStops, onChat = { onOpen(Screen.Chat) }) { count ->
