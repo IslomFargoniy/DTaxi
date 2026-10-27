@@ -30,6 +30,7 @@ use Illuminate\Support\Facades\DB;
  * @property Carbon|null $license_expires_at
  * @property bool $is_approved
  * @property Point|null $last_location
+ * @property int|null $last_heading
  * @property Carbon|null $last_seen_at
  * @property Carbon|null $mock_location_at
  * @property-read User $user
@@ -69,6 +70,7 @@ class Driver extends Model
             'is_approved' => 'boolean',
             'approved_at' => 'datetime',
             'last_location' => Point::class,
+            'last_heading' => 'integer',
             'last_seen_at' => 'datetime',
             'mock_location_at' => 'datetime',
         ];

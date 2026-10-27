@@ -74,7 +74,12 @@ class DriverLocator
         // Kechikib kelgan eski nuqtalar hozirgi joyni orqaga surmaydi (telefon soati bir daqiqagacha farq qilishi mumkin)
         if (($driver->last_seen_at === null || $latest['recorded_at']->gte($driver->last_seen_at->copy()->subMinute()))) {
             $live = $latest['recorded_at']->gte($now->copy()->subMinute());
-            $driver->forceFill(['last_location' => $latest['location'], 'last_seen_at' => $live ? $now : $latest['recorded_at']])->save();
+            $driver->forceFill([
+                'last_location' => $latest['location'],
+                'last_seen_at' => $live ? $now : $latest['recorded_at'],
+                // Telefon burchak bermasa (joyida turibdi, GPS yo'nalishi yo'q) — oldingisi qoladi, mashina belgisi "sakramaydi"
+                'last_heading' => isset($latest['heading']) ? $latest['heading'] % 360 : $driver->last_heading,
+            ])->save();
             DriverLocationUpdated::dispatch($driver);
             app(StandQueue::class)->refresh($driver);
             $this->notifyClient($driver, $latest['location'], $latest['heading'] ?? null);

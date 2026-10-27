@@ -124,6 +124,7 @@ class OperatorController extends Controller
                 'status' => $driver->status->value,
                 'lat' => $driver->last_location?->getLatitude(),
                 'lng' => $driver->last_location?->getLongitude(),
+                'heading' => $driver->last_heading,
                 'vehicle' => $driver->vehicle ? trim($driver->vehicle->color.' '.$driver->vehicle->model.' '.Vehicle::formatPlate($driver->vehicle->plate_number)) : null,
                 'last_seen_at' => $driver->last_seen_at?->toIso8601String(),
             ])

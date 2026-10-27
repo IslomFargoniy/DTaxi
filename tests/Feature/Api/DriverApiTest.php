@@ -84,6 +84,21 @@ test('location points update the driver position and history', function () {
         ->and(DriverLocation::query()->where('driver_id', $driver->id)->count())->toBe(2);
 });
 
+test('the last GPS heading is kept for the car icon on the operator map', function () {
+    Event::fake([DriverLocationUpdated::class]);
+    $driver = actingDriver(driverNear($this->branch, 0));
+
+    $this->postJson('/api/driver/v1/location', ['points' => [['lat' => 40.39, 'lng' => 71.79, 'heading' => 270]]])->assertOk();
+    expect($driver->fresh()->last_heading)->toBe(270);
+    Event::assertDispatched(DriverLocationUpdated::class, fn ($e) => $e->broadcastWith()['heading'] === 270);
+
+    // Joyida turgan telefon burchak bermaydi — oldingi yo'nalish qoladi; 360° = 0°
+    $this->postJson('/api/driver/v1/location', ['points' => [['lat' => 40.39, 'lng' => 71.79]]])->assertOk();
+    expect($driver->fresh()->last_heading)->toBe(270);
+    $this->postJson('/api/driver/v1/location', ['points' => [['lat' => 40.391, 'lng' => 71.79, 'heading' => 360]]])->assertOk();
+    expect($driver->fresh()->last_heading)->toBe(0);
+});
+
 test('driver accepts an offer and walks the order to completion through the API', function () {
     $driver = actingDriver(driverNear($this->branch, 300));
     $order = app(OrderService::class)->create(orderData($this->branch));

@@ -17,6 +17,7 @@ import { serverNow, syncServerClock } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
 import { index } from '@/routes/operator';
 import type { Branch, MapDriver, Order, TariffClass } from '@/types/operator';
+import { addCarImages, bearing, distanceMeters } from '@/lib/car-marker';
 import { OrderForm } from './order-form';
 import type { PickTarget } from './order-form';
 import { isFresh, OrdersList } from './orders-list';
@@ -96,6 +97,33 @@ function focusBranch(
     }
 }
 
+/**
+ * Mashina belgisi yo'nalishi: telefon yuborgani, bo'lmasa oldingi joydan yangisiga (10 m dan ko'p siljigan bo'lsa),
+ * aks holda oldingi burchak — to'xtab turgan mashina aylanib ketmasin.
+ */
+function headingOf(
+    prev: MapDriver | undefined,
+    next: MapDriver,
+): number | null {
+    if (next.heading !== null && next.heading !== undefined) {
+        return next.heading;
+    }
+    if (
+        prev?.lat != null &&
+        prev.lng != null &&
+        next.lat !== null &&
+        next.lng !== null
+    ) {
+        const from = { lat: prev.lat, lng: prev.lng };
+        const to = { lat: next.lat, lng: next.lng };
+        if (distanceMeters(from, to) > 10) {
+            return bearing(from, to);
+        }
+    }
+
+    return prev?.heading ?? null;
+}
+
 function driversGeoJson(
     drivers: MapDriver[],
     ttlSeconds: number,
@@ -117,6 +145,7 @@ function driversGeoJson(
                 properties: {
                     id: d.id,
                     callsign: d.callsign,
+                    heading: d.heading ?? 0,
                     // GPS eskirgan — kulrang (bo'sh deb sanalmaydi)
                     status: isFresh(d, ttlSeconds, now) ? d.status : 'stale',
                 },
@@ -382,7 +411,12 @@ export default function OperatorIndex({
             setDrivers((list) => {
                 const byId = new Map(list.map((d) => [d.id, d]));
                 for (const d of batch.values()) {
-                    byId.set(d.id, { ...byId.get(d.id), ...d });
+                    const prev = byId.get(d.id);
+                    byId.set(d.id, {
+                        ...prev,
+                        ...d,
+                        heading: headingOf(prev, d),
+                    });
                 }
 
                 return [...byId.values()];
@@ -453,36 +487,40 @@ export default function OperatorIndex({
                 type: 'geojson',
                 data: driversGeoJson(drivers, locationTtlSeconds, serverNow()),
             });
-            map.addLayer({
-                id: 'drivers',
-                type: 'circle',
-                source: 'drivers',
-                paint: {
-                    'circle-radius': 7,
-                    'circle-stroke-width': 2,
-                    'circle-stroke-color': '#ffffff',
-                    'circle-color': [
-                        'match',
-                        ['get', 'status'],
-                        'free',
-                        '#16a34a',
-                        'busy',
-                        '#dc2626',
-                        '#6b7280',
-                    ],
-                },
-            });
-            map.addLayer({
-                id: 'drivers-label',
-                type: 'symbol',
-                source: 'drivers',
-                layout: {
-                    'text-field': ['get', 'callsign'],
-                    'text-size': 11,
-                    'text-offset': [0, 1.3],
-                    'text-font': ['Noto Sans Medium'],
-                },
-                paint: { 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 },
+            // Haydovchi — yo'nalishi bo'yicha burilgan mashina, rangi holati (bo'sh / band / GPS eskirgan)
+            void addCarImages(map).then(() => {
+                if (map.getLayer('drivers')) {
+                    return;
+                }
+                map.addLayer({
+                    id: 'drivers',
+                    type: 'symbol',
+                    source: 'drivers',
+                    layout: {
+                        'icon-image': ['concat', 'car-', ['get', 'status']],
+                        'icon-rotate': ['get', 'heading'],
+                        'icon-rotation-alignment': 'map',
+                        // ~32 px uzunlikda: haydovchilar ko'p bo'lsa ham bir-birini yopmasin
+                        'icon-size': 0.6,
+                        'icon-allow-overlap': true,
+                        'icon-ignore-placement': true,
+                    },
+                });
+                map.addLayer({
+                    id: 'drivers-label',
+                    type: 'symbol',
+                    source: 'drivers',
+                    layout: {
+                        'text-field': ['get', 'callsign'],
+                        'text-size': 11,
+                        'text-offset': [0, 1.8],
+                        'text-font': ['Noto Sans Medium'],
+                    },
+                    paint: {
+                        'text-halo-color': '#ffffff',
+                        'text-halo-width': 1.5,
+                    },
+                });
             });
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -59,6 +59,8 @@ export type MapDriver = {
     status: 'offline' | 'free' | 'busy';
     lat: number | null;
     lng: number | null;
+    /** Mashina belgisi yo'nalishi, 0–359° (shimoldan soat yo'nalishida) */
+    heading?: number | null;
     vehicle?: string | null;
     last_seen_at?: string | null;
 };

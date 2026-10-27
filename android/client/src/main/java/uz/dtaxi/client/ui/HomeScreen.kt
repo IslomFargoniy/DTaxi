@@ -307,6 +307,7 @@ fun HomeScreen(
             pickup = (activeOrder?.pickup ?: draft.pickup?.takeIf { draft.choosingDropoff })?.let { LatLng(it.lat, it.lng) },
             dropoff = (activeOrder?.dropoff ?: draft.dropoff?.takeUnless { draft.choosingDropoff })?.let { LatLng(it.lat, it.lng) },
             driver = driver?.let { LatLng(it.lat, it.lng) },
+            driverHeading = driver?.heading?.toFloat(),
             modifier = Modifier.fillMaxSize(),
             topInset = topInset,
             bottomInset = bottomInset,

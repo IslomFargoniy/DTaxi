@@ -1,6 +1,9 @@
 package uz.dtaxi.client.ui
 
 import android.os.Bundle
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -37,6 +40,8 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
@@ -97,6 +102,8 @@ fun ClientMap(
     dropoff: LatLng?,
     driver: LatLng?,
     modifier: Modifier = Modifier,
+    // Haydovchi yo'nalishi (server yuborgan GPS burchagi); null — siljishdan hisoblanadi
+    driverHeading: Float? = null,
     // Xarita ustidagi panellar: markaz (pin) va kamera shu oraliqning o'rtasida
     topInset: Dp = 0.dp,
     bottomInset: Dp = 0.dp,
@@ -171,7 +178,7 @@ fun ClientMap(
                             (state[1] as (LatLng) -> Unit)(LatLng(target.latitude, target.longitude))
                         }
                     }
-                    loadStyle(map, styleUrl, brand) { style ->
+                    loadStyle(map, styleUrl, brand, density.density) { style ->
                         styleHolder[0] = style
                         loadedStyle[0] = styleUrl
                         styleVersion++
@@ -203,7 +210,7 @@ fun ClientMap(
         val map = controller.map ?: return@LaunchedEffect
         if (loadedStyle[0] != null && loadedStyle[0] != styleUrl) {
             styleHolder[0] = null
-            loadStyle(map, styleUrl, brand) { style ->
+            loadStyle(map, styleUrl, brand, density.density) { style ->
                 styleHolder[0] = style
                 loadedStyle[0] = styleUrl
                 styleVersion++
@@ -211,19 +218,53 @@ fun ClientMap(
         }
     }
 
-    LaunchedEffect(picking, pickup, dropoff, driver, styleVersion) {
-        styleHolder[0]?.let { update(it, pickup, dropoff, driver) }
+    // Mashina sakramaydi: yangi joy kelganda eski joyidan 1 soniyada suriladi va burchak eng qisqa tomonga buriladi.
+    // Yangi nuqta animatsiya tugamasdan kelsa — effekt qayta boshlanadi va hozir chizilgan joydan davom etadi
+    val shownDriver = remember { arrayOfNulls<LatLng>(1) }
+    val shownHeading = remember { floatArrayOf(0f) }
+    LaunchedEffect(picking, pickup, dropoff, driver, driverHeading, styleVersion) {
+        val style = styleHolder[0] ?: return@LaunchedEffect
+        val from = shownDriver[0]
+        if (driver == null) {
+            shownDriver[0] = null
+            update(style, pickup, dropoff, null, 0f)
+            return@LaunchedEffect
+        }
+        val target = driverHeading
+            ?: from?.takeIf { CarMarker.distanceMeters(it, driver) > 8 }?.let { CarMarker.bearing(it, driver) }
+            ?: shownHeading[0]
+        // Birinchi marta yoki uzoqqa sakrash (GPS uzilib qolgan) — darhol joyiga
+        if (from == null || CarMarker.distanceMeters(from, driver) > 1500) {
+            shownDriver[0] = driver
+            shownHeading[0] = target
+            update(style, pickup, dropoff, driver, target)
+            return@LaunchedEffect
+        }
+        val startHeading = shownHeading[0]
+        val progress = Animatable(0f)
+        progress.animateTo(1f, tween(1000, easing = LinearEasing)) {
+            val f = value
+            val at = LatLng(from.lat + (driver.lat - from.lat) * f, from.lng + (driver.lng - from.lng) * f)
+            // Burilish tezroq (birinchi 40% da) — mashina yon bilan yurmasin
+            val heading = CarMarker.lerpAngle(startHeading, target, (f / 0.4f).coerceAtMost(1f))
+            shownDriver[0] = at
+            shownHeading[0] = heading
+            update(style, pickup, dropoff, at, heading)
+        }
     }
 }
 
 private const val SOURCE = "client-points"
 
-/** Uslub va belgilar qatlami (A — yashil, B — qizil, haydovchi — firma rangida qora hoshiya bilan) */
-private fun loadStyle(map: MapLibreMap, url: String, brand: Int, onReady: (Style) -> Unit) {
+private const val CAR_IMAGE = "driver-car"
+
+/** Uslub va belgilar qatlami (A — yashil, B — qizil, haydovchi — firma rangidagi mashina, yo'nalishi bo'yicha burilgan) */
+private fun loadStyle(map: MapLibreMap, url: String, brand: Int, density: Float, onReady: (Style) -> Unit) {
     map.setStyle(Style.Builder().fromUri(url)) { style ->
         style.addSource(GeoJsonSource(SOURCE))
+        style.addImage(CAR_IMAGE, CarMarker.bitmap(density, brand))
         style.addLayer(
-            CircleLayer("points", SOURCE).withProperties(
+            CircleLayer("points", SOURCE).withFilter(Expression.neq(Expression.get("kind"), Expression.literal("driver"))).withProperties(
                 PropertyFactory.circleRadius(Expression.match(Expression.get("kind"), Expression.literal(9f), Expression.stop("driver", 11f))),
                 PropertyFactory.circleColor(
                     Expression.match(
@@ -238,15 +279,24 @@ private fun loadStyle(map: MapLibreMap, url: String, brand: Int, onReady: (Style
                 ),
             ),
         )
+        style.addLayer(
+            SymbolLayer("driver", SOURCE).withFilter(Expression.eq(Expression.get("kind"), Expression.literal("driver"))).withProperties(
+                PropertyFactory.iconImage(CAR_IMAGE),
+                PropertyFactory.iconRotate(Expression.get("heading")),
+                PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP),
+                PropertyFactory.iconAllowOverlap(true),
+                PropertyFactory.iconIgnorePlacement(true),
+            ),
+        )
         onReady(style)
     }
 }
 
-private fun update(style: Style, pickup: LatLng?, dropoff: LatLng?, driver: LatLng?) {
+private fun update(style: Style, pickup: LatLng?, dropoff: LatLng?, driver: LatLng?, heading: Float) {
     val features = buildList {
         pickup?.let { add(feature(it, "pickup")) }
         dropoff?.let { add(feature(it, "dropoff")) }
-        driver?.let { add(feature(it, "driver")) }
+        driver?.let { add(feature(it, "driver").apply { addNumberProperty("heading", heading) }) }
     }
     style.getSourceAs<GeoJsonSource>(SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(features))
 }
