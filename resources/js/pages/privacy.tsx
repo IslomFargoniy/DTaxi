@@ -8,7 +8,7 @@ const SECTIONS: { title: string; body: string }[] = [
     },
     {
         title: 'Why',
-        body: 'To accept your order, find the nearest car, show the driver your pickup point, calculate the price and keep the trip history. Drivers see only your name, pickup point and destination; your phone number is hidden.',
+        body: 'To accept your order, find the nearest car, show the driver your pickup point, calculate the price and keep the trip history. The driver sees your name, pickup point, destination and phone number only while your order is active, so that they can call you; after the trip your number is hidden from the driver.',
     },
     {
         title: 'Sign-in',
@@ -16,7 +16,7 @@ const SECTIONS: { title: string; body: string }[] = [
     },
     {
         title: 'Storage',
-        body: 'Data is stored on the taxi company server. Trip history is kept as accounting records of the company. Trip call recordings, if any, are deleted after the retention period set by the company.',
+        body: 'Data is stored on the taxi company server. Trip history is kept as accounting records of the company. Calls with the dispatcher and the driver (by phone or from the app) are recorded to resolve disputes about orders; the microphone is used only during a call you start. Recordings are deleted after the retention period set by the company.',
     },
     {
         title: 'Deleting your account',
