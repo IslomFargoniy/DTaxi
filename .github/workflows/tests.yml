@@ -66,8 +66,25 @@ jobs:
       - name: Setup Application
         run: composer setup
 
-      - name: Run CI Checks
-        run: composer ci:check
+      # Har tekshiruv alohida qadam: qaysi biri yiqilgani jurnalsiz ham ko'rinadi, xatolar annotatsiyada
+      - name: Frontend format and lint
+        run: npm run check
+
+      - name: TypeScript
+        run: npx tsc --noEmit 2>&1 | tee /tmp/tsc.log; s=${PIPESTATUS[0]}; grep 'error TS' /tmp/tsc.log | head -20 | sed 's/^/::error::/'; exit $s
+
+      - name: Pint
+        run: vendor/bin/pint --parallel --test
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress --error-format=github
+
+      - name: Tests
+        run: |
+          php artisan config:clear
+          php artisan test --log-junit /tmp/junit.xml 2>&1 | tee /tmp/test.log; s=${PIPESTATUS[0]}
+          grep -E 'FAILED|Exception|Error' /tmp/test.log | head -30 | sed 's/^/::error::/'
+          exit $s
 
   android:
     runs-on: ubuntu-24.04
