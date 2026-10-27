@@ -991,7 +991,7 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [x] F10 Tarix vaqti mahalliy; chiqishda ekran va qoralama tozalanadi; eski banner; baho ikki marta
 - [x] F11 UX: "Qayerga" xaritadan, ETA, "Qayta buyurtma", tarix sahifalash, saqlangan manzillarni boshqarish
 
-**G. CI** — GitHub testlari 21-oktabrdan beri qizil edi: testlar, Pint, PHPStan, `tsc`, `vp check` toza nusxada o'tadi; qizil `ubuntu-latest` Ubuntu 26 ga o'tishi bilan boshlangan — runner `ubuntu-24.04` ga mahkamlandi
+**G. CI** — GitHub testlari 21-oktabrdan beri qizil edi: testlar, Pint, PHPStan, `tsc`, `vp check` toza nusxada o'tadi; sabab — `OpsTest` dagi `horizon:terminate` Redis'ga ulanardi (CI'da Redis yo'q), test soxtalashtirildi; CI qadamlari alohida, xatolar annotatsiyada (jurnal login'siz ko'rinadi), runner `ubuntu-24.04`
 
 Ilova nomlari: haydovchi — "DTaxi driver", mijoz — "DTaxi" (`firm.properties`).
 

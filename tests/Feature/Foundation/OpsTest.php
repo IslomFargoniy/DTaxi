@@ -137,6 +137,8 @@ test('update goes into maintenance before the backup and stops workers before mi
 
 test('update without supervisor access still restarts workers the old way', function () {
     app(Kernel::class)->registerCommand(new ClosureCommand('optimize', fn () => 0));
+    // horizon:terminate Redis'ga ulanadi — CI'da Redis yo'q
+    app(Kernel::class)->registerCommand(new ClosureCommand('horizon:terminate', fn () => 0));
     Process::fake(fn (PendingProcess $process) => str_starts_with(implode(' ', (array) $process->command), 'sudo')
         ? Process::result(exitCode: 1)
         : Process::result());
