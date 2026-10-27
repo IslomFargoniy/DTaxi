@@ -765,5 +765,10 @@
     "Too many sign-in requests right now. Please try again later.": "Ҳозир кириш сўровлари жуда кўп. Илтимос, кейинроқ уриниб кўринг.",
     "Load client": "Мижозни юклаш",
     "This driver belongs to another branch.": "Бу ҳайдовчи бошқа филиалга тегишли.",
-    "A call is in progress in the other tab. Finish it first.": "Бошқа варақда суҳбат давом этмоқда. Аввал уни тугатинг."
+    "A call is in progress in the other tab. Finish it first.": "Бошқа варақда суҳбат давом этмоқда. Аввал уни тугатинг.",
+    "Calls from the app are not available.": "Иловадан қўнғироқ қилиш ҳозирча мавжуд эмас.",
+    "You are already on a call.": "Сизда қўнғироқ давом этмоқда.",
+    "The driver can be called only during an active trip.": "Ҳайдовчига фақат фаол буюртма давомида қўнғироқ қилиш мумкин.",
+    "The dispatcher is not available now.": "Диспетчер ҳозир ишламаяпти.",
+    "Calls from the client app over the internet (to the driver and dispatcher)": "Мижоз иловасидан интернет орқали қўнғироқ (ҳайдовчи ва диспетчерга)"
 }

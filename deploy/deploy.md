@@ -105,10 +105,10 @@ Git uchun: serverda `dtaxi` foydalanuvchisiga **faqat o'qish huquqli deploy key*
 
 ### 2.1. TURN server (ixtiyoriy, `--turn`)
 
-WebRTC ovozi (operator brauzeri, haydovchi ilovasining qo'ng'iroq sahifasi) odatda to'g'ridan-to'g'ri Asterisk'ning RTP portlariga (UDP 10000–20000) boradi. Quyidagi hollarda bu ishlamaydi va ovoz yo'q yoki bir tomonlama bo'ladi — shunda TURN yoqiladi:
+WebRTC ovozi (operator brauzeri, haydovchi va mijoz ilovalarining qo'ng'iroq sahifasi) odatda to'g'ridan-to'g'ri Asterisk'ning RTP portlariga (UDP 10000–20000) boradi. Quyidagi hollarda bu ishlamaydi va ovoz yo'q yoki bir tomonlama bo'ladi — shunda TURN yoqiladi:
 
 - **server NAT ortida** (bulut VPS 10.x ichki IP bilan, ofisdagi server router ortida);
-- operator **korporativ tarmoqda** (UDP yopiq, faqat 443/TCP ochiq) yoki haydovchining mobil operatori UDP'ni cheklaydi.
+- operator **korporativ tarmoqda** (UDP yopiq, faqat 443/TCP ochiq) yoki haydovchi/mijozning mobil operatori UDP'ni cheklaydi. Mijoz ilovasidan qo'ng'iroq (qaror #72) yoqilgan bo'lsa TURN deyarli majburiy — mijozlar turli mobil tarmoqlarda.
 
 ```bash
 sudo ./deploy/install.sh --prod --domain=taxi.firma.uz --email=admin@firma.uz --turn

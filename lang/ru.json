@@ -765,5 +765,10 @@
     "Too many sign-in requests right now. Please try again later.": "Сейчас слишком много запросов на вход. Попробуйте позже.",
     "Load client": "Загрузить клиента",
     "This driver belongs to another branch.": "Этот водитель относится к другому филиалу.",
-    "A call is in progress in the other tab. Finish it first.": "В другой вкладке идёт разговор. Сначала завершите его."
+    "A call is in progress in the other tab. Finish it first.": "В другой вкладке идёт разговор. Сначала завершите его.",
+    "Calls from the app are not available.": "Звонки из приложения недоступны.",
+    "You are already on a call.": "У вас уже идёт звонок.",
+    "The driver can be called only during an active trip.": "Позвонить водителю можно только во время активного заказа.",
+    "The dispatcher is not available now.": "Диспетчер сейчас не работает.",
+    "Calls from the client app over the internet (to the driver and dispatcher)": "Звонки из клиентского приложения через интернет (водителю и диспетчеру)"
 }

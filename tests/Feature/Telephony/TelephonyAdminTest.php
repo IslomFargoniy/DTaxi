@@ -65,7 +65,7 @@ test('superadmin changes call center settings and branch limits', function () {
         'calls_max_wait_seconds' => 120, 'calls_operator_ring_seconds' => 15, 'calls_pause_on_missed_ring' => false, 'calls_ivr_auto_order' => true,
         'calls_auto_calls_enabled' => true, 'calls_auto_call_attempts' => 2, 'calls_auto_call_retry_seconds' => 60,
         'calls_still_waiting_minutes' => 0, 'calls_recordings_retention_days' => 30,
-        'calls_rating_call_enabled' => true, 'calls_rating_call_delay_minutes' => 5,
+        'calls_rating_call_enabled' => true, 'calls_rating_call_delay_minutes' => 5, 'calls_client_app_calls' => false,
         'calls_max_recording_seconds' => 3600, 'calls_driver_gain' => 2,
         'calls_operator_outbound_limit' => 10, 'calls_operator_outbound_window_minutes' => 5, 'calls_login_code_calls_per_hour' => 50,
         'calls_outbound_allowed_patterns' => ['^998\\d{9}$', ' ^7\\d{10}$ '],
@@ -84,7 +84,7 @@ test('broken outbound number pattern is rejected', function () {
     $valid = collect([
         'calls.max_wait_seconds', 'calls.operator_ring_seconds', 'calls.pause_on_missed_ring', 'calls.ivr_auto_order',
         'calls.auto_calls_enabled', 'calls.auto_call_attempts', 'calls.auto_call_retry_seconds', 'calls.still_waiting_minutes',
-        'calls.recordings_retention_days', 'calls.rating_call_enabled', 'calls.rating_call_delay_minutes',
+        'calls.recordings_retention_days', 'calls.rating_call_enabled', 'calls.rating_call_delay_minutes', 'calls.client_app_calls',
         'calls.max_recording_seconds', 'calls.driver_gain', 'calls.operator_outbound_limit', 'calls.operator_outbound_window_minutes',
     ])->mapWithKeys(fn (string $k) => [str_replace('.', '_', $k) => app(Settings::class)->get($k)])->all();
 
@@ -144,6 +144,8 @@ test('driver app gets WebRTC credentials to call the dispatcher', function () {
         ->assertJsonPath('sip.extension', 'dr'.$driver->id)
         ->assertJsonPath('target', 'dispatcher');
     $this->get(route('driver-app.call'))->assertOk()->assertSee('Dispetcher');
+    // Mijoz ilovasining qo'ng'iroq sahifasi (qaror #72) — o'sha ekran, o'z skripti bilan
+    $this->get(route('client-app.call'))->assertOk()->assertSee('id="hangup"', false);
 });
 
 test('without TURN configured only the STUN server is given to WebRTC clients', function () {

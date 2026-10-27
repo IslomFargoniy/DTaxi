@@ -18,9 +18,12 @@ use App\Models\Branch;
 use App\Models\Call;
 use App\Models\Client;
 use App\Models\DeviceToken;
+use App\Models\Driver;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\PhoneNumber;
+use App\Models\Pjsip\PsAuth;
+use App\Models\Pjsip\PsEndpoint;
 use App\Models\Setting;
 use App\Models\SipTrunk;
 use App\Models\SoundClip;
@@ -44,6 +47,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 
 require_once __DIR__.'/../Orders/helpers.php';
@@ -1086,4 +1090,173 @@ test('reconciliation bridges an operator who answered while the StasisStart even
     $this->center->reconcile();
 
     expect($call->refresh()->status)->toBe('answered');
+});
+
+// ── Mijoz ilovasidan qo'ng'iroq (qaror #72) ──────────────────────────
+
+/**
+ * Mijoz faol safarda: haydovchi biriktirilgan buyurtma.
+ *
+ * @return array{Client, Driver, Order}
+ */
+function clientOnTrip(Branch $branch, OrderStatus $status = OrderStatus::Assigned): array
+{
+    $client = Client::factory()->create(['phone' => '+998901112233', 'name' => 'Ali']);
+    $driver = driverNear($branch, 0, ['callsign' => '777', 'status' => DriverStatus::Busy]);
+    $order = Order::factory()->create(['branch_id' => $branch->id, 'client_id' => $client->id, 'driver_id' => $driver->id, 'status' => $status]);
+
+    return [$client, $driver, $order];
+}
+
+function clientGrant(Client $client, string $target): TestResponse
+{
+    Sanctum::actingAs($client, ['client']);
+
+    return test()->postJson('/api/client/v1/calls', ['target' => $target]);
+}
+
+test('client app gets a temporary extension that can only reach the driver or the dispatcher', function () {
+    [$client] = clientOnTrip($this->branch);
+
+    $sip = clientGrant($client, 'driver')->assertOk()->assertJsonPath('target', 'driver')->json('sip');
+
+    expect($sip['extension'])->toBe("cl{$client->id}")
+        ->and($sip['uri'])->toBe("sip:cl{$client->id}@localhost")
+        ->and($sip['ws'])->toBe('wss://localhost/ws');
+    $endpoint = PsEndpoint::query()->findOrFail("cl{$client->id}");
+    expect($endpoint->context)->toBe('from-client')
+        ->and($endpoint->allow)->toStartWith('opus')
+        ->and(PsAuth::query()->findOrFail("cl{$client->id}")->md5_cred)->toBe(md5("cl{$client->id}:asterisk:{$sip['password']}"));
+
+    // Har so'rovda yangi parol
+    expect(clientGrant($client, 'driver')->json('sip.password'))->not->toBe($sip['password']);
+});
+
+test('client app call rings the assigned driver like an operator call and is bridged on answer', function () {
+    [$client, $driver, $order] = clientOnTrip($this->branch);
+    clientGrant($client, 'driver')->assertOk();
+
+    $this->center->handle(stasis('ch-cl', ['client', 'driver'], "PJSIP/cl{$client->id}-0001", "cl{$client->id}"));
+
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    expect($call)
+        ->kind->toBe('driver')
+        ->status->toBe('ringing')
+        ->caller->toBe('+998901112233')
+        ->callee->toBe("dr{$driver->id}")
+        ->client_id->toBe($client->id)
+        ->order_id->toBe($order->id)
+        ->operator_id->toBeNull()
+        ->sip_trunk_id->toBeNull();
+    // Mijoz gudok eshitadi; haydovchi ilovasida — kiruvchi qo'ng'iroq, mijoz ismi bilan
+    expect(ariRequests('/ari/channels/ch-cl/ring'))->toHaveCount(1);
+    Event::assertDispatched(IncomingCall::class, fn (IncomingCall $e) => $e->driverId === $driver->id && $e->callId === $call->id && $e->operator === 'Mijoz: Ali');
+
+    $this->center->handle(stasis('ch-dr', ['internal', "answer-{$call->id}"], "PJSIP/dr{$driver->id}-0001", "dr{$driver->id}"));
+    expect($call->refresh()->status)->toBe('answered')
+        ->and(ariRequests('/ari/channels/ch-cl/answer'))->toHaveCount(1)
+        ->and($call->meta['bridge'])->toBe('bridge-1');
+
+    // Suhbat tugadi — vaqtinchalik raqam o'chiriladi
+    $this->center->handle(['type' => 'StasisEnd', 'channel' => ['id' => 'ch-cl']]);
+    expect($call->refresh()->status)->toBe('completed')
+        ->and(PsEndpoint::query()->find("cl{$client->id}"))->toBeNull()
+        ->and(PsAuth::query()->find("cl{$client->id}"))->toBeNull();
+});
+
+test('driver declining the client app call gives the client a busy signal', function () {
+    [$client, $driver] = clientOnTrip($this->branch);
+    clientGrant($client, 'driver');
+    $this->center->handle(stasis('ch-cl', ['client', 'driver'], "PJSIP/cl{$client->id}-0001", "cl{$client->id}"));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+
+    Sanctum::actingAs($driver->user, ['driver']);
+    $this->postJson("/api/driver/v1/phone/calls/{$call->id}/decline")->assertOk();
+
+    expect($call->refresh()->status)->toBe('declined')
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/ari/channels/ch-cl') && $r['reason'] === 'busy')->count())->toBe(1)
+        ->and(PsEndpoint::query()->find("cl{$client->id}"))->toBeNull();
+});
+
+test('client app call to the dispatcher queues for operators without using a trunk line', function () {
+    $client = Client::factory()->create(['phone' => '+998901112233', 'last_branch_id' => $this->branch->id]);
+    clientGrant($client, 'dispatcher')->assertOk();
+
+    $this->center->handle(stasis('ch-cl', ['client', 'dispatcher'], "PJSIP/cl{$client->id}-0001", "cl{$client->id}"));
+
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    expect($call)
+        ->kind->toBe('client')
+        ->direction->toBe('inbound')
+        ->status->toBe('waiting')
+        ->caller->toBe('+998901112233')
+        ->client_id->toBe($client->id)
+        ->branch_id->toBe($this->branch->id)
+        ->sip_trunk_id->toBeNull()
+        ->operator_id->toBe($this->operator->id);
+    // Salomlashuv emas — gudok; operator kartochkasida mijoz telefoni
+    expect(ariRequests('media=tone:ring;tonezone=ru'))->toHaveCount(1)
+        ->and(app(ChannelLimits::class)->active($this->trunk)['total'])->toBe(0);
+    Event::assertDispatched(OperatorCallEvent::class, fn ($e) => $e->type === 'incoming' && $e->payload['phone'] === '+998901112233');
+
+    Sanctum::actingAs($client, ['client']);
+    $this->getJson('/api/client/v1/calls/current')->assertJsonPath('status', 'waiting');
+});
+
+test('the client app grant is single-use and bound to its target', function () {
+    [$client] = clientOnTrip($this->branch);
+    clientGrant($client, 'driver');
+
+    // Haydovchiga ruxsat bilan dispetcherga emas
+    $this->center->handle(stasis('ch-1', ['client', 'dispatcher'], "PJSIP/cl{$client->id}-0001", "cl{$client->id}"));
+    // Ruxsat ishlatildi — qayta qo'ng'iroq ham yo'q
+    $this->center->handle(stasis('ch-2', ['client', 'driver'], "PJSIP/cl{$client->id}-0002", "cl{$client->id}"));
+
+    expect(Call::query()->withoutGlobalScopes()->count())->toBe(0)
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_contains($r->url(), '/ari/channels/ch-'))->count())->toBe(2)
+        ->and(PsEndpoint::query()->find("cl{$client->id}"))->toBeNull();
+    Event::assertNotDispatched(IncomingCall::class);
+});
+
+test('the driver can be called from the app only during an active trip', function () {
+    [$client, , $order] = clientOnTrip($this->branch, OrderStatus::Searching);
+    clientGrant($client, 'driver')->assertUnprocessable()->assertJsonValidationErrors('target');
+
+    $order->forceFill(['status' => OrderStatus::Completed])->save();
+    clientGrant($client, 'driver')->assertUnprocessable();
+
+    // Ruxsatdan keyin safar tugasa — Asterisk'dan kelgan qo'ng'iroq rad etiladi
+    $order->forceFill(['status' => OrderStatus::Arrived])->save();
+    clientGrant($client, 'driver')->assertOk();
+    $order->forceFill(['status' => OrderStatus::Completed])->save();
+    $this->center->handle(stasis('ch-cl', ['client', 'driver'], "PJSIP/cl{$client->id}-0001", "cl{$client->id}"));
+
+    expect(Call::query()->withoutGlobalScopes()->count())->toBe(0);
+    Event::assertNotDispatched(IncomingCall::class);
+});
+
+test('client app calls can be turned off and only one runs at a time', function () {
+    [$client] = clientOnTrip($this->branch);
+    app(Settings::class)->set('calls.client_app_calls', false);
+    clientGrant($client, 'dispatcher')->assertUnprocessable();
+    Sanctum::actingAs($client, ['client']);
+    $this->getJson('/api/client/v1/me')->assertJsonPath('config.app_calls', false);
+
+    app(Settings::class)->set('calls.client_app_calls', true);
+    clientGrant($client, 'driver')->assertOk();
+    $this->center->handle(stasis('ch-cl', ['client', 'driver'], "PJSIP/cl{$client->id}-0001", "cl{$client->id}"));
+    clientGrant($client, 'dispatcher')->assertUnprocessable();
+});
+
+test('unused temporary client extensions are pruned after the grant expires', function () {
+    [$client] = clientOnTrip($this->branch);
+    clientGrant($client, 'driver')->assertOk();
+    $this->ari['channels'] = [];
+
+    $this->center->reconcile();
+    expect(PsEndpoint::query()->find("cl{$client->id}"))->not->toBeNull();
+
+    $this->travel(61)->seconds();
+    $this->center->reconcile();
+    expect(PsEndpoint::query()->find("cl{$client->id}"))->toBeNull();
 });

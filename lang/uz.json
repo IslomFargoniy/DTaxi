@@ -765,5 +765,10 @@
     "Too many sign-in requests right now. Please try again later.": "Hozir kirish so'rovlari juda ko'p. Iltimos, keyinroq urinib ko'ring.",
     "Load client": "Mijozni yuklash",
     "This driver belongs to another branch.": "Bu haydovchi boshqa filialga tegishli.",
-    "A call is in progress in the other tab. Finish it first.": "Boshqa varaqda suhbat davom etmoqda. Avval uni tugating."
+    "A call is in progress in the other tab. Finish it first.": "Boshqa varaqda suhbat davom etmoqda. Avval uni tugating.",
+    "Calls from the app are not available.": "Ilovadan qo'ng'iroq qilish hozircha mavjud emas.",
+    "You are already on a call.": "Sizda qo'ng'iroq davom etmoqda.",
+    "The driver can be called only during an active trip.": "Haydovchiga faqat faol buyurtma davomida qo'ng'iroq qilish mumkin.",
+    "The dispatcher is not available now.": "Dispetcher hozir ishlamayapti.",
+    "Calls from the client app over the internet (to the driver and dispatcher)": "Mijoz ilovasidan internet orqali qo'ng'iroq (haydovchi va dispetcherga)"
 }

@@ -611,6 +611,11 @@ const SETTING_FIELDS: {
         kind: 'bool',
     },
     {
+        key: 'calls.client_app_calls',
+        label: 'Calls from the client app over the internet (to the driver and dispatcher)',
+        kind: 'bool',
+    },
+    {
         key: 'calls.rating_call_delay_minutes',
         label: 'Rating call after, minutes',
         kind: 'number',

@@ -81,4 +81,8 @@
     <string name="location_settings_title">Доступ к геолокации отключён</string>
     <string name="location_settings_text">Чтобы определить ваше местоположение, включите разрешение «Местоположение» в настройках приложения.</string>
     <string name="open_settings">Открыть настройки</string>
+    <string name="call_driver">Водителю</string>
+    <string name="call_dispatcher">Диспетчеру</string>
+    <string name="call_failed">Не удалось начать звонок. Проверьте интернет.</string>
+    <string name="mic_permission_needed">Разрешите доступ к микрофону для звонка</string>
 </resources>

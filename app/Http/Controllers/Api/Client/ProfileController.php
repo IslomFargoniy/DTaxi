@@ -40,6 +40,8 @@ class ProfileController extends Controller
                 'company_name' => app(Settings::class)->get('company.name'),
                 // Haydovchi yoki dispetcher bilan aloqa — firma raqami (raqamlar yashirin)
                 'support_phone' => PhoneNumber::forBranch($client->last_branch_id)?->number,
+                // Ilova ichidan qo'ng'iroq (qaror #72): o'chiq bo'lsa — faqat oddiy qo'ng'iroq firma raqamiga
+                'app_calls' => (bool) app(Settings::class)->get('calls.client_app_calls'),
                 'map_style' => route('map.style', ['lang' => $client->locale]),
                 // Ilova Reverb'ga API bilan bir xil manzil orqali ulanadi (nginx /app → Reverb)
                 'reverb' => [

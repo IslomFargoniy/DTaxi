@@ -4,6 +4,7 @@ namespace App\Services\Telephony;
 
 use App\Enums\DriverStatus;
 use App\Enums\OrderSource;
+use App\Enums\OrderStatus;
 use App\Events\CallUpdated;
 use App\Events\IncomingCall;
 use App\Events\IncomingCallEnded;
@@ -40,6 +41,7 @@ use Illuminate\Support\Str;
  *   operator,<callId> — navbatdagi qo'ng'iroq uchun operatorga yuborilgan kanal javob berdi
  *   peer,<callId>   — operator chaqirgan tomon (mijoz/haydovchi) javob berdi
  *   tts,<callId>    — avto-qo'ng'iroqda mijoz javob berdi
+ *   client,<target> — mijoz ilovasi (vaqtinchalik cl{N}): driver — biriktirilgan haydovchiga, dispatcher — navbatga
  *
  * Kanal roli keshda: client (navbatdagi / TTS tomon), operator, peer.
  */
@@ -70,6 +72,7 @@ class CallCenter
         private AriClient $ari,
         private OperatorPool $operators,
         private ChannelLimits $limits,
+        private ClientExtensions $clientExtensions,
     ) {}
 
     /**
@@ -218,6 +221,7 @@ class CallCenter
         }
 
         $this->reconcileBridges();
+        $this->clientExtensions->prune();
     }
 
     /**
@@ -313,6 +317,7 @@ class CallCenter
             'operator' => $this->operatorAnswered((string) $channel['id'], (int) $arg),
             'peer' => $this->peerAnswered((string) $channel['id'], (int) $arg),
             'tts' => $this->ttsAnswered((string) $channel['id'], (int) $arg),
+            'client' => $this->fromClientApp($channel, $arg),
             default => $this->ari->hangup((string) $channel['id']),
         };
     }
@@ -773,6 +778,15 @@ class CallCenter
         ]);
         $this->remember($channelId, $call, 'operator');
 
+        $this->alertDriver($call, $driver, $channelId, $operator->name ?: 'Dispetcher');
+    }
+
+    /**
+     * Haydovchi ilovasiga "kiruvchi qo'ng'iroq" (Reverb + FCM): javob bersa ilova answer-{callId} ga qo'ng'iroq qiladi,
+     * chaqiruvchi kanal (operator yoki mijoz ilovasi) shu orada gudok eshitadi.
+     */
+    private function alertDriver(Call $call, Driver $driver, string $channelId, string $name): void
+    {
         // Liniyada emas (Reverb ulanmagan) va push tokeni yo'q — ilovaga yetib bo'lmaydi, 30 soniya kuttirilmaydi
         if ($driver->status === DriverStatus::Offline && ! DeviceToken::query()->where('user_id', $driver->user_id)->exists()) {
             $this->ari->hangup($channelId, 'unallocated');
@@ -785,7 +799,6 @@ class CallCenter
         $this->updateMeta($call, ['driver_ring_until' => now()->addSeconds($seconds)->getTimestamp()]);
         $this->ari->ring($channelId);
 
-        $name = $operator->name ?: 'Dispetcher';
         // Reverb ishlamasa ham push yetib borsin (va aksincha)
         $this->broadcast(new IncomingCall($driver->id, $call->id, $name, $seconds));
         SendPushNotification::dispatch($driver->user_id, [
@@ -796,6 +809,95 @@ class CallCenter
             'sent_at' => now()->getTimestamp(),
         ]);
 
+        $this->broadcast(new CallUpdated($call));
+    }
+
+    /**
+     * Mijoz ilovasidan qo'ng'iroq (qaror #72): API bergan bir martalik ruxsat bo'yicha — biriktirilgan haydovchiga
+     * (operator → haydovchi bilan bir xil yo'l: ilovada kiruvchi qo'ng'iroq) yoki filial dispetcherlari navbatiga.
+     * Trunk ishlatilmaydi — liniyalar limitiga kirmaydi.
+     *
+     * @param  array<string, mixed>  $channel
+     */
+    private function fromClientApp(array $channel, string $target): void
+    {
+        $channelId = (string) $channel['id'];
+        if (Call::query()->withoutGlobalScopes()->where('channel_id', $channelId)->exists()) {
+            return;
+        }
+        preg_match('#^PJSIP/cl(\d+)-#', (string) ($channel['name'] ?? ''), $m);
+        $client = isset($m[1]) ? Client::query()->find((int) $m[1]) : null;
+        $grant = $client ? $this->clientExtensions->claim($client->id, $target) : null;
+
+        if (! $client || ! $grant || $client->is_blacklisted) {
+            $this->ari->hangup($channelId, 'busy');
+            if ($client) {
+                $this->clientExtensions->revoke($client->id);
+            }
+
+            return;
+        }
+
+        $target === 'driver'
+            ? $this->clientToDriver($channelId, $client, $grant['order_id'])
+            : $this->clientToDispatcher($channelId, $client, $grant['branch_id'], $grant['order_id']);
+    }
+
+    private function clientToDriver(string $channelId, Client $client, ?int $orderId): void
+    {
+        $order = $orderId ? Order::query()->withoutGlobalScopes()->find($orderId) : null;
+        $driver = $order?->driver_id ? Driver::query()->withoutGlobalScopes()->with('user')->find($order->driver_id) : null;
+        // Ruxsat berilgandan keyin safar tugagan yoki haydovchi almashgan bo'lishi mumkin
+        if (! $order || ! $driver || $order->client_id !== $client->id
+            || ! in_array($order->status, [OrderStatus::Assigned, OrderStatus::Arrived, OrderStatus::InProgress], true)) {
+            $this->ari->hangup($channelId, 'unallocated');
+            $this->clientExtensions->revoke($client->id);
+
+            return;
+        }
+
+        $call = Call::query()->create([
+            'channel_id' => $channelId,
+            'branch_id' => $order->branch_id,
+            'direction' => 'internal',
+            'kind' => 'driver',
+            'caller' => $client->phone,
+            'callee' => 'dr'.$driver->id,
+            'driver_id' => $driver->id,
+            'client_id' => $client->id,
+            'order_id' => $order->id,
+            'status' => 'ringing',
+            'started_at' => now(),
+            'meta' => ['client_app' => true],
+        ]);
+        $this->remember($channelId, $call, 'client');
+
+        // Haydovchi ekranida: "Mijoz: Ism" — haydovchi tilida
+        $name = __('Client', [], $driver->user->locale ?? null).($client->name ? ': '.$client->name : '');
+        $this->alertDriver($call, $driver, $channelId, $name);
+    }
+
+    private function clientToDispatcher(string $channelId, Client $client, ?int $branchId, ?int $orderId): void
+    {
+        $call = Call::query()->create([
+            'channel_id' => $channelId,
+            'branch_id' => $branchId,
+            'direction' => 'inbound',
+            'kind' => 'client',
+            'caller' => $client->phone,
+            'callee' => 'app',
+            'client_id' => $client->id,
+            'order_id' => $orderId,
+            'status' => 'waiting',
+            'started_at' => now(),
+            'meta' => ['branch_ids' => array_filter([$branchId]), 'client_app' => true],
+        ]);
+        $this->remember($channelId, $call, 'client');
+
+        $this->ari->answer($channelId);
+        // Salomlashuv kerak emas (mijoz ilovada tugmani o'zi bosgan) — operator javob berguncha gudok
+        $this->playFor($call, $channelId, [self::RINGBACK], 'ringback');
+        $this->offerInTurn($call);
         $this->broadcast(new CallUpdated($call));
     }
 
@@ -1344,6 +1446,9 @@ class CallCenter
         }
         if (data_get($call->meta, 'recording') && $call->answered_at) {
             ProcessRecording::dispatch($call->id)->delay(now()->addSeconds(5));
+        }
+        if ($call->client_id && data_get($call->meta, 'client_app')) {
+            $this->clientExtensions->revoke($call->client_id);
         }
 
         if ($call->operator_id) {

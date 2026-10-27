@@ -81,4 +81,8 @@
     <string name="location_settings_title">Location access is off</string>
     <string name="location_settings_text">To find your current location, allow "Location" in the app settings.</string>
     <string name="open_settings">Open settings</string>
+    <string name="call_driver">Driver</string>
+    <string name="call_dispatcher">Dispatcher</string>
+    <string name="call_failed">Could not start the call. Check your internet connection.</string>
+    <string name="mic_permission_needed">Allow microphone access to make a call</string>
 </resources>

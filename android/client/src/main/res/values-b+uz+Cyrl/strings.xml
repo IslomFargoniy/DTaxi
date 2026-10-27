@@ -82,4 +82,8 @@
     <string name="location_settings_title">Жойлашувга рухсат ўчирилган</string>
     <string name="location_settings_text">Жорий жойингизни аниқлаш учун илова созламаларида "Жойлашув" рухсатини ёқинг.</string>
     <string name="open_settings">Созламаларни очиш</string>
+    <string name="call_driver">Ҳайдовчига</string>
+    <string name="call_dispatcher">Диспетчерга</string>
+    <string name="call_failed">Қўнғироқ очилмади. Интернетни текширинг.</string>
+    <string name="mic_permission_needed">Қўнғироқ учун микрофонга рухсат беринг</string>
 </resources>

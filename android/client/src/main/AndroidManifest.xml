@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Buyurtma holati ilova yopiq paytida (push) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Haydovchi/dispetcherga ilova ichidan qo'ng'iroq (qaror #72) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <!-- Android 11+: haydovchi/dispetcherga qo'ng'iroq oynasi -->
     <queries>
@@ -38,6 +41,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ui.CallActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
 
         <service
             android:name=".PushService"

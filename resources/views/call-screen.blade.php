@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <title>Dispetcher</title>
+    <title>{{ $title }}</title>
     <style>
         /* Telefonning odatiy qo'ng'iroq ekrani: tepada kim, o'rtada rasm, pastda boshqaruv va qizil tugma */
         :root {
@@ -44,12 +44,13 @@
         #hangup svg { width: 34px; height: 34px; transform: rotate(135deg); }
         #hangup:active, .ctl button:active { transform: scale(0.94); }
     </style>
-    @vite('resources/js/driver-call.ts')
+    {{-- Haydovchi (driver-call.ts) va mijoz (client-call.ts) ilovalari ichidagi qo'ng'iroq ekrani --}}
+    @vite($script)
 </head>
 <body>
 <main>
     <div class="who">
-        <h1 id="title">Dispetcher</h1>
+        <h1 id="title">{{ $title }}</h1>
         <div id="status"></div>
         <div id="timer"></div>
     </div>

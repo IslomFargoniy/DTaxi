@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -349,7 +350,7 @@ fun HomeScreen(
                     finished?.let { FinishedBanner(it) { ClientState.clearFinished() } }
                     notice?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     if (activeOrder != null) {
-                        OrderPanel(activeOrder, driver?.let { LatLng(it.lat, it.lng) }, profile.config.supportPhone)
+                        OrderPanel(activeOrder, driver?.let { LatLng(it.lat, it.lng) }, profile.config.supportPhone, profile.config.appCalls)
                     } else if (draft.choosingDropoff) {
                         DropoffPicker(draft.dropoffCandidate, locating, onConfirm = { finishChoosingDropoff(confirm = true) }) {
                             finishChoosingDropoff(confirm = false)
@@ -554,12 +555,37 @@ private fun AddressRow(
 
 /** Faol buyurtma: holat, haydovchi va mashina, aloqa, bekor qilish */
 @Composable
-private fun OrderPanel(order: ClientOrder, driver: LatLng?, supportPhone: String?) {
+private fun OrderPanel(order: ClientOrder, driver: LatLng?, supportPhone: String?, appCalls: Boolean) {
     val context = LocalContext.current
     val repository = ClientApp.instance.repository
     val scope = rememberCoroutineScope()
     var confirmCancel by remember { mutableStateOf(false) }
     var cancelling by remember { mutableStateOf(false) }
+
+    // Ilova ichidan qo'ng'iroq (qaror #72): mikrofon ruxsati so'ralib, keyin qo'ng'iroq oynasi
+    var pendingCall by remember { mutableStateOf<String?>(null) }
+    val openCall = { target: String ->
+        context.startActivity(CallActivity.intent(context, target, order.driver?.name.takeIf { target == "driver" }))
+    }
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val target = pendingCall
+        pendingCall = null
+        when {
+            target == null -> Unit
+            granted -> openCall(target)
+            // Ruxsat berilmadi — oddiy qo'ng'iroq firma raqamiga (zaxira)
+            supportPhone != null -> context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$supportPhone")))
+            else -> Toast.makeText(context, R.string.mic_permission_needed, Toast.LENGTH_LONG).show()
+        }
+    }
+    val call = { target: String ->
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            openCall(target)
+        } else {
+            pendingCall = target
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
 
     Text(statusText(order.status), style = MaterialTheme.typography.titleLarge)
     if (order.status in setOf("new", "searching")) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -590,8 +616,25 @@ private fun OrderPanel(order: ClientOrder, driver: LatLng?, supportPhone: String
     Text("${order.pickup.text.orEmpty()}${order.dropoff?.text?.let { " → $it" } ?: ""}", maxLines = 2, overflow = TextOverflow.Ellipsis)
     order.priceEstimate?.let { Text(stringResource(R.string.price, formatMoney(it)), fontWeight = FontWeight.Bold) }
 
+    if (appCalls) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Haydovchiga — faqat u biriktirilgan va safar tugamagan paytda (server ham tekshiradi)
+            if (order.driver != null && order.status in setOf("assigned", "arrived", "in_progress")) {
+                OutlinedButton(onClick = { call("driver") }, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Call, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.call_driver), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            OutlinedButton(onClick = { call("dispatcher") }, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Default.Call, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.call_dispatcher), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (supportPhone != null) {
+        if (!appCalls && supportPhone != null) {
             OutlinedButton(
                 onClick = { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$supportPhone"))) },
                 modifier = Modifier.weight(1f),

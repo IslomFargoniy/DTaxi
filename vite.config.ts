@@ -14,6 +14,7 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/js/app.tsx',
                 'resources/js/driver-call.ts',
+                'resources/js/client-call.ts',
             ],
             refresh: true,
             fonts: [

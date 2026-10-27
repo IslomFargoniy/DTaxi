@@ -20,6 +20,15 @@ class IceServers
      */
     public function for(User $user): array
     {
+        return $this->forId((string) $user->id);
+    }
+
+    /**
+     * @param  string  $id  TURN login ichidagi egasi: foydalanuvchi id yoki mijozning vaqtinchalik raqami (cl{N})
+     * @return array{ice_servers: list<array{urls: list<string>, username?: string, credential?: string}>, ice_expires_at: int|null}
+     */
+    public function forId(string $id): array
+    {
         $servers = [];
         $stun = trim((string) config('services.webrtc.stun'));
         if ($stun !== '') {
@@ -33,7 +42,7 @@ class IceServers
         }
 
         $expiresAt = Carbon::now()->getTimestamp() + max(600, (int) config('services.webrtc.turn_ttl'));
-        $username = $expiresAt.':'.$user->id;
+        $username = $expiresAt.':'.$id;
         $servers[] = [
             'urls' => $urls,
             'username' => $username,

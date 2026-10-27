@@ -62,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
         // haydovchining GPS so'rovlari (har 4 s) mijozning buyurtmasini 429 qilib qo'yardi
         RateLimiter::for('client-lookup', fn (Request $request) => Limit::perMinute(120)->by('client:'.Auth::guard('sanctum')->id()));
         RateLimiter::for('client-order', fn (Request $request) => Limit::perMinute(10)->by('client-order:'.Auth::guard('sanctum')->id()));
+        RateLimiter::for('client-call', fn (Request $request) => Limit::perMinute(6)->by('client-call:'.Auth::guard('sanctum')->id()));
 
         // Uzoq vaqt ishlatilmagan token (yo'qolgan telefon) yaroqsiz — `expiration` yaratilgan vaqtdan sanaydi va smenadagi haydovchini chiqarib yuboradi
         Sanctum::authenticateAccessTokensUsing(function (PersonalAccessToken $token, bool $isValid): bool {

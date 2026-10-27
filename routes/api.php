@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Client\AuthController as ClientAuthController;
+use App\Http\Controllers\Api\Client\CallController as ClientCallController;
 use App\Http\Controllers\Api\Client\OrderController as ClientOrderController;
 use App\Http\Controllers\Api\Client\ProfileController as ClientProfileController;
 use App\Http\Controllers\Api\Driver\AuthController;
@@ -89,5 +90,9 @@ Route::prefix('client/v1')->group(function () {
         Route::get('orders/current', [ClientOrderController::class, 'current']);
         Route::post('orders/{order}/cancel', [ClientOrderController::class, 'cancel'])->whereNumber('order');
         Route::post('orders/{order}/rate', [ClientOrderController::class, 'rate'])->whereNumber('order');
+
+        // Haydovchi yoki dispetcherga ilova ichidan qo'ng'iroq (qaror #72): vaqtinchalik WebRTC raqam
+        Route::post('calls', [ClientCallController::class, 'store'])->middleware('throttle:client-call');
+        Route::get('calls/current', [ClientCallController::class, 'current']);
     });
 });

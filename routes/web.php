@@ -46,7 +46,9 @@ Route::get('driver-app', [DriverAppController::class, 'page'])->name('driver-app
 // Mijoz ilovasi maxfiylik siyosati — Google Play uchun ochiq (qaror #71)
 Route::get('privacy', PrivacyController::class)->name('privacy');
 // Haydovchi ilovasi ichidagi (WebView) dispetcherga qo'ng'iroq sahifasi; token JS ko'prik orqali beriladi
-Route::view('driver-app/call', 'driver-call')->name('driver-app.call');
+Route::view('driver-app/call', 'call-screen', ['title' => 'Dispetcher', 'script' => 'resources/js/driver-call.ts'])->name('driver-app.call');
+// Mijoz ilovasi ichidagi haydovchi/dispetcherga qo'ng'iroq (qaror #72)
+Route::view('client-app/call', 'call-screen', ['title' => '', 'script' => 'resources/js/client-call.ts'])->name('client-app.call');
 Route::get('driver-app/{abi}.apk', [DriverAppController::class, 'download'])->name('driver-app.download');
 
 Route::get('chat/{message}/attachment', function (ChatMessage $message) {

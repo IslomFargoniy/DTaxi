@@ -31,6 +31,7 @@ class TelephonyController extends Controller
         'calls.auto_call_retry_seconds' => ['integer', 'min:10', 'max:600'],
         'calls.still_waiting_minutes' => ['integer', 'min:0', 'max:30'],
         'calls.rating_call_enabled' => ['boolean'],
+        'calls.client_app_calls' => ['boolean'],
         'calls.rating_call_delay_minutes' => ['integer', 'min:0', 'max:60'],
         'calls.recordings_retention_days' => ['integer', 'min:1', 'max:3650'],
         'calls.max_recording_seconds' => ['integer', 'min:60', 'max:86400'],

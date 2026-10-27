@@ -60,9 +60,15 @@ class Extensions
         // Yangi yaratilgan modelda is_active o'qilmagan (null) — bazadagi standart qiymat true.
         // Avval null "faol emas" deb olinib, har yangi haydovchi qo'ng'iroq qila olmasdi (context=inactive)
         $context = ($user->is_active ?? true) ? 'from-internal' : 'inactive';
-        $password = (string) $user->sip_password;
+        $this->write($extension, (string) $user->sip_password, $context, '"'.self::callerName((string) $user->name)."\" <{$extension}>");
+    }
 
-        DB::transaction(function () use ($extension, $context, $password, $user) {
+    /**
+     * Ichki raqamni Asterisk Realtime jadvallariga yozish (operator, haydovchi, mijozning vaqtinchalik raqami).
+     */
+    public function write(string $extension, string $password, string $context, string $callerId, string $codecs = self::CODECS): void
+    {
+        DB::transaction(function () use ($extension, $context, $password, $callerId, $codecs) {
             PsAor::query()->updateOrCreate(['id' => $extension], [
                 'max_contacts' => 3,
                 'remove_existing' => 'yes',
@@ -84,8 +90,8 @@ class Extensions
                 'auth' => $extension,
                 'context' => $context,
                 'disallow' => 'all',
-                'allow' => self::CODECS,
-                'callerid' => '"'.self::callerName((string) $user->name)."\" <{$extension}>",
+                'allow' => $codecs,
+                'callerid' => $callerId,
                 'direct_media' => 'no',
                 'rtp_symmetric' => 'yes',
                 'force_rport' => 'yes',
@@ -167,7 +173,7 @@ class Extensions
         return $orphans->count() + $this->trunks->pruneOrphans();
     }
 
-    private function delete(string $extension): void
+    public function delete(string $extension): void
     {
         PsEndpoint::query()->whereKey($extension)->delete();
         PsAuth::query()->whereKey($extension)->delete();

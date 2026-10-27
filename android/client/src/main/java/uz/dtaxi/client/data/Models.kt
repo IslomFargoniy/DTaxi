@@ -18,6 +18,8 @@ data class ClientConfig(
     @SerializedName("company_name") val companyName: String?,
     /** Haydovchi yoki dispetcher bilan aloqa — firma raqami */
     @SerializedName("support_phone") val supportPhone: String?,
+    /** Haydovchi va dispetcherga ilova ichidan (internet orqali) qo'ng'iroq — firma o'chirib qo'yishi mumkin */
+    @SerializedName("app_calls") val appCalls: Boolean = false,
     @SerializedName("map_style") val mapStyle: String,
     val reverb: ReverbConfig,
     @SerializedName("map_center") val mapCenter: LatLng?,

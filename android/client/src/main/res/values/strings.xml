@@ -81,4 +81,8 @@
     <string name="location_settings_title">Joylashuvga ruxsat o\'chirilgan</string>
     <string name="location_settings_text">Joriy joyingizni aniqlash uchun ilova sozlamalarida "Joylashuv" ruxsatini yoqing.</string>
     <string name="open_settings">Sozlamalarni ochish</string>
+    <string name="call_driver">Haydovchiga</string>
+    <string name="call_dispatcher">Dispetcherga</string>
+    <string name="call_failed">Qo\'ng\'iroq ochilmadi. Internetni tekshiring.</string>
+    <string name="mic_permission_needed">Qo\'ng\'iroq uchun mikrofonga ruxsat bering</string>
 </resources>

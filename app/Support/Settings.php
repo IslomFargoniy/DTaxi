@@ -50,6 +50,8 @@ class Settings
         'calls.still_waiting_minutes' => 3,
         // Safardan keyin mijozga qo'ng'iroq: 1–5 tugmasi bilan baho (qo'ng'iroq pulli — standart o'chiq)
         'calls.rating_call_enabled' => false,
+        // Mijoz ilovasidan haydovchi/dispetcherga internet orqali qo'ng'iroq (qaror #72; mobil internetda TURN kerak)
+        'calls.client_app_calls' => true,
         'calls.rating_call_delay_minutes' => 2,
         // Efir (qaror #28)
         'dispatch.radius_steps_m' => [3000, 5000, 8000],

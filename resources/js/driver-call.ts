@@ -5,6 +5,7 @@
  */
 import { UA, WebSocketInterface } from 'jssip';
 import type { RTCSession } from 'jssip/lib/RTCSession';
+import { attachRemote, iceGathering } from './lib/call-media';
 
 type Bridge = {
     token(): string;
@@ -202,12 +203,12 @@ async function start(): Promise<void> {
         pcConfig: { iceServers: sip.ice_servers },
         eventHandlers: {
             peerconnection: ({ peerconnection }) =>
-                attachRemote(peerconnection),
+                attachRemote(peerconnection, $('remote') as HTMLAudioElement),
             icecandidate: iceReady,
         },
     });
     if (session.connection) {
-        attachRemote(session.connection);
+        attachRemote(session.connection, $('remote') as HTMLAudioElement);
     }
     status(t.ringing);
 
@@ -263,58 +264,6 @@ $('mute').addEventListener('click', () => {
     }
     $('mute').classList.toggle('on', !muted);
 });
-
-/**
- * JsSIP INVITE'ni ICE yig'ish to'liq tugaguncha ushlab turadi: STUN/TURN javob bermasa bu o'nlab
- * soniya. Kerakli nomzod kelsa (TURN bo'lsa relay, aks holda srflx) yoki 3 s o'tsa — darhol yuboriladi.
- */
-function iceGathering(
-    servers: RTCIceServer[],
-): (e: { candidate: RTCIceCandidate; ready: () => void }) => void {
-    const wanted = servers.some((s) => s.username) ? 'relay' : 'srflx';
-    let timeout = 0;
-
-    return ({ candidate, ready }) => {
-        if (candidate.type === wanted) {
-            window.clearTimeout(timeout);
-            ready();
-        } else if (!timeout) {
-            timeout = window.setTimeout(ready, 3000);
-        }
-    };
-}
-
-let attached: RTCPeerConnection | null = null;
-
-function playRemote(stream: MediaStream): void {
-    const remote = $('remote') as HTMLAudioElement;
-    if (remote.srcObject === stream) {
-        return;
-    }
-    remote.srcObject = stream;
-    // Ba'zi Android WebView'larda autoplay o'zi boshlanmaydi
-    void remote.play().catch((err: unknown) => {
-        console.warn('remote audio play failed', String(err));
-    });
-}
-
-function attachRemote(pc: RTCPeerConnection): void {
-    if (attached === pc) {
-        return;
-    }
-    attached = pc;
-    pc.addEventListener('track', (e: RTCTrackEvent) => {
-        playRemote(e.streams[0] ?? new MediaStream([e.track]));
-    });
-    // Trek ulanishdan oldin kelgan bo'lsa
-    const tracks = pc
-        .getReceivers()
-        .map((r) => r.track)
-        .filter((tr) => tr.kind === 'audio');
-    if (tracks.length > 0) {
-        playRemote(new MediaStream(tracks));
-    }
-}
 
 start().catch((e: unknown) => {
     console.error('call start failed', String(e));
