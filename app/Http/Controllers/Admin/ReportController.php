@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\SipTrunk;
 use App\Models\User;
+use App\Support\Csv;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -60,7 +61,7 @@ class ReportController extends Controller
                 fputcsv($out, array_keys($rows[0]), ';');
             }
             foreach ($rows as $row) {
-                fputcsv($out, array_map(fn ($v) => is_scalar($v) || $v === null ? $v : json_encode($v), $row), ';');
+                fputcsv($out, Csv::row(array_map(fn ($v) => is_scalar($v) || $v === null ? $v : json_encode($v), $row)), ';');
             }
             fclose($out);
         }, $name, ['Content-Type' => 'text/csv; charset=UTF-8']);

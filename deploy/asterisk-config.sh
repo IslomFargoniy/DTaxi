@@ -57,6 +57,32 @@ render() {
     printf '%s' "$content"
 }
 
+# Asterisk bazaga o'z roli bilan — faqat ps_* jadvallari (Realtime endpoint/auth/aor...). Ilova roli bilan Asterisk
+# buzilsa butun baza (foydalanuvchilar, integratsiya kalitlari) ochiq bo'lardi. Har ishga tushishda yangi ps_* jadvallar
+# ham qo'shiladi (toza o'rnatishda migratsiyadan oldin hali yo'q — install.sh migratsiyadan keyin yana chaqiradi)
+if command -v psql >/dev/null && sudo -u postgres true 2>/dev/null; then
+    AST_DB_USER="${DB_NAME}_asterisk"
+    AST_PASS_FILE=/etc/dtaxi/asterisk-db.pass
+    mkdir -p /etc/dtaxi
+    [[ -s "$AST_PASS_FILE" ]] || (umask 077 && openssl rand -hex 16 > "$AST_PASS_FILE")
+    AST_DB_PASS="$(cat "$AST_PASS_FILE")"
+    pg() { (cd /tmp && sudo -u postgres psql -v ON_ERROR_STOP=1 -q -d "$DB_NAME" "$@"); }
+    pg <<SQL
+DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${AST_DB_USER}') THEN CREATE ROLE "${AST_DB_USER}" LOGIN; END IF; END \$\$;
+ALTER ROLE "${AST_DB_USER}" PASSWORD '${AST_DB_PASS}';
+GRANT CONNECT ON DATABASE "${DB_NAME}" TO "${AST_DB_USER}";
+GRANT USAGE ON SCHEMA public TO "${AST_DB_USER}";
+SQL
+    for table in $(pg -Atc "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'ps\\_%'"); do
+        pg -c "GRANT SELECT, INSERT, UPDATE, DELETE ON public.\"${table}\" TO \"${AST_DB_USER}\""
+    done
+    for seq in $(pg -Atc "SELECT sequencename FROM pg_sequences WHERE schemaname = 'public' AND sequencename LIKE 'ps\\_%'"); do
+        pg -c "GRANT USAGE, SELECT ON SEQUENCE public.\"${seq}\" TO \"${AST_DB_USER}\""
+    done
+    DB_USER="$AST_DB_USER"
+    DB_PASS="$AST_DB_PASS"
+fi
+
 # Parolli fayllar yozilish paytida ham boshqalarga ochiq bo'lmasin
 umask 027
 for f in "${APP_DIR}"/deploy/asterisk/*.conf; do

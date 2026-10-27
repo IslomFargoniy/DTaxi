@@ -760,5 +760,7 @@
     "Data is stored on the taxi company server. Trip history is kept as accounting records of the company. Trip call recordings, if any, are deleted after the retention period set by the company.": "Ma'lumotlar taksi firmasining serverida saqlanadi. Safarlar tarixi firmaning hisob yozuvlari sifatida saqlanadi. Qo'ng'iroq yozuvlari (bo'lsa) firma belgilagan muddatdan keyin o'chiriladi.",
     "Deleting your account": "Hisobni o'chirish",
     "In the app: Settings → Delete account. Your sign-in, saved addresses and name entered in the app are deleted; trip history stays in the company records. You can also ask the dispatcher by phone.": "Ilovada: Sozlamalar → Hisobni o'chirish. Kirish ma'lumotlari, saqlangan manzillar va ilovada kiritilgan ism o'chiriladi; safarlar tarixi firma yozuvlarida qoladi. Dispetcherdan telefon orqali ham so'rashingiz mumkin.",
-    "Contact": "Aloqa"
+    "Contact": "Aloqa",
+    "Client app sign-in code calls per hour (0 — off)": "Mijoz ilovasi kirish kodi qo'ng'iroqlari, soatiga (0 — o'chiq)",
+    "Too many sign-in requests right now. Please try again later.": "Hozir kirish so'rovlari juda ko'p. Iltimos, keyinroq urinib ko'ring."
 }

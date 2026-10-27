@@ -8,6 +8,7 @@ use App\Events\ChatMessagesRead;
 use App\Events\OfferWithdrawn;
 use App\Events\OrderOffered;
 use App\Events\OrderUpdated;
+use App\Models\AuditLog;
 use App\Models\Branch;
 use App\Models\CashShift;
 use App\Models\ChatMessage;
@@ -240,6 +241,23 @@ test('admin blacklists a client and edits landmarks', function () {
     expect($client->fresh()->is_blacklisted)->toBeTrue()
         ->and($landmark->fresh()->name)->toBe('Yangi nom')
         ->and(Landmark::query()->search('новое')->first()?->id)->toBe($landmark->id);
+});
+
+test('only admins blacklist clients; client edits are audited', function () {
+    $client = Client::factory()->create(['name' => 'Ali']);
+    $operator = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
+
+    $this->actingAs($operator)->put(route('admin.clients.update', $client), ['is_blacklisted' => true, 'name' => 'Ali aka'])->assertRedirect();
+    expect($client->fresh()->is_blacklisted)->toBeFalse()
+        ->and($client->fresh()->name)->toBe('Ali aka');
+
+    $this->actingAs($this->admin)->put(route('admin.clients.update', $client), ['is_blacklisted' => true]);
+    $logs = AuditLog::query()->where('subject_type', 'Client')->where('subject_id', (string) $client->id)->orderBy('id')->get();
+    expect($client->fresh()->is_blacklisted)->toBeTrue()
+        ->and($logs)->toHaveCount(2)
+        ->and($logs[0]->user_id)->toBe($operator->id)
+        ->and($logs[0]->changes['name'])->toEqual(['from' => 'Ali', 'to' => 'Ali aka'])
+        ->and($logs[1]->changes['is_blacklisted']['to'])->toBeTrue();
 });
 
 test('admin sees order history with the event timeline', function () {

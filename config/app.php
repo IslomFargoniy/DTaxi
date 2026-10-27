@@ -15,6 +15,9 @@ return [
 
     'name' => env('APP_NAME', 'Dtaxi'),
 
+    // Demo server (install.sh --demo): demo test kodi va shunga o'xshash faqat sinov uchun imkoniyatlar (qaror #73)
+    'demo' => (bool) env('DTAXI_DEMO', false),
+
     // Dtaxi versiyasi (VERSION fayli; o'zgarishlar CHANGELOG.md da)
     'version' => trim((string) @file_get_contents(base_path('VERSION'))) ?: 'dev',
 

@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\Role;
 use App\Models\User;
+use Database\Seeders\RolesSeeder;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Features;
 
@@ -86,4 +88,13 @@ test('users are rate limited', function () {
     ]);
 
     $response->assertTooManyRequests();
+});
+
+test('drivers cannot sign in to the web panel', function () {
+    $this->seed(RolesSeeder::class);
+    $user = User::factory()->create(['email' => 'driver-+998901112233@drivers.local'])->assignRole(Role::Driver);
+
+    $this->post(route('login.store'), ['login' => $user->email, 'password' => 'password']);
+
+    $this->assertGuest();
 });

@@ -37,6 +37,7 @@ class TelephonyController extends Controller
         'calls.driver_gain' => ['integer', 'min:0', 'max:10'],
         'calls.operator_outbound_limit' => ['integer', 'min:0', 'max:1000'],
         'calls.operator_outbound_window_minutes' => ['integer', 'min:1', 'max:1440'],
+        'calls.login_code_calls_per_hour' => ['integer', 'min:0', 'max:10000'],
         // Operator qaysi raqamlarga tashqariga qo'ng'iroq qila oladi (toll fraud himoyasi)
         'calls.outbound_allowed_patterns' => ['array', 'min:1', 'max:20'],
     ];

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Client;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\ClientDeviceToken;
 use App\Rules\UzPhone;
 use App\Services\Clients\LoginCodes;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +25,9 @@ class AuthController extends Controller
     {
         $data = $request->validate(['phone' => ['required', 'string', 'max:25', new UzPhone]]);
 
-        $this->codes->send(Client::normalizePhone($data['phone']));
+        if (! $this->codes->send(Client::normalizePhone($data['phone']))) {
+            return response()->json(['message' => __('Too many sign-in requests right now. Please try again later.')], 429);
+        }
 
         return response()->json(['expires_in' => LoginCodes::TTL_MINUTES * 60], 202);
     }
@@ -55,7 +58,10 @@ class AuthController extends Controller
 
     public function logout(): Response
     {
-        $this->client()->currentAccessToken()->delete();
+        $client = $this->client();
+        $client->currentAccessToken()->delete();
+        // Chiqqan telefon bu hisobning safar push'larini olishda davom etmasin
+        ClientDeviceToken::query()->where('client_id', $client->id)->delete();
 
         return response()->noContent();
     }

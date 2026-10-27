@@ -121,6 +121,22 @@ if command -v ufw >/dev/null && ufw status | grep -q '^Status: active'; then
     ufw allow "${TURN_MIN_PORT}:${TURN_MAX_PORT}/udp" comment 'dtaxi-turn relay' >/dev/null
 fi
 
+# coturn faqat IP bo'yicha cheklaydi (allowed-peer-ip) — port bo'yicha emas: TURN login'i bor har kim shu serverning
+# tashqaridan yopiq portlariga (5060/udp, 5432, 6379...) relay qila olardi. turnserver jarayoni chiqaradigan paketlar
+# server IP'lariga faqat Asterisk RTP portlariga. Qoidalar loopback ruxsatidan (-o lo -j ACCEPT) oldin turishi shart
+if [[ -f /etc/ufw/before.rules ]] && id -u turnserver >/dev/null 2>&1; then
+    sed -i '/^# dtaxi-turn-begin$/,/^# dtaxi-turn-end$/d' /etc/ufw/before.rules
+    BLOCK="# dtaxi-turn-begin"
+    for ip in $(printf '%s\n' "$PRIVATE_IP" "$PUBLIC_IP" | sort -u); do
+        BLOCK+=$'\n'"-A ufw-before-output -m owner --uid-owner turnserver -d ${ip} -p udp --dport 10000:20000 -j ACCEPT"
+        BLOCK+=$'\n'"-A ufw-before-output -m owner --uid-owner turnserver -d ${ip} -j REJECT"
+    done
+    BLOCK+=$'\n'"# dtaxi-turn-end"
+    awk -v block="$BLOCK" '!done && /^-A ufw-before-output/ { print block; done=1 } { print }' /etc/ufw/before.rules > /etc/ufw/before.rules.dtaxi
+    mv /etc/ufw/before.rules.dtaxi /etc/ufw/before.rules
+    ufw status | grep -q '^Status: active' && ufw reload >/dev/null
+fi
+
 systemctl enable coturn >/dev/null 2>&1
 systemctl restart coturn
 

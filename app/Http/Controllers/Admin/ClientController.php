@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Client;
 use App\Models\Company;
 use App\Models\User;
@@ -56,8 +57,28 @@ class ClientController extends Controller
         if (! $request->user()?->can('tariffs.manage')) {
             unset($data['company_id'], $data['discount_percent']);
         }
+        // Qora ro'yxat (ilovadan buyurtma bermaydi) — operator emas, admin qarori
+        if (! $request->user()?->can('users.manage')) {
+            unset($data['is_blacklisted']);
+        }
 
-        $client->update($data);
+        $client->fill($data);
+        $changes = collect($client->getDirty())->map(fn ($to, $key) => ['from' => $client->getOriginal($key), 'to' => $to])->all();
+        $client->save();
+
+        // Mijoz modeli Auditable emas (har yangi raqam va buyurtma hisoblagichi jurnalni to'ldirardi) — faqat xodim tahriri
+        if ($changes !== []) {
+            AuditLog::query()->create([
+                'user_id' => $user->id,
+                'action' => 'updated',
+                'subject_type' => 'Client',
+                'subject_id' => (string) $client->id,
+                'subject_label' => $client->name ?? $client->phone,
+                'changes' => $changes,
+                'ip' => $request->ip(),
+                'created_at' => now(),
+            ]);
+        }
 
         return back();
     }

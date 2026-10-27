@@ -67,6 +67,9 @@ class TrunkSync
                 'transport' => $trunk->transport,
                 'aors' => "aor-{$id}",
                 'context' => 'from-trunk',
+                // Faqat IP bo'yicha: endpoint_identifier_order'da "username" ham bor — aks holda /ws (127.0.0.1 dan)
+                // orqali "From: trunk-<nom>" yuborgan har kim parolsiz trunk deb tanilardi (firewall chetlab o'tiladi)
+                'identify_by' => 'ip',
                 'disallow' => 'all',
                 'allow' => 'alaw,ulaw',
                 'direct_media' => 'no',

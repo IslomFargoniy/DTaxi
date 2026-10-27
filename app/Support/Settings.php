@@ -38,6 +38,9 @@ class Settings
         // Bitta operatorning chiquvchi qo'ng'iroqlari chegarasi (0 — cheksiz)
         'calls.operator_outbound_limit' => 30,
         'calls.operator_outbound_window_minutes' => 10,
+        // Mijoz ilovasi kirish kodi qo'ng'iroqlari (qaror #71) — butun firma bo'yicha soatiga; trunk orqali pullik
+        // avto-qo'ng'iroqlarni ko'p IP'dan suiiste'mol qilib bo'lmasin
+        'calls.login_code_calls_per_hour' => 100,
         // IVR avto-buyurtma: doimiy mijoz "1" ni bosib oxirgi manziliga taksi chaqiradi (Bosqich 5)
         'calls.ivr_auto_order' => false,
         // Avto-qo'ng'iroqlar (§5.4)

@@ -275,6 +275,11 @@ class UpdateApp extends Command
         if ($changed) {
             $this->warn('Asterisk sozlamalari o\'zgardi. Qo\'llash uchun: sudo '.base_path('deploy/asterisk-config.sh'));
         }
+        // Root cron'dagi nusxa (/usr/local/sbin) ilova papkasidan o'zi yangilanmaydi (root'niki bo'lishi shart)
+        $firewall = Process::path(base_path())->run(['git', 'diff', '--quiet', $from, 'HEAD', '--', 'deploy/sip-firewall.sh'])->exitCode() === 1;
+        if ($firewall) {
+            $this->warn('SIP firewall skripti o\'zgardi. Qo\'llash uchun: sudo install -o root -m 755 '.base_path('deploy/sip-firewall.sh').' /usr/local/sbin/dtaxi-sip-firewall');
+        }
     }
 
     private function onBranch(): bool

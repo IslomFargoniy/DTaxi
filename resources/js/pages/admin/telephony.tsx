@@ -68,6 +68,7 @@ const SETTING_LIMITS: Record<string, [number, number]> = {
     'calls.driver_gain': [0, 10],
     'calls.operator_outbound_limit': [0, 1000],
     'calls.operator_outbound_window_minutes': [1, 1440],
+    'calls.login_code_calls_per_hour': [0, 10000],
 };
 
 type Props = {
@@ -637,6 +638,11 @@ const SETTING_FIELDS: {
     {
         key: 'calls.operator_outbound_window_minutes',
         label: 'Outgoing call limit period, minutes',
+        kind: 'number',
+    },
+    {
+        key: 'calls.login_code_calls_per_hour',
+        label: 'Client app sign-in code calls per hour (0 — off)',
         kind: 'number',
     },
     {

@@ -163,15 +163,15 @@ Tekshirish: `systemctl status coturn`, `journalctl -u coturn`; brauzerda `chrome
 
 ## 3. Portlar va xizmatlar
 
-| Port                         | Kimga ochiq             | Nima                                                    |
-| ---------------------------- | ----------------------- | ------------------------------------------------------- |
-| 22/tcp                       | hammaga (fail2ban)      | SSH                                                     |
-| 80, 443/tcp                  | hammaga                 | panel, API, WSS (Reverb, Asterisk)                      |
-| 10000–20000/udp              | hammaga                 | ovoz (RTP) — brauzer, ilova, trunk                      |
-| 5060/udp                     | **faqat trunk IP'lari** | SIP trunk (`deploy/sip-firewall.sh`, cron har 5 daqiqa) |
-| 3478/tcp+udp, 5349/tcp       | hammaga (`--turn`)      | TURN/STUN, TURN over TLS (coturn)                       |
-| 49160–49760/udp              | hammaga (`--turn`)      | TURN relay portlari                                     |
-| 5432, 6379, 8080, 8088, 5000 | faqat 127.0.0.1         | PostgreSQL, Redis, Reverb, Asterisk HTTP/ARI, OSRM      |
+| Port                         | Kimga ochiq             | Nima                                                                                                             |
+| ---------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 22/tcp                       | hammaga (fail2ban)      | SSH                                                                                                              |
+| 80, 443/tcp                  | hammaga                 | panel, API, WSS (Reverb, Asterisk)                                                                               |
+| 10000–20000/udp              | hammaga                 | ovoz (RTP) — brauzer, ilova, trunk                                                                               |
+| 5060/udp                     | **faqat trunk IP'lari** | SIP trunk (`/usr/local/sbin/dtaxi-sip-firewall` — `deploy/sip-firewall.sh` ning root nusxasi, cron har 5 daqiqa) |
+| 3478/tcp+udp, 5349/tcp       | hammaga (`--turn`)      | TURN/STUN, TURN over TLS (coturn)                                                                                |
+| 49160–49760/udp              | hammaga (`--turn`)      | TURN relay portlari                                                                                              |
+| 5432, 6379, 8080, 8088, 5000 | faqat 127.0.0.1         | PostgreSQL, Redis, Reverb, Asterisk HTTP/ARI, OSRM                                                               |
 
 | Xizmat                           | Boshqaruv                             | Log                          |
 | -------------------------------- | ------------------------------------- | ---------------------------- |
@@ -240,7 +240,7 @@ cd .. && deploy/upload-apk.sh root@<server> --client   # sinov APK serverga: htt
 
 **Firebase (push):** firmaning Firebase loyihasiga ikkinchi Android ilova qo'shiladi (paket — `clientApplicationId`), uning `mobilesdk_app_id` → `clientFirebaseApplicationId`. Server kaliti (service account) haydovchi ilovasi bilan bir xil — Panel → Integratsiyalar. Sozlanmasa push o'chiq, holat ilova ochiq paytida Reverb orqali keladi.
 
-**Kirish kodi** avtomatik qo'ng'iroqda aytiladi (SMS yo'q, qaror #4): SIP trunk va Panel → Ovozlar → "yetishmayotganlarini generatsiya qilish" (iboralar `login-code`, `code-repeat`) kerak. Trunk yo'q demo serverda — `.env` da `CLIENT_TEST_CODE=1122` (har raqamga shu kod; **firma serverida bo'sh**).
+**Kirish kodi** avtomatik qo'ng'iroqda aytiladi (SMS yo'q, qaror #4): SIP trunk va Panel → Ovozlar → "yetishmayotganlarini generatsiya qilish" (iboralar `login-code`, `code-repeat`) kerak. Trunk yo'q demo serverda — `.env` da `CLIENT_TEST_CODE=1122`: faqat `DTAXI_DEMO=true` (`install.sh --demo` yozadi) va faqat test raqamlariga +998900000001…09 (qaror #73); firma serverida ishlamaydi. Kod qo'ng'iroqlari firma bo'yicha soatlik limit bilan (Panel → Telefoniya).
 
 **Google Play Console** (firma akkaunti, bir martalik $25):
 
@@ -387,7 +387,7 @@ To'plamni o'rnatilgan serverga alohida tiklash: `sudo ./deploy/map-restore.sh /r
 | Ovoz bir tomonlama                                               | server NAT ortida, ochiq IP yo'q                                                    | ochiq IP'li server yoki TURN (§2.1); yoki `LOCAL_NET` noto'g'ri — `sudo LOCAL_NET=10.0.0.0/8 /var/www/dtaxi/deploy/asterisk-config.sh --restart`                                                             |
 | Ba'zi operatorlarda (ofis tarmog'i) ovoz yo'q                    | tarmoq UDP'ni yopadi                                                                | TURN: `sudo DOMAIN=<domen> /var/www/dtaxi/deploy/turn-config.sh`; webfonni qayta yuklash                                                                                                                     |
 | Trunk "Unregistered"                                             | login/parol, provayder IP'si                                                        | Panel → Telefoniya; `asterisk -rx 'pjsip show registrations'`; `ufw status`                                                                                                                                  |
-| Kiruvchi qo'ng'iroq kelmaydi                                     | 5060 trunk IP'siga ochilmagan                                                       | `sudo /var/www/dtaxi/deploy/sip-firewall.sh`, `journalctl -t dtaxi-sip`                                                                                                                                      |
+| Kiruvchi qo'ng'iroq kelmaydi                                     | 5060 trunk IP'siga ochilmagan                                                       | `sudo /usr/local/sbin/dtaxi-sip-firewall`, `journalctl -t dtaxi-sip`                                                                                                                                         |
 | Telefoniya sozlamalari ta'sir qilmaydi                           | ARI daemon eski sozlamani ushlab turadi                                             | `sudo -u dtaxi php artisan ari:restart`                                                                                                                                                                      |
 | Operator "band" bo'lib qoldi                                     | qo'ng'iroq holati osilib qolgan (Asterisk qayta ishga tushgan)                      | `ari:restart`                                                                                                                                                                                                |
 | Haydovchiga push kelmaydi                                        | Firebase kaliti yo'q yoki `google-services.json` boshqa loyihaniki                  | Integratsiyalar va Android build'ni tekshiring                                                                                                                                                               |

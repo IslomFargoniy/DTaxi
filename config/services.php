@@ -57,7 +57,7 @@ return [
         'recordings_dir' => env('ASTERISK_RECORDINGS_DIR', '/var/spool/asterisk/recording'),
     ],
 
-    // Mijoz ilovasi (qaror #71): faqat demo serverda — trunk yo'q, kod qo'ng'iroqda aytilmaydi. Firma serverida bo'sh
+    // Mijoz ilovasi (qaror #71): faqat demo serverda (DTAXI_DEMO=true) va test raqamlariga — trunk yo'q, kod qo'ng'iroqda aytilmaydi
     'client_login' => [
         'test_code' => env('CLIENT_TEST_CODE'),
     ],

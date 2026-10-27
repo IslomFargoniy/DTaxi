@@ -13,7 +13,7 @@ Telefon orqali ishlaydigan taksi dispetcherlik tizimi. Mahsulot nomi — **Dtaxi
 
 ## Muhit
 
-- **Lokal server yo'q** (Multipass VM 2026-10-26 da o'chirilgan). Kod, `composer`, `npm`, Pint, PHPStan, `tsc` — Mac'da (bazasiz). Bazaga muhtoj testlar — **demo serverda**: `deploy/test-remote.sh` ishchi papkani (commit qilinmaganlari bilan) `taxi@193.181.218.203:~/dtaxi-tests` ga rsync qilib, u yerda `php artisan test` (alohida `dtaxi_test` roli va bazasi — asosiy `dtaxi` bazasiga ulanish huquqi yo'q). Panel va ilovalarni sinash — demo `https://taxi.simulator.uz`.
+- **Lokal server yo'q** (Multipass VM 2026-10-26 da o'chirilgan). Kod, `composer`, `npm`, Pint, PHPStan, `tsc` — Mac'da (bazasiz). Bazaga muhtoj testlar — **demo serverda**: `deploy/test-remote.sh` ishchi papkani (commit qilinmaganlari bilan) `dtaxi-test@193.181.218.203:~/dtaxi-tests` ga rsync qilib, u yerda `php artisan test` (sudo'siz `dtaxi-test` foydalanuvchisi, kalit `~/.ssh/dtaxi_test_ed25519`; alohida `dtaxi_test` roli va bazasi — asosiy `dtaxi` bazasiga ulanish huquqi yo'q). Panel va ilovalarni sinash — demo `https://taxi.simulator.uz`.
 - Server o'rnatish: `deploy/install.sh` (toza Ubuntu; `--prod --domain= --email=` firma serveri, `--demo`; `--dev` — lokal VM uchun edi). OSM ma'lumoti: `deploy/osm-prepare.sh` → `php artisan regions:import` (butun O'zbekiston, qaror #67).
 - Telefoniya: Asterisk serverda; qo'ng'iroq mantig'i `App\Services\Telephony\CallCenter` (ARI), daemon `php artisan ari:listen` (supervisor `dtaxi-ari`; yangi kod uchun `ari:restart`). Mikrofon faqat https'da.
 - Android: JDK 17 (`~/Library/Java/JavaVirtualMachines/jdk-17*`), Studio'ning JBR'i (25) Gradle 8.9 bilan ishlamaydi. Har `:driver:assembleDebug`/`:driver:assembleRelease` dan keyin haydovchi ilovasining universal APK'si `public/android/dtaxi.<versiya>.apk` ga tushadi (faqat oxirgisi, git'ga tushmaydi). Versiya — `1.0.<git commit'lar soni>`; mijoz ilovasi — o'z hisobi bilan: `1.0.<android/client va android/core ni o'zgartirgan commit'lar soni>` (APK `public/android/client/`). Haqiqiy telefon uchun: `./gradlew :driver:assembleRelease -Pfirm=lan` + Mac'da `python3 deploy/dev-lan-proxy.py`.
@@ -21,7 +21,7 @@ Telefon orqali ishlaydigan taksi dispetcherlik tizimi. Mahsulot nomi — **Dtaxi
 ## Buyruqlar
 
 ```bash
-DTAXI_SSH_PASSWORD=... deploy/test-remote.sh [--filter=...]   # testlar demo serverda
+deploy/test-remote.sh [--filter=...]                          # testlar demo serverda
 vendor/bin/pint && vendor/bin/phpstan analyse --memory-limit=1G # Mac'da (composer test — CI'da, bazali)
 npm run check                    # frontend format va lint
 npx tsc --noEmit                 # TypeScript

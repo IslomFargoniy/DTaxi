@@ -1,25 +1,19 @@
 #!/usr/bin/env bash
 # Testlar demo serverda (Mac'da PostgreSQL+PostGIS yo'q — lokal VM o'chirilgan): ishchi papka (commit qilinmaganlari
-# bilan) serverdagi ~/dtaxi-tests ga rsync qilinadi va u yerda `php artisan test`. Test bazasi — alohida dtaxi_test
-# roli: asosiy `dtaxi` bazasiga ulanish huquqi yo'q, xato sozlamada ham ishlab turgan ma'lumotga tegmaydi.
+# bilan) serverdagi ~/dtaxi-tests ga rsync qilinadi va u yerda `php artisan test`. Xavfsizlik:
+#   - alohida `dtaxi-test` foydalanuvchisi — sudo'siz, faqat SSH kalit bilan (~/.ssh/dtaxi_test_ed25519);
+#   - test bazasi — alohida dtaxi_test roli: asosiy `dtaxi` bazasiga ulanish huquqi yo'q.
 #
-#   DTAXI_SSH_PASSWORD='...' deploy/test-remote.sh                  # hammasi
-#   DTAXI_SSH_PASSWORD='...' deploy/test-remote.sh --filter=Client  # pest argumentlari
+#   deploy/test-remote.sh                  # hammasi
+#   deploy/test-remote.sh --filter=Client  # pest argumentlari
 #
 # Pint, PHPStan, npm run check, tsc — Mac'da (bazasiz).
 set -euo pipefail
 
-HOST="${DTAXI_TEST_HOST:-taxi@193.181.218.203}"
+HOST="${DTAXI_TEST_HOST:-dtaxi-test@193.181.218.203}"
+KEY="${DTAXI_TEST_KEY:-$HOME/.ssh/dtaxi_test_ed25519}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-
-if [[ -n "${DTAXI_SSH_PASSWORD:-}" ]]; then
-    ASKPASS="$(mktemp)"
-    trap 'rm -f "$ASKPASS"' EXIT
-    printf '#!/bin/sh\nprintf "%%s\\n" "$DTAXI_SSH_PASSWORD"\n' > "$ASKPASS"
-    chmod 700 "$ASKPASS"
-    export SSH_ASKPASS="$ASKPASS" SSH_ASKPASS_REQUIRE=force DISPLAY=x DTAXI_SSH_PASSWORD
-fi
-SSH="ssh -o ConnectTimeout=20 -o ServerAliveInterval=20"
+SSH="ssh -i $KEY -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=20"
 
 # vendor serverda o'zi (composer.lock o'zgarsa qayta); .env serverniki — test bazasi paroli bilan
 rsync -az --delete -e "$SSH" \
@@ -28,7 +22,8 @@ rsync -az --delete -e "$SSH" \
     --exclude='storage/app/*' --exclude='storage/framework/*' --exclude=bootstrap/cache/ \
     "$ROOT/" "$HOST:dtaxi-tests/"
 
-$SSH "$HOST" bash -s -- "$@" <<'REMOTE'
+# Argumentlar SSH orqali bitta qatorga qo'shiladi — bo'sh joyli filtr bo'linmasin
+$SSH "$HOST" bash -s -- $(printf '%q ' "$@") <<'REMOTE'
 set -euo pipefail
 cd ~/dtaxi-tests
 mkdir -p storage/app/private storage/framework/{cache,sessions,testing,views} storage/logs bootstrap/cache

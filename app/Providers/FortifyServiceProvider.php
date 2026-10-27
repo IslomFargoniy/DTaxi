@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Enums\Role;
 use App\Models\User;
 use Database\Seeders\FirstRunSeeder;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -52,7 +53,8 @@ class FortifyServiceProvider extends ServiceProvider
                 ->where(fn ($q) => $q->where('username', $login)->orWhereRaw('lower(email) = ?', [$login]))
                 ->first();
 
-            return $user && $user->is_active && Hash::check((string) $request->input('password'), $user->password)
+            // Haydovchi — faqat ilova orqali (driver-<raqam>@drivers.local e-mail bilan panelga kirib qolmasin)
+            return $user && $user->is_active && ! $user->hasRole(Role::Driver) && Hash::check((string) $request->input('password'), $user->password)
                 ? $user
                 : null;
         });

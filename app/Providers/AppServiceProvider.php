@@ -53,7 +53,11 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(3)->by('phone:'.Client::normalizePhone($request->string('phone')->toString())),
             Limit::perHour(10)->by('ip:'.$request->ip()),
         ]);
-        RateLimiter::for('client-verify', fn (Request $request) => Limit::perMinute(10)->by('ip:'.$request->ip()));
+        // Kodni tanlash: IP bo'yicha va raqam bo'yicha (ko'p IP'dan bitta raqamga ham)
+        RateLimiter::for('client-verify', fn (Request $request) => [
+            Limit::perMinute(10)->by('ip:'.$request->ip()),
+            Limit::perHour(20)->by('verify-phone:'.Client::normalizePhone($request->string('phone')->toString())),
+        ]);
         // Nomli cheklov — kalit "client:<id>": oddiy throttle:N,1 faqat ID bo'yicha sanaydi va mijoz bilan bir xil ID'li
         // haydovchining GPS so'rovlari (har 4 s) mijozning buyurtmasini 429 qilib qo'yardi
         RateLimiter::for('client-lookup', fn (Request $request) => Limit::perMinute(120)->by('client:'.Auth::guard('sanctum')->id()));

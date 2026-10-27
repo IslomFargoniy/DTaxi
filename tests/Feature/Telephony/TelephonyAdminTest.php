@@ -39,7 +39,9 @@ test('superadmin adds a SIP trunk and it is written to Asterisk realtime', funct
 
     $trunk = SipTrunk::query()->sole();
     expect($trunk->password)->toBe('secret')
-        ->and(PsEndpoint::query()->find('trunk-sarkor'))->not->toBeNull();
+        ->and(PsEndpoint::query()->find('trunk-sarkor'))->not->toBeNull()
+        // Username bo'yicha tanilmasin — /ws orqali "From: trunk-sarkor" soxtalashtirib bo'lmaydi
+        ->and(PsEndpoint::query()->find('trunk-sarkor')?->identify_by)->toBe('ip');
 
     $this->actingAs($this->superadmin)->get(route('admin.telephony.index'))->assertOk()
         ->assertInertia(fn ($page) => $page->component('admin/telephony')->where('trunks.0.state', 'online')->where('trunks.0.has_password', true));
@@ -65,7 +67,7 @@ test('superadmin changes call center settings and branch limits', function () {
         'calls_still_waiting_minutes' => 0, 'calls_recordings_retention_days' => 30,
         'calls_rating_call_enabled' => true, 'calls_rating_call_delay_minutes' => 5,
         'calls_max_recording_seconds' => 3600, 'calls_driver_gain' => 2,
-        'calls_operator_outbound_limit' => 10, 'calls_operator_outbound_window_minutes' => 5,
+        'calls_operator_outbound_limit' => 10, 'calls_operator_outbound_window_minutes' => 5, 'calls_login_code_calls_per_hour' => 50,
         'calls_outbound_allowed_patterns' => ['^998\\d{9}$', ' ^7\\d{10}$ '],
     ])->assertSessionHasNoErrors();
     $this->actingAs($this->superadmin)->put(route('admin.telephony.limits.update'), [

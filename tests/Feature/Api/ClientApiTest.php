@@ -22,6 +22,7 @@ use App\Services\Drivers\DriverLocator;
 use App\Services\Orders\OrderEvents;
 use App\Services\Orders\OrderService;
 use App\Services\Push\FcmPushNotifier;
+use App\Support\Settings;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\DB;
@@ -101,11 +102,24 @@ test('a code is cancelled after five wrong attempts and requests are rate limite
     RateLimiter::clear('phone:+998901112233');
 });
 
-test('demo test code works only when configured', function () {
-    $this->postJson('/api/client/v1/auth/verify', ['phone' => '901112233', 'code' => '7777', 'device_name' => 'x'])->assertStatus(422);
-
+test('demo test code works only on a demo server and only for test phones', function () {
     config(['services.client_login.test_code' => '7777']);
-    $this->postJson('/api/client/v1/auth/verify', ['phone' => '901112233', 'code' => '7777', 'device_name' => 'x'])->assertOk();
+
+    // Firma serveri (DTAXI_DEMO yo'q) — test raqamiga ham ishlamaydi
+    $this->postJson('/api/client/v1/auth/verify', ['phone' => '900000001', 'code' => '7777', 'device_name' => 'x'])->assertStatus(422);
+
+    config(['app.demo' => true]);
+    // Demo serverda ham oddiy raqam bilan — yo'q (ustoz kalit emas)
+    $this->postJson('/api/client/v1/auth/verify', ['phone' => '901112233', 'code' => '7777', 'device_name' => 'x'])->assertStatus(422);
+    $this->postJson('/api/client/v1/auth/verify', ['phone' => '900000001', 'code' => '7777', 'device_name' => 'x'])->assertOk();
+});
+
+test('sign-in code calls stop at the firm-wide hourly limit', function () {
+    app(Settings::class)->set('calls.login_code_calls_per_hour', 1);
+
+    $this->postJson('/api/client/v1/auth/request-code', ['phone' => '901112233'])->assertStatus(202);
+    $this->postJson('/api/client/v1/auth/request-code', ['phone' => '901112244'])->assertStatus(429);
+    Queue::assertPushed(PlaceCodeCall::class, 1);
 });
 
 test('quote lists tariff prices for the branch serving the pickup, outside the area is refused', function () {
@@ -265,6 +279,17 @@ test('client registers a push token, a phone moving to another client takes the 
 
     expect(ClientDeviceToken::query()->where('token', 'fcm-1')->sole()->client_id)->toBe($second->id)
         ->and(ClientDeviceToken::query()->where('client_id', $first->id)->exists())->toBeFalse();
+});
+
+test('logging out removes the phone push token', function () {
+    $client = Client::factory()->create();
+    ClientDeviceToken::query()->create(['client_id' => $client->id, 'token' => 'fcm-out']);
+    $token = $client->createToken('x', ['client'])->plainTextToken;
+
+    $this->withToken($token)->postJson('/api/client/v1/auth/logout')->assertNoContent();
+
+    expect(ClientDeviceToken::query()->where('client_id', $client->id)->exists())->toBeFalse()
+        ->and($client->tokens()->count())->toBe(0);
 });
 
 test('privacy policy is public for Google Play', function () {

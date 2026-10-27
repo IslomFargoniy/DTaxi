@@ -910,18 +910,18 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 
 **A. Xavfsizlik (~1 kun)**
 
-- [ ] A1 SIP trunk'ni `/ws` orqali soxtalashtirish: trunk endpoint'iga `identify_by=ip` (aks holda `From: trunk-<nom>` parolsiz trunk deb tanilardi); mavjud serverlarda `telephony:sync`
-- [ ] A2 Root cron ilova egalidagi `deploy/sip-firewall.sh` ni ishga tushirardi — root'niki nusxa `/usr/local/sbin/dtaxi-sip-firewall`
-- [ ] A3 Kirish kodi: urinishlar atomik (`Cache::increment`), raqam bo'yicha verify cheklovi
-- [ ] A4 Demo test kodi — faqat demo rejim + test raqamlari (qaror #73)
-- [ ] A5 Kod qo'ng'iroqlariga umumiy soatlik/kunlik limit (pullik avto-qo'ng'iroq suiiste'moli)
-- [ ] A6 CSV formula injection: `= + - @` bilan boshlanuvchi kataklar (korporativ hisob, hisobotlar)
-- [ ] A7 Mijozni qora ro'yxatga qo'shish — faqat admin; `Client` — `Auditable`
-- [ ] A8 TURN relay faqat RTP portlariga (10000–20000/udp)
-- [ ] A9 Mijoz chiqqanda push tokenlari ham o'chadi; haydovchi rolini web panelga kiritmaslik (Fortify)
-- [ ] A10 nginx: xavfsizlik sarlavhalari (HSTS va b.), noma'lum Host — 444, `trustHosts`; `limit_req` — mijoz kirishi va mo'ljal tile'lari
-- [ ] A11 Redis paroli; Asterisk uchun faqat `ps_*` jadvallariga ruxsatli DB roli
-- [ ] A12 Testlar demo'da sudo'siz alohida foydalanuvchida (kalit bilan SSH)
+- [x] A1 SIP trunk'ni `/ws` orqali soxtalashtirish: trunk endpoint'iga `identify_by=ip` (aks holda `From: trunk-<nom>` parolsiz trunk deb tanilardi); mavjud serverlarda `telephony:sync`
+- [x] A2 Root cron ilova egalidagi `deploy/sip-firewall.sh` ni ishga tushirardi — root'niki nusxa `/usr/local/sbin/dtaxi-sip-firewall`
+- [x] A3 Kirish kodi: urinishlar atomik (`Cache::increment`), raqam bo'yicha verify cheklovi
+- [x] A4 Demo test kodi — faqat demo rejim + test raqamlari (qaror #73)
+- [x] A5 Kod qo'ng'iroqlariga umumiy soatlik/kunlik limit (pullik avto-qo'ng'iroq suiiste'moli)
+- [x] A6 CSV formula injection: `= + - @` bilan boshlanuvchi kataklar (korporativ hisob, hisobotlar)
+- [x] A7 Mijozni qora ro'yxatga qo'shish — faqat admin; `Client` — `Auditable`
+- [x] A8 TURN relay faqat RTP portlariga (10000–20000/udp)
+- [x] A9 Mijoz chiqqanda push tokenlari ham o'chadi; haydovchi rolini web panelga kiritmaslik (Fortify)
+- [x] A10 nginx: xavfsizlik sarlavhalari (HSTS va b.), noma'lum Host — 444, `trustHosts`; `limit_req` — mijoz kirishi va mo'ljal tile'lari
+- [x] A11 Redis paroli; Asterisk uchun faqat `ps_*` jadvallariga ruxsatli DB roli
+- [x] A12 Testlar demo'da sudo'siz alohida foydalanuvchida (kalit bilan SSH)
 
 **B. Buyurtma va pul (~1 kun)**
 

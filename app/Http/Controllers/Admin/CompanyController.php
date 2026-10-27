@@ -10,6 +10,7 @@ use App\Models\Company;
 use App\Models\Order;
 use App\Models\User;
 use App\Rules\UzPhone;
+use App\Support\Csv;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -83,7 +84,7 @@ class CompanyController extends Controller
             fwrite($out, "\xEF\xBB\xBF");
             fputcsv($out, ['#', __('Date'), __('Client'), __('Phone'), __('Pickup'), __('Destination'), __('Driver'), 'km', __('Price')], ';');
             foreach ($orders as $order) {
-                fputcsv($out, [
+                fputcsv($out, Csv::row([
                     $order->id,
                     $order->completed_at?->setTimezone($tz)->format('d.m.Y H:i'),
                     $order->client->name,
@@ -93,7 +94,7 @@ class CompanyController extends Controller
                     $order->driver?->callsign,
                     round(($order->distance_m ?? 0) / 1000, 1),
                     $order->price_final,
-                ], ';');
+                ]), ';');
             }
             fputcsv($out, ['', '', '', '', '', '', '', __('Total'), $orders->sum('price_final')], ';');
             fclose($out);

@@ -24,6 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+        // Faqat APP_URL domeni: begona Host sarlavhasi parol tiklash havolalari va server manzillariga tushmasin
+        $middleware->trustHosts();
 
         $middleware->alias([
             'role' => RoleMiddleware::class,

@@ -220,6 +220,17 @@ if [[ "$MODE" == "--prod" ]]; then
     set_env REVERB_HOST 127.0.0.1
     set_env REVERB_PORT 8080
     set_env REVERB_SCHEME http
+    # Demo server: test kodi va boshqa sinov imkoniyatlari (qaror #73) — firma serverida o'chiq
+    set_env DTAXI_DEMO "$([[ "$DEMO" == 1 ]] && echo true || echo false)"
+    # Redis paroli: navbatdagi ishlar (masalan mijoz kirish kodi) va kesh boshqa mahalliy foydalanuvchilarga
+    # (asterisk, www-data) ochiq bo'lmasin. .env.example dagi "null" ham parolsiz hisoblanadi
+    REDIS_PASS="$(grep -s '^REDIS_PASSWORD=' "$ENV_FILE" | cut -d= -f2- || true)"
+    if [[ -z "$REDIS_PASS" || "$REDIS_PASS" == "null" ]]; then
+        REDIS_PASS="$(openssl rand -hex 16)"
+        set_env REDIS_PASSWORD "$REDIS_PASS"
+    fi
+    sed -i '/^requirepass /d' "${REDIS_CONF}"
+    echo "requirepass ${REDIS_PASS}" >> "${REDIS_CONF}"
     chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
     chmod 600 "$ENV_FILE"
     PUBLIC_IP="${PUBLIC_IP:-$(curl -4 -fs --max-time 5 https://api.ipify.org || hostname -I | awk '{print $1}')}"
@@ -283,19 +294,27 @@ log "Nginx"
 DEV_TLS=""
 [[ "$MODE" == "--dev" ]] && DEV_TLS="listen 443 ssl default_server; ssl_certificate /etc/ssl/dtaxi-dev.crt; ssl_certificate_key /etc/ssl/dtaxi-dev.key;"
 SERVER_NAME="_"
-[[ "$MODE" == "--prod" ]] && SERVER_NAME="${DOMAIN}"
+DEFAULT_SERVER=" default_server"
+if [[ "$MODE" == "--prod" ]]; then
+    SERVER_NAME="${DOMAIN}"
+    # Prod: sayt faqat o'z domeni bilan; noma'lum Host — catch-all (pastda) yopadi
+    DEFAULT_SERVER=""
+fi
 # Bitta IP'dan ko'p urinish (parol tanlash) cheklanadi. Asterisk /ws ulanishlarini 127.0.0.1 dan ko'radi —
 # fail2ban ularni bloklay olmaydi, shuning uchun cheklov nginx'da. Ofis NAT'i ortida ko'p operator bo'lishi mumkin — burst katta
 cat > /etc/nginx/conf.d/dtaxi-limits.conf <<'NGINX'
 limit_req_zone $binary_remote_addr zone=dtaxi_auth:10m rate=20r/m;
 limit_req_zone $binary_remote_addr zone=dtaxi_ws:10m rate=30r/m;
+# Mo'ljal tile'lari har so'rovda bazaga murojaat — xarita surishga yetarli, lekin bitta IP bazani bo'g'ib qo'ymasin
+limit_req_zone $binary_remote_addr zone=dtaxi_tiles:10m rate=600r/m;
+server_tokens off;
 limit_conn_zone $binary_remote_addr zone=dtaxi_conn:10m;
 limit_req_status 429;
 limit_conn_status 429;
 NGINX
 cat > /etc/nginx/sites-available/dtaxi <<NGINX
 server {
-    listen 80 default_server;
+    listen 80${DEFAULT_SERVER};
     ${DEV_TLS}
     server_name ${SERVER_NAME};
     root ${APP_DIR}/public;
@@ -304,12 +323,17 @@ server {
     client_max_body_size 450M;
     charset utf-8;
 
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
 
     # Kirish (panel va haydovchi ilovasi): Laravel cheklovi login+IP bo'yicha, bu esa IP bo'yicha umumiy
-    location ~ ^/(login|two-factor-challenge|forgot-password|api/driver/v1/auth/login)$ {
+    location ~ ^/(login|two-factor-challenge|forgot-password|api/driver/v1/auth/login|api/client/v1/auth/(request-code|verify))$ {
         limit_req zone=dtaxi_auth burst=20 nodelay;
         try_files \$uri /index.php?\$query_string;
     }
@@ -346,6 +370,11 @@ server {
         proxy_pass http://127.0.0.1:8088/ws;
     }
 
+    location ^~ /map/landmarks/ {
+        limit_req zone=dtaxi_tiles burst=200 nodelay;
+        try_files \$uri /index.php?\$query_string;
+    }
+
     # Xarita tile'lari: katta fayl, Range so'rovlari bilan qismlab beriladi
     location /map/ {
         add_header Cache-Control "public, max-age=86400";
@@ -367,6 +396,22 @@ server {
 NGINX
 ln -sf /etc/nginx/sites-available/dtaxi /etc/nginx/sites-enabled/dtaxi
 rm -f /etc/nginx/sites-enabled/default
+if [[ "$MODE" == "--prod" ]]; then
+    # Noma'lum Host (IP orqali skanerlar, begona domen) — javobsiz yopiladi; https'da TLS ham boshlanmaydi
+    cat > /etc/nginx/sites-available/dtaxi-catchall <<'NGINX'
+server {
+    listen 80 default_server;
+    server_name _;
+    return 444;
+}
+server {
+    listen 443 ssl default_server;
+    server_name _;
+    ssl_reject_handshake on;
+}
+NGINX
+    ln -sf /etc/nginx/sites-available/dtaxi-catchall /etc/nginx/sites-enabled/dtaxi-catchall
+fi
 nginx -t
 systemctl reload nginx
 
@@ -379,6 +424,8 @@ if [[ "$MODE" == "--prod" ]]; then
     as_app "npm ci --no-audit --no-fund && npm run build"
     as_app "php artisan migrate --force"
     as_app "php artisan storage:link >/dev/null 2>&1 || true; php artisan optimize; php artisan telephony:sync"
+    # Asterisk'ning baza roli faqat ps_* jadvallariga — ular endi migratsiyadan keyin bor (birinchi chaqiriqda yo'q edi)
+    APP_DIR="${APP_DIR}" bash "${APP_DIR}/deploy/asterisk-config.sh"
 
     log "Prod: birinchi filial va superadmin"
     INIT_ARGS=""
@@ -403,10 +450,13 @@ if [[ "$MODE" == "--prod" ]]; then
 yoki install.sh ni qayta ishga tushiring. Sertifikatsiz panelga kirib bo'lmaydi (cookie faqat https)."
     fi
 
+    # Root ishga tushiradigan skript — root'niki nusxa: ilova papkasi ilova foydalanuvchisiniki, undagi faylni
+    # root bajarsa ilovadagi har qanday kod bajarish zaifligi root huquqiga aylanardi
+    install -o root -g root -m 755 "${APP_DIR}/deploy/sip-firewall.sh" /usr/local/sbin/dtaxi-sip-firewall
     cat > /etc/cron.d/dtaxi-sip <<CRON
-*/5 * * * * root APP_DIR=${APP_DIR} APP_USER=${APP_USER} ${APP_DIR}/deploy/sip-firewall.sh
+*/5 * * * * root APP_DIR=${APP_DIR} APP_USER=${APP_USER} /usr/local/sbin/dtaxi-sip-firewall
 CRON
-    APP_DIR="${APP_DIR}" APP_USER="${APP_USER}" "${APP_DIR}/deploy/sip-firewall.sh" || true
+    APP_DIR="${APP_DIR}" APP_USER="${APP_USER}" /usr/local/sbin/dtaxi-sip-firewall || true
 
     # Sertifikatdan keyin: bo'lsa turns:5349 ham yoqiladi
     if [[ "$TURN" == 1 ]]; then
