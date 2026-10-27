@@ -82,6 +82,7 @@ Holat: **v5.0 — tasdiqlangan reja** · Sana: 2026-10-17
 | 70  | **Demo server — `install.sh --demo`** (`dtaxi:init --demo`): superadmin `admin`, filial admini `branch`, `operator`, `cashier` va bitta haydovchi (`+998900000001`, pozivnoy 101, tasdiqlangan mashina) — parollar hammasida `11221122` (`FirstRunSeeder::DEV_PASSWORD`). Qayta chaqirish xavfsiz (mavjud foydalanuvchi va parollarga tegilmaydi); xaritadan keyin yana chaqirilib filial Farg'ona shahriga bog'lanadi. Firma serverida ishlatilmaydi. Birinchi demo — `taxi.simulator.uz` (2 vCPU / 4 GB). Demo — xarita manbai: yangi server Mac'dan bitta buyruq bilan `deploy/remote-install.sh <user@ip> --domain= --email= --map-from=<demo>` (to'plam demo'dan to'g'ridan-to'g'ri, deploy.md §0); ma'lumot bilan ko'chirish — `dtaxi:backup` + `dtaxi:restore`                                                                                                                          | 2026-10-24 |
 | 71  | **Mijoz ilovasi (Android)** — #7 bekor. Haydovchi ilovasidan **alohida ilova** (`uz.dtaxi.client.<firma>`, Google Play'da firmaning o'z akkauntidan; haydovchi ilovasi APK bo'lib qoladi), kod bazasi umumiy: `android/` — `:core` (tarmoq, sessiya, Reverb, xarita, tillar, mavzu, firma sozlamalari), `:driver`, `:client`; `firms/<firma>` ikkalasiga. Kirish — telefon + **qo'ng'iroqda aytiladigan 4 xonali kod** (Asterisk + TTS; SMS yo'q — #4 saqlanadi), Sanctum `abilities:client`. Buyurtma manbasi `app`, dispatcher o'zgarmaydi; kanal `private-client.{id}`. iOS hozircha yo'q (#43). Bosqich 6 (~6–7 hafta)                                                                                                                                                                                                                                                                     | 2026-10-25 |
 | 72  | **Rejada (keyinroq): mijoz ilovasidan WebRTC qo'ng'iroq** — dispetcher va biriktirilgan haydovchiga ilova ichidan (trunk daqiqasi sarflanmaydi, raqamlar yashirin). Mijozga **doimiy ichki raqam berilmaydi**: "Qo'ng'iroq" bosilganda server vaqtinchalik raqam va parol beradi (`cl{N}`, qisqa muddat), qo'ng'iroq tugagach o'chadi — Asterisk'da bir vaqtda faqat gaplashayotganlar. Opus (o'girishsiz), mobil internet uchun TURN deyarli majburiy (`--turn`). Server hajmi bir vaqtdagi qo'ng'iroqlar bo'yicha: ~1000 buyurtma/kun (20–30 parallel) — 4 vCPU / 8 GB yetadi; 3000+ — 8 / 16. Oddiy telefon qo'ng'irog'i zaxira bo'lib qoladi. ~2–3 kun                                                                                                                                                                                                                                     | 2026-10-26 |
+| 73  | **Audit (2026-10-27) qoidalari:** haydovchi yuborgan masofa GPS izidan 1.3× dan ortiq bo'lsa narx **GPS izi bo'yicha** (iz yo'q bo'lsa — taxminiy marshrut), tarixga "shubhali" belgisi; kutish vaqti avvalgidek "Yetib keldim" bosilgandan (masofa tekshiruvi yo'q); operator safardagi buyurtmani avvalgidek bekor qila oladi; demo test kodi faqat demo rejimdagi serverda va faqat test raqamlariga (+998900000001…09), firma serverida ishlamaydi                                                                                                                                                                                                                                                                                                                                                                                                                                         | 2026-10-27 |
 
 ---
 
@@ -902,6 +903,95 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 - [x] C4: push (`client_device_tokens`, `SendClientPush` — mijoz tilida, FCM notification; ilovada `clientFirebaseApplicationId`), saqlangan manzillar, 4 til, firma brendi (`clientAppName`), operator panelida va hisobotda "Ilova" belgisi
 - [ ] C5: Google Play — tayyor: `/privacy` sahifasi, ilovada hisobni o'chirish (`DELETE /api/client/v1/me`), `.aab` (`:client:bundleRelease`), deploy.md §4.1; demo serverda API sinovdan o'tdi (`CLIENT_TEST_CODE`). Qolgani: firma Play akkaunti, Firebase'da mijoz ilovasi, telefonda to'liq sinov
 - [ ] Keyinroq (qaror #72): mijoz ilovasidan WebRTC qo'ng'iroq — vaqtinchalik ichki raqam, dispetcher va haydovchiga, TURN; ~2–3 kun
+
+### Bosqich 7 — Audit tuzatishlari (2026-10-27, qaror #73, ~6–7 kun)
+
+6 yo'nalishli to'liq tahlil (buyurtma va pul, telefoniya, xavfsizlik, panel, haydovchi va mijoz ilovalari). Har guruh — alohida commit, testlar bilan; tartib — xavfdan boshlab.
+
+**A. Xavfsizlik (~1 kun)**
+
+- [ ] A1 SIP trunk'ni `/ws` orqali soxtalashtirish: trunk endpoint'iga `identify_by=ip` (aks holda `From: trunk-<nom>` parolsiz trunk deb tanilardi); mavjud serverlarda `telephony:sync`
+- [ ] A2 Root cron ilova egalidagi `deploy/sip-firewall.sh` ni ishga tushirardi — root'niki nusxa `/usr/local/sbin/dtaxi-sip-firewall`
+- [ ] A3 Kirish kodi: urinishlar atomik (`Cache::increment`), raqam bo'yicha verify cheklovi
+- [ ] A4 Demo test kodi — faqat demo rejim + test raqamlari (qaror #73)
+- [ ] A5 Kod qo'ng'iroqlariga umumiy soatlik/kunlik limit (pullik avto-qo'ng'iroq suiiste'moli)
+- [ ] A6 CSV formula injection: `= + - @` bilan boshlanuvchi kataklar (korporativ hisob, hisobotlar)
+- [ ] A7 Mijozni qora ro'yxatga qo'shish — faqat admin; `Client` — `Auditable`
+- [ ] A8 TURN relay faqat RTP portlariga (10000–20000/udp)
+- [ ] A9 Mijoz chiqqanda push tokenlari ham o'chadi; haydovchi rolini web panelga kiritmaslik (Fortify)
+- [ ] A10 nginx: xavfsizlik sarlavhalari (HSTS va b.), noma'lum Host — 444, `trustHosts`; `limit_req` — mijoz kirishi va mo'ljal tile'lari
+- [ ] A11 Redis paroli; Asterisk uchun faqat `ps_*` jadvallariga ruxsatli DB roli
+- [ ] A12 Testlar demo'da sudo'siz alohida foydalanuvchida (kalit bilan SSH)
+
+**B. Buyurtma va pul (~1 kun)**
+
+- [ ] B1 Masofa GPS izidan 1.3× ortiq — narx iz bo'yicha, "shubhali" belgi (qaror #73)
+- [ ] B2 Reverb o'chiq bo'lsa buyurtma "qidirilmoqda"da abadiy qolardi: kengayish broadcast'dan oldin, broadcast xatosi ushlanadi (qabulda ham)
+- [ ] B3 Mijoz ilovasi: parallel ikki buyurtma — mijoz qatori qulfi ostida tekshiruv
+- [ ] B4 Qayta efir/bonus — `searching_at` yangilanadi (aks holda ~2 daqiqada "topilmadi")
+- [ ] B5 To'g'ridan-to'g'ri taklif muddati qabuldagi 5 s imtiyoz bilan bir xil (nohaq jarima)
+- [ ] B6 Click complete: bajarilmagan bo'lsa "Success" qaytarilmaydi
+- [ ] B7 Bekor qilish bo'yicha bloklash jarima 0 bo'lsa ham ishlaydi (uzrsizlar sanaladi)
+- [ ] B8 Oldindan buyurtma: tig'iz soat va taxminiy narx `scheduled_at` bo'yicha
+- [ ] B9 Komissiya foizi buyurtma snapshot'ida; `driver_transactions (order_id, type)` unique (commission, corporate)
+- [ ] B10 Haydovchi tarixi so'rovi (UNION) — katta bazada sekinlashmasin
+
+**C. Telefoniya (~1 kun)**
+
+- [ ] C1 ARI originate timeout: kanal yopiladi; `ttsAnswered` tugagan qo'ng'iroqni qayta tiriltirmaydi (aks holda filial avto-qo'ng'iroqlari abadiy bloklanardi)
+- [ ] C2 Webphone tarmoq uzilishidan keyin abadiy "Ulanmoqda" — qayta ro'yxatdan o'tish holati
+- [ ] C3 Operatorga qo'ng'iroq originate xatosi — kanal yopiladi, ikki marta jiringlamaydi, nohaq pauza yo'q
+- [ ] C4 ARI hodisasi qayta ijro etilganda takroriy Call yozuvi yo'q (`channel_id` bo'yicha)
+- [ ] C5 Liniya limiti daemon va avto-qo'ng'iroqda bitta qulf ostida
+- [ ] C6 Salomlashuv tugash hodisasi yo'qolsa — kutish musiqasi baribir
+- [ ] C7 O'tkazib yuborilgan jiringlash faqat joriy kanal bo'yicha; haydovchi rad etishi va muddati o'tishi — shartli UPDATE; `reconcile` Up kanallarni ulaydi
+
+**D. Operator paneli (~1 kun)**
+
+- [ ] D1 Server soati har chizishda qayta o'rnatilib "qotardi" (taymerlar, GPS eskirgani)
+- [ ] D2 Kiruvchi qo'ng'iroq to'ldirilayotgan formani o'chirmaydi — javob berilganda yoki forma bo'sh bo'lsa; aks holda "mijozni yuklash" tugmasi
+- [ ] D3 GPS hodisalari to'plab chiziladi (250 ms), `OrderRow` memo, bo'sh haydovchilar ro'yxati faqat ochilganda; umumiy 1 s taymer
+- [ ] D4 Ctrl+Enter ikki buyurtma; tayinlash/qayta efir ikki marta bosilishi
+- [ ] D5 Sahifa qayta yuklanishi yangiroq real vaqt holatini ustidan yozmaydi (`updated_at`)
+- [ ] D6 Tahrirlash oynasida manzil qidiruvi GPS oqimida ishlamay qolardi
+- [ ] D7 Boshqa filial haydovchisini tayinlash — ro'yxatda filtr, xato xabari
+- [ ] D8 Buyurtmadan keyin forma tanlangan filialda qoladi
+- [ ] D9 Bekor/tahrirlash oynalari buyurtma ro'yxatdan chiqsa ham yopilmaydi
+- [ ] D10 Chat qoralamasi har haydovchiga alohida
+- [ ] D11 Bekor qilish sababi kalit sifatida (hisobotda bir xil)
+- [ ] D12 Haydovchi rangi vaqt o'tishi bilan eskiradi (tick)
+- [ ] D13 "Shu yerda ishlatish" faol qo'ng'iroqni uzmaydi
+- [ ] D14 To'xtash joyini xaritadan tanlash kalit bo'yicha
+- [ ] D15 Oldindan buyurtma vaqti filial vaqt mintaqasida; tezkor tugmalar faqat formada
+
+**E. Haydovchi ilovasi (~1 kun)**
+
+- [ ] E1 401 — servis to'xtaydi, GPS buferi tozalanadi; token o'zgarsa Reverb qayta quriladi
+- [ ] E2 Oflayn GPS buferi release'da tiklanmasdi (ProGuard `TypeToken`)
+- [ ] E3 Taksometr: to'xtab turganda GPS tebranishi masofaga qo'shilmaydi (aniqlik va tezlik bo'yicha)
+- [ ] E4 Eski buyurtma holati yangisini ustidan yozmaydi (`updated_at`)
+- [ ] E5 GPS yuklash bitta oqimda (Mutex) — nuqtalar yo'qolmaydi/takrorlanmaydi
+- [ ] E6 FCM bilan kechikib kelgan taklif — qolgan vaqt `offered_at` dan
+- [ ] E7 Server oflayn qilsa servis to'xtaydi
+- [ ] E8 "Yakunlash" 5xx da ham qayta yuboriladi
+- [ ] E9 Chiqishda bufer poygasi; Reverb "uzildi" kech kelishi; chat bildirishnomasi (`onNewIntent`); server manzili xatosi (test build)
+- [ ] E10 Qulf ekranida faqat taklif; batareya (yozuvlarni siyraklash, IO oqimi); `version.json` faqat release; Gson default'lari
+
+**F. Mijoz ilovasi (~1 kun)**
+
+- [ ] F1 Saqlangan manzilni qayta saqlashda yiqilish
+- [ ] F2 Safardan keyin qoralama tozalanadi, "Qayerdan" — joriy joy
+- [ ] F3 Bo'sh manzil nomi bilan buyurtma bo'lmaydi; teskari geokodlash bitta so'rov
+- [ ] F4 Baho oynasi "Keyinroq" dan keyin qayta chiqmaydi
+- [ ] F5 Fonda bekor qilingan buyurtma — qaytganda xabar
+- [ ] F6 Reverb o'chiq bo'lsa haydovchi belgisi so'rov bilan yangilanadi
+- [ ] F7 Joylashuv ruxsati (ikkalasi, sozlamalarga o'tish)
+- [ ] F8 Til serverga yetib boradi; faqat panel balandligi o'zgarsa manzil qayta aniqlanmaydi
+- [ ] F9 Klaviatura izoh maydonini yopmaydi; kamera safarda haydovchi va manzilga ergashadi
+- [ ] F10 Tarix vaqti mahalliy; chiqishda ekran va qoralama tozalanadi; eski banner; baho ikki marta
+- [ ] F11 UX: "Qayerga" xaritadan, ETA, "Qayta buyurtma", tarix sahifalash, saqlangan manzillarni boshqarish
+
+**G. CI** — GitHub testlari 21-oktabrdan beri qizil (`gh auth login` dan keyin jurnal o'qiladi)
 
 **MVP taxminiy muddati:** **16–20 hafta** (1 dasturchi + AI, bosqichlar ketma-ket). Dastlabki 12–15 haftalik baho reja kengaygani uchun oshirildi: PBX panel, mahsulotlashtirish (o'rnatish, yangilash, white-label ilova), Click/Payme, jarima/reyting, qo'shimcha narx qoidalari. Bosqich 1 tugagach qayta baholanadi.
 
