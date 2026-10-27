@@ -198,7 +198,8 @@ export function ChatPanel({
     const [threads, setThreads] = useState<Thread[]>([]);
     const [active, setActive] = useState<number | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
-    const [text, setText] = useState('');
+    // Qoralama har haydovchiga alohida — boshqa suhbatga o'tganda matn u yerga ko'chmaydi
+    const [drafts, setDrafts] = useState<Record<number, string>>({});
     const [sending, setSending] = useState(false);
     const [sendError, setSendError] = useState(false);
     const [query, setQuery] = useState('');
@@ -536,6 +537,13 @@ export function ChatPanel({
         }, [open, fetchThreads, loadMessages]),
     );
 
+    const text = active !== null ? (drafts[active] ?? '') : '';
+    const setDraft = (driverId: number, update: (current: string) => string) =>
+        setDrafts((all) => ({
+            ...all,
+            [driverId]: update(all[driverId] ?? ''),
+        }));
+
     // Matn faqat yuborilgach tozalanadi; xatoda maydonda qoladi va qayta yuborish mumkin
     const send = (body: string) => {
         if (!active || !body.trim() || sending) {
@@ -552,13 +560,17 @@ export function ChatPanel({
                         list.some((x) => x.id === m.id) ? list : [...list, m],
                     );
                 }
-                setText((current) => (current === body ? '' : current));
+                setDraft(driverId, (current) =>
+                    current === body ? '' : current,
+                );
             })
             .catch(() => {
                 if (activeRef.current === driverId) {
                     setSendError(true);
                     // Tezkor javob ham yo'qolmasin — maydonga qo'yiladi
-                    setText((current) => (current.trim() ? current : body));
+                    setDraft(driverId, (current) =>
+                        current.trim() ? current : body,
+                    );
                 }
             })
             .finally(() => setSending(false));
@@ -940,7 +952,14 @@ export function ChatPanel({
                                         <Input
                                             value={text}
                                             onChange={(e) => {
-                                                setText(e.target.value);
+                                                if (active !== null) {
+                                                    const value =
+                                                        e.target.value;
+                                                    setDraft(
+                                                        active,
+                                                        () => value,
+                                                    );
+                                                }
                                                 setSendError(false);
                                             }}
                                             placeholder={t('Message')}

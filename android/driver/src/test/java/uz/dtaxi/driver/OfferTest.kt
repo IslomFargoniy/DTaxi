@@ -47,13 +47,13 @@ class OfferTest {
         assertNull(offer.stopsText)
         assertEquals(15, offer.expiresIn)
         assertEquals(1_700_000_000_123L, offer.offeredAt)
-        assertEquals("5:1700000000123", offer.dedupKey)
+        assertEquals("77:5:1700000000123", offer.dedupKey)
     }
 
     @Test fun pushWithoutOfferedAtFallsBackToOfferId() {
         val offer = PushPayload.offer(data("6") - "offered_at")!!
         assertNull(offer.offeredAt)
-        assertEquals("6", offer.dedupKey)
+        assertEquals("77:6", offer.dedupKey)
         assertNull(PushPayload.offer(mapOf("offer_id" to "")))
     }
 
@@ -87,5 +87,26 @@ class OfferTest {
         assertNotNull(DriverState.offer.value)
         DriverState.expireOffer(offer)
         assertNull(DriverState.offer.value)
+    }
+
+    @Test fun latePushCountsFromOfferedAt() {
+        DriverState.setOrder(null)
+        DriverState.clearOffer()
+        // Server soati telefondan 60 s oldinda; FCM 5 s kechikdi — 15 s dan 10 s qoldi
+        val late = PushPayload.offer(data("903", "1000000"))!!
+        assertTrue(DriverState.offer(late, now = 50_000, wallNow = 1_000_000 - 60_000 + 5_000, clockOffset = 60_000))
+        assertEquals(10, DriverState.offer.value!!.secondsLeft(50_000))
+        DriverState.clearOffer()
+
+        // Muddati o'tib kelgan — ko'rsatilmaydi
+        val expired = PushPayload.offer(data("904", "1000000"))!!
+        assertFalse(DriverState.offer(expired, now = 0, wallNow = 1_020_000, clockOffset = 0))
+        assertNull(DriverState.offer.value)
+
+        // Soat farqi noma'lum va telefon soati noto'g'ri — to'liq muddat (taklif yo'qolmasin)
+        val skewed = PushPayload.offer(data("905", "1000000"))!!
+        assertTrue(DriverState.offer(skewed, now = 0, wallNow = 5_000_000, clockOffset = null))
+        assertEquals(15, DriverState.offer.value!!.secondsLeft(0))
+        DriverState.clearOffer()
     }
 }

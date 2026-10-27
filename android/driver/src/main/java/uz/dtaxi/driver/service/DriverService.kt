@@ -26,8 +26,12 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.gson.Gson
 import com.google.gson.JsonObject
-import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
@@ -71,6 +75,12 @@ class DriverService : LifecycleService() {
     /** Oxirgi GPS nuqtasi vaqti — tizim qayta tug'dirgan servis joylashuv olmayotganini aniqlash uchun */
     @Volatile private var lastFixAt = System.currentTimeMillis()
     private var pausedShown = false
+    /** Bir vaqtda bitta yuklash: aks holda bir to'plam ikki marta yuborilib, keyin ikki marta o'chirilardi (nuqtalar yo'qolardi) */
+    private val sendMutex = Mutex()
+    /** Bufer diskdagidan farq qiladi — o'zgarmagan bo'lsa fayl qayta yozilmaydi (batareya) */
+    private var bufferDirty = false
+    /** Taksometr har GPS nuqtasida emas, siyrak saqlanadi (navigatsiyada nuqta har soniyada keladi) */
+    private var meterSavedAt = 0L
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -92,10 +102,16 @@ class DriverService : LifecycleService() {
             stopSelf()
             return
         }
-        loadBuffer()
         lifecycleScope.launch {
+            loadBuffer()
             // Tizim servisni o'zi qayta ishga tushirsa ekran ochilmagan — profilni servis o'zi yuklaydi
+            val restarted = DriverState.profile.value == null
             if (!ensureProfile()) {
+                stopSelf()
+                return@launch
+            }
+            // Jarayon o'lik paytida server haydovchini oflayn qilgan — liniyaga o'zi qaytmaydi
+            if (restarted && DriverState.profile.value?.status == "offline" && app.session.pendingComplete == null) {
                 stopSelf()
                 return@launch
             }
@@ -105,11 +121,26 @@ class DriverService : LifecycleService() {
             flushJob = launch { flushLoop() }
             launch { syncLoop() }
             launch { gpsWatchdog() }
-            // Liniyaga chiqqanda operator xaritasida darhol ko'rinsin (keyingi siyrak GPS'ni kutmasdan)
+            // Liniyaga chiqqanda operator xaritasida darhol ko'rinsin (keyingi siyrak GPS'ni kutmasdan);
+            // server oflayn qilsa (masalan uzoq GPS yo'q) — servis to'xtaydi
             launch {
                 DriverState.profile.map { it?.status }.distinctUntilChanged().drop(1).collect { status ->
                     if (status == "free") wentOnline()
+                    if (status == "offline") confirmOffline()
                 }
+            }
+            // Token o'zgardi: chiqildi/401 — servis to'xtaydi; boshqa token — Reverb yangi token bilan qayta quriladi
+            launch {
+                combine(app.session.tokenFlow, DriverState.profile.map { it?.id }) { token, id -> token to id }
+                    .distinctUntilChanged().drop(1).collect { (token, id) ->
+                        if (token == null) {
+                            stopSelf()
+                        } else if (id != null) {
+                            realtime?.disconnect()
+                            realtime = null
+                            connectRealtime()
+                        }
+                    }
             }
             DriverState.order.collectLatest(::onOrderChanged)
         }
@@ -168,11 +199,25 @@ class DriverService : LifecycleService() {
     }
 
     /**
+     * Server holati eski javobdan emasligiga ishonch hosil qilinadi (masalan liniyaga chiqish so'rovi bilan poyga),
+     * keyin servis to'xtaydi.
+     */
+    private suspend fun confirmOffline() {
+        val result = app.repository.refreshProfile()
+        if (result is Result.Ok && result.value.status == "offline" && !hasActiveOrder() && app.session.pendingComplete == null) {
+            stopSelf()
+        }
+    }
+
+    /**
      * Zaxira sinxronlash: Reverb xabari yo'qolgan bo'lsa ham holat 30 soniyada tiklanadi;
      * internet yo'q paytda bosilgan "Yakunlash" ham shu yerda qayta yuboriladi.
+     * Profil ~2 daqiqada: server haydovchini oflayn qilganini (Reverb'da bunday xabar yo'q) bilish uchun.
      */
     private suspend fun syncLoop() {
+        var round = 0
         while (lifecycleScope.isActive) {
+            if (++round % 4 == 0) app.repository.refreshProfile()
             app.repository.retryPendingComplete()
             if (app.repository.refreshOrder() is Result.Ok) {
                 orderSynced = true
@@ -204,7 +249,10 @@ class DriverService : LifecycleService() {
             DriverState.setRealtimeConnected(true)
             flushJob?.cancel()
             // Ishga tushmagan servis diskdagi bufferni bo'sh ro'yxat bilan o'chirib yubormasin
-            saveBuffer()
+            if (bufferDirty) writeBuffer(this, buffer.toList())
+            val meter = taximeter
+            val orderId = meterOrderId
+            if (meter != null && orderId != null) saveTaximeter(meter.snapshot(orderId), force = true)
         }
         super.onDestroy()
     }
@@ -245,6 +293,7 @@ class DriverService : LifecycleService() {
         val configuredMs = (DriverState.profile.value?.config?.locationIntervalSeconds ?: 4) * 1000L
         if (location.time - lastBufferedAt >= configuredMs - 500) {
             lastBufferedAt = location.time
+            bufferDirty = true
             buffer.add(
                 LocationPoint(
                     location.latitude,
@@ -263,9 +312,10 @@ class DriverService : LifecycleService() {
         val order = DriverState.order.value
         val meter = taximeter
         if (order?.status == "in_progress" && meter != null && meterOrderId == order.id) {
-            if (meter.add(location.latitude, location.longitude, location.accuracy, location.time)) {
+            val speed = if (location.hasSpeed()) location.speed else null
+            if (meter.add(location.latitude, location.longitude, location.accuracy, location.time, speed)) {
                 DriverState.setMeters(meter.insideMeters.toLong(), meter.outsideMeters.toLong())
-                saveTaximeter(meter.snapshot(order.id))
+                saveTaximeter(meter.snapshot(order.id), force = false)
             }
         }
     }
@@ -305,12 +355,13 @@ class DriverService : LifecycleService() {
         }
     }
 
-    /** Eskisidan boshlab, bir so'rovda 200 tadan */
-    private suspend fun sendBuffered() {
+    /** Eskisidan boshlab, bir so'rovda 200 tadan; yangi nuqtalar oxiriga qo'shiladi, shuning uchun boshidan o'chirish to'g'ri */
+    private suspend fun sendBuffered() = sendMutex.withLock {
         while (!buffer.isEmpty()) {
             val batch = buffer.batch(200)
             if (!app.repository.sendLocations(batch)) break
             buffer.drop(batch.size)
+            bufferDirty = true
         }
     }
 
@@ -319,10 +370,13 @@ class DriverService : LifecycleService() {
         while (lifecycleScope.isActive) {
             delay((DriverState.profile.value?.config?.locationIntervalSeconds ?: 4) * 1000L)
             sendBuffered()
-            // Internet yo'q — nuqtalar vaqti-vaqti bilan diskka (servis o'ldirilsa ham trek yo'qolmasin)
-            if (++unsaved >= 8 || buffer.isEmpty()) {
-                saveBuffer()
+            // Internet yo'q — nuqtalar vaqti-vaqti bilan diskka (servis o'ldirilsa ham trek yo'qolmasin);
+            // o'zgarmagan bufer qayta yozilmaydi, yozish asosiy oqimda emas
+            if (bufferDirty && (++unsaved >= 8 || buffer.isEmpty())) {
+                val points = buffer.toList()
+                bufferDirty = false
                 unsaved = 0
+                withContext(Dispatchers.IO) { writeBuffer(this@DriverService, points) }
             }
         }
     }
@@ -347,7 +401,7 @@ class DriverService : LifecycleService() {
         when (name) {
             "OrderOffered" -> {
                 val offer = gson.fromJson(data, Offer::class.java) ?: return
-                if (DriverState.offer(offer)) OfferNotifier.show(this, offer)
+                if (DriverState.offer(offer)) OfferNotifier.show(this, DriverState.offer.value ?: offer)
             }
             "OfferWithdrawn" -> {
                 DriverState.clearOffer(data.get("order_id")?.takeIf { !it.isJsonNull }?.asInt)
@@ -412,9 +466,16 @@ class DriverService : LifecycleService() {
         prefs().edit().clear().apply()
     }
 
-    /** Jarayon o'ldirilsa ham taksometr yo'qolmasin */
-    private fun saveTaximeter(state: MeterState) {
-        prefs().edit().putString("state", gson.toJson(state)).apply()
+    /** Jarayon o'ldirilsa ham taksometr yo'qolmasin; har soniyada emas — ko'pi bilan [METER_SAVE_MS] da bir */
+    private fun saveTaximeter(state: MeterState, force: Boolean) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (!force && now - meterSavedAt < METER_SAVE_MS) return
+        meterSavedAt = now
+        synchronized(fileLock) {
+            // Chiqishdan keyin yopilayotgan servis tozalangan taksometrni qayta yozmasin
+            if (app.session.token == null) return
+            prefs().edit().putString("state", gson.toJson(state)).apply()
+        }
     }
 
     private fun restoreTaximeter() {
@@ -425,19 +486,18 @@ class DriverService : LifecycleService() {
         DriverState.setMeters(state.inside.toLong(), state.outside.toLong())
     }
 
-    private fun bufferFile() = File(filesDir, "gps-buffer.json")
-
-    private fun saveBuffer() {
-        runCatching {
-            if (buffer.isEmpty()) bufferFile().delete() else bufferFile().writeText(gson.toJson(buffer.toList()))
-        }
-    }
-
-    private fun loadBuffer() {
-        val saved = runCatching {
-            gson.fromJson<List<LocationPoint>>(bufferFile().readText(), object : TypeToken<List<LocationPoint>>() {}.type)
-        }.getOrNull() ?: return
-        buffer.addAll(saved, System.currentTimeMillis())
+    /**
+     * Massiv sifatida o'qiladi: release'da R8 anonim TypeToken klassining generik imzosini olib tashlardi va
+     * saqlangan trek umuman tiklanmasdi.
+     */
+    private suspend fun loadBuffer() {
+        val saved = withContext(Dispatchers.IO) {
+            runCatching {
+                val file = File(filesDir, BUFFER_FILE)
+                if (file.exists()) gson.fromJson(file.readText(), Array<LocationPoint>::class.java) else null
+            }.getOrNull()
+        } ?: return
+        buffer.addAll(saved.toList(), System.currentTimeMillis())
     }
 
     private fun prefs() = getSharedPreferences("taximeter", Context.MODE_PRIVATE)
@@ -459,6 +519,10 @@ class DriverService : LifecycleService() {
             // Operator qo'ng'irog'i (qaror #59)
             "IncomingCall", "IncomingCallEnded",
         )
+        private const val BUFFER_FILE = "gps-buffer.json"
+        private const val METER_SAVE_MS = 10_000L
+        /** Bufer/taksometr yozuvi va chiqishdagi tozalash bir-birini bosib ketmasin */
+        private val fileLock = Any()
         private const val NOTIFICATION_ID = 1001
         private const val PAUSED_NOTIFICATION_ID = 1002
         private const val SLOW_INTERVAL_MS = 15_000L
@@ -482,10 +546,26 @@ class DriverService : LifecycleService() {
 
         fun stop(context: Context) = context.stopService(Intent(context, DriverService::class.java))
 
-        /** Hisobdan chiqishda: boshqa haydovchi kirsa eski trek va taksometr unga o'tmasin */
+        /**
+         * Diskka yozish (fon oqimida ham chaqiriladi). Token yo'q — hisobdan chiqilgan: tozalangan buferni
+         * yopilayotgan servis qayta yozib qo'ymasin (chiqishdagi poyga).
+         */
+        private fun writeBuffer(context: Context, points: List<LocationPoint>) {
+            synchronized(fileLock) {
+                if (DtaxiApp.instance.session.token == null) return
+                runCatching {
+                    val file = File(context.filesDir, BUFFER_FILE)
+                    if (points.isEmpty()) file.delete() else file.writeText(gson.toJson(points))
+                }
+            }
+        }
+
+        /** Hisobdan chiqishda (token avval o'chiriladi): boshqa haydovchi kirsa eski trek va taksometr unga o'tmasin */
         fun clearLocalData(context: Context) {
-            runCatching { File(context.filesDir, "gps-buffer.json").delete() }
-            context.getSharedPreferences("taximeter", Context.MODE_PRIVATE).edit().clear().apply()
+            synchronized(fileLock) {
+                runCatching { File(context.filesDir, BUFFER_FILE).delete() }
+                context.getSharedPreferences("taximeter", Context.MODE_PRIVATE).edit().clear().apply()
+            }
             DriverState.setMeters(0, 0)
         }
     }

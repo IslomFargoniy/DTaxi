@@ -13,6 +13,7 @@ import {
     VolumeX,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { useTrans } from '@/hooks/use-trans';
 import { getJson, postJson } from '@/lib/http';
 import { cn } from '@/lib/utils';
@@ -682,7 +683,15 @@ export function WebPhone({
                             </span>
                             <button
                                 type="button"
-                                onClick={() => takeLeadership()}
+                                onClick={() =>
+                                    takeLeadership(() =>
+                                        toast.warning(
+                                            t(
+                                                'A call is in progress in the other tab. Finish it first.',
+                                            ),
+                                        ),
+                                    )
+                                }
                                 className="shrink-0 rounded-md border border-sky-300 bg-background px-2 py-1 font-semibold hover:bg-muted dark:border-sky-800"
                             >
                                 {t('Use here')}

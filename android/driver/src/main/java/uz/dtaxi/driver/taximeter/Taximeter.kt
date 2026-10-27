@@ -45,9 +45,14 @@ class Taximeter(private val area: ServiceArea) {
     }
 
     /**
+     * Turganda GPS nuqtasi aniqlik doirasida "sakraydi" — har sakrash masofaga qo'shilsa svetoforda ham hisob oshardi.
+     * Shuning uchun turgan nuqtalar tashlanadi, oxirgi hisoblangan nuqta (langar) joyida qoladi: sekin harakatda
+     * masofa yo'qolmaydi — langardan siljish chegaradan oshganda butunligicha qo'shiladi.
+     *
+     * @param speedMps GPS tezligi (m/s); null — telefon bermadi (unda chegara aniqlikdan olinadi)
      * @return true — nuqta hisobga olindi
      */
-    fun add(lat: Double, lng: Double, accuracyMeters: Float?, timeMillis: Long): Boolean {
+    fun add(lat: Double, lng: Double, accuracyMeters: Float?, timeMillis: Long, speedMps: Float? = null): Boolean {
         if (accuracyMeters != null && accuracyMeters > MAX_ACCURACY_M) return false
 
         val prevLat = lastLat
@@ -60,8 +65,10 @@ class Taximeter(private val area: ServiceArea) {
         val meters = Geo.distance(prevLat, prevLng, lat, lng)
         val seconds = (timeMillis - lastTime).coerceAtLeast(1) / 1000.0
 
-        // Turganda GPS "titrashi" — hisoblanmaydi
-        if (meters < MIN_STEP_M) return false
+        // Turganda GPS "titrashi" — hisoblanmaydi: tezlik ~0 yoki siljish aniqlik doirasidan kichik
+        if (speedMps != null && speedMps < STOP_SPEED_MPS) return false
+        val minStep = if (speedMps != null) MIN_STEP_M else maxOf(MIN_STEP_M, (accuracyMeters ?: 0f).toDouble())
+        if (meters < minStep) return false
         // 200 km/soatdan tez — sakrash
         if (meters / seconds > MAX_SPEED_MPS) return false
 
@@ -79,6 +86,8 @@ class Taximeter(private val area: ServiceArea) {
     companion object {
         const val MAX_ACCURACY_M = 35f
         const val MIN_STEP_M = 5.0
+        /** ~3 km/soat dan sekin — turibdi (tirbandlikda sudralish langardan keyin baribir qo'shiladi) */
+        const val STOP_SPEED_MPS = 0.8f
         const val MAX_SPEED_MPS = 200 / 3.6
     }
 }

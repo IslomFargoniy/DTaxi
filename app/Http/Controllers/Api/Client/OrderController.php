@@ -14,6 +14,7 @@ use App\Services\Orders\OrderService;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
@@ -54,7 +55,23 @@ class OrderController extends Controller
         if ($client->is_blacklisted) {
             abort(403, __('Ordering from the app is not available. Please call the dispatcher.'));
         }
-        // Bir vaqtda bitta faol buyurtma — ikki marta bosilsa ham ikkita mashina chiqmaydi
+        // Bir vaqtda bitta faol buyurtma — ikki marta bosilsa (parallel so'rovlar ham) ikkita mashina chiqmaydi
+        $lock = Cache::lock("client-order:{$client->id}", 15);
+        if (! $lock->get()) {
+            return response()->json(['message' => __('You already have an active order.')], 409);
+        }
+        try {
+            return $this->place($client, $data);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function place(Client $client, array $data): JsonResponse
+    {
         $active = Order::query()->where('client_id', $client->id)->active()->with(self::WITH)->latest('id')->first();
         if ($active) {
             return response()->json(['message' => __('You already have an active order.'), 'order' => new ClientOrderResource($active)], 409);

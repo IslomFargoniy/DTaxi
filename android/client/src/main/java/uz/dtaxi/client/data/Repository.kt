@@ -81,14 +81,30 @@ class Repository(private val session: Session) {
                 null
             }
         }
-        if (result is Result.Ok) ClientState.setOrder(result.value)
+        if (result is Result.Ok) {
+            // Oldingi buyurtmaning "bekor qilindi" xabari yangi buyurtma ustida qolmasin
+            ClientState.clearFinished()
+            ClientState.setOrder(result.value)
+        }
         return result
     }
 
-    suspend fun refreshCurrent(): Result<CurrentOrders> = call { api.current() }.map { current ->
-        ClientState.setOrder(current.order)
-        ClientState.setToRate(current.toRate)
-        current
+    suspend fun refreshCurrent(): Result<CurrentOrders> {
+        // Xotiradagi yoki (ilova yopilib ochilgan bo'lsa) saqlangan oxirgi faol buyurtma
+        val previousId = ClientState.order.value?.id ?: session.activeOrderId
+        return call { api.current() }.map { current ->
+            ClientState.setOrder(current.order)
+            ClientState.syncDriverFromServer(current.order)
+            ClientState.setToRate(current.toRate?.takeUnless { session.isRatingDismissed(it.id) })
+            // Fonda bekor qilingan (yoki mashina topilmagan) buyurtma: Reverb xabari kelmagan — natija tarixdan
+            if (previousId != null && current.order?.id != previousId && current.toRate?.id != previousId &&
+                ClientState.finished.value?.id != previousId
+            ) {
+                (call { api.history(null) } as? Result.Ok)?.value?.firstOrNull { it.id == previousId }?.let(ClientState::showFinished)
+            }
+            if (current.order == null) session.activeOrderId = null
+            current
+        }
     }
 
     suspend fun history(beforeId: Int?) = call { api.history(beforeId) }
@@ -98,6 +114,12 @@ class Repository(private val session: Session) {
     suspend fun rate(id: Int, rating: Int): Result<ClientOrder> = call { api.rate(id, RateRequest(rating)) }.map {
         ClientState.setToRate(null)
         it
+    }
+
+    /** "Keyinroq" — shu safar uchun oyna qayta chiqmaydi */
+    fun dismissRating(id: Int) {
+        session.dismissRating(id)
+        ClientState.setToRate(null)
     }
 
     private suspend fun <T : Any> call(block: suspend () -> Response<T>): Result<T> =

@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
@@ -39,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,7 +59,7 @@ import uz.dtaxi.core.ui.LocalAppColors
  * Manzil qidiruvi (operator panelidagi bilan bir xil baza): bo'sh bo'lsa — saqlangan va ko'p ishlatilgan manzillar.
  */
 @Composable
-fun SearchScreen(target: SearchTarget, near: LatLng?, onPick: (Place) -> Unit, onBack: () -> Unit) {
+fun SearchScreen(target: SearchTarget, near: LatLng?, onPick: (Place) -> Unit, onBack: () -> Unit, onMap: (() -> Unit)? = null) {
     val repository = ClientApp.instance.repository
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
@@ -64,6 +67,7 @@ fun SearchScreen(target: SearchTarget, near: LatLng?, onPick: (Place) -> Unit, o
     var saved by remember { mutableStateOf<List<SavedAddress>>(emptyList()) }
     var searched by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf<Place?>(null) }
+    var deleting by remember { mutableStateOf<SavedAddress?>(null) }
     val focus = remember { FocusRequester() }
 
     BackHandler(onBack = onBack)
@@ -98,6 +102,12 @@ fun SearchScreen(target: SearchTarget, near: LatLng?, onPick: (Place) -> Unit, o
             )
         }
         LazyColumn(Modifier.fillMaxSize()) {
+            // "Qayerga" — qidiruvsiz, xaritani surib tanlash
+            if (onMap != null && query.trim().length < 2) {
+                item(key = "map") {
+                    PlaceRow(title = stringResource(R.string.choose_on_map), subtitle = null, starred = false, icon = Icons.Default.Map, onClick = onMap)
+                }
+            }
             if (query.trim().length < 2 && saved.isNotEmpty()) {
                 item { SectionLabel(stringResource(R.string.saved_addresses)) }
                 items(saved, key = { "s${it.id}" }) { address ->
@@ -106,10 +116,12 @@ fun SearchScreen(target: SearchTarget, near: LatLng?, onPick: (Place) -> Unit, o
                         subtitle = address.label?.let { address.text },
                         starred = address.label != null,
                         onClick = { onPick(Place(address.text, address.lat, address.lng)) },
+                        onDelete = { deleting = address },
                     )
                 }
             }
-            items(results, key = { "r${it.landmarkId}-${it.lat}-${it.lng}" }) { place ->
+            // Bir nuqtada bir nechta nom bo'lishi mumkin — kalit takrorlanmasin
+            items(results.distinctBy { listOf(it.landmarkId, it.lat, it.lng, it.text) }, key = { "r${it.landmarkId}-${it.lat}-${it.lng}-${it.text}" }) { place ->
                 PlaceRow(
                     title = place.text.orEmpty(),
                     subtitle = null,
@@ -128,9 +140,29 @@ fun SearchScreen(target: SearchTarget, near: LatLng?, onPick: (Place) -> Unit, o
         SaveAddressDialog(
             onSave = { label ->
                 saving = null
-                scope.launch { (repository.saveAddress(label, place) as? Result.Ok)?.let { saved = listOf(it.value) + saved } }
+                // Server bir xil manzilni yangilaydi (o'sha id) — ro'yxatda ikki marta bo'lsa LazyColumn kaliti takrorlanib yiqilardi
+                scope.launch {
+                    (repository.saveAddress(label, place) as? Result.Ok)?.let { result ->
+                        saved = listOf(result.value) + saved.filterNot { it.id == result.value.id }
+                    }
+                }
             },
             onDismiss = { saving = null },
+        )
+    }
+
+    deleting?.let { address ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text(stringResource(R.string.delete_address_confirm)) },
+            text = { Text(address.label?.let { "$it — ${address.text}" } ?: address.text) },
+            confirmButton = {
+                TextButton(onClick = {
+                    deleting = null
+                    scope.launch { if (repository.deleteAddress(address.id) is Result.Ok) saved = saved.filterNot { it.id == address.id } }
+                }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -141,18 +173,27 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun PlaceRow(title: String, subtitle: String?, starred: Boolean, onClick: () -> Unit, onSave: (() -> Unit)? = null) {
+private fun PlaceRow(
+    title: String,
+    subtitle: String?,
+    starred: Boolean,
+    onClick: () -> Unit,
+    onSave: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
+    icon: ImageVector? = null,
+) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(if (starred) Icons.Default.Star else Icons.Default.Place, null, tint = LocalAppColors.current.muted)
+        Icon(icon ?: if (starred) Icons.Default.Star else Icons.Default.Place, null, tint = LocalAppColors.current.muted)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = LocalAppColors.current.muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         onSave?.let { IconButton(onClick = it) { Icon(Icons.Default.BookmarkBorder, stringResource(R.string.save_address)) } }
+        onDelete?.let { IconButton(onClick = it) { Icon(Icons.Default.DeleteOutline, stringResource(R.string.delete), tint = LocalAppColors.current.muted) } }
     }
     HorizontalDivider()
 }

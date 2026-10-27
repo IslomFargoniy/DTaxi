@@ -5,12 +5,13 @@ namespace App\Events;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * Mijoz ilovasi (qaror #71): biriktirilgan haydovchi xaritada harakatlanadi — faqat buyurtma faol paytida.
  */
-class ClientDriverMoved implements ShouldBroadcastNow
+class ClientDriverMoved implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

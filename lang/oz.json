@@ -762,5 +762,8 @@
     "In the app: Settings → Delete account. Your sign-in, saved addresses and name entered in the app are deleted; trip history stays in the company records. You can also ask the dispatcher by phone.": "Иловада: Созламалар → Ҳисобни ўчириш. Кириш маълумотлари, сақланган манзиллар ва иловада киритилган исм ўчирилади; сафарлар тарихи фирма ёзувларида қолади. Диспетчердан телефон орқали ҳам сўрашингиз мумкин.",
     "Contact": "Алоқа",
     "Client app sign-in code calls per hour (0 — off)": "Мижоз иловаси кириш коди қўнғироқлари, соатига (0 — ўчиқ)",
-    "Too many sign-in requests right now. Please try again later.": "Ҳозир кириш сўровлари жуда кўп. Илтимос, кейинроқ уриниб кўринг."
+    "Too many sign-in requests right now. Please try again later.": "Ҳозир кириш сўровлари жуда кўп. Илтимос, кейинроқ уриниб кўринг.",
+    "Load client": "Мижозни юклаш",
+    "This driver belongs to another branch.": "Бу ҳайдовчи бошқа филиалга тегишли.",
+    "A call is in progress in the other tab. Finish it first.": "Бошқа варақда суҳбат давом этмоқда. Аввал уни тугатинг."
 }

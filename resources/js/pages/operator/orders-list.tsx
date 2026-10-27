@@ -7,20 +7,22 @@ import {
     RefreshCw,
     UserCheck,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
+import { toast } from 'sonner';
 import OrderController from '@/actions/App/Http/Controllers/Operator/OrderController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { globalSip } from '@/components/webphone/sip-state';
 import { dial, useSip } from '@/components/webphone/use-sip';
 import { useCan } from '@/hooks/use-can';
+import { useServerNow } from '@/hooks/use-server-now';
 import { useTrans } from '@/hooks/use-trans';
 import { formatNumber, formatPhone, formatPlate } from '@/lib/format';
 import { orderStatusColor, orderStatusLabel } from '@/lib/order-status';
 import { serverNow } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
-import type { MapDriver, Order, TariffClass } from '@/types/operator';
+import type { Branch, MapDriver, Order, TariffClass } from '@/types/operator';
 import { CancelOrderDialog, EditOrderDialog } from './order-dialogs';
 
 /** Ikki nuqta orasidagi masofa (metr) — tayinlash ro'yxatini yaqinidan tartiblash uchun */
@@ -39,11 +41,14 @@ function distanceMeters(
 }
 
 /** GPS'i yangi (TTL ichida) haydovchi — eskisi "bo'sh" deb hisoblanmaydi */
-export function isFresh(driver: MapDriver, ttlSeconds: number): boolean {
+export function isFresh(
+    driver: MapDriver,
+    ttlSeconds: number,
+    now: number = serverNow(),
+): boolean {
     return (
         !!driver.last_seen_at &&
-        serverNow() - new Date(driver.last_seen_at).getTime() <=
-            ttlSeconds * 1000
+        now - new Date(driver.last_seen_at).getTime() <= ttlSeconds * 1000
     );
 }
 
@@ -225,19 +230,6 @@ function saveView(userId: number | undefined, view: ViewPrefs) {
     }
 }
 
-/** Har necha soniyada yangilanadigan "hozir" — sanoqlar va "uzoq qidiruv" uchun */
-function useNow(intervalMs: number): number {
-    const [now, setNow] = useState(() => serverNow());
-
-    useEffect(() => {
-        const id = setInterval(() => setNow(serverNow()), intervalMs);
-
-        return () => clearInterval(id);
-    }, [intervalMs]);
-
-    return now;
-}
-
 /** Hech kim olmagan yangi buyurtma paydo bo'lganda qisqa signal */
 function beep() {
     try {
@@ -311,73 +303,175 @@ function CallButtons({ order }: { order: Order }) {
     );
 }
 
-/** Buyurtma yaratilganidan beri o'tgan vaqt (mm:ss) — operator kutish vaqtini ko'radi */
-function useElapsed(since: string): string {
-    const [now, setNow] = useState(() => serverNow());
-
-    useEffect(() => {
-        const id = setInterval(() => setNow(serverNow()), 1000);
-
-        return () => clearInterval(id);
-    }, []);
-
+/** Buyurtma yaratilganidan beri o'tgan vaqt (mm:ss) — operator kutish vaqtini ko'radi.
+ * Alohida komponent: har soniyada faqat shu matn qayta chiziladi, butun qator emas */
+function Elapsed({ since }: { since: string }) {
+    const now = useServerNow(1000);
     const seconds = Math.max(
         0,
         Math.floor((now - new Date(since).getTime()) / 1000),
     );
 
-    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    return (
+        <span className="ml-auto font-mono text-xs text-muted-foreground">
+            {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}
+        </span>
+    );
 }
 
-function OrderRow({
+/** Tayinlash ro'yxati: faqat ochilganda hisoblanadi; buyurtma filiali, bo'sh va GPS'i yangi haydovchilar */
+function AssignList({
     order,
     drivers,
-    tariffClasses,
     locationTtlSeconds,
-    selected,
-    onSelect,
+    busy,
+    onAssign,
 }: {
     order: Order;
     drivers: MapDriver[];
-    tariffClasses: TariffClass[];
     locationTtlSeconds: number;
-    selected: boolean;
-    onSelect: () => void;
+    busy: boolean;
+    onAssign: (driverId: number) => void;
 }) {
     const { t } = useTrans();
-    const elapsed = useElapsed(order.created_at);
-    const [assigning, setAssigning] = useState(false);
-    const [cancelling, setCancelling] = useState(false);
-    const [editing, setEditing] = useState(false);
-    const pickup =
-        order.pickup.lat !== null && order.pickup.lng !== null
-            ? { lat: order.pickup.lat, lng: order.pickup.lng }
-            : null;
-    const freeDrivers = drivers
-        .filter(
-            (d) =>
-                d.status === 'free' &&
-                d.lat !== null &&
-                d.lng !== null &&
-                isFresh(d, locationTtlSeconds),
-        )
-        .map((d) => ({
-            ...d,
-            distance: pickup
-                ? distanceMeters(pickup, { lat: d.lat!, lng: d.lng! })
-                : null,
-        }))
-        .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+    // GPS eskirgan haydovchi yangi hodisa kelmasa ham ro'yxatdan chiqsin
+    const now = useServerNow(5000);
+    const pickupLat = order.pickup.lat;
+    const pickupLng = order.pickup.lng;
+    const freeDrivers = useMemo(() => {
+        const pickup =
+            pickupLat !== null && pickupLng !== null
+                ? { lat: pickupLat, lng: pickupLng }
+                : null;
 
-    const exhausted =
-        order.status === 'searching' && !!order.search_exhausted_at;
-    const slow =
-        order.status === 'searching' &&
-        !exhausted &&
-        !!order.searching_at &&
-        serverNow() - new Date(order.searching_at).getTime() >
-            SLOW_SEARCH_SECONDS * 1000;
+        return drivers
+            .filter(
+                (d) =>
+                    d.branch_id === order.branch_id &&
+                    d.status === 'free' &&
+                    d.lat !== null &&
+                    d.lng !== null &&
+                    isFresh(d, locationTtlSeconds, now),
+            )
+            .map((d) => ({
+                ...d,
+                distance: pickup
+                    ? distanceMeters(pickup, { lat: d.lat!, lng: d.lng! })
+                    : null,
+            }))
+            .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+    }, [
+        drivers,
+        order.branch_id,
+        pickupLat,
+        pickupLng,
+        locationTtlSeconds,
+        now,
+    ]);
+
+    return (
+        <ul
+            className="mt-2 grid max-h-40 gap-1 overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+        >
+            {freeDrivers.length === 0 && (
+                <li className="text-xs text-muted-foreground">
+                    {t('No free drivers')}
+                </li>
+            )}
+            {freeDrivers.map((driver) => (
+                <li key={driver.id}>
+                    <button
+                        type="button"
+                        disabled={busy}
+                        className="w-full rounded px-2 py-1 text-left text-xs hover:bg-background disabled:opacity-50"
+                        onClick={() => onAssign(driver.id)}
+                    >
+                        {driver.distance !== null && (
+                            <span className="mr-1 font-mono text-muted-foreground">
+                                {(driver.distance / 1000).toFixed(1)} km
+                            </span>
+                        )}
+                        {driver.callsign} · {driver.vehicle}
+                    </button>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+export type OrderDialog = { kind: 'cancel' | 'edit'; order: Order };
+
+/** Server xatosi (validatsiya) — jim qolmasin, operatorga ko'rinsin */
+function toastFirstError(errors: Record<string, string>) {
+    const message = Object.values(errors)[0];
+    if (message) {
+        toast.error(message);
+    }
+}
+
+const OrderRow = memo(function OrderRow({
+    order,
+    drivers,
+    locationTtlSeconds,
+    selected,
+    attention,
+    timeZone,
+    onSelect,
+    onDialog,
+}: {
+    order: Order;
+    /** Faqat tanlangan qatorga beriladi — qolganlari GPS hodisalarida qayta chizilmaydi */
+    drivers: MapDriver[];
+    locationTtlSeconds: number;
+    selected: boolean;
+    /** attentionLevel() — ro'yxatda umumiy taymer bo'yicha hisoblanadi */
+    attention: number;
+    timeZone?: string;
+    onSelect: (id: number) => void;
+    onDialog: (dialog: OrderDialog) => void;
+}) {
+    const { t } = useTrans();
+    const [assigning, setAssigning] = useState(false);
+    // So'rov ketayotganda tugma qayta bosilmaydi (ikki marta tayinlash/qayta efir)
+    const [busy, setBusy] = useState(false);
+
+    const exhausted = attention === 3;
+    const slow = attention === 2;
     const waiting = order.status === 'new' || order.status === 'searching';
+
+    const redispatch = () => {
+        if (busy) {
+            return;
+        }
+        setBusy(true);
+        router.post(
+            OrderController.redispatch.url(order.id),
+            {},
+            {
+                preserveScroll: true,
+                onError: toastFirstError,
+                onFinish: () => setBusy(false),
+            },
+        );
+    };
+
+    const assign = (driverId: number) => {
+        if (busy) {
+            return;
+        }
+        setBusy(true);
+        router.post(
+            OrderController.assign.url(order.id),
+            { driver_id: driverId },
+            {
+                preserveScroll: true,
+                onSuccess: () => setAssigning(false),
+                onError: toastFirstError,
+                onFinish: () => setBusy(false),
+            },
+        );
+    };
 
     return (
         <li
@@ -387,7 +481,7 @@ function OrderRow({
                 exhausted && 'border-red-500 bg-red-500/10',
                 slow && 'border-amber-500',
             )}
-            onClick={onSelect}
+            onClick={() => onSelect(order.id)}
         >
             <div className="flex items-center justify-between gap-2">
                 <span className="font-medium">#{order.id}</span>
@@ -410,17 +504,17 @@ function OrderRow({
                         title={t('Pre-order')}
                     >
                         ⏰{' '}
+                        {/* Filial vaqtida — operator kompyuteri boshqa mintaqada bo'lsa ham */}
                         {new Date(order.scheduled_at).toLocaleString([], {
                             day: '2-digit',
                             month: '2-digit',
                             hour: '2-digit',
                             minute: '2-digit',
+                            timeZone,
                         })}
                     </span>
                 ) : (
-                    <span className="ml-auto font-mono text-xs text-muted-foreground">
-                        {elapsed}
-                    </span>
+                    <Elapsed since={order.created_at} />
                 )}
             </div>
             {exhausted && (
@@ -496,18 +590,11 @@ function OrderRow({
                             <Button
                                 size="sm"
                                 variant="outline"
+                                disabled={busy}
                                 title={t(
                                     'Send to all drivers again from the smallest radius',
                                 )}
-                                onClick={() =>
-                                    router.post(
-                                        OrderController.redispatch.url(
-                                            order.id,
-                                        ),
-                                        {},
-                                        { preserveScroll: true },
-                                    )
-                                }
+                                onClick={redispatch}
                             >
                                 <RefreshCw /> {t('Re-dispatch')}
                             </Button>
@@ -515,80 +602,40 @@ function OrderRow({
                         <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setEditing(true)}
+                            onClick={() => onDialog({ kind: 'edit', order })}
                         >
                             <Pencil /> {t('Edit')}
                         </Button>
                         <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setCancelling(true)}
+                            onClick={() => onDialog({ kind: 'cancel', order })}
                         >
                             <Ban /> {t('Cancel')}
                         </Button>
                     </div>
                 )}
-            {cancelling && (
-                <CancelOrderDialog
-                    order={order}
-                    open={cancelling}
-                    onOpenChange={setCancelling}
-                />
-            )}
-            {editing && (
-                <EditOrderDialog
-                    order={order}
-                    tariffClasses={tariffClasses}
-                    open={editing}
-                    onOpenChange={setEditing}
-                />
-            )}
 
-            {assigning && (
-                <ul
-                    className="mt-2 grid max-h-40 gap-1 overflow-auto"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {freeDrivers.length === 0 && (
-                        <li className="text-xs text-muted-foreground">
-                            {t('No free drivers')}
-                        </li>
-                    )}
-                    {freeDrivers.map((driver) => (
-                        <li key={driver.id}>
-                            <button
-                                type="button"
-                                className="w-full rounded px-2 py-1 text-left text-xs hover:bg-background"
-                                onClick={() =>
-                                    router.post(
-                                        OrderController.assign.url(order.id),
-                                        { driver_id: driver.id },
-                                        {
-                                            preserveScroll: true,
-                                            onSuccess: () =>
-                                                setAssigning(false),
-                                        },
-                                    )
-                                }
-                            >
-                                {driver.distance !== null && (
-                                    <span className="mr-1 font-mono text-muted-foreground">
-                                        {(driver.distance / 1000).toFixed(1)} km
-                                    </span>
-                                )}
-                                {driver.callsign} · {driver.vehicle}
-                            </button>
-                        </li>
-                    ))}
-                </ul>
+            {selected && waiting && assigning && (
+                <AssignList
+                    order={order}
+                    drivers={drivers}
+                    locationTtlSeconds={locationTtlSeconds}
+                    busy={busy}
+                    onAssign={assign}
+                />
             )}
         </li>
     );
-}
+});
+
+/** Tanlanmagan qatorlar uchun barqaror bo'sh ro'yxat (memo buzilmasin) */
+const NO_DRIVERS: MapDriver[] = [];
 
 export function OrdersList({
     orders,
     drivers,
+    branches,
     tariffClasses,
     locationTtlSeconds,
     selectedId,
@@ -596,6 +643,7 @@ export function OrdersList({
 }: {
     orders: Order[];
     drivers: MapDriver[];
+    branches: Branch[];
     tariffClasses: TariffClass[];
     locationTtlSeconds: number;
     selectedId: number | null;
@@ -604,7 +652,19 @@ export function OrdersList({
     const { t } = useTrans();
     const userId = usePage<{ auth: { user: { id: number } | null } }>().props
         .auth.user?.id;
-    const now = useNow(5000);
+    // Umumiy taymer: "uzoq qidiruv" va filtr sanoqlari har 5 soniyada
+    const now = useServerNow(5000);
+    // Bekor/tahrirlash oynasi ro'yxat darajasida: buyurtma filtrdan yoki ro'yxatdan chiqsa ham oyna yopilmaydi
+    const [dialog, setDialog] = useState<OrderDialog | null>(null);
+    const closeDialog = useCallback((open: boolean) => {
+        if (!open) {
+            setDialog(null);
+        }
+    }, []);
+    const timeZones = useMemo(
+        () => new Map(branches.map((b) => [b.id, b.timezone])),
+        [branches],
+    );
     const [view, setView] = useState<ViewPrefs>(() => loadView(userId));
     // Ko'rsatish tartibi (id'lar): faqat operator tartibni o'zgartirganda qayta saralanadi
     const [ids, setIds] = useState<number[]>(() => sortIds(orders, view.sort));
@@ -652,11 +712,38 @@ export function OrdersList({
         }
     }, [orders]);
 
+    // Oynada buyurtmaning eng so'nggi holati; ro'yxatdan chiqqan bo'lsa — oxirgi ma'lum holati
+    const dialogOrder = dialog
+        ? (byId.get(dialog.order.id) ?? dialog.order)
+        : null;
+    const dialogs =
+        dialog && dialogOrder ? (
+            dialog.kind === 'cancel' ? (
+                <CancelOrderDialog
+                    key={`cancel-${dialogOrder.id}`}
+                    order={dialogOrder}
+                    open
+                    onOpenChange={closeDialog}
+                />
+            ) : (
+                <EditOrderDialog
+                    key={`edit-${dialogOrder.id}`}
+                    order={dialogOrder}
+                    tariffClasses={tariffClasses}
+                    open
+                    onOpenChange={closeDialog}
+                />
+            )
+        ) : null;
+
     if (orders.length === 0) {
         return (
-            <p className="p-4 text-center text-sm text-muted-foreground">
-                {t('No active orders')}
-            </p>
+            <>
+                <p className="p-4 text-center text-sm text-muted-foreground">
+                    {t('No active orders')}
+                </p>
+                {dialogs}
+            </>
         );
     }
 
@@ -789,15 +876,20 @@ export function OrdersList({
                         <OrderRow
                             key={order.id}
                             order={order}
-                            drivers={drivers}
-                            tariffClasses={tariffClasses}
+                            drivers={
+                                selectedId === order.id ? drivers : NO_DRIVERS
+                            }
                             locationTtlSeconds={locationTtlSeconds}
                             selected={selectedId === order.id}
-                            onSelect={() => onSelect(order.id)}
+                            attention={attentionLevel(order, now)}
+                            timeZone={timeZones.get(order.branch_id)}
+                            onSelect={onSelect}
+                            onDialog={setDialog}
                         />
                     ))}
                 </ul>
             )}
+            {dialogs}
         </div>
     );
 }

@@ -5,11 +5,14 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -29,6 +33,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -44,13 +49,15 @@ import uz.dtaxi.client.BuildConfig
 import uz.dtaxi.client.ClientApp
 import uz.dtaxi.client.R
 import uz.dtaxi.client.data.ClientOrder
-import uz.dtaxi.client.data.ClientState
 import uz.dtaxi.client.data.Profile
 import uz.dtaxi.client.data.Result
 import uz.dtaxi.core.data.Formats
 import uz.dtaxi.core.ui.LanguageRow
 import uz.dtaxi.core.ui.LocalAppColors
 import uz.dtaxi.core.ui.formatMoney
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /** Safardan keyin baho (1–5) — haydovchi reytingiga ta'sir qiladi */
 @Composable
@@ -58,15 +65,18 @@ fun RateDialog(order: ClientOrder) {
     val repository = ClientApp.instance.repository
     val scope = rememberCoroutineScope()
     var rating by remember { mutableStateOf(0) }
+    // Ikki marta bosilsa ikkita so'rov ketmasin
+    var sending by remember { mutableStateOf(false) }
     AlertDialog(
-        onDismissRequest = { ClientState.setToRate(null) },
+        // Oyna tashqarisiga bosish ham "Keyinroq" — keyingi ochilishda qayta chiqmaydi
+        onDismissRequest = { if (!sending) repository.dismissRating(order.id) },
         title = { Text(stringResource(R.string.rate_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 order.priceFinal?.let { Text(stringResource(R.string.price, formatMoney(it)), fontWeight = FontWeight.Bold) }
                 Row {
                     (1..5).forEach { star ->
-                        IconButton(onClick = { rating = star }) {
+                        IconButton(onClick = { rating = star }, enabled = !sending) {
                             Icon(
                                 if (star <= rating) Icons.Default.Star else Icons.Default.StarBorder,
                                 contentDescription = star.toString(),
@@ -78,37 +88,85 @@ fun RateDialog(order: ClientOrder) {
             }
         },
         confirmButton = {
-            TextButton(onClick = { scope.launch { repository.rate(order.id, rating) } }, enabled = rating > 0) { Text(stringResource(R.string.save)) }
+            TextButton(onClick = {
+                sending = true
+                scope.launch { if (repository.rate(order.id, rating) is Result.Error) sending = false }
+            }, enabled = rating > 0 && !sending) { Text(stringResource(R.string.save)) }
         },
-        dismissButton = { TextButton(onClick = { ClientState.setToRate(null) }) { Text(stringResource(R.string.later)) } },
+        dismissButton = { TextButton(onClick = { repository.dismissRating(order.id) }, enabled = !sending) { Text(stringResource(R.string.later)) } },
     )
 }
 
+/** Server sahifasi hajmi (OrderController::index) — kamroq kelsa oxiri */
+private const val HISTORY_PAGE = 20
+
+private val HISTORY_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+
+/** Server vaqti (ISO 8601, filial mintaqasida) — telefonning mahalliy vaqtida */
+internal fun localTime(iso: String): String = runCatching {
+    OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.systemDefault()).format(HISTORY_TIME)
+}.getOrElse { iso.take(16).replace('T', ' ') }
+
+/** canReorder — faol buyurtma yo'q bo'lsa "Qayta buyurtma" (manzillar va tarif qoralamaga) */
 @Composable
-fun HistoryScreen(onBack: () -> Unit) {
+fun HistoryScreen(onBack: () -> Unit, canReorder: Boolean, onReorder: (ClientOrder) -> Unit) {
     val repository = ClientApp.instance.repository
     var orders by remember { mutableStateOf<List<ClientOrder>?>(null) }
+    var end by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+    var attempt by remember { mutableIntStateOf(0) }
     BackHandler(onBack = onBack)
-    LaunchedEffect(Unit) { orders = (repository.history(null) as? Result.Ok)?.value ?: emptyList() }
+
+    // Keyingi sahifa: ro'yxat oxiri ko'ringanda (pastdagi yuklash qatori chizilganda)
+    suspend fun loadMore() {
+        val loaded = orders.orEmpty()
+        when (val result = repository.history(loaded.lastOrNull()?.id)) {
+            is Result.Ok -> {
+                orders = loaded + result.value.filter { new -> loaded.none { it.id == new.id } }
+                end = result.value.size < HISTORY_PAGE
+            }
+            is Result.Error -> failed = true
+        }
+    }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         TopRow(stringResource(R.string.history), onBack)
         val list = orders
-        if (list != null && list.isEmpty()) {
+        if (end && list != null && list.isEmpty()) {
             Text(stringResource(R.string.history_empty), Modifier.padding(16.dp), color = LocalAppColors.current.muted)
         }
-        LazyColumn {
+        LazyColumn(Modifier.navigationBarsPadding()) {
             items(list.orEmpty(), key = { it.id }) { order ->
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(order.createdAt.take(16).replace('T', ' '), Modifier.weight(1f), color = LocalAppColors.current.muted)
+                        Text(localTime(order.createdAt), Modifier.weight(1f), color = LocalAppColors.current.muted)
                         (order.priceFinal ?: order.priceEstimate)?.let { Text(stringResource(R.string.price, formatMoney(it)), fontWeight = FontWeight.Bold) }
                     }
                     Text(order.pickup.text.orEmpty())
                     order.dropoff?.text?.let { Text("→ $it") }
-                    Text(statusText(order.status), style = MaterialTheme.typography.bodySmall, color = LocalAppColors.current.muted)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(statusText(order.status), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = LocalAppColors.current.muted)
+                        if (canReorder && !order.isActive) {
+                            TextButton(onClick = { onReorder(order) }) { Text(stringResource(R.string.order_again)) }
+                        }
+                    }
                 }
                 HorizontalDivider()
+            }
+            if (!end) {
+                item(key = "more") {
+                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        if (failed) {
+                            TextButton(onClick = {
+                                failed = false
+                                attempt++
+                            }) { Text(stringResource(R.string.network_error)) }
+                        } else {
+                            CircularProgressIndicator(Modifier.size(24.dp))
+                            LaunchedEffect(list?.size, attempt) { loadMore() }
+                        }
+                    }
+                }
             }
         }
     }

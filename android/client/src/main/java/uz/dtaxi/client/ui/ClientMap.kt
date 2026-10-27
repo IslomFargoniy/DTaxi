@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -65,6 +66,9 @@ class MapController {
         )
     }
 
+    /** Hozirgi markaz (ko'rinadigan maydon o'rtasi) */
+    fun center(): LatLng? = map?.cameraPosition?.target?.let { LatLng(it.latitude, it.longitude) }
+
     fun fit(points: List<LatLng>) {
         val map = map ?: return
         when {
@@ -81,7 +85,7 @@ class MapController {
 
 /**
  * Mijoz xaritasi. picking — "Qayerdan" tanlash: markazda pin, xarita to'xtaganda onCenter(markaz).
- * Aks holda buyurtma nuqtalari (A, B) va haydovchi ko'rsatiladi.
+ * Belgilar (A, B, haydovchi) — berilganlari chiziladi (chaqiruvchi tanlaydi).
  */
 @Composable
 fun ClientMap(
@@ -98,13 +102,15 @@ fun ClientMap(
     bottomInset: Dp = 0.dp,
     onCenter: (LatLng) -> Unit = {},
     onMoveStarted: () -> Unit = {},
+    // Markazdagi pin rangi ("Qayerga" tanlanayotganda — qizil); null — mavzu matni rangida
+    pinColor: Color? = null,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
     controller.top = with(density) { topInset.toPx() }.toDouble()
     controller.bottom = with(density) { bottomInset.toPx() }.toDouble()
     // Qorong'i xaritada qora belgi ko'rinmasdi: pin — mavzu matni rangida, haydovchi — firma rangida
-    val pinColor = MaterialTheme.colorScheme.onSurface
+    val pinTint = pinColor ?: MaterialTheme.colorScheme.onSurface
     val brand = MaterialTheme.colorScheme.primary.toArgb()
     val mapView = remember { MapView(context).apply { onCreate(Bundle()) } }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -180,7 +186,7 @@ fun ClientMap(
                 Icon(
                     Icons.Default.Place,
                     contentDescription = null,
-                    tint = pinColor,
+                    tint = pinTint,
                     modifier = Modifier.align(Alignment.Center).size(44.dp).offset(y = (-20).dp),
                 )
             }
@@ -206,7 +212,7 @@ fun ClientMap(
     }
 
     LaunchedEffect(picking, pickup, dropoff, driver, styleVersion) {
-        styleHolder[0]?.let { update(it, if (picking) null else pickup, dropoff, driver) }
+        styleHolder[0]?.let { update(it, pickup, dropoff, driver) }
     }
 }
 

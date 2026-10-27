@@ -43,6 +43,19 @@ class ClientApp : Application() {
             NotificationChannel(CHANNEL_ORDERS, getString(R.string.channel_orders), NotificationManager.IMPORTANCE_HIGH),
         )
         initFirebase()
+        // Faol buyurtma raqami saqlanadi: fonda/yopiq paytda yakunlansa qaytganda natija ko'rsatiladi (refreshCurrent)
+        scope.launch {
+            var previous: Int? = null
+            ClientState.order.collect { order ->
+                if (order != null) {
+                    session.activeOrderId = order.id
+                } else if (previous != null) {
+                    // Yakuni ilova ochiq paytda keldi (Reverb yoki so'rov) — qayta ko'rsatilmasin
+                    session.activeOrderId = null
+                }
+                previous = order?.id
+            }
+        }
     }
 
     /** Firebase — firmaning o'z loyihasi (qaror #35, #71); sozlanmagan bo'lsa push o'chiq, holat faqat Reverb orqali */
@@ -78,13 +91,17 @@ class ClientApp : Application() {
         if (realtime != null) return
         realtime = Realtime(profile.config.reverb, token, BuildConfig.SERVER_URL, "private-client.${profile.id}", EVENTS, ::onEvent) { connected ->
             // Uzilish paytida kelgan xabarlar yo'qolgan — holat serverdan
-            if (connected) scope.launch { repository.refreshCurrent() }
+            scope.launch {
+                ClientState.setLive(connected)
+                if (connected) repository.refreshCurrent()
+            }
         }.also { it.connect() }
     }
 
     fun stopRealtime() {
         realtime?.disconnect()
         realtime = null
+        ClientState.setLive(false)
     }
 
     /** Pusher oqimida — asosiy oqimga o'tkaziladi */

@@ -6,12 +6,13 @@ use App\Models\Driver;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * Operator paneli xaritasi uchun haydovchi joylashuvi va holati.
  */
-class DriverLocationUpdated implements ShouldBroadcastNow
+class DriverLocationUpdated implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

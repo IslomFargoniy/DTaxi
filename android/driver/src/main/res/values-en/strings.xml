@@ -76,6 +76,7 @@
     <string name="tx_adjustment">Adjustment</string>
     <string name="tx_refund">Refund</string>
     <string name="voice_guidance">Voice navigation</string>
+    <string name="server_invalid">Invalid server address</string>
     <string name="server_address">Server address (Mac IP)</string>
     <string name="retry">Retry</string>
     <string name="connecting">Connecting to the server…</string>

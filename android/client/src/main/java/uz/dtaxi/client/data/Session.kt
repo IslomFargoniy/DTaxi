@@ -23,5 +23,25 @@ class Session(context: Context) {
         get() = prefs.getString("theme_mode", "system") ?: "system"
         set(value) = prefs.edit().putString("theme_mode", value).apply()
 
-    fun clear() = prefs.edit().remove("token").apply()
+    /**
+     * Oxirgi faol buyurtma — ilova fonda (yoki yopiq) bo'lganda bekor qilinsa, qaytganda nima bo'lganini
+     * tarixdan topib ko'rsatish uchun
+     */
+    var activeOrderId: Int?
+        get() = prefs.getInt("active_order_id", 0).takeIf { it > 0 }
+        set(value) = prefs.edit().putInt("active_order_id", value ?: 0).apply()
+
+    /** "Keyinroq" bosilgan safarlar — server har ochilishda to_rate qaytaradi, oyna qayta chiqmasin */
+    fun isRatingDismissed(orderId: Int): Boolean = orderId in dismissedRatings()
+
+    fun dismissRating(orderId: Int) {
+        // Oxirgi 20 tasi yetarli: server faqat 2 soat ichidagi safarni taklif qiladi
+        val ids = (dismissedRatings() + orderId).toList().takeLast(20)
+        prefs.edit().putString("dismissed_ratings", ids.joinToString(",")).apply()
+    }
+
+    private fun dismissedRatings(): LinkedHashSet<Int> =
+        prefs.getString("dismissed_ratings", null).orEmpty().split(',').mapNotNullTo(LinkedHashSet()) { it.toIntOrNull() }
+
+    fun clear() = prefs.edit().remove("token").remove("active_order_id").apply()
 }

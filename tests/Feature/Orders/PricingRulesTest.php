@@ -120,3 +120,31 @@ test('operators cannot set client discounts', function () {
 
     expect($client->fresh()->note)->toBe('VIP')->and($client->fresh()->discount_percent)->toBeNull();
 });
+
+test('a pre-order takes the peak-hour coefficient of its scheduled time, not of the booking time', function () {
+    $settings = app(Settings::class);
+    $settings->set('pricing.surge_coeff', 1.5, $this->branch);
+    $later = now($this->branch->timezone)->addHours(3);
+    $settings->set('pricing.surge_from_hour', $later->hour, $this->branch);
+    $settings->set('pricing.surge_to_hour', ($later->hour + 1) % 24, $this->branch);
+
+    $preorder = $this->orders->create(orderData($this->branch, ['scheduled_at' => $later->startOfHour()->addMinutes(10)]));
+    $now = $this->orders->create(orderData($this->branch, ['phone' => '90 765 43 21']));
+
+    expect($preorder->tariff_snapshot['surge_coeff'] ?? null)->toEqual(1.5)
+        ->and($now->tariff_snapshot['surge_coeff'] ?? null)->toBeNull();
+});
+
+test('commission uses the percent fixed when the order was created', function () {
+    $settings = app(Settings::class);
+    $settings->set('drivers.commission_percent', 10, $this->branch);
+    $driver = driverNear($this->branch, 500, ['balance' => 50000]);
+    $order = $this->orders->create(orderData($this->branch));
+    $this->dispatcher->accept($order, $driver);
+    $this->orders->start($order->fresh(), $driver->fresh());
+
+    $settings->set('drivers.commission_percent', 30, $this->branch);
+    $order = $this->orders->complete($order->fresh(), $driver->fresh(), 3000);
+
+    expect($order->commission)->toBe((int) round($order->price_final * 0.10));
+});

@@ -29,7 +29,15 @@ class DtaxiApp : Application() {
         super.onCreate()
         instance = this
         session = Session(this)
+        uz.dtaxi.driver.data.ServerClock.init(session.clockOffsetMs) { session.clockOffsetMs = it }
         repository = Repository(ApiClient(session), session)
+        // Chiqish yoki 401: liniya servisi to'xtaydi, eski trek va taksometr keyingi haydovchiga o'tmaydi
+        repository.onSignedOut = {
+            uz.dtaxi.driver.service.DriverService.stop(this)
+            uz.dtaxi.driver.service.DriverService.clearLocalData(this)
+            OfferNotifier.cancel(this)
+            DriverState.clearOffer()
+        }
         uz.dtaxi.driver.data.DriverState.setThemeMode(session.themeMode)
         MapLibre.getInstance(this)
         initFirebase()

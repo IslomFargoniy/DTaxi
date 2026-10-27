@@ -48,7 +48,11 @@ class DriverBalance
             return null;
         }
 
-        $percent = (float) $this->settings->get('drivers.commission_percent', $order->branch_id);
+        // Buyurtma paytidagi foiz (snapshot); eski buyurtmalarda — joriy sozlama
+        $snapshot = $order->tariff_snapshot;
+        $percent = is_numeric($snapshot['commission_percent'] ?? null)
+            ? (float) $snapshot['commission_percent']
+            : (float) $this->settings->get('drivers.commission_percent', $order->branch_id);
         $commission = (int) round($base * $percent / 100);
 
         $order->forceFill(['commission' => $commission])->save();

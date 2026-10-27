@@ -7,12 +7,13 @@ use App\Models\Order;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * Buyurtma holati o'zgardi — filial operatorlari paneli va biriktirilgan haydovchi ilovasi yangilanadi.
  */
-class OrderUpdated implements ShouldBroadcastNow
+class OrderUpdated implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

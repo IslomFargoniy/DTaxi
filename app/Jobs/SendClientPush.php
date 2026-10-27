@@ -45,7 +45,7 @@ class SendClientPush implements ShouldQueue
             'assigned' => [$t('Your driver is on the way'), $t(':car is on the way', ['car' => $car])],
             'arrived' => [$t('Your driver has arrived'), $t(':car is waiting for you', ['car' => $car])],
             'no_driver_found' => [$t('No cars available'), $t('Please try again later or call the dispatcher.')],
-            'cancelled_by_operator' => [$t('Your order was cancelled'), $order->cancel_reason ?? ''],
+            'cancelled_by_operator' => [$t('Your order was cancelled'), $order->cancel_reason !== null ? $t($order->cancel_reason) : ''],
             'completed' => [$t('Trip completed'), $t('Please rate your trip.')],
             default => [null, null],
         };

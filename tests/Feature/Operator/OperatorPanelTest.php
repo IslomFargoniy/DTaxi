@@ -144,6 +144,17 @@ test('operator assigns a driver manually', function () {
     expect($order->offers()->where('driver_id', $driver->id)->value('is_direct'))->toBeTrue();
 });
 
+test('a driver from another branch cannot be assigned', function () {
+    $other = Branch::factory()->create();
+    $driver = driverNear($other, 400);
+    $order = app(OrderService::class)->create(orderData($this->branch), dispatch: false);
+
+    $this->actingAs($this->operator)->post(route('operator.orders.assign', $order), ['driver_id' => $driver->id])
+        ->assertSessionHasErrors(['driver_id' => __('This driver belongs to another branch.')]);
+
+    expect($order->offers()->count())->toBe(0);
+});
+
 test('operator cancels an order', function () {
     $order = app(OrderService::class)->create(orderData($this->branch));
 

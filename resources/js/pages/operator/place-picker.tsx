@@ -56,6 +56,11 @@ export function PlacePicker({
         latest.current = value;
     }, [value]);
 
+    // Mo'ljal nuqtasi qiymat bo'yicha: har chizishda yangi obyekt kelsa (GPS/buyurtma hodisalari) qidiruv qayta boshlanib,
+    // 200 ms kutish hech tugamas va natija chiqmasdi
+    const nearLat = near?.lat;
+    const nearLng = near?.lng;
+
     useEffect(() => {
         if (!open || value.text.trim().length < 2 || value.landmarkId) {
             setResults([]);
@@ -71,7 +76,9 @@ export function PlacePicker({
                 searchLandmarks.url({
                     query: {
                         q: value.text,
-                        ...(near ? { lat: near.lat, lng: near.lng } : {}),
+                        ...(nearLat !== undefined && nearLng !== undefined
+                            ? { lat: nearLat, lng: nearLng }
+                            : {}),
                     },
                 }),
                 { signal: controller.signal },
@@ -87,7 +94,7 @@ export function PlacePicker({
             clearTimeout(id);
             controller.abort();
         };
-    }, [value.text, value.landmarkId, open, near]);
+    }, [value.text, value.landmarkId, open, nearLat, nearLng]);
 
     const choose = (landmark: Landmark) => {
         onChange({

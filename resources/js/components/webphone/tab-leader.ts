@@ -11,7 +11,9 @@ type Message =
     | { type: 'hello'; id: string }
     | { type: 'heartbeat'; id: string }
     | { type: 'resign'; id: string }
-    | { type: 'takeover'; id: string };
+    | { type: 'takeover'; id: string }
+    // Lider suhbatda — liderlik berilmaydi (aks holda faol qo'ng'iroq uzilardi)
+    | { type: 'refuse'; id: string; to: string };
 
 const CHANNEL = 'dtaxi-sip-leader';
 const HEARTBEAT_MS = 2000;
@@ -25,6 +27,11 @@ type LeaderState = {
     lastLeaderSeen: number;
     heartbeat: ReturnType<typeof setInterval> | null;
     watchdog: ReturnType<typeof setInterval> | null;
+    /** "Shu yerda ishlatish" so'rovi javobini kutish (rad etilsa — chaqiriladi) */
+    takeover: {
+        timer: ReturnType<typeof setTimeout>;
+        onRefused?: () => void;
+    } | null;
 };
 
 type GlobalWithLeader = typeof globalThis & {
@@ -39,6 +46,7 @@ const state: LeaderState = g.__DTAXI_SIP_LEADER__ ?? {
     lastLeaderSeen: 0,
     heartbeat: null,
     watchdog: null,
+    takeover: null,
 };
 g.__DTAXI_SIP_LEADER__ = state;
 
@@ -133,8 +141,23 @@ function onMessage(event: MessageEvent<Message>) {
             break;
         case 'takeover':
             if (globalSip.tabRole === 'leader') {
+                if (globalSip.callState !== 'idle') {
+                    // Suhbat (yoki jiringlash) shu varaqda — telefon bu yerda qoladi
+                    post({ type: 'refuse', id: state.id, to: message.id });
+
+                    return;
+                }
                 state.lastLeaderSeen = Date.now();
                 becomeFollower();
+            }
+            break;
+        case 'refuse':
+            if (message.to === state.id && state.takeover) {
+                clearTimeout(state.takeover.timer);
+                const { onRefused } = state.takeover;
+                state.takeover = null;
+                state.lastLeaderSeen = Date.now();
+                onRefused?.();
             }
             break;
     }
@@ -147,10 +170,27 @@ export function resignLeadership() {
     }
 }
 
-/** "Telefonni shu varaqda ishlatish" — liderlikni majburan olish */
-export function takeLeadership() {
+/**
+ * "Telefonni shu varaqda ishlatish" — liderlikni olish. Lider suhbatda bo'lsa rad etadi (onRefused);
+ * javob kutilmasdan lider bo'linsa, o'sha varaqdagi faol qo'ng'iroq uzilardi.
+ */
+export function takeLeadership(onRefused?: () => void) {
+    if (!state.channel) {
+        becomeLeader();
+
+        return;
+    }
+    if (state.takeover) {
+        clearTimeout(state.takeover.timer);
+    }
     post({ type: 'takeover', id: state.id });
-    becomeLeader();
+    state.takeover = {
+        onRefused,
+        timer: setTimeout(() => {
+            state.takeover = null;
+            becomeLeader();
+        }, CLAIM_WAIT_MS),
+    };
 }
 
 export function startLeaderElection() {

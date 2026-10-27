@@ -5,12 +5,13 @@ namespace App\Events;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * Taklif endi dolzarb emas: boshqa haydovchi oldi yoki buyurtma bekor qilindi.
  */
-class OfferWithdrawn implements ShouldBroadcastNow
+class OfferWithdrawn implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

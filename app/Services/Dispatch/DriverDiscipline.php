@@ -35,6 +35,7 @@ class DriverDiscipline
             'driver_id' => $driver->id,
             'reason' => $reason,
             'penalty_amount' => $penalty,
+            'excused' => $excused,
             'created_at' => now(),
         ]);
 
@@ -81,7 +82,7 @@ class DriverDiscipline
 
             if ($penalty->order_id) {
                 OrderCancellation::query()->where('driver_id', $driver->id)->where('order_id', $penalty->order_id)
-                    ->update(['penalty_amount' => 0]);
+                    ->update(['penalty_amount' => 0, 'excused' => true]);
             }
 
             return true;
@@ -123,10 +124,10 @@ class DriverDiscipline
     private function blockIfTooManyCancels(Driver $driver): void
     {
         $limit = (int) $this->settings->get('drivers.max_cancels_per_shift', $driver->branch_id);
-        // "Smena" — oxirgi 12 soat
+        // "Smena" — oxirgi 12 soat; jarima summasi 0 qilib sozlangan bo'lsa ham uzrsizlar sanaladi
         $count = OrderCancellation::query()
             ->where('driver_id', $driver->id)
-            ->where('penalty_amount', '>', 0)
+            ->where('excused', false)
             ->where('created_at', '>=', now()->subHours(12))
             ->count();
 

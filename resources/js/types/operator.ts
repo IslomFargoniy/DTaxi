@@ -52,6 +52,8 @@ export type Order = {
 
 export type MapDriver = {
     id: number;
+    /** Filial kanali hodisasida — kanal filiali qo'shiladi */
+    branch_id?: number;
     callsign: string;
     name?: string;
     status: 'offline' | 'free' | 'busy';
@@ -66,6 +68,8 @@ export type Branch = {
     area?: Polygon | MultiPolygon | null;
     id: number;
     name: string;
+    /** IANA vaqt mintaqasi (masalan Asia/Tashkent) */
+    timezone?: string;
     center: { lat: number; lng: number } | null;
 };
 

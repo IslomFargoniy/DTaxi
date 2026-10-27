@@ -41,6 +41,7 @@ import uz.dtaxi.driver.R
 import uz.dtaxi.core.data.Formats
 import uz.dtaxi.core.ui.PhoneVisualTransformation
 import uz.dtaxi.driver.data.Result
+import uz.dtaxi.driver.data.Session
 
 /**
  * Kirish: telefon + admin bergan parol (SMS yo'q — qaror #4).
@@ -60,6 +61,7 @@ fun LoginScreen(onLocaleChange: (String) -> Unit = {}) {
     var error by remember { mutableStateOf<String?>(null) }
     val failed = stringResource(R.string.login_failed)
     val network = stringResource(R.string.network_error)
+    val invalidServer = stringResource(R.string.server_invalid)
 
     Column(
         // Klaviatura ochilganda maydonlar yopilib qolmasin: ekran klaviatura ustida qoladi va aylantiriladi
@@ -117,7 +119,14 @@ fun LoginScreen(onLocaleChange: (String) -> Unit = {}) {
                 loading = true
                 error = null
                 if (BuildConfig.SERVER_EDITABLE) {
-                    session.serverUrl = if (server.startsWith("http")) server else "http://$server"
+                    val url = if (server.startsWith("http")) server else "http://$server"
+                    // Noto'g'ri manzil saqlanmaydi — xato shu yerda ko'rinadi
+                    if (!Session.isValidServer(url)) {
+                        error = invalidServer
+                        loading = false
+                        return@Button
+                    }
+                    session.serverUrl = url
                 }
                 scope.launch {
                     when (val result = repository.login("+998$phone", password)) {

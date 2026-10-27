@@ -51,4 +51,32 @@ class ClientStateTest {
         ClientState.setOrder(order(3, "arrived", driverAt = LatLng(40.1, 71.1)))
         assertEquals(40.2, ClientState.driver.value!!.lat, 0.0)
     }
+
+    @Test fun pollMovesDriverOnlyWhenRealtimeIsDown() {
+        ClientState.setOrder(order(4, "assigned", driverAt = LatLng(40.1, 71.1)))
+        ClientState.moveDriver(DriverPosition(4, 40.2, 71.2, 90))
+
+        // Reverb ulangan — jonli joy server nuqtasidan aniqroq
+        ClientState.setLive(true)
+        ClientState.syncDriverFromServer(order(4, "assigned", driverAt = LatLng(40.3, 71.3)))
+        assertEquals(40.2, ClientState.driver.value!!.lat, 0.0)
+
+        // Reverb uzildi — belgi so'rov javobi bilan yuradi
+        ClientState.setLive(false)
+        ClientState.syncDriverFromServer(order(4, "assigned", driverAt = LatLng(40.3, 71.3)))
+        assertEquals(40.3, ClientState.driver.value!!.lat, 0.0)
+        assertEquals(90, ClientState.driver.value!!.heading)
+
+        // Boshqa buyurtmaning javobi belgini o'zgartirmaydi
+        ClientState.syncDriverFromServer(order(5, "assigned", driverAt = LatLng(1.0, 1.0)))
+        assertEquals(40.3, ClientState.driver.value!!.lat, 0.0)
+    }
+
+    @Test fun orderFinishedInBackgroundIsShownFromHistory() {
+        ClientState.showFinished(order(6, "searching"))
+        assertNull(ClientState.finished.value)
+
+        ClientState.showFinished(order(6, "cancelled"))
+        assertEquals(6, ClientState.finished.value?.id)
+    }
 }

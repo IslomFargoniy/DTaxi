@@ -3,6 +3,10 @@ package uz.dtaxi.driver.data
 import uz.dtaxi.driver.BuildConfig
 import android.content.Context
 import android.content.SharedPreferences
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import uz.dtaxi.core.data.AppLocale
 import uz.dtaxi.core.data.SecurePrefs
 
@@ -12,9 +16,17 @@ import uz.dtaxi.core.data.SecurePrefs
 class Session(context: Context) {
     private val prefs: SharedPreferences = SecurePrefs.open(context)
 
+    private val _token = MutableStateFlow(prefs.getString("token", null))
+
+    /** Token o'zgarsa (chiqish, 401, boshqa haydovchi kirdi) — servis Reverb'ni qayta quradi yoki to'xtaydi, ekran loginga o'tadi */
+    val tokenFlow: StateFlow<String?> = _token.asStateFlow()
+
     var token: String?
-        get() = prefs.getString("token", null)
-        set(value) = prefs.edit().putString("token", value).apply()
+        get() = _token.value
+        set(value) {
+            prefs.edit().putString("token", value).apply()
+            _token.value = value
+        }
 
     /** Ilova tili: uz, oz (kirill), ru, en */
     var locale: String
@@ -47,7 +59,9 @@ class Session(context: Context) {
 
     /** Server manzili: firma konfiguratsiyasidan; sinov ilovasida (SERVER_EDITABLE) login ekranida o'zgartiriladi */
     var serverUrl: String
-        get() = prefs.getString("server_url", null)?.takeIf { BuildConfig.SERVER_EDITABLE && it.isNotBlank() } ?: BuildConfig.SERVER_URL
+        // Noto'g'ri saqlangan manzil (sinov ilovasi) HTTP so'rovlarini yiqitmasin — firma manziliga qaytadi
+        get() = prefs.getString("server_url", null)
+            ?.takeIf { BuildConfig.SERVER_EDITABLE && it.isNotBlank() && isValidServer(it) } ?: BuildConfig.SERVER_URL
         set(value) = prefs.edit().putString("server_url", value.trim().trimEnd('/')).apply()
 
     /** Internet yo'q paytda bosilgan "Yakunlash": (buyurtma, ichkari m, tashqari m) — server javob berguncha qayta yuboriladi */
@@ -72,5 +86,17 @@ class Session(context: Context) {
 
     fun setPassedStops(orderId: Int, count: Int) = prefs.edit().putString("passed_stops", "$orderId:$count").apply()
 
-    fun clear() = prefs.edit().remove("token").apply()
+    fun clear() {
+        prefs.edit().remove("token").apply()
+        _token.value = null
+    }
+
+    /** Oxirgi ma'lum server soati farqi (ms) — FCM ilovani "o'lik" holatdan uyg'otganda ham taklif muddati to'g'ri sanaladi */
+    var clockOffsetMs: Long?
+        get() = if (prefs.contains("clock_offset")) prefs.getLong("clock_offset", 0) else null
+        set(value) = prefs.edit().apply { if (value == null) remove("clock_offset") else putLong("clock_offset", value) }.apply()
+
+    companion object {
+        fun isValidServer(url: String) = url.trim().toHttpUrlOrNull() != null
+    }
 }

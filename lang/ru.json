@@ -762,5 +762,8 @@
     "In the app: Settings → Delete account. Your sign-in, saved addresses and name entered in the app are deleted; trip history stays in the company records. You can also ask the dispatcher by phone.": "В приложении: Настройки → Удалить аккаунт. Удаляются данные входа, сохранённые адреса и имя, указанное в приложении; история поездок остаётся в записях компании. Также можно обратиться к диспетчеру по телефону.",
     "Contact": "Контакты",
     "Client app sign-in code calls per hour (0 — off)": "Звонков с кодом входа в приложение клиента в час (0 — выкл.)",
-    "Too many sign-in requests right now. Please try again later.": "Сейчас слишком много запросов на вход. Попробуйте позже."
+    "Too many sign-in requests right now. Please try again later.": "Сейчас слишком много запросов на вход. Попробуйте позже.",
+    "Load client": "Загрузить клиента",
+    "This driver belongs to another branch.": "Этот водитель относится к другому филиалу.",
+    "A call is in progress in the other tab. Finish it first.": "В другой вкладке идёт разговор. Сначала завершите его."
 }

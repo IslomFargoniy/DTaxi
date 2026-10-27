@@ -5,12 +5,13 @@ namespace App\Events;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * Haydovchiga: operator qo'ng'iroq qilyapti. Ilova ro'yxatdan o'tmagan (SIP) — javob berilsa o'zi answer-{callId} ga qo'ng'iroq qiladi.
  */
-class IncomingCall implements ShouldBroadcastNow
+class IncomingCall implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

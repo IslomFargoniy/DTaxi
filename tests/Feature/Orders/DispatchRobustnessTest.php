@@ -16,6 +16,8 @@ use App\Models\User;
 use App\Services\Dispatch\Dispatcher;
 use App\Services\Dispatch\DriverDiscipline;
 use App\Services\Orders\OrderService;
+use App\Services\Pricing\FareCalculator;
+use App\Support\Settings;
 use Clickbar\Magellan\Data\Geometries\Point;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Support\Facades\Event;
@@ -132,6 +134,50 @@ test('under-reported distance is charged commission by the GPS track', function 
         ->and($event->payload['commission_base'])->toBeGreaterThan(10000);
 });
 
+test('over-reported distance is priced by the GPS track (decision #73)', function () {
+    $driver = driverNear($this->branch, 0, ['balance' => 50000]);
+    $order = $this->orders->create(orderData($this->branch));
+    $this->dispatcher->accept($order, $driver);
+    $this->orders->start($order->fresh(), $driver->fresh());
+    foreach (range(1, 10) as $i) {
+        DriverLocation::query()->create([
+            'driver_id' => $driver->id,
+            'location' => Point::makeGeodetic(40.3864 + $i * 0.0045, 71.7864),
+            'recorded_at' => now()->addSeconds($i * 30),
+        ]);
+    }
+    $this->travel(6)->minutes();
+    $fair = app(FareCalculator::class)->calculate($order->fresh()->tariff_snapshot, 5000)->total;
+
+    // ~5 km trek, ilova "900 km" yubordi
+    $completed = $this->orders->complete($order->fresh(), $driver->fresh(), 900_000);
+
+    $event = $completed->events()->where('type', 'completed')->first();
+    expect($completed->distance_m)->toBeLessThan(6000)->toBeGreaterThan(4000)
+        ->and($completed->price_final)->toBeLessThanOrEqual($fair + 2000)
+        ->and($event->payload['reported_m'])->toBe(900_000)
+        ->and($event->payload['distance_capped'])->toBe($completed->distance_m)
+        ->and($event->payload['suspicious'])->toBeTrue();
+});
+
+test('without a GPS track the estimated route caps an over-reported distance, honest ones stay', function () {
+    $driver = driverNear($this->branch, 0, ['balance' => 50000]);
+    $order = $this->orders->create(orderData($this->branch));
+    $order->forceFill(['distance_m' => 3000])->save();
+    $this->dispatcher->accept($order, $driver);
+    $this->orders->start($order->fresh(), $driver->fresh());
+
+    $completed = $this->orders->complete($order->fresh(), $driver->fresh(), 50_000);
+    expect($completed->distance_m)->toBe(3000);
+
+    $honest = $this->orders->create(orderData($this->branch));
+    $honest->forceFill(['distance_m' => 3000])->save();
+    $this->dispatcher->accept($honest, $driver->fresh());
+    $this->orders->start($honest->fresh(), $driver->fresh());
+    // Aylanib o'tish (4.5 km) — 1.3× + 1 km ichida, o'zgarmaydi
+    expect($this->orders->complete($honest->fresh(), $driver->fresh(), 4500)->distance_m)->toBe(4500);
+});
+
 test('operator cancel with a stale order still frees the driver who just accepted', function () {
     $driver = driverNear($this->branch, 500);
     $order = $this->orders->create(orderData($this->branch));
@@ -245,4 +291,38 @@ test('impossible GPS jumps (two phones on one account) do not inflate the commis
 
     expect($completed->commission)->toBe(1000)
         ->and($completed->events()->where('type', 'completed')->first()->payload['commission_base'])->toBeNull();
+});
+
+test('operator redispatch restarts the "no driver found" clock', function () {
+    $order = $this->orders->create(orderData($this->branch));
+    $order->forceFill(['searching_at' => now()->subMinutes(30)])->save();
+
+    $this->orders->redispatch($order->fresh(), User::factory()->create());
+
+    expect($order->fresh()->searching_at->gt(now()->subMinute()))->toBeTrue();
+});
+
+test('direct offer expiry waits for the same grace the accept allows', function () {
+    $driver = driverNear($this->branch, 500);
+    $order = $this->orders->create(orderData($this->branch), dispatch: false);
+    $this->dispatcher->offerDirect($order, $driver, User::factory()->create());
+    $seconds = (int) app(Settings::class)->get('dispatch.direct_offer_seconds', $this->branch->id);
+
+    Queue::assertPushed(ExpireDirectOffer::class, fn (ExpireDirectOffer $job) => $job->delay instanceof DateTimeInterface
+        && now()->diffInSeconds($job->delay) >= $seconds + 4);
+});
+
+test('unexcused cancels block the driver even when the penalty amount is zero', function () {
+    $settings = app(Settings::class);
+    $settings->set('drivers.cancel_penalty', 0, $this->branch);
+    $settings->set('drivers.max_cancels_per_shift', 2, $this->branch);
+    $driver = driverNear($this->branch, 300);
+    $discipline = app(DriverDiscipline::class);
+
+    $discipline->cancelled($driver, $this->orders->create(orderData($this->branch), dispatch: false), 'Uzrli', excused: true);
+    $discipline->cancelled($driver, $this->orders->create(orderData($this->branch), dispatch: false), 'Bir');
+    expect($driver->fresh()->isBlocked())->toBeFalse();
+
+    $discipline->cancelled($driver, $this->orders->create(orderData($this->branch), dispatch: false), 'Ikki');
+    expect($driver->fresh()->isBlocked())->toBeTrue();
 });

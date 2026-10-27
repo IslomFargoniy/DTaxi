@@ -160,7 +160,8 @@ fun HomeScreen(onOpen: (Screen) -> Unit, requestPermissions: (() -> Unit) -> Uni
         (repository.route(me.first, me.second, lat, lng) as? Result.Ok)?.value?.let {
             route = it.geometry
             val geometry = it.geometry
-            if (it.steps.size > 1 && !geometry.isNullOrEmpty()) navigator = Navigator(it.steps, geometry)
+            val steps = it.steps.orEmpty()
+            if (steps.size > 1 && !geometry.isNullOrEmpty()) navigator = Navigator(steps, geometry)
         }
     }
 

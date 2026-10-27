@@ -1,12 +1,17 @@
 package uz.dtaxi.client.ui
 
 import android.Manifest
+import android.app.Activity
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
+import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -18,6 +23,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -55,6 +61,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -71,6 +79,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -87,6 +96,7 @@ import uz.dtaxi.client.data.TariffQuote
 import uz.dtaxi.core.ui.LocalAppColors
 import uz.dtaxi.core.ui.formatMoney
 import uz.dtaxi.core.ui.mapStyleFor
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.sqrt
 
@@ -99,6 +109,20 @@ class OrderDraft {
 
     /** Qidiruvdan tanlangan "Qayerdan" — kamera unga borgach teskari geokodlash nomini almashtirmasin */
     var pickupFromSearch by mutableStateOf(false)
+
+    /** "Qayerga" xaritadan tanlanmoqda: markazdagi pin — B nuqtasi, tasdiqlanguncha dropoffCandidate da */
+    var choosingDropoff by mutableStateOf(false)
+    var dropoffCandidate by mutableStateOf<Place?>(null)
+
+    /** Safar tugagach yoki chiqishda — keyingi buyurtma toza boshlanadi (tarif tanlovi qoladi) */
+    fun reset() {
+        pickup = null
+        dropoff = null
+        comment = ""
+        pickupFromSearch = false
+        choosingDropoff = false
+        dropoffCandidate = null
+    }
 }
 
 enum class SearchTarget { Pickup, Dropoff }
@@ -120,8 +144,15 @@ fun HomeScreen(
     val driver by ClientState.driver.collectAsState()
     val toRate by ClientState.toRate.collectAsState()
     val finished by ClientState.finished.collectAsState()
+    val live by ClientState.live.collectAsState()
     var locating by remember { mutableStateOf(false) }
     var myLocation by remember { mutableStateOf<LatLng?>(null) }
+    // Teskari geokodlash — bitta so'rov: xarita yana surilsa oldingisi bekor (eski javob yangisini ustidan yozmaydi)
+    val geocodeJob = remember { arrayOfNulls<Job>(1) }
+    var openSettings by remember { mutableStateOf(false) }
+    // Foydalanuvchi xaritani qo'lda sursa — kamera biroz vaqt haydovchiga ergashmaydi
+    var followPausedUntil by remember { mutableLongStateOf(0L) }
+    val pointOnMap = stringResource(R.string.point_on_map)
     var menu by remember { mutableStateOf(false) }
     val network = stringResource(R.string.network_error)
     val generic = stringResource(R.string.error)
@@ -133,13 +164,55 @@ fun HomeScreen(
     var topInset by remember { mutableStateOf(0.dp) }
     var bottomInset by remember { mutableStateOf(0.dp) }
 
-    suspend fun locate() {
-        val point = currentLocation(context) ?: return
+    suspend fun locate(): Boolean {
+        val point = currentLocation(context) ?: return false
         myLocation = point
         if (ClientState.order.value == null) {
             draft.pickupFromSearch = false
             controller.moveTo(point)
         }
+        return true
+    }
+
+    fun geocode(center: LatLng, apply: (String?) -> Unit) {
+        geocodeJob[0]?.cancel()
+        locating = true
+        geocodeJob[0] = scope.launch {
+            apply((repository.reverse(center.lat, center.lng) as? Result.Ok)?.value?.takeIf { it.isNotBlank() })
+            locating = false
+        }
+    }
+
+    // "Qayerdan": xarita markazi
+    fun pickAt(center: LatLng) {
+        draft.pickup?.let { current ->
+            val moved = distanceMeters(center, LatLng(current.lat, current.lng))
+            // Panel balandligi o'zgarsa (klaviatura, tarif qatori) markaz joyida qoladi — manzil qayta aniqlanmaydi
+            if (moved < 2 || (draft.pickupFromSearch && moved < 25)) return
+        }
+        draft.pickupFromSearch = false
+        draft.pickup = Place(null, center.lat, center.lng)
+        geocode(center) { name ->
+            // Bu orada xarita yana surilgan bo'lsa — eski javob yozilmaydi
+            if (draft.pickup?.lat == center.lat && draft.pickup?.lng == center.lng) draft.pickup = Place(name, center.lat, center.lng)
+        }
+    }
+
+    // "Qayerga" xaritadan
+    fun pickDropoffAt(center: LatLng) {
+        draft.dropoffCandidate?.let { if (distanceMeters(center, LatLng(it.lat, it.lng)) < 2) return }
+        draft.dropoffCandidate = Place(null, center.lat, center.lng)
+        geocode(center) { name ->
+            val candidate = draft.dropoffCandidate
+            if (candidate?.lat == center.lat && candidate.lng == center.lng) draft.dropoffCandidate = Place(name, center.lat, center.lng)
+        }
+    }
+
+    fun finishChoosingDropoff(confirm: Boolean) {
+        if (confirm) draft.dropoffCandidate?.let { draft.dropoff = if (it.text.isNullOrBlank()) it.copy(text = pointOnMap) else it }
+        draft.choosingDropoff = false
+        draft.dropoffCandidate = null
+        draft.pickup?.let { controller.moveTo(LatLng(it.lat, it.lng)) }
     }
 
     // Android 13+: buyurtma holati ilova yopiq paytida (push) — rad etilsa ham ilova ishlayveradi.
@@ -153,8 +226,19 @@ fun HomeScreen(
         }
     }
 
+    // Tugma bosib so'ralganmi — ilova ochilishidagi rad etishda sozlamalar oynasi chiqmasin
+    val askedByUser = remember { booleanArrayOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        if (granted.values.any { it }) scope.launch { locate() } else notice = denied
+        if (granted.values.any { it }) {
+            notice = null
+            scope.launch { locate() }
+        } else {
+            notice = denied
+            // "Boshqa so'ramaslik" tanlangan — tizim oynasi endi chiqmaydi, faqat ilova sozlamalaridan yoqiladi
+            val activity = context.findActivity()
+            if (askedByUser[0] && activity != null && LOCATION_PERMISSIONS.none(activity::shouldShowRequestPermissionRationale)) openSettings = true
+        }
+        askedByUser[0] = false
         askNotifications()
     }
 
@@ -163,24 +247,54 @@ fun HomeScreen(
             askNotifications()
             locate()
         } else {
-            permission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+            permission.launch(LOCATION_PERMISSIONS)
         }
     }
 
-    // Faol buyurtma — Reverb uzilsa ham holat yangilanib tursin
-    LaunchedEffect(order?.id) {
+    // Faol buyurtma — Reverb uzilsa ham holat yangilanib tursin; uzilgan paytda tezroq (haydovchi belgisi shu orqali yuradi)
+    LaunchedEffect(order?.id, live) {
         while (order != null) {
-            delay(15_000)
+            delay(if (live) 15_000 else 5_000)
             repository.refreshCurrent()
         }
     }
 
-    // Kamera: buyurtma bo'lsa — haydovchi va manzilni ko'rsatadi
     val activeOrder = order
-    LaunchedEffect(activeOrder?.id, activeOrder?.status, driver != null) {
-        activeOrder ?: return@LaunchedEffect
-        controller.fit(listOfNotNull(LatLng(activeOrder.pickup.lat, activeOrder.pickup.lng), driver?.let { LatLng(it.lat, it.lng) }))
+    // Buyurtma tugadi (yakunlandi, bekor qilindi): qoralama tozalanadi, "Qayerdan" — yana joriy joy
+    val lastOrderId = remember { intArrayOf(0) }
+    LaunchedEffect(activeOrder?.id) {
+        val id = activeOrder?.id
+        if (id != null) {
+            draft.choosingDropoff = false
+        } else if (lastOrderId[0] != 0) {
+            draft.reset()
+            // Joylashuv yo'q — xarita turgan joy "Qayerdan" bo'ladi (xarita surilmaydi, onCenter kelmaydi)
+            if (!locate()) controller.center()?.let(::pickAt)
+        }
+        lastOrderId[0] = id ?: 0
     }
+
+    // Kamera safar davomida: haydovchi kelguncha — haydovchi va A, safarda — haydovchi va B
+    val followKey = remember { arrayOfNulls<String>(1) }
+    LaunchedEffect(activeOrder?.id, activeOrder?.status, driver) {
+        if (activeOrder == null) {
+            followKey[0] = null
+            return@LaunchedEffect
+        }
+        val key = "${activeOrder.id}:${activeOrder.status}"
+        if (followKey[0] != key) {
+            // Holat o'zgardi — qo'lda surilgan bo'lsa ham yangi manzarani ko'rsatamiz
+            followKey[0] = key
+            followPausedUntil = 0L
+        } else if (SystemClock.elapsedRealtime() < followPausedUntil) {
+            return@LaunchedEffect
+        }
+        val car = driver?.let { LatLng(it.lat, it.lng) }
+        val target = if (activeOrder.status == "in_progress") activeOrder.dropoff else activeOrder.pickup
+        controller.fit(listOfNotNull(car, target?.let { LatLng(it.lat, it.lng) }))
+    }
+
+    BackHandler(enabled = draft.choosingDropoff && activeOrder == null) { finishChoosingDropoff(confirm = false) }
 
     Box(Modifier.fillMaxSize()) {
         ClientMap(
@@ -188,27 +302,15 @@ fun HomeScreen(
             initialCenter = profile.config.mapCenter,
             controller = controller,
             picking = activeOrder == null,
-            pickup = activeOrder?.pickup?.let { LatLng(it.lat, it.lng) },
-            dropoff = (activeOrder?.dropoff ?: draft.dropoff)?.let { LatLng(it.lat, it.lng) },
+            pinColor = if (draft.choosingDropoff && activeOrder == null) MaterialTheme.colorScheme.error else null,
+            pickup = (activeOrder?.pickup ?: draft.pickup?.takeIf { draft.choosingDropoff })?.let { LatLng(it.lat, it.lng) },
+            dropoff = (activeOrder?.dropoff ?: draft.dropoff?.takeUnless { draft.choosingDropoff })?.let { LatLng(it.lat, it.lng) },
             driver = driver?.let { LatLng(it.lat, it.lng) },
             modifier = Modifier.fillMaxSize(),
             topInset = topInset,
             bottomInset = bottomInset,
-            onCenter = { center ->
-                val current = draft.pickup
-                if (draft.pickupFromSearch && current != null && distanceMeters(center, LatLng(current.lat, current.lng)) < 25) return@ClientMap
-                draft.pickupFromSearch = false
-                draft.pickup = Place(null, center.lat, center.lng)
-                locating = true
-                scope.launch {
-                    val name = (repository.reverse(center.lat, center.lng) as? Result.Ok)?.value
-                    // Bu orada xarita yana surilgan bo'lsa — eski javob yozilmaydi
-                    if (draft.pickup?.lat == center.lat && draft.pickup?.lng == center.lng) {
-                        draft.pickup = Place(name, center.lat, center.lng)
-                    }
-                    locating = false
-                }
-            },
+            onCenter = { center -> if (draft.choosingDropoff) pickDropoffAt(center) else pickAt(center) },
+            onMoveStarted = { if (ClientState.order.value != null) followPausedUntil = SystemClock.elapsedRealtime() + 20_000 },
         )
 
         // Yuqori: menyu
@@ -222,9 +324,17 @@ fun HomeScreen(
             }
         }
 
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+        // imePadding: klaviatura izoh maydonini yopmasin — panel klaviatura ustiga ko'tariladi
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding()) {
             SmallFloatingActionButton(
-                onClick = { scope.launch { if (hasLocation(context)) locate() else permission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)) } },
+                onClick = {
+                    if (hasLocation(context)) {
+                        scope.launch { locate() }
+                    } else {
+                        askedByUser[0] = true
+                        permission.launch(LOCATION_PERMISSIONS)
+                    }
+                },
                 modifier = Modifier.align(Alignment.End).padding(12.dp),
                 containerColor = MaterialTheme.colorScheme.surface,
             ) { Icon(Icons.Default.MyLocation, stringResource(R.string.my_location)) }
@@ -239,7 +349,11 @@ fun HomeScreen(
                     finished?.let { FinishedBanner(it) { ClientState.clearFinished() } }
                     notice?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     if (activeOrder != null) {
-                        OrderPanel(activeOrder, profile.config.supportPhone)
+                        OrderPanel(activeOrder, driver?.let { LatLng(it.lat, it.lng) }, profile.config.supportPhone)
+                    } else if (draft.choosingDropoff) {
+                        DropoffPicker(draft.dropoffCandidate, locating, onConfirm = { finishChoosingDropoff(confirm = true) }) {
+                            finishChoosingDropoff(confirm = false)
+                        }
                     } else {
                         OrderForm(draft, locating, onSearch) { request ->
                             notice = null
@@ -258,7 +372,47 @@ fun HomeScreen(
         }
     }
 
-    toRate?.let { RateDialog(it) }
+    // Har safar uchun alohida holat (baho, yuborilmoqda)
+    toRate?.let { key(it.id) { RateDialog(it) } }
+
+    if (openSettings) {
+        AlertDialog(
+            onDismissRequest = { openSettings = false },
+            title = { Text(stringResource(R.string.location_settings_title)) },
+            text = { Text(stringResource(R.string.location_settings_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    openSettings = false
+                    runCatching {
+                        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)))
+                    }
+                }) { Text(stringResource(R.string.open_settings)) }
+            },
+            dismissButton = { TextButton(onClick = { openSettings = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+}
+
+/** "Qayerga" xaritadan: tanlangan nuqta nomi, tasdiqlash yoki bekor qilish */
+@Composable
+private fun DropoffPicker(candidate: Place?, locating: Boolean, onConfirm: () -> Unit, onCancel: () -> Unit) {
+    Text(stringResource(R.string.choose_on_map_hint), style = MaterialTheme.typography.titleMedium)
+    AddressRow(
+        Icons.Outlined.Flag,
+        MaterialTheme.colorScheme.error,
+        label = stringResource(R.string.to),
+        text = when {
+            locating && candidate?.text == null -> stringResource(R.string.locating)
+            else -> candidate?.text ?: stringResource(R.string.point_on_map)
+        },
+        onClick = {},
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f).height(52.dp)) { Text(stringResource(R.string.cancel)) }
+        Button(onClick = onConfirm, enabled = candidate != null && !locating, modifier = Modifier.weight(1f).height(52.dp)) {
+            Text(stringResource(R.string.done))
+        }
+    }
 }
 
 @Composable
@@ -343,12 +497,21 @@ private fun OrderForm(draft: OrderDraft, locating: Boolean, onSearch: (SearchTar
         TextButton(onClick = { showComment = true }) { Text(stringResource(R.string.comment)) }
     }
 
+    val pointOnMap = stringResource(R.string.point_on_map)
     Button(
         onClick = {
             val from = draft.pickup ?: return@Button
             sending = true
             scope.launch {
-                onOrder(OrderRequest(from, draft.dropoff, draft.tariffId, draft.comment.trim().ifBlank { null }))
+                // Manzil nomisiz buyurtma bo'lmasin: geokodlash muvaffaqiyatsiz bo'lgan bo'lsa yana bir urinish, so'ng "Xaritadagi nuqta"
+                val pickup = if (from.text.isNullOrBlank()) {
+                    val name = (repository.reverse(from.lat, from.lng) as? Result.Ok)?.value?.takeIf { it.isNotBlank() }
+                    from.copy(text = name ?: pointOnMap)
+                } else {
+                    from
+                }
+                val dropoff = draft.dropoff?.let { if (it.text.isNullOrBlank()) it.copy(text = pointOnMap) else it }
+                onOrder(OrderRequest(pickup, dropoff, draft.tariffId, draft.comment.trim().ifBlank { null }))
                 sending = false
             }
         },
@@ -391,7 +554,7 @@ private fun AddressRow(
 
 /** Faol buyurtma: holat, haydovchi va mashina, aloqa, bekor qilish */
 @Composable
-private fun OrderPanel(order: ClientOrder, supportPhone: String?) {
+private fun OrderPanel(order: ClientOrder, driver: LatLng?, supportPhone: String?) {
     val context = LocalContext.current
     val repository = ClientApp.instance.repository
     val scope = rememberCoroutineScope()
@@ -401,6 +564,19 @@ private fun OrderPanel(order: ClientOrder, supportPhone: String?) {
     Text(statusText(order.status), style = MaterialTheme.typography.titleLarge)
     if (order.status in setOf("new", "searching")) LinearProgressIndicator(Modifier.fillMaxWidth())
     if (order.status == "arrived") Text(stringResource(R.string.arrived_hint), color = LocalAppColors.current.success)
+    // Taxminiy vaqt: server ETA bermaydi — haydovchi joyidan to'g'ri chiziq masofasi bo'yicha
+    val etaTarget = when (order.status) {
+        "assigned" -> order.pickup
+        "in_progress" -> order.dropoff
+        else -> null
+    }
+    if (driver != null && etaTarget != null) {
+        val minutes = etaMinutes(driver, LatLng(etaTarget.lat, etaTarget.lng))
+        Text(
+            stringResource(if (order.status == "assigned") R.string.eta_pickup else R.string.eta_dropoff, minutes),
+            color = LocalAppColors.current.muted,
+        )
+    }
 
     order.vehicle?.let { car ->
         Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth()) {
@@ -486,8 +662,20 @@ private suspend fun currentLocation(context: Context): LatLng? {
     }.getOrNull()
 }
 
+private val LOCATION_PERMISSIONS = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
+/** Shahar ichida: yo'l to'g'ri chiziqdan ~1.4 marta uzun, o'rtacha 25 km/soat; kamida 1 daqiqa */
+internal fun etaMinutes(from: LatLng, to: LatLng): Int =
+    ceil(distanceMeters(from, to) * 1.4 / (25_000.0 / 60)).toInt().coerceAtLeast(1)
+
 /** Kichik masofalar uchun yetarli (metr) */
-private fun distanceMeters(a: LatLng, b: LatLng): Double {
+internal fun distanceMeters(a: LatLng, b: LatLng): Double {
     val dLat = (a.lat - b.lat) * 111_320
     val dLng = (a.lng - b.lng) * 111_320 * cos(Math.toRadians(a.lat))
     return sqrt(dLat * dLat + dLng * dLng)

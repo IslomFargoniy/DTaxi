@@ -17,8 +17,10 @@ object OfferNotifier {
     private const val OFFER_ID = 2001
     private const val MESSAGE_ID = 2002
 
+    /** [offer] — DriverState'dagi (receivedAt bilan): FCM kechiksa signal va bildirishnoma faqat qolgan vaqtga */
     fun show(context: Context, offer: Offer) {
-        OfferSound.start(context, offer.offerId, offer.expiresIn)
+        val leftMs = offer.millisLeft(android.os.SystemClock.elapsedRealtime()).coerceAtLeast(1_000)
+        OfferSound.start(context, offer.offerId, ((leftMs + 999) / 1000).toInt())
         val intent = PendingIntent.getActivity(
             context,
             0,
@@ -34,7 +36,7 @@ object OfferNotifier {
             .setFullScreenIntent(intent, true)
             .setContentIntent(intent)
             .setAutoCancel(true)
-            .setTimeoutAfter(offer.expiresIn * 1000L)
+            .setTimeoutAfter(leftMs)
             .build()
         context.getSystemService(NotificationManager::class.java).notify(OFFER_ID, notification)
     }

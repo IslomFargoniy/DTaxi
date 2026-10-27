@@ -7,12 +7,13 @@ use App\Models\Order;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * Mijoz ilovasi (qaror #71): buyurtma holati — faqat ilovadan berilgan buyurtmalar, mijozning shaxsiy kanaliga.
  */
-class ClientOrderUpdated implements ShouldBroadcastNow
+class ClientOrderUpdated implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

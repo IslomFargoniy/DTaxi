@@ -44,14 +44,15 @@ class Dispatcher
      *
      * @param  list<OrderStatus>  $from  qaysi holatlardan efirga chiqarish mumkin
      * @param  list<int>  $skipDriverIds  shu raundda taklif olmaydiganlar (tayinlangan taklifni rad etgan haydovchi)
+     * @param  bool  $restartClock  operator qayta efirga chiqardi — "topilmadi" vaqti yangidan hisoblanadi
      */
-    public function startSearch(Order $order, array $from = [OrderStatus::New, OrderStatus::Searching], array $skipDriverIds = []): bool
+    public function startSearch(Order $order, array $from = [OrderStatus::New, OrderStatus::Searching], array $skipDriverIds = [], bool $restartClock = false): bool
     {
         $steps = $this->radiusSteps($order);
 
         $moved = OrderTransition::apply($order, $from, [
             'status' => OrderStatus::Searching,
-            'searching_at' => $order->searching_at ?? now(),
+            'searching_at' => $restartClock ? now() : ($order->searching_at ?? now()),
             'search_radius_m' => $steps[0],
             'search_round' => DB::raw('search_round + 1'),
             'search_exhausted_at' => null,
@@ -67,8 +68,9 @@ class Dispatcher
 
         OrderEvents::record($order, 'searching', payload: ['radius_m' => $steps[0]]);
 
-        $this->broadcast($order);
+        // Kengayish birinchi rejalashtiriladi: efirda nimadir yiqilsa ham buyurtma "qidirilmoqda"da qotib qolmaydi
         $this->scheduleExpansion($order, 0);
+        $this->broadcast($order);
 
         return true;
     }
@@ -193,8 +195,8 @@ class Dispatcher
 
         OrderEvents::record($order, 'radius_expanded', payload: ['radius_m' => $steps[$next]]);
 
-        $this->broadcast($order);
         $this->scheduleExpansion($order, $next);
+        $this->broadcast($order);
     }
 
     /**
@@ -334,7 +336,9 @@ class Dispatcher
         OrderEvents::record($order, 'direct_offer', $operator, ['driver_id' => $driver->id]);
         $this->notify($order, $offer, $driver, $expiresIn);
 
-        ExpireDirectOffer::dispatch($offer->id, $offer->offered_at->format($offer->getDateFormat()))->delay(now()->addSeconds($expiresIn));
+        // Qabulda ham shu zaxira bor: muddat oxirida bosgan haydovchi "javob bermadi" deb jarimalanmasin
+        ExpireDirectOffer::dispatch($offer->id, $offer->offered_at->format($offer->getDateFormat()))
+            ->delay(now()->addSeconds($expiresIn + self::ACCEPT_GRACE_SECONDS));
 
         return $offer;
     }

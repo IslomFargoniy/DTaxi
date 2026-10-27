@@ -35,7 +35,8 @@ class Realtime(
     private val handler = Handler(Looper.getMainLooper())
     private var backoffMs = 2_000L
     private var subscribeBackoffMs = 2_000L
-    private var stopped = false
+    // Pusher oqimidan ham o'qiladi
+    @Volatile private var stopped = false
 
     fun connect() {
         if (pusher != null) return
@@ -61,8 +62,11 @@ class Realtime(
                         ConnectionState.CONNECTED -> backoffMs = 2_000L
                         // Kutubxona uzoq uzilishdan keyin o'zi qayta ulanmaydi — o'zimiz, oshib boruvchi kutish bilan
                         ConnectionState.DISCONNECTED -> {
-                            handler.post { onConnection(false) }
-                            if (!stopped) scheduleReconnect()
+                            // disconnect() dan keyin kech kelgan "uzildi" — to'xtatilgan ulanish holatni buzmasin
+                            if (!stopped) {
+                                handler.post { if (!stopped) onConnection(false) }
+                                scheduleReconnect()
+                            }
                         }
                         else -> Unit
                     }
@@ -79,6 +83,7 @@ class Realtime(
 
     private val listener = object : PrivateChannelEventListener {
         override fun onEvent(event: PusherEvent) {
+            if (stopped) return
             val data = runCatching { gson.fromJson(event.data, JsonObject::class.java) }.getOrNull() ?: return
             onEvent(event.eventName.substringAfterLast('\\'), data)
         }
@@ -87,14 +92,15 @@ class Realtime(
         override fun onSubscriptionSucceeded(channelName: String) {
             Log.d(TAG, "subscribed: $channelName")
             subscribeBackoffMs = 2_000L
-            handler.post { onConnection(true) }
+            handler.post { if (!stopped) onConnection(true) }
         }
 
         // Obuna rad etildi (masalan server yangilanayotganda 503) — ulanish tirik qoladi, lekin xabarlar
         // kelmaydi va kutubxona o'zi qayta urinmaydi: takliflar va chat ilova qayta ochilguncha yo'qolardi
         override fun onAuthenticationFailure(message: String?, e: Exception?) {
             Log.w(TAG, "auth failure: $message", e)
-            handler.post { onConnection(false) }
+            if (stopped) return
+            handler.post { if (!stopped) onConnection(false) }
             scheduleResubscribe()
         }
     }

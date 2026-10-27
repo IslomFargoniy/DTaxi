@@ -92,7 +92,8 @@ class MainActivity : ComponentActivity() {
 
     private fun changeLocale(code: String) {
         app.session.locale = code
-        if (app.repository.loggedIn) lifecycleScope.launch { app.repository.updateProfile(locale = code) }
+        // recreate() Activity scope'ini bekor qiladi — so'rov ilova scope'ida, aks holda serverga yetmay qolardi
+        if (app.repository.loggedIn) app.scope.launch { app.repository.updateProfile(locale = code) }
         recreate()
     }
 
@@ -106,6 +107,7 @@ class MainActivity : ComponentActivity() {
 private fun Root(dark: Boolean, onLocaleChange: (String) -> Unit, onThemeChange: (String) -> Unit) {
     val repository = ClientApp.instance.repository
     val profile by ClientState.profile.collectAsState()
+    val activeOrder by ClientState.order.collectAsState()
     var loading by remember { mutableStateOf(repository.loggedIn) }
     var failed by remember { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
@@ -121,11 +123,24 @@ private fun Root(dark: Boolean, onLocaleChange: (String) -> Unit, onThemeChange:
         }
         loading = true
         failed = false
-        when (repository.refreshProfile()) {
-            is Result.Ok -> repository.refreshCurrent()
+        when (val result = repository.refreshProfile()) {
+            is Result.Ok -> {
+                // Til oflayn paytda o'zgartirilgan bo'lsa — server (SMS, push matnlari) ham shu tilda bo'lsin
+                val locale = ClientApp.instance.session.locale
+                if (AppLocale.normalize(result.value.locale) != locale) ClientApp.instance.scope.launch { repository.updateProfile(locale = locale) }
+                repository.refreshCurrent()
+            }
             is Result.Error -> failed = repository.loggedIn
         }
         loading = false
+    }
+
+    // Chiqish (yoki hisob o'chirilishi, 401): keyingi kirishda bosh ekran va bo'sh qoralama
+    LaunchedEffect(profile == null) {
+        if (profile == null) {
+            screen = Screen.Home
+            draft.reset()
+        }
     }
 
     val current = profile
@@ -165,8 +180,32 @@ private fun Root(dark: Boolean, onLocaleChange: (String) -> Unit, onThemeChange:
                                 screen = Screen.Home
                             },
                             onBack = { screen = Screen.Home },
+                            // "Qayerga" xaritadan: bosh ekranda pin B nuqtasini tanlaydi
+                            onMap = if (s.target == SearchTarget.Dropoff) {
+                                {
+                                    draft.dropoffCandidate = null
+                                    draft.choosingDropoff = true
+                                    (draft.dropoff ?: draft.pickup)?.let { controller.moveTo(LatLng(it.lat, it.lng)) }
+                                    screen = Screen.Home
+                                }
+                            } else {
+                                null
+                            },
                         )
-                        Screen.History -> HistoryScreen(onBack = { screen = Screen.Home })
+                        Screen.History -> HistoryScreen(
+                            onBack = { screen = Screen.Home },
+                            canReorder = activeOrder == null,
+                            onReorder = { order ->
+                                draft.choosingDropoff = false
+                                draft.pickup = order.pickup
+                                draft.pickupFromSearch = true
+                                draft.dropoff = order.dropoff
+                                draft.tariffId = order.tariffClass.id
+                                draft.comment = order.comment.orEmpty()
+                                controller.moveTo(LatLng(order.pickup.lat, order.pickup.lng))
+                                screen = Screen.Home
+                            },
+                        )
                         Screen.Settings -> SettingsScreen(current, onLocaleChange, onThemeChange, onBack = { screen = Screen.Home })
                     }
                 }

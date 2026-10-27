@@ -317,7 +317,8 @@ export default function Reports({
                                 {
                                     key: 'reason',
                                     title: 'Reason',
-                                    render: (r) => r.reason,
+                                    // Tayyor sabablar kalit sifatida saqlanadi — ko'rsatishda tarjima
+                                    render: (r) => t(r.reason),
                                 },
                                 {
                                     key: 'total',

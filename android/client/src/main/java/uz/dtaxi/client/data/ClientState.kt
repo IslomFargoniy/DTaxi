@@ -28,6 +28,10 @@ object ClientState {
     private val _driver = MutableStateFlow<DriverPosition?>(null)
     val driver: StateFlow<DriverPosition?> = _driver.asStateFlow()
 
+    /** Reverb ulanganmi — uzilgan paytda haydovchi joyi so'rov (polling) javobidan olinadi */
+    private val _live = MutableStateFlow(false)
+    val live: StateFlow<Boolean> = _live.asStateFlow()
+
     private val _themeMode = MutableStateFlow("system")
     val themeMode: StateFlow<String> = _themeMode.asStateFlow()
 
@@ -56,7 +60,24 @@ object ClientState {
 
     fun setToRate(order: ClientOrder?) = _toRate.update { order }
 
+    /** Ilova fonda bo'lganda yakunlangan buyurtma (tarixdan topilgan) — bir marta ko'rsatiladi */
+    fun showFinished(order: ClientOrder) {
+        if (!order.isActive) _finished.update { order }
+    }
+
     fun clearFinished() = _finished.update { null }
+
+    fun setLive(connected: Boolean) = _live.update { connected }
+
+    /**
+     * Reverb ishlamayotganda: so'rov javobidagi haydovchi joyi (server oxirgi GPS nuqtasi) — belgi joyida qotib qolmasin.
+     * Reverb ulangan bo'lsa jonli joy aniqroq, server nuqtasi uni eskisiga qaytarmaydi.
+     */
+    fun syncDriverFromServer(order: ClientOrder?) {
+        if (_live.value || order == null || _order.value?.id != order.id) return
+        val location = order.driver?.location ?: return
+        _driver.update { DriverPosition(order.id, location.lat, location.lng, it?.takeIf { p -> p.orderId == order.id }?.heading) }
+    }
 
     fun moveDriver(position: DriverPosition) {
         if (_order.value?.id == position.orderId) _driver.update { position }
@@ -70,5 +91,6 @@ object ClientState {
         _toRate.update { null }
         _finished.update { null }
         _driver.update { null }
+        _live.update { false }
     }
 }

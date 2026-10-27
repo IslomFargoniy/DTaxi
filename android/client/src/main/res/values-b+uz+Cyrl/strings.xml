@@ -72,4 +72,14 @@
     <string name="privacy_policy">Махфийлик сиёсати</string>
     <string name="delete_account">Ҳисобни ўчириш</string>
     <string name="delete_account_text">Кириш маълумотлари, сақланган манзиллар ва исмингиз ўчирилади. Сафарлар тарихи фирма ёзувларида қолади.</string>
+    <string name="choose_on_map">Харитада танлаш</string>
+    <string name="choose_on_map_hint">Харитани суринг — пин бориш манзилида бўлсин</string>
+    <string name="done">Тайёр</string>
+    <string name="delete_address_confirm">Сақланган манзил ўчирилсинми?</string>
+    <string name="order_again">Қайта буюртма</string>
+    <string name="eta_pickup">Тахминан %1$d дақиқада етиб келади</string>
+    <string name="eta_dropoff">Манзилгача тахминан %1$d дақиқа</string>
+    <string name="location_settings_title">Жойлашувга рухсат ўчирилган</string>
+    <string name="location_settings_text">Жорий жойингизни аниқлаш учун илова созламаларида "Жойлашув" рухсатини ёқинг.</string>
+    <string name="open_settings">Созламаларни очиш</string>
 </resources>

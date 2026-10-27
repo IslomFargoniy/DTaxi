@@ -12,6 +12,13 @@ import uz.dtaxi.driver.BuildConfig
  */
 class ApiClient(private val session: Session) {
     val http: OkHttpClient = HttpClients.create({ session.serverUrl }, { session.token }, { session.locale }, BuildConfig.DEBUG)
+        .newBuilder()
+        .addInterceptor { chain ->
+            chain.proceed(chain.request()).also { response ->
+                response.headers.getDate("Date")?.let { ServerClock.onServerDate(it.time, System.currentTimeMillis()) }
+            }
+        }
+        .build()
 
     val api: Api = Retrofit.Builder()
         .baseUrl(BuildConfig.SERVER_URL + "/")

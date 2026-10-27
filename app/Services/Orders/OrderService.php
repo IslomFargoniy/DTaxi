@@ -24,6 +24,7 @@ use App\Services\Routing\Router;
 use App\Support\Settings;
 use Carbon\CarbonImmutable;
 use Clickbar\Magellan\Data\Geometries\Point;
+use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -59,7 +60,7 @@ class OrderService
      *     delivery?: array<string, string|null>|null,
      *     source?: OrderSource|null,
      *     phone_number_id?: int|null,
-     *     scheduled_at?: \DateTimeInterface|null,
+     *     scheduled_at?: DateTimeInterface|null,
      * }  $data
      */
     public function create(array $data, ?User $operator = null, bool $dispatch = true): Order
@@ -76,7 +77,9 @@ class OrderService
             $client->save();
 
             $company = $client->company_id ? Company::query()->withoutGlobalScopes()->whereKey($client->company_id)->where('is_active', true)->first() : null;
-            $snapshot = $this->snapshot($tariffClass, $branch, $client, $company);
+            // Oldindan buyurtma: tig'iz soat va taxminiy narx safar vaqti bo'yicha, buyurtma berilgan payt bo'yicha emas
+            $at = $this->pricedAt($branch, $data['scheduled_at'] ?? null);
+            $snapshot = $this->snapshot($tariffClass, $branch, $client, $company, $at);
 
             $pickup = Point::makeGeodetic($data['pickup_lat'], $data['pickup_lng']);
             $dropoff = isset($data['dropoff_lat'], $data['dropoff_lng']) ? Point::makeGeodetic($data['dropoff_lat'], $data['dropoff_lng']) : null;
@@ -89,7 +92,7 @@ class OrderService
 
             $stops = $data['stops'] ?? [];
             $distance = $this->routeDistance($pickup, $stops, $dropoff);
-            $estimate = $distance === null ? null : $this->fares->calculate($snapshot, $distance, startedAt: CarbonImmutable::now($branch->timezone))->total;
+            $estimate = $distance === null ? null : $this->fares->calculate($snapshot, $distance, startedAt: $at)->total;
 
             $order = Order::query()->create([
                 'branch_id' => $branch->id,
@@ -200,8 +203,20 @@ class OrderService
 
         $branch = $order->branch()->firstOrFail();
         $startedAt = CarbonImmutable::parse($order->started_at ?? now())->setTimezone($branch->timezone);
-        $fare = $this->fares->calculate($order->tariff_snapshot, $insideMeters, $outsideMeters, $order->waiting_s ?? 0, $startedAt);
         $trackMeters = $this->trackLength($driver, $order);
+        $claimed = $insideMeters + $outsideMeters;
+
+        // Ilova oshirib yuborsa (masalan 3 km safar — "900 km") narx va korporativ to'lov shunga ko'ra bo'lardi (qaror #73):
+        // asos — GPS treki, u yo'q bo'lsa buyurtmadagi taxminiy marshrut; 1.3× + 1 km dan ortig'i asosgacha kamaytiriladi
+        $reference = $trackMeters !== null && $trackMeters >= 500 ? $trackMeters : ($order->distance_m ?: null);
+        $capped = $reference !== null && $claimed > $reference * 1.3 + 1000;
+        if ($capped) {
+            $ratio = $reference / $claimed;
+            $insideMeters = (int) round($insideMeters * $ratio);
+            $outsideMeters = (int) round($outsideMeters * $ratio);
+        }
+
+        $fare = $this->fares->calculate($order->tariff_snapshot, $insideMeters, $outsideMeters, $order->waiting_s ?? 0, $startedAt);
         $reported = $insideMeters + $outsideMeters;
 
         // Ilova kamaytirib yuborsa (masalan 0) — komissiya GPS treki bo'yicha (mijoz narxi o'zgarmaydi)
@@ -251,11 +266,12 @@ class OrderService
 
         OrderEvents::record($order, 'completed', $driver->user, [
             'price' => $total,
-            'reported_m' => $reported,
+            'reported_m' => $claimed,
             'track_m' => $trackMeters,
             'commission_base' => $commissionBase,
-            'suspicious' => $trackMeters !== null && max($reported, $trackMeters) >= 500
-                && abs($reported - $trackMeters) / max($reported, $trackMeters) > 0.25,
+            'distance_capped' => $capped ? $reported : null,
+            'suspicious' => $capped || ($trackMeters !== null && max($claimed, $trackMeters) >= 500
+                && abs($claimed - $trackMeters) / max($claimed, $trackMeters) > 0.25),
         ]);
 
         return $order;
@@ -325,7 +341,7 @@ class OrderService
             $tariffClass = $this->tariffClass($branch, $data['tariff_class_id']);
             $changes['tariff_class_id'] = $tariffClass->id;
             $client = $order->client()->firstOrFail();
-            $changes['tariff_snapshot'] = $this->snapshot($tariffClass, $branch, $client, $order->company()->withoutGlobalScopes()->first());
+            $changes['tariff_snapshot'] = $this->snapshot($tariffClass, $branch, $client, $order->company()->withoutGlobalScopes()->first(), $this->pricedAt($branch, $order->scheduled_at));
         }
 
         $order->forceFill($changes);
@@ -335,7 +351,7 @@ class OrderService
             $branch ??= $order->branch()->firstOrFail();
             $order->distance_m = $this->routeDistance($order->pickup_location, $order->stops ?? [], $order->dropoff_location);
             $order->price_estimate = $order->distance_m === null ? null
-                : $this->fares->calculate($order->tariff_snapshot, $order->distance_m, startedAt: CarbonImmutable::now($branch->timezone))->total;
+                : $this->fares->calculate($order->tariff_snapshot, $order->distance_m, startedAt: $this->pricedAt($branch, $order->scheduled_at))->total;
         }
 
         $dirty = array_map('strval', array_keys($order->getDirty()));
@@ -379,7 +395,7 @@ class OrderService
 
         $this->dispatcher->withdrawOtherOffers($order, null, 'redispatch');
         OrderEvents::record($order, 'redispatched', $operator, broadcast: false);
-        $this->dispatcher->startSearch($order);
+        $this->dispatcher->startSearch($order, restartClock: true);
     }
 
     /**
@@ -586,16 +602,18 @@ class OrderService
      *
      * @return array<string, mixed>
      */
-    private function snapshot(TariffClass $tariffClass, Branch $branch, Client $client, ?Company $company): array
+    private function snapshot(TariffClass $tariffClass, Branch $branch, Client $client, ?Company $company, ?CarbonImmutable $at = null): array
     {
         $snapshot = $tariffClass->tariff()->withoutGlobalScopes()->firstOrFail()->snapshot();
 
         $settings = app(Settings::class);
+        // Komissiya foizi buyurtma paytidagisi: admin keyin o'zgartirsa, yo'ldagi safarlarga ta'sir qilmaydi
+        $snapshot['commission_percent'] = (float) $settings->get('drivers.commission_percent', $branch->id);
         $coeff = (float) $settings->get('pricing.surge_coeff', $branch->id);
         if ($coeff > 1) {
             $from = (int) $settings->get('pricing.surge_from_hour', $branch->id);
             $to = (int) $settings->get('pricing.surge_to_hour', $branch->id);
-            $hour = CarbonImmutable::now($branch->timezone)->hour;
+            $hour = ($at ?? CarbonImmutable::now($branch->timezone))->hour;
             $active = $from === $to || ($from < $to ? $hour >= $from && $hour < $to : $hour >= $from || $hour < $to);
             if ($active) {
                 $snapshot['surge_coeff'] = $coeff;
@@ -608,6 +626,13 @@ class OrderService
         }
 
         return $snapshot;
+    }
+
+    private function pricedAt(Branch $branch, ?DateTimeInterface $scheduledAt): CarbonImmutable
+    {
+        return $scheduledAt !== null && $scheduledAt > now()
+            ? CarbonImmutable::instance($scheduledAt)->setTimezone($branch->timezone)
+            : CarbonImmutable::now($branch->timezone);
     }
 
     private function tariffClass(Branch $branch, ?int $tariffClassId): TariffClass

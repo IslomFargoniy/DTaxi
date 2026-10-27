@@ -241,8 +241,8 @@ fun SettingsScreen(onBack: () -> Unit, onLocaleChange: (String) -> Unit) {
                                     app.repository.setOnline(false)
                                     DriverService.stop(context)
                                     delay(200)
+                                    // GPS buferi va taksometr signOut ichida tozalanadi (token o'chirilgandan keyin)
                                     app.repository.logout()
-                                    DriverService.clearLocalData(context)
                                 }
                             },
                             colors = androidx.compose.material3.ButtonDefaults.buttonColors(

@@ -23,7 +23,7 @@ android {
         versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: autoBuildNumber
         versionName = (project.findProperty("versionName") as String?) ?: "1.0.$autoBuildNumber"
 
-        resValue("string", "app_name", firm.prop("clientAppName").ifBlank { firm.prop("appName", "Dtaxi") })
+        resValue("string", "app_name", firm.prop("clientAppName").ifBlank { firm.prop("appName", "DTaxi") })
         buildConfigField("String", "SERVER_URL", "\"${firm.prop("serverUrl").trimEnd('/')}\"")
         buildConfigField("String", "PRIMARY_COLOR", "\"${firm.prop("primaryColor", "#FFC800")}\"")
         // Firebase — firmaning o'sha loyihasi, mijoz ilovasi alohida Android ilova sifatida qo'shiladi; bo'sh — push o'chiq

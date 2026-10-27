@@ -422,10 +422,32 @@ export const globalSip: GlobalSipState = existing ?? {
                 this.notify();
             });
         }
-        this.registerer.register().catch(() => {
-            this.status = 'registration_failed';
-            this.notify();
-        });
+        const registerer = this.registerer;
+        registerer
+            .register({
+                requestDelegate: {
+                    // Tarmoq uzilib qayta ulanganda holat allaqachon "Registered" — stateChange chaqirilmaydi,
+                    // shuning uchun javobning o'zi bo'yicha "ulandi" (aks holda abadiy "Ulanmoqda")
+                    onAccept: () => {
+                        if (this.registerer !== registerer) {
+                            return;
+                        }
+                        this.status = 'connected';
+                        this.notify();
+                    },
+                    onReject: () => {
+                        if (this.registerer !== registerer) {
+                            return;
+                        }
+                        this.status = 'registration_failed';
+                        this.notify();
+                    },
+                },
+            })
+            .catch(() => {
+                this.status = 'registration_failed';
+                this.notify();
+            });
     },
 
     updateIceServers(sip) {

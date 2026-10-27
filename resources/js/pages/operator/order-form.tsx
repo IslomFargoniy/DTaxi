@@ -14,9 +14,12 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useSip } from '@/components/webphone/use-sip';
 import { useTrans } from '@/hooks/use-trans';
 import { getJson, isAbort } from '@/lib/http';
+import { formatPhone } from '@/lib/format';
 import { orderStatusLabel } from '@/lib/order-status';
+import { serverNow } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
 import {
     client as lookupClient,
@@ -35,6 +38,7 @@ const emptyPlace: PickedPlace = {
     landmarkId: null,
 };
 
+/** `stop-${key}` — to'xtash kaliti bo'yicha (indeks emas: to'xtash o'chirilsa nuqta boshqasiga tushmasin) */
 export type PickTarget = 'pickup' | 'dropoff' | `stop-${number}` | null;
 
 /** Oraliq to'xtash: React kaliti barqaror (o'chirilganda boshqa maydonlarning matni aralashmasin) */
@@ -51,6 +55,15 @@ function newStop(place: PickedPlace = emptyPlace): Stop {
 function dialogOpen(): boolean {
     return !!document.querySelector(
         '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+    );
+}
+
+/** Yozish maydoni (input, textarea, select, contenteditable) */
+function isEditable(target: EventTarget | null): boolean {
+    return (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+            ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
     );
 }
 
@@ -86,11 +99,32 @@ const ACTIVE_STATUSES = [
 /**
  * Yangi buyurtma formasi (reja §8.1). Doimiy mijoz uchun oxirgi manzil bir bosishda tanlanadi.
  */
-// <input type="datetime-local"> uchun brauzer vaqti: "2026-10-20T14:30"
-function localInputValue(date: Date): string {
-    const pad = (n: number) => String(n).padStart(2, '0');
+// <input type="datetime-local"> uchun filial vaqti: "2026-10-20T14:30". Server kiritilgan vaqtni filial
+// mintaqasida o'qiydi — chegaralar ham shu mintaqada (operator kompyuteri boshqa mintaqada bo'lsa ham)
+function zonedInputValue(ms: number, timeZone: string | undefined): string {
+    try {
+        const parts = Object.fromEntries(
+            new Intl.DateTimeFormat('en-GB', {
+                timeZone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hourCycle: 'h23',
+            })
+                .formatToParts(new Date(ms))
+                .map((p) => [p.type, p.value]),
+        );
 
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+    } catch {
+        // Noma'lum mintaqa — brauzer vaqti
+        const date = new Date(ms);
+        const pad = (n: number) => String(n).padStart(2, '0');
+
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
 }
 
 export function OrderForm({
@@ -113,6 +147,11 @@ export function OrderForm({
     const [stops, setStops] = useState<Stop[]>([]);
     // Mijoz qidiruvi: faqat oxirgi so'rov javobi kartochkaga yoziladi
     const lookupAbort = useRef<AbortController | null>(null);
+    // Ctrl+Enter tez ikki bosilsa ikki buyurtma ketmasin (form.processing keyingi chizishgacha yangilanmaydi)
+    const submitting = useRef(false);
+    // To'ldirilayotgan formaga kelgan qo'ng'iroq — operator "Mijozni yuklash" bosguncha yoki javob berguncha kutadi
+    const [pendingCall, setPendingCall] = useState<CallCard | null>(null);
+    const sip = useSip();
 
     const blank = (branchId: number) => ({
         branch_id: branchId,
@@ -137,6 +176,9 @@ export function OrderForm({
         onBranchChange?.(form.data.branch_id);
     }, [form.data.branch_id, onBranchChange]);
 
+    const branchTimeZone = branches.find(
+        (b) => b.id === form.data.branch_id,
+    )?.timezone;
     const classes = tariffClasses.filter(
         (c) => c.branch_id === form.data.branch_id,
     );
@@ -180,10 +222,12 @@ export function OrderForm({
                     : prev;
         const apply = (update: (prev: PickedPlace) => PickedPlace) => {
             if (target.startsWith('stop-')) {
-                const index = Number(target.slice(5));
+                const key = Number(target.slice(5));
                 setStops((list) =>
-                    list.map((stop, i) =>
-                        i === index ? { ...update(stop), key: stop.key } : stop,
+                    list.map((stop) =>
+                        stop.key === key
+                            ? { ...update(stop), key: stop.key }
+                            : stop,
                     ),
                 );
             } else {
@@ -208,20 +252,24 @@ export function OrderForm({
     const addresses = card?.addresses;
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
+            // Yorliqlar faqat forma doirasida: dialog ochiq bo'lsa yoki boshqa joydagi maydonda (chat,
+            // qidiruv, webfon) yozilayotgan bo'lsa — ishlamaydi
+            const inForm =
+                e.target instanceof Node &&
+                !!formRef.current?.contains(e.target);
+            if (dialogOpen() || (!inForm && isEditable(e.target))) {
+                return;
+            }
             if (e.key === 'F2') {
                 e.preventDefault();
                 phoneRef.current?.focus();
             } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                 // Faqat forma ichidan: chat, webfon yoki dialogdagi Ctrl+Enter buyurtma yubormasin
-                if (
-                    !(e.target instanceof Node) ||
-                    !formRef.current?.contains(e.target) ||
-                    dialogOpen()
-                ) {
+                if (!inForm) {
                     return;
                 }
                 e.preventDefault();
-                formRef.current.requestSubmit();
+                formRef.current?.requestSubmit();
             } else if (e.altKey && /^Digit[1-5]$/.test(e.code)) {
                 const address = addresses?.[Number(e.code.slice(5)) - 1];
                 if (address) {
@@ -329,22 +377,32 @@ export function OrderForm({
         setPicking(null);
     };
 
+    // Forma bo'sh (yoki shu mijoz raqami) — kiruvchi qo'ng'iroq uni darhol to'ldirishi mumkin
+    const formIsFree = (phone: string) =>
+        (form.data.phone === '' || form.data.phone === phone) &&
+        form.data.comment === '' &&
+        form.data.scheduled_at === '' &&
+        pickup.text === '' &&
+        dropoff.text === '' &&
+        stops.length === 0;
+
     // Kiruvchi qo'ng'iroq: forma mijoz raqami va filial bilan ochiladi
-    useEffect(() => {
-        if (!incoming || incoming.kind !== 'client' || !incoming.phone) {
+    const loadCall = (call: CallCard) => {
+        setPendingCall(null);
+        if (!call.phone) {
             return;
         }
-        const phone = incoming.phone;
-        const branchId = branches.some((b) => b.id === incoming.branch_id)
-            ? (incoming.branch_id as number)
+        const phone = call.phone;
+        const branchId = branches.some((b) => b.id === call.branch_id)
+            ? (call.branch_id as number)
             : form.data.branch_id;
         // Yangi mijoz — oldingi mijozning to'xtashlari, izohi, vaqti va tarifi qolmasin
         form.clearErrors();
         form.setData({
             ...blank(branchId),
             phone,
-            client_name: incoming.client?.name ?? '',
-            call_id: incoming.call_id,
+            client_name: call.client?.name ?? '',
+            call_id: call.call_id,
         });
         setCard(null);
         setPickup(emptyPlace);
@@ -352,12 +410,39 @@ export function OrderForm({
         setStops([]);
         setPicking(null);
         lookup(phone);
+    };
+
+    // Jiringlash paytida to'ldirilayotgan forma o'chirilmaydi — faqat bo'sh bo'lsa darhol yuklanadi,
+    // aks holda operator javob berganda yoki "Mijozni yuklash" tugmasini bosganda
+    useEffect(() => {
+        if (!incoming || incoming.kind !== 'client' || !incoming.phone) {
+            return;
+        }
+        if (formIsFree(incoming.phone)) {
+            loadCall(incoming);
+        } else {
+            setPendingCall(incoming);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [incoming?.call_id]);
 
+    // Kutayotgan qo'ng'iroqqa javob berildi — operator endi shu mijoz bilan gaplashmoqda
+    const prevCallState = useRef(sip.callState);
+    useEffect(() => {
+        const answered =
+            sip.callState === 'active' && prevCallState.current !== 'active';
+        prevCallState.current = sip.callState;
+        if (answered && pendingCall) {
+            loadCall(pendingCall);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sip.callState]);
+
     const reset = () => {
         lookupAbort.current?.abort();
-        form.reset();
+        // Tanlangan filial saqlanadi (keyingi buyurtma odatda shu filialga)
+        form.clearErrors();
+        form.setData((data) => blank(data.branch_id));
         setCard(null);
         setPickup(emptyPlace);
         setDropoff(emptyPlace);
@@ -378,6 +463,10 @@ export function OrderForm({
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (submitting.current || form.processing) {
+            return;
+        }
+        submitting.current = true;
         form.transform((data) => ({
             ...data,
             tariff_class_id: selectedClass?.id,
@@ -396,6 +485,9 @@ export function OrderForm({
         form.post(OrderController.store.url(), {
             preserveScroll: true,
             onSuccess: reset,
+            onFinish: () => {
+                submitting.current = false;
+            },
         });
     };
 
@@ -418,6 +510,32 @@ export function OrderForm({
             }}
             className="grid gap-3"
         >
+            {pendingCall && (
+                <div className="flex items-center gap-2 rounded-md border border-sky-500/50 bg-sky-500/10 px-3 py-2 text-sm">
+                    <span className="flex-1">
+                        {t('Incoming call')}: {formatPhone(pendingCall.phone)}
+                        {pendingCall.client?.name &&
+                            ` — ${pendingCall.client.name}`}
+                    </span>
+                    <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => loadCall(pendingCall)}
+                    >
+                        {t('Load client')}
+                    </Button>
+                    <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="size-7"
+                        aria-label={t('Close')}
+                        onClick={() => setPendingCall(null)}
+                    >
+                        <X />
+                    </Button>
+                </div>
+            )}
             {branches.length > 1 && (
                 <div className="flex flex-wrap gap-1.5">
                     {branches.map((branch) => (
@@ -592,8 +710,8 @@ export function OrderForm({
                             value={stop}
                             onChange={(value) =>
                                 setStops((list) =>
-                                    list.map((s, i) =>
-                                        i === index
+                                    list.map((s) =>
+                                        s.key === stop.key
                                             ? { ...value, key: s.key }
                                             : s,
                                     ),
@@ -604,12 +722,12 @@ export function OrderForm({
                                     (b) => b.id === form.data.branch_id,
                                 )?.center
                             }
-                            picking={picking === `stop-${index}`}
+                            picking={picking === `stop-${stop.key}`}
                             onPickOnMap={() =>
                                 setPicking(
-                                    picking === `stop-${index}`
+                                    picking === `stop-${stop.key}`
                                         ? null
-                                        : `stop-${index}`,
+                                        : `stop-${stop.key}`,
                                 )
                             }
                         />
@@ -621,7 +739,7 @@ export function OrderForm({
                         title={t('Remove stop')}
                         onClick={() =>
                             setStops((list) =>
-                                list.filter((_, i) => i !== index),
+                                list.filter((s) => s.key !== stop.key),
                             )
                         }
                     >
@@ -790,9 +908,10 @@ export function OrderForm({
                 <Input
                     id="scheduled_at"
                     type="datetime-local"
-                    min={localInputValue(new Date())}
-                    max={localInputValue(
-                        new Date(Date.now() + 7 * 24 * 3600 * 1000),
+                    min={zonedInputValue(serverNow(), branchTimeZone)}
+                    max={zonedInputValue(
+                        serverNow() + 7 * 24 * 3600 * 1000,
+                        branchTimeZone,
                     )}
                     value={form.data.scheduled_at}
                     onChange={(e) =>

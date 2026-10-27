@@ -108,6 +108,9 @@ class OrderController extends Controller
     {
         $data = $request->validate([
             'driver_id' => ['required', 'integer', Rule::exists('drivers', 'id')->where('branch_id', $order->branch_id)],
+        ], [
+            // Boshqa filial haydovchisi — umumiy "noto'g'ri qiymat" o'rniga tushunarli sabab
+            'driver_id.exists' => __('This driver belongs to another branch.'),
         ]);
         /** @var User $user */
         $user = $request->user();

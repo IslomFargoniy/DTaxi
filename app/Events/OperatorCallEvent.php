@@ -5,12 +5,13 @@ namespace App\Events;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * Operatorga: qo'ng'iroq kelmoqda (mijoz kartochkasi pop-up), ulandi, tugadi; holati o'zgardi.
  */
-class OperatorCallEvent implements ShouldBroadcastNow
+class OperatorCallEvent implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

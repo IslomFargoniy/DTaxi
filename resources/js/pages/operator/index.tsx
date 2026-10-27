@@ -10,9 +10,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { TaxiMap } from '@/components/map/taxi-map';
 import { globalSip } from '@/components/webphone/sip-state';
 import { useResyncOnReconnect } from '@/hooks/use-resync-on-reconnect';
+import { useServerNow } from '@/hooks/use-server-now';
 import { useTrans } from '@/hooks/use-trans';
 import { markGpsEvent } from '@/lib/gps-health';
-import { syncServerClock } from '@/lib/server-clock';
+import { serverNow, syncServerClock } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
 import { index } from '@/routes/operator';
 import type { Branch, MapDriver, Order, TariffClass } from '@/types/operator';
@@ -98,6 +99,7 @@ function focusBranch(
 function driversGeoJson(
     drivers: MapDriver[],
     ttlSeconds: number,
+    now: number,
 ): GeoJSON.FeatureCollection {
     return {
         type: 'FeatureCollection',
@@ -116,7 +118,7 @@ function driversGeoJson(
                     id: d.id,
                     callsign: d.callsign,
                     // GPS eskirgan — kulrang (bo'sh deb sanalmaydi)
-                    status: isFresh(d, ttlSeconds) ? d.status : 'stale',
+                    status: isFresh(d, ttlSeconds, now) ? d.status : 'stale',
                 },
             })),
     };
@@ -143,11 +145,51 @@ function BranchChannel({
     useEcho<MapDriver>(
         `branch.${branchId}`,
         'DriverLocationUpdated',
-        onDriver,
-        [onDriver],
+        // Hodisada filial yo'q — kanal filiali qo'shiladi (tayinlash ro'yxati filial bo'yicha)
+        (driver) => onDriver({ ...driver, branch_id: branchId }),
+        [onDriver, branchId],
     );
 
     return null;
+}
+
+/** Xarita ostidagi bo'sh/band sanog'i — GPS eskirgani vaqt o'tishi bilan ham hisobga olinsin */
+function DriversLegend({
+    drivers,
+    locationTtlSeconds,
+}: {
+    drivers: MapDriver[];
+    locationTtlSeconds: number;
+}) {
+    const { t } = useTrans();
+    const now = useServerNow(5000);
+
+    return (
+        <div className="absolute bottom-2 left-2 flex gap-3 rounded-md bg-background/90 px-2 py-1 text-xs shadow">
+            <span>
+                🟢 {t('Free')}:{' '}
+                {
+                    drivers.filter(
+                        (d) =>
+                            d.status === 'free' &&
+                            isFresh(d, locationTtlSeconds, now),
+                    ).length
+                }
+            </span>
+            <span>
+                🔴 {t('Busy')}:{' '}
+                {drivers.filter((d) => d.status === 'busy').length}
+            </span>
+        </div>
+    );
+}
+
+/** Kechikkan reload yangiroq real vaqt holatini ustidan yozmasin: kim yangiroq bo'lsa o'sha qoladi */
+function newerOrSame(
+    local: string | null | undefined,
+    server: string | null | undefined,
+): boolean {
+    return !!local && (!server || Date.parse(local) > Date.parse(server));
 }
 
 /**
@@ -205,16 +247,69 @@ export default function OperatorIndex({
     // Ro'yxatdan chiqqan (yakunlangan) buyurtmalar: kechikkan eski hodisa ularni qaytarmasin
     const finished = useRef<Map<number, number>>(new Map());
 
+    // Server ro'yxati (sahifa/qisman qayta yuklash) real vaqt holati bilan birlashtiriladi:
+    // so'rov paytida kelgan yangiroq hodisa eski javob bilan almashtirilmaydi, yakunlangani qaytmaydi
+    const snapshotAt = useRef(serverTime);
+    snapshotAt.current = serverTime;
     useEffect(() => {
-        setOrders(initialOrders);
+        setOrders((list) => {
+            const local = new Map(list.map((o) => [o.id, o]));
+            const merged: Order[] = [];
+            const seen = new Set<number>();
+            for (const order of initialOrders) {
+                seen.add(order.id);
+                const closedAt = finished.current.get(order.id);
+                if (
+                    closedAt !== undefined &&
+                    (!order.updated_at ||
+                        Date.parse(order.updated_at) <= closedAt)
+                ) {
+                    continue;
+                }
+                const mine = local.get(order.id);
+                merged.push(
+                    mine && newerOrSame(mine.updated_at, order.updated_at)
+                        ? mine
+                        : order,
+                );
+            }
+            // Javob tayyorlangandan keyin paydo bo'lgan (faqat hodisadan ma'lum) buyurtmalar ham qoladi
+            const since = snapshotAt.current;
+            for (const order of list) {
+                if (
+                    !seen.has(order.id) &&
+                    since !== undefined &&
+                    order.updated_at &&
+                    Date.parse(order.updated_at) > since
+                ) {
+                    merged.push(order);
+                }
+            }
+
+            return merged;
+        });
     }, [initialOrders]);
     useEffect(() => {
-        setDrivers(initialDrivers);
+        setDrivers((list) => {
+            const local = new Map(list.map((d) => [d.id, d]));
+
+            return initialDrivers.map((driver) => {
+                const mine = local.get(driver.id);
+
+                return mine &&
+                    newerOrSame(mine.last_seen_at, driver.last_seen_at)
+                    ? { ...driver, ...mine }
+                    : driver;
+            });
+        });
     }, [initialDrivers]);
 
     // Uzilish paytida kelmagan buyurtma holatlari va haydovchi joylashuvlari serverdan olinadi
     useResyncOnReconnect(
-        useCallback(() => router.reload({ only: ['orders', 'drivers'] }), []),
+        useCallback(
+            () => router.reload({ only: ['orders', 'drivers', 'serverTime'] }),
+            [],
+        ),
     );
 
     // Filial markazi kiritilmagan bo'lsa — xarita fayli qamragan hudud
@@ -261,20 +356,61 @@ export default function OperatorIndex({
             }),
         [],
     );
+    // GPS hodisalari to'planib 250 ms da bir marta chiziladi: yuzlab haydovchida har hodisaga
+    // butun sahifa qayta chizilsa panel qotardi
+    const pendingDrivers = useRef<Map<number, MapDriver>>(new Map());
+    const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(
+        () => () => {
+            if (flushTimer.current !== null) {
+                clearTimeout(flushTimer.current);
+            }
+        },
+        [],
+    );
     const onDriver = useCallback((driver: MapDriver) => {
         markGpsEvent();
-        setDrivers((list) => [
-            ...list.filter((d) => d.id !== driver.id),
-            { ...list.find((d) => d.id === driver.id), ...driver },
-        ]);
+        const pending = pendingDrivers.current;
+        pending.set(driver.id, { ...pending.get(driver.id), ...driver });
+        if (flushTimer.current !== null) {
+            return;
+        }
+        flushTimer.current = setTimeout(() => {
+            flushTimer.current = null;
+            const batch = pendingDrivers.current;
+            pendingDrivers.current = new Map();
+            setDrivers((list) => {
+                const byId = new Map(list.map((d) => [d.id, d]));
+                for (const d of batch.values()) {
+                    byId.set(d.id, { ...byId.get(d.id), ...d });
+                }
+
+                return [...byId.values()];
+            });
+        }, 250);
     }, []);
 
-    // Haydovchilar qatlami
+    // Haydovchilar qatlami; rang (GPS eskirgani) yangi hodisa kelmasa ham vaqt o'tishi bilan yangilanadi
+    // (sahifani qayta chizmasdan — faqat xarita manbasi)
+    const driversRef = useRef(drivers);
     useEffect(() => {
-        const source = mapRef.current?.getSource('drivers') as
-            | GeoJSONSource
-            | undefined;
-        void source?.setData(driversGeoJson(drivers, locationTtlSeconds));
+        driversRef.current = drivers;
+        const draw = () => {
+            const source = mapRef.current?.getSource('drivers') as
+                | GeoJSONSource
+                | undefined;
+            void source?.setData(
+                driversGeoJson(
+                    driversRef.current,
+                    locationTtlSeconds,
+                    serverNow(),
+                ),
+            );
+        };
+        draw();
+        const id = setInterval(draw, 5000);
+
+        return () => clearInterval(id);
     }, [drivers, locationTtlSeconds]);
 
     const onReady = useCallback(
@@ -315,7 +451,7 @@ export default function OperatorIndex({
             focusBranch(map, branchRef.current, false);
             map.addSource('drivers', {
                 type: 'geojson',
-                data: driversGeoJson(drivers, locationTtlSeconds),
+                data: driversGeoJson(drivers, locationTtlSeconds, serverNow()),
             });
             map.addLayer({
                 id: 'drivers',
@@ -433,6 +569,7 @@ export default function OperatorIndex({
                     <OrdersList
                         orders={orders}
                         drivers={drivers}
+                        branches={branches}
                         tariffClasses={tariffClasses}
                         locationTtlSeconds={locationTtlSeconds}
                         selectedId={selectedId}
@@ -472,22 +609,10 @@ export default function OperatorIndex({
                                 )}
                             </div>
                         )}
-                    <div className="absolute bottom-2 left-2 flex gap-3 rounded-md bg-background/90 px-2 py-1 text-xs shadow">
-                        <span>
-                            🟢 {t('Free')}:{' '}
-                            {
-                                drivers.filter(
-                                    (d) =>
-                                        d.status === 'free' &&
-                                        isFresh(d, locationTtlSeconds),
-                                ).length
-                            }
-                        </span>
-                        <span>
-                            🔴 {t('Busy')}:{' '}
-                            {drivers.filter((d) => d.status === 'busy').length}
-                        </span>
-                    </div>
+                    <DriversLegend
+                        drivers={drivers}
+                        locationTtlSeconds={locationTtlSeconds}
+                    />
                 </section>
 
                 <section className="order-1 overflow-auto lg:order-3">

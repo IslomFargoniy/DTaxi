@@ -95,6 +95,10 @@ class ClickController extends Controller
         }
 
         $this->topUp->perform($payment, TransactionSource::Click);
+        // Shu orada (parallel so'rovda) bekor qilingan bo'lsa — pul tushmadi, "Success" deyilmaydi
+        if ($payment->refresh()->state !== 'performed') {
+            return $this->reply($request, self::CANCELLED, 'Transaction cancelled');
+        }
 
         return $this->reply($request, self::OK, 'Success', ['merchant_confirm_id' => $payment->id]);
     }

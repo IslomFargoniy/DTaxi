@@ -76,6 +76,7 @@
     <string name="tx_adjustment">Tuzatish</string>
     <string name="tx_refund">Qaytarildi</string>
     <string name="voice_guidance">Ovozli navigatsiya</string>
+    <string name="server_invalid">Server manzili noto\'g\'ri</string>
     <string name="server_address">Server manzili (Mac IP)</string>
     <string name="retry">Qayta urinish</string>
     <string name="connecting">Serverga ulanmoqda…</string>

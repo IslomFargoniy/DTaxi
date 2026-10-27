@@ -43,6 +43,9 @@ import androidx.core.content.ContextCompat
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import uz.dtaxi.driver.BuildConfig
 import uz.dtaxi.driver.DtaxiApp
 import uz.dtaxi.driver.R
 import uz.dtaxi.core.data.AppLocale
@@ -65,6 +68,9 @@ class MainActivity : ComponentActivity() {
     private var alertProblem by mutableStateOf<AlertProblem?>(null)
 
     private enum class AlertProblem { Notifications, FullScreen }
+
+    /** Chat bildirishnomasi ochiq ilovada bosildi (singleTask — onNewIntent) */
+    private var openChatRequests by mutableStateOf(0)
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         val then = afterPermissions
@@ -93,6 +99,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val app = application as DtaxiApp
         val updater = Updater(this, app.repository.client.http)
+        // Qulflangan ekran ustida faqat taklif ko'rsatilayotganda (to'liq ekranli bildirishnoma ochadi) —
+        // aks holda telefonni olgan har kim qulfni ochmasdan ilovaga kirardi
+        showOverLockScreen(DriverState.offer.value != null)
+        lifecycleScope.launch {
+            DriverState.offer.map { it != null }.distinctUntilChanged().collect(::showOverLockScreen)
+        }
         if (savedInstanceState == null) app.scope.launch { updater.deleteInstalled() }
         // Ekran ochiq turganda har daqiqada — operator chatida "online" (Telegram kabi); fonga o'tsa to'xtaydi
         lifecycleScope.launch {
@@ -119,8 +131,10 @@ class MainActivity : ComponentActivity() {
                 // Server bilan aloqa yo'q (masalan sinov ilovasida Mac IP'si o'zgardi): xabar, qayta urinish, chiqish
                 var loadError by remember { mutableStateOf<String?>(null) }
                 var attempt by remember { mutableStateOf(0) }
-                var signOuts by remember { mutableStateOf(0) }
-                val loggedIn = signOuts >= 0 && app.repository.isLoggedIn
+                // Token oqimi: chiqish yoki 401 (istalgan so'rovda) — darhol login ekrani
+                val token by app.session.tokenFlow.collectAsState()
+                val loggedIn = token != null
+                LaunchedEffect(openChatRequests) { if (openChatRequests > 0) screen = Screen.Chat }
 
                 LaunchedEffect(loggedIn, attempt) {
                     if (!loggedIn) return@LaunchedEffect
@@ -128,8 +142,7 @@ class MainActivity : ComponentActivity() {
                     val result = app.repository.refreshProfile()
                     if (result is Result.Error) {
                         if (result.code == 401) {
-                            app.session.clear()
-                            signOuts++
+                            app.repository.signOut()
                         } else {
                             loadError = result.message ?: getString(R.string.network_error)
                         }
@@ -158,10 +171,7 @@ class MainActivity : ComponentActivity() {
                         error = loadError,
                         server = app.session.serverUrl,
                         onRetry = { attempt++ },
-                        onLogout = {
-                            app.session.clear()
-                            signOuts++
-                        },
+                        onLogout = { app.repository.signOut() },
                     )
                 } else {
                     when (screen) {
@@ -239,7 +249,8 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // Ilova ochiq turganda ham yangi versiya chiqsa bilinsin — har 30 daqiqada /android/version.json
-                LaunchedEffect(Unit) {
+                // (sinov/debug ilovasida tekshirilmaydi — version.json har build'da yangilanadi)
+                if (!BuildConfig.DEBUG) LaunchedEffect(Unit) {
                     // Kirishdan oldin ham (eski ilova login ekranida qolib ketmasin), keyin har 30 daqiqada
                     while (true) {
                         if (update == null) app.repository.latestVersion()?.takeIf(updater::isNewer)?.let { update = it }
@@ -289,6 +300,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getStringExtra("open") == "chat") openChatRequests++
+    }
+
+    private fun showOverLockScreen(show: Boolean) {
+        setShowWhenLocked(show)
+        setTurnScreenOn(show)
     }
 
     private fun withPermissions(then: () -> Unit) {

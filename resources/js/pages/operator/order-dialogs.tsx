@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import OrderController from '@/actions/App/Http/Controllers/Operator/OrderController';
 import { Button } from '@/components/ui/button';
 import {
@@ -49,7 +49,8 @@ export function CancelOrderDialog({
     const [otherWho, setOtherWho] = useState<Who>('client');
     const [processing, setProcessing] = useState(false);
 
-    const reason = choice ? t(choice.text) : other.trim();
+    // Tayyor sabab kalit (inglizcha matn) sifatida yuboriladi — hisobotda operator tilidan qat'i nazar bitta qator
+    const reason = choice ? choice.text : other.trim();
     const who = choice?.who ?? otherWho;
 
     const submit = () => {
@@ -195,8 +196,21 @@ export function EditOrderDialog({
     const classes = tariffClasses.filter(
         (c) => c.branch_id === order.branch_id,
     );
+    // Buyurtma hodisasi har kelganda yangi obyekt bo'lmasin — manzil qidiruvi qayta boshlanmasin
+    const pickupLat = order.pickup.lat;
+    const pickupLng = order.pickup.lng;
+    const near = useMemo(
+        () =>
+            pickupLat !== null && pickupLng !== null
+                ? { lat: pickupLat, lng: pickupLng }
+                : null,
+        [pickupLat, pickupLng],
+    );
 
     const submit = () => {
+        if (processing) {
+            return;
+        }
         setProcessing(true);
         router.patch(
             OrderController.update.url(order.id),
@@ -233,15 +247,7 @@ export function EditOrderDialog({
                         onChange={setDropoff}
                         picking={false}
                         onPickOnMap={() => undefined}
-                        near={
-                            order.pickup.lat !== null &&
-                            order.pickup.lng !== null
-                                ? {
-                                      lat: order.pickup.lat,
-                                      lng: order.pickup.lng,
-                                  }
-                                : null
-                        }
+                        near={near}
                     />
                     {waiting && classes.length > 1 && (
                         <div className="flex flex-wrap gap-1.5">

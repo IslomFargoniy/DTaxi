@@ -71,4 +71,14 @@
     <string name="privacy_policy">Maxfiylik siyosati</string>
     <string name="delete_account">Hisobni o\'chirish</string>
     <string name="delete_account_text">Kirish ma\'lumotlari, saqlangan manzillar va ismingiz o\'chiriladi. Safarlar tarixi firma yozuvlarida qoladi.</string>
+    <string name="choose_on_map">Xaritada tanlash</string>
+    <string name="choose_on_map_hint">Xaritani suring — pin borish manzilida bo\'lsin</string>
+    <string name="done">Tayyor</string>
+    <string name="delete_address_confirm">Saqlangan manzil o\'chirilsinmi?</string>
+    <string name="order_again">Qayta buyurtma</string>
+    <string name="eta_pickup">Taxminan %1$d daqiqada yetib keladi</string>
+    <string name="eta_dropoff">Manzilgacha taxminan %1$d daqiqa</string>
+    <string name="location_settings_title">Joylashuvga ruxsat o\'chirilgan</string>
+    <string name="location_settings_text">Joriy joyingizni aniqlash uchun ilova sozlamalarida "Joylashuv" ruxsatini yoqing.</string>
+    <string name="open_settings">Sozlamalarni ochish</string>
 </resources>

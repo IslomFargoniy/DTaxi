@@ -5,13 +5,14 @@ namespace App\Events;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * Chat xabarlari o'qildi (Telegram kabi ✓✓): yozgan tomonda belgi darhol yangilansin.
  * byDriver — haydovchi dispetcher xabarlarini o'qidi; aks holda dispetcher haydovchinikini.
  */
-class ChatMessagesRead implements ShouldBroadcastNow
+class ChatMessagesRead implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

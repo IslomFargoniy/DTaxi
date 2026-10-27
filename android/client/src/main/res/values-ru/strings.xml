@@ -71,4 +71,14 @@
     <string name="privacy_policy">Политика конфиденциальности</string>
     <string name="delete_account">Удалить аккаунт</string>
     <string name="delete_account_text">Будут удалены данные входа, сохранённые адреса и имя. История поездок останется в записях компании.</string>
+    <string name="choose_on_map">Выбрать на карте</string>
+    <string name="choose_on_map_hint">Двигайте карту — метка должна быть на месте назначения</string>
+    <string name="done">Готово</string>
+    <string name="delete_address_confirm">Удалить сохранённый адрес?</string>
+    <string name="order_again">Заказать снова</string>
+    <string name="eta_pickup">Приедет примерно через %1$d мин</string>
+    <string name="eta_dropoff">До места назначения примерно %1$d мин</string>
+    <string name="location_settings_title">Доступ к геолокации отключён</string>
+    <string name="location_settings_text">Чтобы определить ваше местоположение, включите разрешение «Местоположение» в настройках приложения.</string>
+    <string name="open_settings">Открыть настройки</string>
 </resources>

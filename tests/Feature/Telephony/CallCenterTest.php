@@ -65,7 +65,7 @@ function fakeAri(array &$online, array &$ari): void
 
         return match (true) {
             str_ends_with($url, '/ari/endpoints/PJSIP') => Http::response(array_map(fn ($e) => ['resource' => $e, 'state' => 'online'], $online)),
-            $get && str_ends_with($url, '/ari/channels') => $ari['channels'] === null ? Http::response(null, 500) : Http::response(array_map(fn ($id) => ['id' => $id], $ari['channels'])),
+            $get && str_ends_with($url, '/ari/channels') => $ari['channels'] === null ? Http::response(null, 500) : Http::response(array_map(fn ($c) => is_array($c) ? $c : ['id' => $c], $ari['channels'])),
             $get && str_ends_with($url, '/ari/bridges') => $ari['bridges'] === null ? Http::response(null, 500) : Http::response($ari['bridges']),
             str_ends_with($url, '/ari/bridges') => Http::response(['id' => 'bridge-1']),
             default => Http::response(null, 204),
@@ -1036,4 +1036,54 @@ test('concurrent auto calls wait for the trunk lock instead of overshooting the 
     }
 
     expect(Call::query()->withoutGlobalScopes()->count())->toBe(0);
+});
+
+test('a replayed StasisStart does not open a second call record', function () {
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+
+    expect(Call::query()->withoutGlobalScopes()->count())->toBe(1);
+});
+
+test('a late hangup of an old operator ring does not count as a missed ring', function () {
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    $this->center->remember('old-ring', $call, 'operator');
+
+    $this->center->handle(['type' => 'ChannelDestroyed', 'channel' => ['id' => 'old-ring'], 'cause' => 19]);
+
+    expect($call->refresh()->operator_id)->toBe($this->operator->id)
+        ->and($this->operator->refresh()->operator_status)->toBe('ready');
+});
+
+test('an auto call closed as failed is not revived when its channel answers late', function () {
+    $call = Call::query()->create([
+        'channel_id' => 'tts-1', 'branch_id' => $this->branch->id, 'direction' => 'outbound', 'kind' => 'tts',
+        'caller' => '+998712000000', 'callee' => '+998901234567', 'status' => 'failed', 'started_at' => now(), 'ended_at' => now(),
+    ]);
+
+    $this->center->handle(stasis('tts-1', ['tts', (string) $call->id]));
+
+    expect($call->refresh()->status)->toBe('failed')
+        ->and(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_contains($r->url(), '/ari/channels/tts-1')))->toHaveCount(1);
+});
+
+test('an operator ring whose originate timed out is hung up, without a missed ring', function () {
+    $this->ari['down'] = ['appArgs=operator'];
+
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+
+    expect(Http::recorded(fn (Request $r) => $r->method() === 'DELETE' && str_contains($r->url(), '/ari/channels/') && ! str_contains($r->url(), 'ch-1')))->toHaveCount(1)
+        ->and($this->operator->refresh()->operator_status)->toBe('ready');
+});
+
+test('reconciliation bridges an operator who answered while the StasisStart event was lost', function () {
+    $this->center->handle(stasis('ch-1', ['inbound', '712000000']));
+    $call = Call::query()->withoutGlobalScopes()->sole();
+    $this->travel(30)->seconds();
+    $this->ari['channels'] = ['ch-1', ['id' => $call->meta['operator_channel'], 'state' => 'Up']];
+
+    $this->center->reconcile();
+
+    expect($call->refresh()->status)->toBe('answered');
 });

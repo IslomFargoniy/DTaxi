@@ -76,6 +76,7 @@
     <string name="tx_adjustment">Корректировка</string>
     <string name="tx_refund">Возврат</string>
     <string name="voice_guidance">Голосовые подсказки</string>
+    <string name="server_invalid">Неверный адрес сервера</string>
     <string name="server_address">Адрес сервера (IP Mac)</string>
     <string name="retry">Повторить</string>
     <string name="connecting">Подключение к серверу…</string>

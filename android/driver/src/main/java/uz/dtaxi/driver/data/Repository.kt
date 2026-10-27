@@ -5,6 +5,7 @@ import uz.dtaxi.core.data.AppLocale
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import android.os.Build
+import uz.dtaxi.driver.BuildConfig
 import retrofit2.Response
 import java.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
@@ -22,6 +23,9 @@ class Repository(val client: ApiClient, val session: Session) {
 
     val isLoggedIn: Boolean get() = session.token != null
 
+    /** Hisobdan chiqildi yoki token bekor (401): servis to'xtaydi, GPS buferi va taksometr tozalanadi (DtaxiApp beradi) */
+    var onSignedOut: (() -> Unit)? = null
+
     suspend fun login(phone: String, password: String): Result<DriverProfile> =
         call { api.login(LoginRequest(phone, password, Build.MODEL ?: "android")) }.also {
             if (it is Result.Ok) {
@@ -34,12 +38,19 @@ class Repository(val client: ApiClient, val session: Session) {
 
     suspend fun logout() {
         unitCall { api.logout() }
+        signOut()
+    }
+
+    /** Token avval o'chiriladi — servis yopilayotganda GPS buferini diskka qayta yozmaydi (DriverService.saveBuffer) */
+    fun signOut() {
         session.clear()
         // Keyingi haydovchiga eski buyurtmaning "Yakunlash"i qayta yuborilmasin
         session.pendingComplete = null
+        session.pendingFinishAt = null
         DriverState.setPendingComplete(null)
         DriverState.setProfile(null)
         DriverState.setOrder(null)
+        onSignedOut?.invoke()
     }
 
     suspend fun refreshProfile(): Result<DriverProfile> =
@@ -58,8 +69,11 @@ class Repository(val client: ApiClient, val session: Session) {
     /** Operator qo'ng'irog'ini rad etish */
     suspend fun declineCall(callId: Int) = unitCall { api.declineCall(callId) }
 
-    suspend fun refreshOrder(): Result<Order?> =
-        call { api.currentOrder() }.map { it.order }.also { if (it is Result.Ok) DriverState.setOrder(it.value) }
+    /** So'rov ketayotganda Reverb yoki boshqa javob yangiroq holat bergan bo'lsa — bu javob qo'llanmaydi */
+    suspend fun refreshOrder(): Result<Order?> {
+        val version = DriverState.orderVersion
+        return call { api.currentOrder() }.map { it.order }.also { if (it is Result.Ok) DriverState.setOrder(it.value, ifVersion = version) }
+    }
 
     suspend fun accept(orderId: Int): Result<Order?> = orderCall { api.accept(orderId) }.also {
         DriverState.clearOffer()
@@ -101,8 +115,9 @@ class Repository(val client: ApiClient, val session: Session) {
             val at = session.pendingFinishAt
             api.complete(orderId, CompleteRequest(inside, outside, at?.first, at?.second))
         }.map { it.order }.also {
-            // Tarmoq xatosi (-1) bo'lmasa server javob berdi — qayta yuborish shart emas
-            if (it !is Result.Error || it.code != -1) {
+            // Tarmoq xatosi, server vaqtincha ishlamayapti (5xx, yangilanish) yoki so'rovlar chegarasi — qayta yuboriladi
+            // (server takroriy yakunlashni muvaffaqiyat deb qaytaradi); boshqa javob — yakuniy
+            if (it !is Result.Error || !isTransient(it.code)) {
                 session.pendingComplete = null
                 session.pendingFinishAt = null
                 DriverState.setPendingComplete(null)
@@ -113,6 +128,8 @@ class Repository(val client: ApiClient, val session: Session) {
                 refreshProfile()
             }
         }
+
+    private fun isTransient(code: Int) = code == -1 || code == 408 || code == 429 || code >= 500
 
     /** Faqat server tasdiqlasa buyurtma yopiladi — aks holda ilova va server holati ajralib qoladi */
     suspend fun cancel(orderId: Int, reason: String) = orderCall { api.cancel(orderId, CancelRequest(reason)) }.also {
@@ -152,7 +169,8 @@ class Repository(val client: ApiClient, val session: Session) {
      */
     suspend fun latestVersion(): AppVersion? {
         val release = (appVersion() as? Result.Ok)?.value
-        val published = withContext(Dispatchers.IO) {
+        // version.json har build'da yoziladi — sinov (debug) ilovasi har safar "yangilang" demasin
+        val published = if (BuildConfig.DEBUG) null else withContext(Dispatchers.IO) {
             runCatching {
                 client.http.newCall(okhttp3.Request.Builder().url(session.serverUrl.trimEnd('/') + "/android/version.json").build())
                     .execute().use { response ->
@@ -184,8 +202,8 @@ class Repository(val client: ApiClient, val session: Session) {
         when {
             response.isSuccessful -> onSuccess(response.body(), response.code())
             response.code() == 401 -> {
-                session.clear()
-                DriverState.setProfile(null)
+                // Token bekor qilingan: servis, GPS buferi va Reverb ham to'xtaydi, ekran loginga o'tadi
+                if (session.token != null) withContext(Dispatchers.Main) { signOut() }
                 Result.Error(null, 401)
             }
             else -> Result.Error(ApiClient.errorMessage(response), response.code())

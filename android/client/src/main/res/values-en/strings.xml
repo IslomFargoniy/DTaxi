@@ -71,4 +71,14 @@
     <string name="privacy_policy">Privacy policy</string>
     <string name="delete_account">Delete account</string>
     <string name="delete_account_text">Your sign-in, saved addresses and name will be deleted. Trip history stays in the company records.</string>
+    <string name="choose_on_map">Choose on map</string>
+    <string name="choose_on_map_hint">Move the map — put the pin on your destination</string>
+    <string name="done">Done</string>
+    <string name="delete_address_confirm">Delete saved address?</string>
+    <string name="order_again">Order again</string>
+    <string name="eta_pickup">Arrives in about %1$d min</string>
+    <string name="eta_dropoff">About %1$d min to destination</string>
+    <string name="location_settings_title">Location access is off</string>
+    <string name="location_settings_text">To find your current location, allow "Location" in the app settings.</string>
+    <string name="open_settings">Open settings</string>
 </resources>

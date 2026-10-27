@@ -88,6 +88,8 @@ class PlaceCodeCall implements ShouldQueue
         $channelId = (string) $call->channel_id;
         $center->remember($channelId, $call, 'client');
         if (! $ari->originate($number->dialString($this->phone), "tts,{$call->id}", $number->number, 30, channelId: $channelId)) {
+            // Javob kelmay vaqt tugagan bo'lsa ham kanal Asterisk'da yaratilgan bo'lishi mumkin — liniya band qolmasin
+            $ari->hangup($channelId);
             $call->forceFill(['status' => 'failed', 'ended_at' => now()])->save();
         }
     }

@@ -94,7 +94,13 @@ data class Order(
     val company: String? = null,
     /** Oraliq to'xtash joylari (qayerdan → to'xtashlar → qayerga) */
     val stops: List<Stop>? = null,
-)
+    /** Server oxirgi o'zgartirgan vaqt (ISO 8601) — kech kelgan eski holat yangisining ustidan yozilmasin */
+    @SerializedName("updated_at") val updatedAt: String? = null,
+) {
+    /** Maydon emas (Gson o'qimaydi): updated_at epoch ms, o'qilmasa null */
+    val updatedAtMillis: Long?
+        get() = updatedAt?.let { runCatching { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() }
+}
 
 data class Stop(val text: String, val lat: Double, val lng: Double)
 
@@ -127,8 +133,20 @@ data class Offer(
     /** Qabul qilingan payt (SystemClock.elapsedRealtime) — taymer ekran qayta yaratilsa ham shundan sanaladi */
     @Transient val receivedAt: Long = 0,
 ) {
-    /** Qayta yuborilgan taklif (yangi offered_at) takror emas; eski serverda faqat offer_id */
-    val dedupKey: String get() = if (offeredAt != null) "$offerId:$offeredAt" else "$offerId"
+    /** Qayta yuborilgan taklif (yangi offered_at) takror emas; eski serverda faqat offer_id; buyurtma id ham — boshqa buyurtma takror sanalmasin */
+    val dedupKey: String get() = if (offeredAt != null) "$orderId:$offerId:$offeredAt" else "$orderId:$offerId"
+
+    /**
+     * Server taklif yuborganidan beri o'tgan vaqt (ms): FCM kechiksa qolgan vaqt shundan sanaladi.
+     * Server soati farqi noma'lum bo'lsa telefon soatiga faqat muddat ichida ishoniladi (soat noto'g'ri bo'lsa
+     * taklif umuman ko'rinmay qolmasin).
+     */
+    fun elapsedMillis(wallNow: Long, clockOffset: Long?): Long {
+        val sent = offeredAt ?: return 0
+        val elapsed = wallNow + (clockOffset ?: 0) - sent
+        if (clockOffset == null && elapsed !in 0..expiresIn * 1000L) return 0
+        return elapsed.coerceAtLeast(0)
+    }
 
     fun millisLeft(now: Long): Long = (expiresIn * 1000L - (now - receivedAt)).coerceAtLeast(0)
 
@@ -204,7 +222,8 @@ data class HistoryOrder(
 data class OrderHistoryPage(val items: List<HistoryOrder>, @SerializedName("next_page") val nextPage: Int?)
 
 /** Safarning haqiqiy yo'li: [[lat, lng], ...]; GPS o'chirilgan bo'lsa bo'sh */
-data class OrderTrack(val points: List<List<Double>> = emptyList(), val start: GeoPoint?, val finish: GeoPoint?)
+// Gson Kotlin default'larini chetlab o'tadi (konstruktorni chaqirmaydi) — default o'rniga nullable
+data class OrderTrack(val points: List<List<Double>>?, val start: GeoPoint?, val finish: GeoPoint?)
 
 data class CancelRequest(val reason: String)
 
@@ -215,7 +234,8 @@ data class RouteResponse(
     @SerializedName("duration_s") val durationS: Int,
     val geometry: List<List<Double>>?,
     val estimated: Boolean,
-    val steps: List<NavStep> = emptyList(),
+    /** Gson default'ni qo'ymaydi — eski server yubormasa null */
+    val steps: List<NavStep>?,
 )
 
 /** OSRM manevri (server ixchamlashtirgan) */

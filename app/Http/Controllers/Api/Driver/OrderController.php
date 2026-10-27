@@ -13,9 +13,9 @@ use App\Services\Dispatch\Dispatcher;
 use App\Services\Orders\OrderService;
 use App\Services\Orders\RideTrack;
 use Clickbar\Magellan\Data\Geometries\Point;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
@@ -90,10 +90,13 @@ class OrderController extends Controller
         $driver = $this->driver($request);
         $finished = [OrderStatus::Completed, OrderStatus::CancelledByClient, OrderStatus::CancelledByOperator, OrderStatus::CancelledByDriver];
 
+        // OR + EXISTS katta bazada butun jadvalni o'qirdi; UNION'ning ikki qismi ham o'z indeksidan foydalanadi
+        $ids = DB::table('orders')->select('id')->where('driver_id', $driver->id)
+            ->whereIn('status', array_map(fn (OrderStatus $s) => $s->value, $finished))
+            ->union(DB::table('order_offers')->select('order_id')->where('driver_id', $driver->id)->where('response', OfferResponse::Cancelled->value));
+
         $page = Order::query()->withoutGlobalScopes()
-            ->where(fn (Builder $q) => $q
-                ->where(fn (Builder $own) => $own->where('driver_id', $driver->id)->whereIn('status', array_map(fn (OrderStatus $s) => $s->value, $finished)))
-                ->orWhereHas('offers', fn (Builder $o) => $o->where('driver_id', $driver->id)->where('response', OfferResponse::Cancelled->value)))
+            ->whereIn('id', $ids)
             ->orderByDesc('created_at')->orderByDesc('id')
             ->simplePaginate(20);
 

@@ -21,6 +21,7 @@ use App\Models\User;
 use App\Services\Orders\OrderService;
 use App\Services\Sounds\MessageComposer;
 use App\Support\Settings;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\DetectsLostConnections;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
@@ -61,7 +62,7 @@ class CallCenter
      * Shu ijrolar faqat PlaybackFinished bilan davom etadi (tick() ularni kutish chegarasidan chetlaydi) —
      * hodisa yo'qolsa mijoz abadiy osilib qolmasligi uchun muddat
      */
-    private const GUARDED_PLAYBACKS = ['close', 'ivr', 'auto_offer', 'tts'];
+    private const GUARDED_PLAYBACKS = ['close', 'ivr', 'auto_offer', 'tts', 'greeting'];
 
     private const PLAYBACK_DEADLINE_SECONDS = 120;
 
@@ -165,6 +166,8 @@ class CallCenter
                 $purpose === 'ivr' && $call->status === 'waiting' && (bool) data_get($call->meta, 'ivr') => $this->ivrFallback($call),
                 $purpose === 'auto_offer' && $call->status === 'waiting' && (bool) data_get($call->meta, 'auto_offer') => $this->leaveAutoOffer($call),
                 $purpose === 'close', $purpose === 'tts' => $this->finish($call, $this->endStatus($call, 0)),
+                // Salomlashuv tugagani bilmay qolinsa ham mijoz jimlikda qolmaydi
+                $purpose === 'greeting' && $call->status === 'waiting' => $this->ari->startMoh((string) $call->channel_id),
                 default => null,
             };
         }
@@ -205,7 +208,7 @@ class CallCenter
 
         $live = [];
         foreach ($channels as $channel) {
-            $live[(string) ($channel['id'] ?? '')] = true;
+            $live[(string) ($channel['id'] ?? '')] = (string) ($channel['state'] ?? '');
         }
         // Kanal yaratilishi (originate) bilan qator yozilishi orasida — bunday yangi qo'ng'iroqlarga tegilmaydi
         $settled = now()->subSeconds(self::RECONCILE_GRACE_SECONDS);
@@ -218,7 +221,7 @@ class CallCenter
     }
 
     /**
-     * @param  array<string, true>  $live
+     * @param  array<string, string>  $live  kanal => holati (Up, Ringing, ...)
      */
     private function reconcileCall(Call $call, array $live, bool $settled): void
     {
@@ -243,7 +246,16 @@ class CallCenter
                 $dead ??= $channel;
             }
         }
-        if (! $settled || ($dead === null && $roles !== [])) {
+        if ($dead === null && $roles !== []) {
+            // Operator javob bergan, lekin StasisStart yo'qolgan — mijoz navbatda, operator jimlikda qolmasin
+            $operatorChannel = data_get($call->meta, 'operator_channel');
+            if ($settled && $call->status === 'waiting' && is_string($operatorChannel) && ($live[$operatorChannel] ?? null) === 'Up') {
+                $this->operatorAnswered($operatorChannel, $call->id);
+            }
+
+            return;
+        }
+        if (! $settled) {
             return;
         }
 
@@ -313,6 +325,10 @@ class CallCenter
     private function inbound(array $channel, string $dialed): void
     {
         $channelId = (string) $channel['id'];
+        // Hodisa qayta ijro etilsa (baza uzilib guard() takrorlasa yoki ARI qayta yuborsa) — ikkinchi yozuv ochilmaydi
+        if (Call::query()->withoutGlobalScopes()->where('channel_id', $channelId)->exists()) {
+            return;
+        }
         $callerRaw = (string) data_get($channel, 'caller.number', '');
         $caller = strlen((string) preg_replace('/\D/', '', $callerRaw)) >= 9 ? Client::normalizePhone($callerRaw) : $callerRaw;
 
@@ -330,20 +346,21 @@ class CallCenter
         $ivr = false;
         $branchId = $this->routeBranch($number, $branchIds, $client, $ivr);
 
-        $call = Call::query()->create([
-            'channel_id' => $channelId,
-            'branch_id' => $branchId,
-            'direction' => 'inbound',
-            'kind' => 'client',
-            'caller' => $caller,
-            'callee' => $number->number,
-            'phone_number_id' => $number->id,
-            'sip_trunk_id' => $number->sip_trunk_id,
-            'client_id' => $client?->id,
-            'status' => 'waiting',
-            'started_at' => now(),
-            'meta' => ['branch_ids' => $branchId && ! $ivr && $number->routing_mode !== 'shared_queue' ? [$branchId] : $branchIds, 'ivr' => $ivr],
-        ]);
+        // Avto-qo'ng'iroq joblari bilan bitta qulf: ikkalasi bir vaqtda oxirgi bo'sh liniyani olib limitdan oshmasin.
+        // Qulf olinmasa ham mijoz qo'ng'irog'i rad etilmaydi (daemon uzoq kutmaydi)
+        $lock = Cache::lock("autocall:trunk:{$number->sip_trunk_id}", 15);
+        try {
+            $locked = $lock->block(1);
+        } catch (LockTimeoutException) {
+            $locked = false;
+        }
+        try {
+            [$call, $allowed] = $this->openInbound($channelId, $caller, $number, $client, $branchId, $branchIds, $ivr);
+        } finally {
+            if ($locked) {
+                $lock->release();
+            }
+        }
         $this->remember($channelId, $call, 'client');
 
         if ($client?->is_blacklisted) {
@@ -353,7 +370,7 @@ class CallCenter
             return;
         }
 
-        if (! $this->limits->canAcceptInbound($number->trunk, $branchId ? Branch::query()->find($branchId) : null, $call->id)) {
+        if (! $allowed) {
             $this->updateMeta($call, ['reason' => 'channels']);
             $call->forceFill(['status' => 'rejected'])->save();
             $this->ari->answer($channelId);
@@ -385,6 +402,32 @@ class CallCenter
         }
 
         $this->broadcast(new CallUpdated($call));
+    }
+
+    /**
+     * Kiruvchi qo'ng'iroq yozuvi va liniya limiti tekshiruvi (chaqiruvchi trunk qulfini ushlab turadi).
+     *
+     * @param  list<int>  $branchIds
+     * @return array{Call, bool}
+     */
+    private function openInbound(string $channelId, string $caller, PhoneNumber $number, ?Client $client, ?int $branchId, array $branchIds, bool $ivr): array
+    {
+        $call = Call::query()->create([
+            'channel_id' => $channelId,
+            'branch_id' => $branchId,
+            'direction' => 'inbound',
+            'kind' => 'client',
+            'caller' => $caller,
+            'callee' => $number->number,
+            'phone_number_id' => $number->id,
+            'sip_trunk_id' => $number->sip_trunk_id,
+            'client_id' => $client?->id,
+            'status' => 'waiting',
+            'started_at' => now(),
+            'meta' => ['branch_ids' => $branchId && ! $ivr && $number->routing_mode !== 'shared_queue' ? [$branchId] : $branchIds, 'ivr' => $ivr],
+        ]);
+
+        return [$call, $this->limits->canAcceptInbound($number->trunk, $branchId ? Branch::query()->find($branchId) : null, $call->id)];
     }
 
     /**
@@ -606,6 +649,14 @@ class CallCenter
      */
     private function endDriverRing(Call $call, string $status, string $hangupReason, string $reason): void
     {
+        // Shartli UPDATE: haydovchi rad etishi (HTTP), muddat tugashi (daemon) va javob berish bir vaqtda kelsa — faqat bittasi yopadi
+        $claimed = $call->getConnection()->update(
+            "UPDATE calls SET meta = meta || '{\"driver_ring_closed\": true}'::jsonb, updated_at = ? WHERE id = ? AND status = 'ringing' AND ended_at IS NULL AND meta->>'driver_ring_closed' IS NULL",
+            [now(), $call->id],
+        );
+        if ($claimed !== 1) {
+            return;
+        }
         $operatorChannel = (string) $call->channel_id;
         $this->ari->hangup($operatorChannel, $hangupReason);
         $this->finish($call, $status, ['reason' => $reason], $operatorChannel);
@@ -826,10 +877,13 @@ class CallCenter
         );
 
         if (! $ok) {
-            // Asterisk javob bermadi — operator aybdor emas: keyingi tick'da yana unga taklif qilinishi mumkin
+            // Asterisk javob bermadi (vaqt tugadi) — kanal baribir yaratilgan bo'lishi mumkin: yopiladi, aks holda operatorda
+            // ikkinchi jiringlash bilan birga ochiq qolardi. Operator aybdor emas (o'tkazib yuborilgan/pauza yo'q):
+            // keyingi tick'da yana unga taklif qilinishi mumkin
             Cache::forget("ari:ch:{$channelId}");
             $call->forceFill(['operator_id' => null])->save();
             $this->updateMeta($call, ['operator_channel' => null, 'tried' => $tried]);
+            $this->ari->hangup($channelId);
 
             return;
         }
@@ -897,7 +951,8 @@ class CallCenter
     private function ttsAnswered(string $channelId, int $callId): void
     {
         $call = Call::query()->withoutGlobalScopes()->find($callId);
-        if (! $call) {
+        // Originate "muvaffaqiyatsiz" deb yopilgan qo'ng'iroq qayta tirilmaydi: aks holda u faol sanalib, filial avto-qo'ng'iroqlari to'xtardi
+        if (! $call || $call->ended_at !== null) {
             $this->ari->hangup($channelId);
 
             return;
@@ -925,8 +980,12 @@ class CallCenter
         }
         $role = is_array($ref) ? $ref['role'] : 'client';
 
-        // Navbatdagi qo'ng'iroq: operator javob bermadi → keyingi operator
+        // Navbatdagi qo'ng'iroq: operator javob bermadi → keyingi operator. Faqat joriy jiringlash kanali:
+        // eski (allaqachon almashtirilgan) kanal kech yopilsa, boshqa operatorga "o'tkazib yubordi" yozilmaydi
         if ($role === 'operator' && $call->status === 'waiting') {
+            if (data_get($call->meta, 'operator_channel') !== $channelId) {
+                return;
+            }
             $operatorId = $call->operator_id;
             $call->forceFill(['operator_id' => null])->save();
             $this->updateMeta($call, ['operator_channel' => null]);
@@ -1169,7 +1228,8 @@ class CallCenter
         $this->updateMeta($call, [
             'playback' => $playbackId,
             'playback_purpose' => $purpose,
-            'playback_until' => in_array($purpose, self::GUARDED_PLAYBACKS, true) ? now()->addSeconds(self::PLAYBACK_DEADLINE_SECONDS)->getTimestamp() : null,
+            'playback_until' => in_array($purpose, self::GUARDED_PLAYBACKS, true)
+                ? now()->addSeconds($purpose === 'greeting' ? 60 : self::PLAYBACK_DEADLINE_SECONDS)->getTimestamp() : null,
         ]);
 
         if ($this->ari->play($channelId, $media, $playbackId) === null) {

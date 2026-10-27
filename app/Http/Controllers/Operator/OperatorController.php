@@ -42,6 +42,8 @@ class OperatorController extends Controller
             'branches' => $branches->map(fn (Branch $branch) => [
                 'id' => $branch->id,
                 'name' => $branch->name,
+                // Oldindan buyurtma vaqti filial mahalliy vaqtida kiritiladi va ko'rsatiladi
+                'timezone' => $branch->timezone,
                 'center' => $branch->center ? ['lat' => $branch->center->getLatitude(), 'lng' => $branch->center->getLongitude()] : null,
                 'area' => $areas[$branch->id] ?? null,
             ]),
@@ -115,6 +117,8 @@ class OperatorController extends Controller
             ->get()
             ->map(fn (Driver $driver) => [
                 'id' => $driver->id,
+                // Tayinlash ro'yxati faqat buyurtma filiali haydovchilarini ko'rsatadi
+                'branch_id' => $driver->branch_id,
                 'callsign' => $driver->callsign,
                 'name' => $driver->user->name,
                 'status' => $driver->status->value,

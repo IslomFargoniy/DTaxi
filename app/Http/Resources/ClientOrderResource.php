@@ -48,12 +48,20 @@ class ClientOrderResource extends JsonResource
             // Safar boshlangach bekor qilinmaydi — haydovchi bilan yakunlanadi
             'can_cancel' => in_array($this->status, [OrderStatus::New, OrderStatus::Searching, OrderStatus::Assigned, OrderStatus::Arrived], true),
             'rating' => $this->client_rating,
-            'cancel_reason' => $this->cancel_reason,
+            // Operatorning tayyor sabablari kalit (inglizcha matn) sifatida saqlanadi — mijoz tilida
+            'cancel_reason' => $this->cancel_reason !== null ? self::translated($this->cancel_reason) : null,
             'created_at' => $this->created_at->toIso8601String(),
             'assigned_at' => $this->assigned_at?->toIso8601String(),
             'arrived_at' => $this->arrived_at?->toIso8601String(),
             'started_at' => $this->started_at?->toIso8601String(),
             'completed_at' => $this->completed_at?->toIso8601String(),
         ];
+    }
+
+    private static function translated(string $key): string
+    {
+        $text = __($key);
+
+        return is_string($text) ? $text : $key;
     }
 }

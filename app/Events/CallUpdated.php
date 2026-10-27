@@ -6,12 +6,13 @@ use App\Models\Call;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * Jonli monitoring (§5.5): navbatda kutayotganlar, suhbatlar, tugaganlar.
  */
-class CallUpdated implements ShouldBroadcastNow
+class CallUpdated implements ShouldBroadcastNow, ShouldRescue
 {
     use Dispatchable, InteractsWithSockets;
 

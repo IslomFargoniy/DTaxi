@@ -15,16 +15,17 @@ use Illuminate\Support\Carbon;
  * @property int $driver_id
  * @property string $reason
  * @property int $penalty_amount
+ * @property bool $excused
  * @property Carbon|null $created_at
  */
-#[Fillable(['order_id', 'driver_id', 'reason', 'penalty_amount', 'penalty_waived_by', 'created_at'])]
+#[Fillable(['order_id', 'driver_id', 'reason', 'penalty_amount', 'excused', 'penalty_waived_by', 'created_at'])]
 class OrderCancellation extends Model
 {
     public $timestamps = false;
 
     protected function casts(): array
     {
-        return ['penalty_amount' => 'integer', 'created_at' => 'datetime'];
+        return ['penalty_amount' => 'integer', 'excused' => 'boolean', 'created_at' => 'datetime'];
     }
 
     /**

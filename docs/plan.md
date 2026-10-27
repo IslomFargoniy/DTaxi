@@ -925,73 +925,75 @@ Taxminlar: eng tig'iz soatda kunlik buyurtmalarning ~12% (≈ **120 buyurtma/soa
 
 **B. Buyurtma va pul (~1 kun)**
 
-- [ ] B1 Masofa GPS izidan 1.3× ortiq — narx iz bo'yicha, "shubhali" belgi (qaror #73)
-- [ ] B2 Reverb o'chiq bo'lsa buyurtma "qidirilmoqda"da abadiy qolardi: kengayish broadcast'dan oldin, broadcast xatosi ushlanadi (qabulda ham)
-- [ ] B3 Mijoz ilovasi: parallel ikki buyurtma — mijoz qatori qulfi ostida tekshiruv
-- [ ] B4 Qayta efir/bonus — `searching_at` yangilanadi (aks holda ~2 daqiqada "topilmadi")
-- [ ] B5 To'g'ridan-to'g'ri taklif muddati qabuldagi 5 s imtiyoz bilan bir xil (nohaq jarima)
-- [ ] B6 Click complete: bajarilmagan bo'lsa "Success" qaytarilmaydi
-- [ ] B7 Bekor qilish bo'yicha bloklash jarima 0 bo'lsa ham ishlaydi (uzrsizlar sanaladi)
-- [ ] B8 Oldindan buyurtma: tig'iz soat va taxminiy narx `scheduled_at` bo'yicha
-- [ ] B9 Komissiya foizi buyurtma snapshot'ida; `driver_transactions (order_id, type)` unique (commission, corporate)
-- [ ] B10 Haydovchi tarixi so'rovi (UNION) — katta bazada sekinlashmasin
+- [x] B1 Masofa GPS izidan 1.3× ortiq — narx iz bo'yicha, "shubhali" belgi (qaror #73)
+- [x] B2 Reverb o'chiq bo'lsa buyurtma "qidirilmoqda"da abadiy qolardi: kengayish broadcast'dan oldin, broadcast xatosi ushlanadi (qabulda ham)
+- [x] B3 Mijoz ilovasi: parallel ikki buyurtma — mijoz qatori qulfi ostida tekshiruv
+- [x] B4 Qayta efir/bonus — `searching_at` yangilanadi (aks holda ~2 daqiqada "topilmadi")
+- [x] B5 To'g'ridan-to'g'ri taklif muddati qabuldagi 5 s imtiyoz bilan bir xil (nohaq jarima)
+- [x] B6 Click complete: bajarilmagan bo'lsa "Success" qaytarilmaydi
+- [x] B7 Bekor qilish bo'yicha bloklash jarima 0 bo'lsa ham ishlaydi (uzrsizlar sanaladi)
+- [x] B8 Oldindan buyurtma: tig'iz soat va taxminiy narx `scheduled_at` bo'yicha
+- [x] B9 Komissiya foizi buyurtma snapshot'ida; `driver_transactions (order_id, type)` unique (commission, corporate)
+- [x] B10 Haydovchi tarixi so'rovi (UNION) — katta bazada sekinlashmasin
 
 **C. Telefoniya (~1 kun)**
 
-- [ ] C1 ARI originate timeout: kanal yopiladi; `ttsAnswered` tugagan qo'ng'iroqni qayta tiriltirmaydi (aks holda filial avto-qo'ng'iroqlari abadiy bloklanardi)
-- [ ] C2 Webphone tarmoq uzilishidan keyin abadiy "Ulanmoqda" — qayta ro'yxatdan o'tish holati
-- [ ] C3 Operatorga qo'ng'iroq originate xatosi — kanal yopiladi, ikki marta jiringlamaydi, nohaq pauza yo'q
-- [ ] C4 ARI hodisasi qayta ijro etilganda takroriy Call yozuvi yo'q (`channel_id` bo'yicha)
-- [ ] C5 Liniya limiti daemon va avto-qo'ng'iroqda bitta qulf ostida
-- [ ] C6 Salomlashuv tugash hodisasi yo'qolsa — kutish musiqasi baribir
-- [ ] C7 O'tkazib yuborilgan jiringlash faqat joriy kanal bo'yicha; haydovchi rad etishi va muddati o'tishi — shartli UPDATE; `reconcile` Up kanallarni ulaydi
+- [x] C1 ARI originate timeout: kanal yopiladi; `ttsAnswered` tugagan qo'ng'iroqni qayta tiriltirmaydi (aks holda filial avto-qo'ng'iroqlari abadiy bloklanardi)
+- [x] C2 Webphone tarmoq uzilishidan keyin abadiy "Ulanmoqda" — qayta ro'yxatdan o'tish holati
+- [x] C3 Operatorga qo'ng'iroq originate xatosi — kanal yopiladi, ikki marta jiringlamaydi, nohaq pauza yo'q
+- [x] C4 ARI hodisasi qayta ijro etilganda takroriy Call yozuvi yo'q (`channel_id` bo'yicha)
+- [x] C5 Liniya limiti daemon va avto-qo'ng'iroqda bitta qulf ostida
+- [x] C6 Salomlashuv tugash hodisasi yo'qolsa — kutish musiqasi baribir
+- [x] C7 O'tkazib yuborilgan jiringlash faqat joriy kanal bo'yicha; haydovchi rad etishi va muddati o'tishi — shartli UPDATE; `reconcile` Up kanallarni ulaydi
 
 **D. Operator paneli (~1 kun)**
 
-- [ ] D1 Server soati har chizishda qayta o'rnatilib "qotardi" (taymerlar, GPS eskirgani)
-- [ ] D2 Kiruvchi qo'ng'iroq to'ldirilayotgan formani o'chirmaydi — javob berilganda yoki forma bo'sh bo'lsa; aks holda "mijozni yuklash" tugmasi
-- [ ] D3 GPS hodisalari to'plab chiziladi (250 ms), `OrderRow` memo, bo'sh haydovchilar ro'yxati faqat ochilganda; umumiy 1 s taymer
-- [ ] D4 Ctrl+Enter ikki buyurtma; tayinlash/qayta efir ikki marta bosilishi
-- [ ] D5 Sahifa qayta yuklanishi yangiroq real vaqt holatini ustidan yozmaydi (`updated_at`)
-- [ ] D6 Tahrirlash oynasida manzil qidiruvi GPS oqimida ishlamay qolardi
-- [ ] D7 Boshqa filial haydovchisini tayinlash — ro'yxatda filtr, xato xabari
-- [ ] D8 Buyurtmadan keyin forma tanlangan filialda qoladi
-- [ ] D9 Bekor/tahrirlash oynalari buyurtma ro'yxatdan chiqsa ham yopilmaydi
-- [ ] D10 Chat qoralamasi har haydovchiga alohida
-- [ ] D11 Bekor qilish sababi kalit sifatida (hisobotda bir xil)
-- [ ] D12 Haydovchi rangi vaqt o'tishi bilan eskiradi (tick)
-- [ ] D13 "Shu yerda ishlatish" faol qo'ng'iroqni uzmaydi
-- [ ] D14 To'xtash joyini xaritadan tanlash kalit bo'yicha
-- [ ] D15 Oldindan buyurtma vaqti filial vaqt mintaqasida; tezkor tugmalar faqat formada
+- [x] D1 Server soati har chizishda qayta o'rnatilib "qotardi" (taymerlar, GPS eskirgani)
+- [x] D2 Kiruvchi qo'ng'iroq to'ldirilayotgan formani o'chirmaydi — javob berilganda yoki forma bo'sh bo'lsa; aks holda "mijozni yuklash" tugmasi
+- [x] D3 GPS hodisalari to'plab chiziladi (250 ms), `OrderRow` memo, bo'sh haydovchilar ro'yxati faqat ochilganda; umumiy 1 s taymer
+- [x] D4 Ctrl+Enter ikki buyurtma; tayinlash/qayta efir ikki marta bosilishi
+- [x] D5 Sahifa qayta yuklanishi yangiroq real vaqt holatini ustidan yozmaydi (`updated_at`)
+- [x] D6 Tahrirlash oynasida manzil qidiruvi GPS oqimida ishlamay qolardi
+- [x] D7 Boshqa filial haydovchisini tayinlash — ro'yxatda filtr, xato xabari
+- [x] D8 Buyurtmadan keyin forma tanlangan filialda qoladi
+- [x] D9 Bekor/tahrirlash oynalari buyurtma ro'yxatdan chiqsa ham yopilmaydi
+- [x] D10 Chat qoralamasi har haydovchiga alohida
+- [x] D11 Bekor qilish sababi kalit sifatida (hisobotda bir xil)
+- [x] D12 Haydovchi rangi vaqt o'tishi bilan eskiradi (tick)
+- [x] D13 "Shu yerda ishlatish" faol qo'ng'iroqni uzmaydi
+- [x] D14 To'xtash joyini xaritadan tanlash kalit bo'yicha
+- [x] D15 Oldindan buyurtma vaqti filial vaqt mintaqasida; tezkor tugmalar faqat formada
 
 **E. Haydovchi ilovasi (~1 kun)**
 
-- [ ] E1 401 — servis to'xtaydi, GPS buferi tozalanadi; token o'zgarsa Reverb qayta quriladi
-- [ ] E2 Oflayn GPS buferi release'da tiklanmasdi (ProGuard `TypeToken`)
-- [ ] E3 Taksometr: to'xtab turganda GPS tebranishi masofaga qo'shilmaydi (aniqlik va tezlik bo'yicha)
-- [ ] E4 Eski buyurtma holati yangisini ustidan yozmaydi (`updated_at`)
-- [ ] E5 GPS yuklash bitta oqimda (Mutex) — nuqtalar yo'qolmaydi/takrorlanmaydi
-- [ ] E6 FCM bilan kechikib kelgan taklif — qolgan vaqt `offered_at` dan
-- [ ] E7 Server oflayn qilsa servis to'xtaydi
-- [ ] E8 "Yakunlash" 5xx da ham qayta yuboriladi
-- [ ] E9 Chiqishda bufer poygasi; Reverb "uzildi" kech kelishi; chat bildirishnomasi (`onNewIntent`); server manzili xatosi (test build)
-- [ ] E10 Qulf ekranida faqat taklif; batareya (yozuvlarni siyraklash, IO oqimi); `version.json` faqat release; Gson default'lari
+- [x] E1 401 — servis to'xtaydi, GPS buferi tozalanadi; token o'zgarsa Reverb qayta quriladi
+- [x] E2 Oflayn GPS buferi release'da tiklanmasdi (ProGuard `TypeToken`)
+- [x] E3 Taksometr: to'xtab turganda GPS tebranishi masofaga qo'shilmaydi (aniqlik va tezlik bo'yicha)
+- [x] E4 Eski buyurtma holati yangisini ustidan yozmaydi (`updated_at`)
+- [x] E5 GPS yuklash bitta oqimda (Mutex) — nuqtalar yo'qolmaydi/takrorlanmaydi
+- [x] E6 FCM bilan kechikib kelgan taklif — qolgan vaqt `offered_at` dan
+- [x] E7 Server oflayn qilsa servis to'xtaydi
+- [x] E8 "Yakunlash" 5xx da ham qayta yuboriladi
+- [x] E9 Chiqishda bufer poygasi; Reverb "uzildi" kech kelishi; chat bildirishnomasi (`onNewIntent`); server manzili xatosi (test build)
+- [x] E10 Qulf ekranida faqat taklif; batareya (yozuvlarni siyraklash, IO oqimi); `version.json` faqat release; Gson default'lari
 
 **F. Mijoz ilovasi (~1 kun)**
 
-- [ ] F1 Saqlangan manzilni qayta saqlashda yiqilish
-- [ ] F2 Safardan keyin qoralama tozalanadi, "Qayerdan" — joriy joy
-- [ ] F3 Bo'sh manzil nomi bilan buyurtma bo'lmaydi; teskari geokodlash bitta so'rov
-- [ ] F4 Baho oynasi "Keyinroq" dan keyin qayta chiqmaydi
-- [ ] F5 Fonda bekor qilingan buyurtma — qaytganda xabar
-- [ ] F6 Reverb o'chiq bo'lsa haydovchi belgisi so'rov bilan yangilanadi
-- [ ] F7 Joylashuv ruxsati (ikkalasi, sozlamalarga o'tish)
-- [ ] F8 Til serverga yetib boradi; faqat panel balandligi o'zgarsa manzil qayta aniqlanmaydi
-- [ ] F9 Klaviatura izoh maydonini yopmaydi; kamera safarda haydovchi va manzilga ergashadi
-- [ ] F10 Tarix vaqti mahalliy; chiqishda ekran va qoralama tozalanadi; eski banner; baho ikki marta
-- [ ] F11 UX: "Qayerga" xaritadan, ETA, "Qayta buyurtma", tarix sahifalash, saqlangan manzillarni boshqarish
+- [x] F1 Saqlangan manzilni qayta saqlashda yiqilish
+- [x] F2 Safardan keyin qoralama tozalanadi, "Qayerdan" — joriy joy
+- [x] F3 Bo'sh manzil nomi bilan buyurtma bo'lmaydi; teskari geokodlash bitta so'rov
+- [x] F4 Baho oynasi "Keyinroq" dan keyin qayta chiqmaydi
+- [x] F5 Fonda bekor qilingan buyurtma — qaytganda xabar
+- [x] F6 Reverb o'chiq bo'lsa haydovchi belgisi so'rov bilan yangilanadi
+- [x] F7 Joylashuv ruxsati (ikkalasi, sozlamalarga o'tish)
+- [x] F8 Til serverga yetib boradi; faqat panel balandligi o'zgarsa manzil qayta aniqlanmaydi
+- [x] F9 Klaviatura izoh maydonini yopmaydi; kamera safarda haydovchi va manzilga ergashadi
+- [x] F10 Tarix vaqti mahalliy; chiqishda ekran va qoralama tozalanadi; eski banner; baho ikki marta
+- [x] F11 UX: "Qayerga" xaritadan, ETA, "Qayta buyurtma", tarix sahifalash, saqlangan manzillarni boshqarish
 
-**G. CI** — GitHub testlari 21-oktabrdan beri qizil (`gh auth login` dan keyin jurnal o'qiladi)
+**G. CI** — GitHub testlari 21-oktabrdan beri qizil edi: testlar, Pint, PHPStan, `tsc`, `vp check` toza nusxada o'tadi; qizil `ubuntu-latest` Ubuntu 26 ga o'tishi bilan boshlangan — runner `ubuntu-24.04` ga mahkamlandi
+
+Ilova nomlari: haydovchi — "DTaxi driver", mijoz — "DTaxi" (`firm.properties`).
 
 **MVP taxminiy muddati:** **16–20 hafta** (1 dasturchi + AI, bosqichlar ketma-ket). Dastlabki 12–15 haftalik baho reja kengaygani uchun oshirildi: PBX panel, mahsulotlashtirish (o'rnatish, yangilash, white-label ilova), Click/Payme, jarima/reyting, qo'shimcha narx qoidalari. Bosqich 1 tugagach qayta baholanadi.
 

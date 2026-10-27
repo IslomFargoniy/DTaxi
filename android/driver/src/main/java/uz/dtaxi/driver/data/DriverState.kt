@@ -77,23 +77,80 @@ object DriverState {
 
     fun setBalance(balance: Long) = _profile.update { it?.copy(balance = balance) }
 
-    fun setOrder(order: Order?) {
+    private val orderLock = Any()
+
+    /** Har qo'llangan buyurtma holatida oshadi — so'rov ketayotganda kelgan yangi holatni eski javob bosmasin */
+    @Volatile var orderVersion = 0L
+        private set
+
+    /** Oxirgi yakunlangan buyurtma (id, updated_at) — kech kelgan "in_progress" uni qayta ochmasin */
+    private var lastFinished: Pair<Int, Long?>? = null
+
+    /**
+     * Reverb (Pusher oqimi) va HTTP javoblari (asosiy oqim) bir vaqtda yozadi.
+     * @param ifVersion berilsa — so'rov boshlangandan beri holat o'zgarmagan bo'lsagina qo'llanadi
+     * @return false — eski holat, e'tiborsiz qoldirildi
+     */
+    fun setOrder(order: Order?, ifVersion: Long? = null): Boolean = synchronized(orderLock) {
+        if (ifVersion != null && ifVersion != orderVersion) return false
+        if (order != null && isStale(order)) return false
         // Safar yakunlandi — "To'lanadi" oynasi (Reverb xabari HTTP javobidan oldin kelishi mumkin)
         if (order?.status == "completed" && order.priceFinal != null && _order.value?.id == order.id) {
             _receipt.update { order.priceFinal }
         }
+        if (order != null && order.status in FINISHED) lastFinished = order.id to order.updatedAtMillis
         _order.update { if (order != null && order.status in FINISHED) null else order }
+        orderVersion++
+        true
     }
 
-    /** [now] — SystemClock.elapsedRealtime (testlarda qo'lda beriladi) */
-    fun offer(offer: Offer, now: Long = SystemClock.elapsedRealtime()): Boolean {
+    private fun isStale(order: Order): Boolean {
+        val incoming = order.updatedAtMillis
+        val current = _order.value
+        if (current != null && current.id == order.id) {
+            val known = current.updatedAtMillis
+            if (incoming != null && known != null) {
+                if (incoming < known) return true
+                // updated_at soniyagacha — bir soniyada ikki o'zgarish bo'lsa holat orqaga qaytmasin
+                if (incoming == known && statusRank(order.status) < statusRank(current.status)) return true
+            }
+        }
+        val finished = lastFinished
+        if (finished != null && finished.first == order.id && order.status !in FINISHED) {
+            // Qayta tayinlangan (yangiroq) buyurtma o'tadi; vaqt noma'lum bo'lsa — yopilgan buyurtma ochilmaydi
+            val at = finished.second
+            if (incoming == null || at == null || incoming <= at) return true
+        }
+        return false
+    }
+
+    private fun statusRank(status: String) = when (status) {
+        "assigned" -> 0
+        "arrived" -> 1
+        "in_progress" -> 2
+        else -> if (status in FINISHED) 3 else -1
+    }
+
+    /**
+     * [now] — SystemClock.elapsedRealtime, [wallNow] — telefon soati, [clockOffset] — server soati farqi
+     * (testlarda qo'lda beriladi). FCM kechikib kelsa qolgan vaqt server yuborgan paytdan sanaladi; muddati
+     * o'tgan taklif ko'rsatilmaydi.
+     */
+    fun offer(
+        offer: Offer,
+        now: Long = SystemClock.elapsedRealtime(),
+        wallNow: Long = System.currentTimeMillis(),
+        clockOffset: Long? = ServerClock.offsetMs,
+    ): Boolean {
         // Reverb (OkHttp oqimi) va FCM (o'z oqimi) bir vaqtda yozadi
         synchronized(seenOffers) {
             if (!seenOffers.add(offer.dedupKey)) return false
             if (seenOffers.size > 200) seenOffers.remove(seenOffers.first())
         }
         if (_order.value != null) return false
-        _offer.update { offer.copy(receivedAt = now) }
+        val elapsed = offer.elapsedMillis(wallNow, clockOffset)
+        if (elapsed >= offer.expiresIn * 1000L) return false
+        _offer.update { offer.copy(receivedAt = now - elapsed) }
         return true
     }
 
