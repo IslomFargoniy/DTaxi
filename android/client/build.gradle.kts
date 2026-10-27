@@ -13,13 +13,13 @@ val autoBuildNumber: Int = Firm.buildNumber(project, "client", "core")
 
 android {
     namespace = "uz.dtaxi.client"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         // firm.properties: clientApplicationId (standart — haydovchi paketidan: uz.dtaxi.driver.demo → uz.dtaxi.client.demo)
         applicationId = firm.prop("clientApplicationId").ifBlank { firm.prop("applicationId").replace(".driver", ".client") }
         minSdk = 29
-        targetSdk = 35
+        targetSdk = 36
         versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: autoBuildNumber
         versionName = (project.findProperty("versionName") as String?) ?: "1.0.$autoBuildNumber"
 
