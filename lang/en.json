@@ -65,5 +65,13 @@
     "topup": "Top-up",
     "vehicle_photo": "Car photo",
     "waiting": "Waiting",
-    "year": "Year"
+    "year": "Year",
+    "Minimum driver balance, so'm": "Minimum driver balance, UZS",
+    "Price rounding step, so'm": "Price rounding step, UZS",
+    "Base fare, so'm": "Base fare, UZS",
+    "Each km outside the service area, so'm": "Each km outside the service area, UZS",
+    "Each next km, so'm": "Each next km, UZS",
+    "Each next minute, so'm": "Each next minute, UZS",
+    "Cancellation penalty, so'm": "Cancellation penalty, UZS",
+    "Extra to the price (so‘m)": "Extra to the price (UZS)"
 }

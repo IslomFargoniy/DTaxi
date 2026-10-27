@@ -34,7 +34,7 @@
     <string name="delete">Ўчириш</string>
     <string name="comment">Ҳайдовчи учун изоҳ</string>
     <string name="order">Буюртма бериш</string>
-    <string name="price_from">%1$s сўмдан</string>
+    <string name="price_from">%1$s сўм</string>
     <string name="price">%1$s сўм</string>
     <string name="status_searching">Ҳайдовчи қидирилмоқда…</string>
     <string name="status_assigned">Ҳайдовчи йўлда</string>

@@ -33,7 +33,7 @@
     <string name="delete">Delete</string>
     <string name="comment">Note for the driver</string>
     <string name="order">Order a taxi</string>
-    <string name="price_from">from %1$s UZS</string>
+    <string name="price_from">%1$s UZS</string>
     <string name="price">%1$s UZS</string>
     <string name="status_searching">Looking for a driver…</string>
     <string name="status_assigned">Driver is on the way</string>

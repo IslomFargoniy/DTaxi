@@ -33,7 +33,7 @@
     <string name="delete">O\'chirish</string>
     <string name="comment">Haydovchi uchun izoh</string>
     <string name="order">Buyurtma berish</string>
-    <string name="price_from">%1$s so\'mdan</string>
+    <string name="price_from">%1$s so\'m</string>
     <string name="price">%1$s so\'m</string>
     <string name="status_searching">Haydovchi qidirilmoqda…</string>
     <string name="status_assigned">Haydovchi yo\'lda</string>

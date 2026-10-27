@@ -33,7 +33,7 @@
     <string name="delete">Удалить</string>
     <string name="comment">Комментарий для водителя</string>
     <string name="order">Заказать</string>
-    <string name="price_from">от %1$s сум</string>
+    <string name="price_from">%1$s сум</string>
     <string name="price">%1$s сум</string>
     <string name="status_searching">Ищем водителя…</string>
     <string name="status_assigned">Водитель в пути</string>
