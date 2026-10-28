@@ -81,24 +81,12 @@ export function AppSidebar() {
             ? [{ title: 'Orders', href: orders(), icon: ClipboardList }]
             : []),
     ];
-    const manage: NavItem[] = [
+    const people: NavItem[] = [
         ...(can('drivers.manage')
             ? [{ title: 'Drivers', href: drivers(), icon: Car }]
             : []),
         ...(can('orders.view')
             ? [{ title: 'Clients', href: clients(), icon: UserRound }]
-            : []),
-        ...(can('orders.view')
-            ? [{ title: 'Landmarks', href: landmarks(), icon: MapPin }]
-            : []),
-        ...(can('tariffs.manage')
-            ? [
-                  {
-                      title: 'Street names',
-                      href: streetRenames(),
-                      icon: Signpost,
-                  },
-              ]
             : []),
         ...(can('orders.view')
             ? [
@@ -109,23 +97,40 @@ export function AppSidebar() {
                   },
               ]
             : []),
-        ...(can('tariffs.manage')
-            ? [{ title: 'Tariffs', href: tariffs(), icon: Receipt }]
-            : []),
-        ...(can('tariffs.manage')
-            ? [{ title: 'Companies', href: companies(), icon: Briefcase }]
-            : []),
-        ...(can('tariffs.manage')
-            ? [{ title: 'Taxi stands', href: stands(), icon: ParkingSquare }]
-            : []),
         ...(can('users.manage')
             ? [{ title: 'Staff', href: staff(), icon: Users }]
             : []),
+    ];
+    const pricing: NavItem[] = can('tariffs.manage')
+        ? [
+              { title: 'Tariffs', href: tariffs(), icon: Receipt },
+              { title: 'Companies', href: companies(), icon: Briefcase },
+          ]
+        : [];
+    const map: NavItem[] = [
+        ...(can('orders.view')
+            ? [{ title: 'Landmarks', href: landmarks(), icon: MapPin }]
+            : []),
+        ...(can('tariffs.manage')
+            ? [
+                  {
+                      title: 'Street names',
+                      href: streetRenames(),
+                      icon: Signpost,
+                  },
+                  { title: 'Taxi stands', href: stands(), icon: ParkingSquare },
+              ]
+            : []),
+    ];
+    const monitoring: NavItem[] = [
         ...(can('calls.listen')
             ? [{ title: 'Calls', href: calls(), icon: PhoneCall }]
             : []),
         ...(can('reports.view')
             ? [{ title: 'Reports', href: reports(), icon: FileBarChart }]
+            : []),
+        ...(hasRole('superadmin')
+            ? [{ title: 'Audit log', href: audit(), icon: History }]
             : []),
     ];
     const system: NavItem[] = hasRole('superadmin')
@@ -140,7 +145,6 @@ export function AppSidebar() {
               { title: 'Telephony', href: telephony(), icon: Waypoints },
               { title: 'Voice clips', href: sounds(), icon: AudioLines },
               { title: 'Driver app', href: driverApp(), icon: Smartphone },
-              { title: 'Audit log', href: audit(), icon: History },
               {
                   title: 'Queues',
                   href: '/horizon',
@@ -149,6 +153,16 @@ export function AppSidebar() {
               },
           ]
         : [];
+
+    // Guruhlar mazmuniga qarab; bo'sh guruh (ruxsat yo'q) ko'rsatilmaydi.
+    const groups: { label: string; items: NavItem[] }[] = [
+        { label: 'Work', items: work },
+        { label: 'People', items: people },
+        { label: 'Pricing', items: pricing },
+        { label: 'Map', items: map },
+        { label: 'Monitoring', items: monitoring },
+        { label: 'Administration', items: system },
+    ];
 
     return (
         <Sidebar collapsible="icon" variant="inset">
@@ -165,13 +179,15 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                {work.length > 0 && <NavMain items={work} label="Work" />}
-                {manage.length > 0 && (
-                    <NavMain items={manage} label="Management" />
-                )}
-                {system.length > 0 && (
-                    <NavMain items={system} label="Administration" />
-                )}
+                {groups
+                    .filter((group) => group.items.length > 0)
+                    .map((group) => (
+                        <NavMain
+                            key={group.label}
+                            items={group.items}
+                            label={group.label}
+                        />
+                    ))}
             </SidebarContent>
 
             <SidebarFooter>
