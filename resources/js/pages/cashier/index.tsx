@@ -1,6 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import CashierController from '@/actions/App/Http/Controllers/Cashier/CashierController';
+import { useConfirm } from '@/components/confirm-dialog';
 import { DataTable, formatDateTime } from '@/components/data-table';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -68,6 +69,7 @@ export default function CashierIndex({
     history: ClosedShift[];
 }) {
     const { t } = useTrans();
+    const confirm = useConfirm();
     const [q, setQ] = useState('');
     const [found, setFound] = useState<FoundDriver[]>([]);
     const [driver, setDriver] = useState<FoundDriver | null>(null);
@@ -112,10 +114,19 @@ export default function CashierIndex({
                         {shift ? (
                             <Button
                                 variant="outline"
-                                onClick={() =>
-                                    window.confirm(t('Close the shift?')) &&
-                                    router.post(CashierController.close.url())
-                                }
+                                onClick={async () => {
+                                    if (
+                                        await confirm({
+                                            title: 'Close the shift?',
+                                            confirmLabel: 'Close shift',
+                                            destructive: false,
+                                        })
+                                    ) {
+                                        router.post(
+                                            CashierController.close.url(),
+                                        );
+                                    }
+                                }}
                             >
                                 {t('Close shift')}
                             </Button>

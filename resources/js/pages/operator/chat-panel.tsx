@@ -658,7 +658,7 @@ export function ChatPanel({
                             <X />
                         </Button>
                     </div>
-                    <div className="grid min-h-0 flex-1 grid-cols-[250px_1fr]">
+                    <div className="grid min-h-0 flex-1 grid-cols-[250px_minmax(0,1fr)]">
                         {/* Suhbatlar ro'yxati */}
                         <div className="flex min-h-0 flex-col border-r">
                             <div className="p-2">

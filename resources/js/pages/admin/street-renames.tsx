@@ -2,6 +2,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import StreetRenameController from '@/actions/App/Http/Controllers/Admin/StreetRenameController';
+import { useConfirm } from '@/components/confirm-dialog';
 import { DataTable } from '@/components/data-table';
 import { EditDialog } from '@/components/edit-dialog';
 import Heading from '@/components/heading';
@@ -164,6 +165,7 @@ export default function StreetRenames({
     regions: Region[];
 }) {
     const { t } = useTrans();
+    const confirm = useConfirm();
     const [editing, setEditing] = useState<StreetRename | 'new' | null>(null);
 
     return (
@@ -216,14 +218,12 @@ export default function StreetRenames({
                                     size="icon"
                                     variant="ghost"
                                     aria-label={t('Delete')}
-                                    onClick={(e) => {
+                                    onClick={async (e) => {
                                         e.stopPropagation();
                                         if (
-                                            window.confirm(
-                                                t(
-                                                    'Delete? Streets and addresses get the old name back.',
-                                                ),
-                                            )
+                                            await confirm({
+                                                title: 'Delete? Streets and addresses get the old name back.',
+                                            })
                                         ) {
                                             router.delete(
                                                 StreetRenameController.destroy.url(

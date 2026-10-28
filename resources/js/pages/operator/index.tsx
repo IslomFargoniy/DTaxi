@@ -599,7 +599,7 @@ export default function OperatorIndex({
                     onDriver={onDriver}
                 />
             ))}
-            <div className="grid h-[calc(100svh-4rem)] grid-cols-1 gap-3 p-3 lg:grid-cols-[320px_1fr_380px]">
+            <div className="grid h-[calc(100svh-4rem)] grid-cols-1 gap-3 p-3 lg:grid-cols-[320px_minmax(0,1fr)_380px]">
                 <section className="order-2 overflow-auto lg:order-1">
                     <h2 className="mb-2 text-sm font-semibold">
                         {t('Active orders')} ({orders.length})

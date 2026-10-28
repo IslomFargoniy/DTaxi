@@ -24,16 +24,22 @@ const ACTION: Record<Log['action'], string> = {
     deleted: 'Deleted',
 };
 
+const MAX_LENGTH = 120;
+
 function show(value: unknown): string {
     if (value === null || value === undefined || value === '') {
         return '—';
     }
 
-    return typeof value === 'string' ||
+    const text =
+        typeof value === 'string' ||
         typeof value === 'number' ||
         typeof value === 'boolean'
-        ? String(value)
-        : JSON.stringify(value);
+            ? String(value)
+            : JSON.stringify(value);
+
+    // Eski yozuvlarda hudud poligoni to'liq saqlangan — jadvalni buzmasin
+    return text.length > MAX_LENGTH ? `${text.slice(0, MAX_LENGTH)}…` : text;
 }
 
 /**
@@ -128,7 +134,7 @@ export default function Audit({
                             title: 'Changes',
                             render: (r) =>
                                 r.changes ? (
-                                    <ul className="grid gap-0.5 text-xs">
+                                    <ul className="grid gap-0.5 text-xs break-all">
                                         {Object.entries(r.changes).map(
                                             ([field, change]) => (
                                                 <li key={field}>
@@ -137,7 +143,7 @@ export default function Audit({
                                                     </span>
                                                     :{' '}
                                                     {typeof change === 'string'
-                                                        ? change
+                                                        ? t(change)
                                                         : `${show(change.from)} → ${show(change.to)}`}
                                                 </li>
                                             ),

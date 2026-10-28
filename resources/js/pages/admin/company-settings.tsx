@@ -5,6 +5,7 @@ import CompanySettingsController from '@/actions/App/Http/Controllers/Admin/Comp
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MoneyInput } from '@/components/money-input';
@@ -45,10 +46,7 @@ function QuickRepliesEditor({
     };
 
     return (
-        <fieldset className="grid gap-2">
-            <legend className="mb-2 text-sm font-medium">
-                {t('Chat quick replies')}
-            </legend>
+        <div className="grid gap-2">
             <p className="text-xs text-muted-foreground">
                 {t(
                     'Buttons above the message box in the operator chat with drivers.',
@@ -119,7 +117,7 @@ function QuickRepliesEditor({
                     <Plus /> {t('Add reply')}
                 </Button>
             </div>
-        </fieldset>
+        </div>
     );
 }
 
@@ -170,11 +168,33 @@ export default function CompanySettings({ settings }: { settings: Settings }) {
     });
     transform((form) => ({ ...form, chat__quick_replies: quickReplies }));
     const fieldErrors = errors as Record<string, string>;
+    const numberField = ({
+        key,
+        label,
+        min,
+        max,
+        step,
+    }: (typeof numericFields)[number]) => (
+        <div key={key} className="grid gap-2">
+            <Label htmlFor={key}>{t(label)}</Label>
+            <Input
+                id={key}
+                type="number"
+                inputMode={step ? 'decimal' : 'numeric'}
+                min={min}
+                max={max}
+                step={step ?? 1}
+                value={data[toField(key)]}
+                onChange={(e) => setData(toField(key), e.target.value)}
+            />
+            <InputError message={fieldErrors[key]} />
+        </div>
+    );
 
     return (
         <>
             <Head title={t('Company settings')} />
-            <div className="max-w-xl p-4">
+            <div className="max-w-4xl p-4">
                 <Heading
                     title="Company settings"
                     description="Values used by every branch unless the branch overrides them."
@@ -188,113 +208,138 @@ export default function CompanySettings({ settings }: { settings: Settings }) {
                         });
                     }}
                 >
-                    <div className="grid gap-2">
-                        <Label htmlFor="company-name">
-                            {t('Company name')}
-                        </Label>
-                        <Input
-                            id="company-name"
-                            maxLength={100}
-                            autoComplete="organization"
-                            value={data.company__name}
-                            onChange={(e) =>
-                                setData('company__name', e.target.value)
-                            }
-                        />
-                        <InputError message={fieldErrors['company.name']} />
-                    </div>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>{t('Main')}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid items-start gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="company-name">
+                                    {t('Company name')}
+                                </Label>
+                                <Input
+                                    id="company-name"
+                                    maxLength={100}
+                                    autoComplete="organization"
+                                    value={data.company__name}
+                                    onChange={(e) =>
+                                        setData('company__name', e.target.value)
+                                    }
+                                />
+                                <InputError
+                                    message={fieldErrors['company.name']}
+                                />
+                            </div>
 
-                    <div className="grid gap-2">
-                        <Label>{t('Default language')}</Label>
-                        <Select
-                            value={data.company__default_locale}
-                            onValueChange={(v) =>
-                                setData('company__default_locale', v)
-                            }
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {LOCALES.map((l) => (
-                                    <SelectItem key={l.code} value={l.code}>
-                                        {l.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                            <div className="grid gap-2">
+                                <Label>{t('Default language')}</Label>
+                                <Select
+                                    value={data.company__default_locale}
+                                    onValueChange={(v) =>
+                                        setData('company__default_locale', v)
+                                    }
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {LOCALES.map((l) => (
+                                            <SelectItem
+                                                key={l.code}
+                                                value={l.code}
+                                            >
+                                                {l.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="drivers.min_balance">
-                            {t("Minimum driver balance, so'm")}
-                        </Label>
-                        <MoneyInput
-                            id="drivers.min_balance"
-                            currency={false}
-                            value={data.drivers__min_balance}
-                            onChange={(v) =>
-                                setData(
-                                    'drivers__min_balance',
-                                    v === null ? '' : String(v),
+                            {numericFields
+                                .filter(
+                                    (field) =>
+                                        field.key ===
+                                        'calls.recordings_retention_days',
                                 )
-                            }
-                        />
-                        <InputError
-                            message={fieldErrors['drivers.min_balance']}
-                        />
-                    </div>
+                                .map(numberField)}
+                        </CardContent>
+                    </Card>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="tariffs.rounding_step">
-                            {t("Price rounding step, so'm")}
-                        </Label>
-                        <select
-                            id="tariffs.rounding_step"
-                            className="h-9 rounded-md border bg-transparent px-2 text-sm"
-                            value={data.tariffs__rounding_step}
-                            onChange={(e) =>
-                                setData(
-                                    'tariffs__rounding_step',
-                                    e.target.value,
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>{t('Balance and commission')}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid items-start gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="drivers.min_balance">
+                                    {t("Minimum driver balance, so'm")}
+                                </Label>
+                                <MoneyInput
+                                    id="drivers.min_balance"
+                                    currency={false}
+                                    value={data.drivers__min_balance}
+                                    onChange={(v) =>
+                                        setData(
+                                            'drivers__min_balance',
+                                            v === null ? '' : String(v),
+                                        )
+                                    }
+                                />
+                                <InputError
+                                    message={fieldErrors['drivers.min_balance']}
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="tariffs.rounding_step">
+                                    {t("Price rounding step, so'm")}
+                                </Label>
+                                <select
+                                    id="tariffs.rounding_step"
+                                    className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
+                                    value={data.tariffs__rounding_step}
+                                    onChange={(e) =>
+                                        setData(
+                                            'tariffs__rounding_step',
+                                            e.target.value,
+                                        )
+                                    }
+                                >
+                                    {ROUNDING_STEPS.map((step) => (
+                                        <option key={step} value={step}>
+                                            {formatNumber(step)}
+                                        </option>
+                                    ))}
+                                </select>
+                                <InputError
+                                    message={
+                                        fieldErrors['tariffs.rounding_step']
+                                    }
+                                />
+                            </div>
+
+                            {numericFields
+                                .filter(
+                                    (field) =>
+                                        field.key !==
+                                        'calls.recordings_retention_days',
                                 )
-                            }
-                        >
-                            {ROUNDING_STEPS.map((step) => (
-                                <option key={step} value={step}>
-                                    {formatNumber(step)}
-                                </option>
-                            ))}
-                        </select>
-                        <InputError
-                            message={fieldErrors['tariffs.rounding_step']}
-                        />
-                    </div>
+                                .map(numberField)}
+                        </CardContent>
+                    </Card>
 
-                    {numericFields.map(({ key, label, min, max, step }) => (
-                        <div key={key} className="grid gap-2">
-                            <Label htmlFor={key}>{t(label)}</Label>
-                            <Input
-                                id={key}
-                                type="number"
-                                inputMode={step ? 'decimal' : 'numeric'}
-                                min={min}
-                                max={max}
-                                step={step ?? 1}
-                                value={data[toField(key)]}
-                                onChange={(e) =>
-                                    setData(toField(key), e.target.value)
-                                }
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>{t('Chat quick replies')}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid gap-4">
+                            <QuickRepliesEditor
+                                value={quickReplies}
+                                onChange={setQuickReplies}
+                                errors={fieldErrors}
                             />
-                            <InputError message={fieldErrors[key]} />
-                        </div>
-                    ))}
-
-                    <QuickRepliesEditor
-                        value={quickReplies}
-                        onChange={setQuickReplies}
-                        errors={fieldErrors}
-                    />
+                        </CardContent>
+                    </Card>
 
                     <div>
                         <Button disabled={processing}>{t('Save')}</Button>

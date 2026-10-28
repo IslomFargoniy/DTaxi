@@ -215,7 +215,7 @@ function ScheduleEditor({
                     return (
                         <div
                             key={day}
-                            className="grid grid-cols-[110px_1fr_1fr] items-center gap-2 text-sm"
+                            className="grid grid-cols-[110px_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 text-sm"
                         >
                             <label className="flex items-center gap-2">
                                 <Checkbox
@@ -563,7 +563,7 @@ function BranchDialog({
                             )}
                         </p>
                         <InputError message={errors.center_lat} />
-                        <div className="grid grid-cols-[1fr_140px] items-center gap-2">
+                        <div className="grid grid-cols-[minmax(0,1fr)_140px] items-center gap-2">
                             <Label htmlFor="radius" className="font-normal">
                                 {t('Service radius, km')}
                             </Label>
@@ -607,7 +607,7 @@ function BranchDialog({
                             return (
                                 <div
                                     key={key}
-                                    className="grid grid-cols-[1fr_120px] items-center gap-x-2"
+                                    className="grid grid-cols-[minmax(0,1fr)_120px] items-center gap-x-2"
                                 >
                                     <Label
                                         htmlFor={field}

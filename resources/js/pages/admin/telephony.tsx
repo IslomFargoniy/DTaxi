@@ -2,6 +2,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import TelephonyController from '@/actions/App/Http/Controllers/Admin/TelephonyController';
+import { useConfirm } from '@/components/confirm-dialog';
 import { DataTable } from '@/components/data-table';
 import { EditDialog } from '@/components/edit-dialog';
 import Heading from '@/components/heading';
@@ -192,7 +193,7 @@ function TrunkDialog({
                     {text('title')}
                 </Field>
             </div>
-            <div className="grid grid-cols-[1fr_100px] items-start gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] items-start gap-2">
                 <Field label="SIP host" error={e.host}>
                     {text('host')}
                 </Field>
@@ -772,13 +773,14 @@ export default function Telephony({
     asteriskOnline,
 }: Props) {
     const { t } = useTrans();
+    const confirm = useConfirm();
     const [trunk, setTrunk] = useState<Trunk | 'new' | null>(null);
     const [number, setNumber] = useState<PhoneNumber | 'new' | null>(null);
     const branchName = (id: number) =>
         branches.find((b) => b.id === id)?.name ?? `#${id}`;
 
-    const remove = (url: string) => {
-        if (window.confirm(t('Delete?'))) {
+    const remove = async (url: string) => {
+        if (await confirm({ title: 'Delete?' })) {
             router.delete(url, { preserveScroll: true });
         }
     };
@@ -868,7 +870,7 @@ export default function Telephony({
                                         aria-label={t('Delete')}
                                         onClick={(ev) => {
                                             ev.stopPropagation();
-                                            remove(
+                                            void remove(
                                                 TelephonyController.destroyTrunk.url(
                                                     r.id,
                                                 ),
@@ -961,7 +963,7 @@ export default function Telephony({
                                         aria-label={t('Delete')}
                                         onClick={(ev) => {
                                             ev.stopPropagation();
-                                            remove(
+                                            void remove(
                                                 TelephonyController.destroyNumber.url(
                                                     r.id,
                                                 ),

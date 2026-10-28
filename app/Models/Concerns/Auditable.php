@@ -5,6 +5,8 @@ namespace App\Models\Concerns;
 use App\Enums\Role;
 use App\Models\AuditLog;
 use App\Models\User;
+use Clickbar\Magellan\Data\Geometries\Geometry;
+use Clickbar\Magellan\Data\Geometries\Point;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 
@@ -38,9 +40,14 @@ trait Auditable
                 if (in_array($key, $ignored, true)) {
                     continue;
                 }
-                $changes[$key] = in_array($key, $secret, true)
-                    ? '••• (changed)'
-                    : ['from' => $model->getOriginal($key), 'to' => $model->getAttribute($key)];
+                $from = $model->getOriginal($key);
+                $to = $model->getAttribute($key);
+                $changes[$key] = match (true) {
+                    in_array($key, $secret, true) => '••• (changed)',
+                    // Hudud poligoni minglab koordinata — jurnalga faqat belgi
+                    self::isArea($from) || self::isArea($to) => 'Map area changed',
+                    default => ['from' => self::auditValue($from), 'to' => self::auditValue($to)],
+                };
             }
             if ($changes === []) {
                 return;
@@ -57,6 +64,18 @@ trait Auditable
             'ip' => request()->ip(),
             'created_at' => now(),
         ]);
+    }
+
+    private static function isArea(mixed $value): bool
+    {
+        return $value instanceof Geometry && ! $value instanceof Point;
+    }
+
+    private static function auditValue(mixed $value): mixed
+    {
+        return $value instanceof Point
+            ? round($value->getLatitude(), 6).', '.round($value->getLongitude(), 6)
+            : $value;
     }
 
     private static function auditLabel(Model $model): ?string

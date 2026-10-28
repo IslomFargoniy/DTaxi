@@ -9,6 +9,7 @@ use App\Models\Branch;
 use App\Models\Call;
 use App\Models\Client;
 use App\Models\Complaint;
+use App\Models\Driver;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\User;
@@ -65,12 +66,20 @@ class OrderHistoryController extends Controller
     {
         $order->load(['client', 'driver.user', 'vehicle', 'tariffClass', 'delivery', 'offers.driver']);
 
+        $events = $order->events()->with('actor:id,name')->orderBy('created_at')->get();
+        // Tarixda haydovchi id emas, pozivnoy bilan ko'rinadi
+        $callsigns = Driver::query()
+            ->whereIn('id', $events->map(fn (OrderEvent $e) => $e->payload['driver_id'] ?? null)->filter()->unique())
+            ->pluck('callsign', 'id');
+
         return Inertia::render('admin/orders/show', [
             'order' => (new OrderResource($order))->resolve(),
-            'events' => $order->events()->with('actor:id,name')->orderBy('created_at')->get()->map(fn (OrderEvent $e) => [
+            'events' => $events->map(fn (OrderEvent $e) => [
                 'type' => $e->type,
                 'actor' => $e->actor?->name,
-                'payload' => $e->payload,
+                'payload' => isset($e->payload['driver_id'])
+                    ? [...$e->payload, 'driver_id' => $callsigns[$e->payload['driver_id']] ?? $e->payload['driver_id']]
+                    : $e->payload,
                 'created_at' => $e->created_at?->toIso8601String(),
             ]),
             // Shu buyurtma bo'yicha qo'ng'iroqlar (yozuvni tinglash huquqi bo'lsa — havola)

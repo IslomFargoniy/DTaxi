@@ -2,6 +2,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import LandmarkController from '@/actions/App/Http/Controllers/Admin/LandmarkController';
+import { useConfirm } from '@/components/confirm-dialog';
 import { DataTable, Pagination } from '@/components/data-table';
 import type { Paginated } from '@/components/data-table';
 import { EditDialog } from '@/components/edit-dialog';
@@ -134,6 +135,7 @@ export default function Landmarks({
     canManage: boolean;
 }) {
     const { t } = useTrans();
+    const confirm = useConfirm();
     const [editing, setEditing] = useState<Landmark | null>(null);
 
     return (
@@ -184,14 +186,12 @@ export default function Landmarks({
                                               size="icon"
                                               variant="ghost"
                                               aria-label={t('Delete')}
-                                              onClick={(e) => {
+                                              onClick={async (e) => {
                                                   e.stopPropagation();
                                                   if (
-                                                      window.confirm(
-                                                          t(
-                                                              'Delete this landmark?',
-                                                          ),
-                                                      )
+                                                      await confirm({
+                                                          title: 'Delete this landmark?',
+                                                      })
                                                   ) {
                                                       router.delete(
                                                           LandmarkController.destroy.url(

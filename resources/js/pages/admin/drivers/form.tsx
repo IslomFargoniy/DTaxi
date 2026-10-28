@@ -1,4 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { cn } from '@/lib/utils';
+import { useConfirm } from '@/components/confirm-dialog';
 import { useState } from 'react';
 import DriverController from '@/actions/App/Http/Controllers/Admin/DriverController';
 import { DataTable, formatDateTime } from '@/components/data-table';
@@ -123,6 +125,7 @@ export default function DriverForm({
     nextCallsign,
 }: Props) {
     const { t } = useTrans();
+    const confirm = useConfirm();
     const { can } = useCan();
     const form = useForm({
         branch_id: driver?.branch_id ?? branches[0]?.id ?? 0,
@@ -178,8 +181,16 @@ export default function DriverForm({
                         : t('Add driver')
                 }
             />
-            <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-                <form onSubmit={submit} className="grid content-start gap-4">
+            <div
+                className={cn(
+                    'grid gap-4 p-4',
+                    driver && 'xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]',
+                )}
+            >
+                <form
+                    onSubmit={submit}
+                    className="grid min-w-0 content-start gap-4"
+                >
                     <div className="flex flex-wrap items-center gap-2">
                         <Heading
                             title={
@@ -497,7 +508,7 @@ export default function DriverForm({
                 </form>
 
                 {driver && (
-                    <div className="grid content-start gap-4">
+                    <div className="grid min-w-0 content-start gap-4">
                         <Card>
                             <CardHeader>
                                 <CardTitle>
@@ -509,7 +520,7 @@ export default function DriverForm({
                                 {can('balance.adjust') && (
                                     <div className="grid gap-2">
                                         <div className="flex gap-2">
-                                            <div className="flex-1">
+                                            <div className="min-w-0 flex-1">
                                                 <MoneyInput
                                                     allowNegative
                                                     placeholder={t(
@@ -614,12 +625,13 @@ export default function DriverForm({
                                                         size="sm"
                                                         variant="ghost"
                                                         title={r.comment ?? ''}
-                                                        onClick={() =>
-                                                            window.confirm(
-                                                                t(
-                                                                    'Return this penalty to the driver?',
-                                                                ),
-                                                            ) &&
+                                                        onClick={async () =>
+                                                            (await confirm({
+                                                                title: 'Return this penalty to the driver?',
+                                                                confirmLabel:
+                                                                    'Return',
+                                                                destructive: false,
+                                                            })) &&
                                                             router.post(
                                                                 DriverController.excusePenalty.url(
                                                                     {

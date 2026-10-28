@@ -3,6 +3,7 @@ import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 import { Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import StandController from '@/actions/App/Http/Controllers/Admin/StandController';
+import { useConfirm } from '@/components/confirm-dialog';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { TaxiMap } from '@/components/map/taxi-map';
@@ -58,6 +59,7 @@ export default function Stands({
     tiles: string;
 }) {
     const { t } = useTrans();
+    const confirm = useConfirm();
     const mapRef = useRef<MapLibreMap | null>(null);
     const [editing, setEditing] = useState<Stand | 'new' | null>(null);
     const existing = editing && editing !== 'new' ? editing : null;
@@ -186,7 +188,7 @@ export default function Stands({
     return (
         <>
             <Head title={t('Taxi stands')} />
-            <div className="grid h-[calc(100svh-4rem)] gap-4 p-4 lg:grid-cols-[360px_1fr]">
+            <div className="grid h-[calc(100svh-4rem)] gap-4 p-4 lg:grid-cols-[360px_minmax(0,1fr)]">
                 <div className="grid content-start gap-3 overflow-auto">
                     <div className="flex items-start justify-between gap-2">
                         <Heading
@@ -301,8 +303,10 @@ export default function Stands({
                                         variant="ghost"
                                         size="icon"
                                         title={t('Delete')}
-                                        onClick={() =>
-                                            window.confirm(t('Delete?')) &&
+                                        onClick={async () =>
+                                            (await confirm({
+                                                title: 'Delete?',
+                                            })) &&
                                             router.delete(
                                                 StandController.destroy.url(
                                                     existing.id,

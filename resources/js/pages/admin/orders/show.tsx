@@ -49,6 +49,109 @@ type Offer = {
     responded_at: string | null;
 };
 
+const km = (meters: number) => `${(meters / 1000).toFixed(1)} km`;
+
+const text = (value: unknown): string =>
+    typeof value === 'object' ? JSON.stringify(value) : String(value as string);
+
+// Tahrirlangan maydonlar — operator formasidagi nomlar bilan (joy va matn bitta)
+const EDITED_FIELDS: Record<string, string> = {
+    pickup_text: 'Pickup',
+    pickup_location: 'Pickup',
+    dropoff_text: 'Destination',
+    dropoff_location: 'Destination',
+    stops: 'Stop',
+    tariff_class_id: 'Tariff class',
+    price_bonus: 'Extra to the price (so‘m)',
+    comment: 'Comment',
+};
+
+/**
+ * Hodisa ma'lumotini (payload) "Nomi: qiymat" qatorlariga aylantiradi; noma'lum kalitlar ham yo'qolmaydi.
+ */
+function eventDetails(
+    payload: Record<string, unknown> | null,
+    t: (key: string) => string,
+): [string, string][] {
+    if (!payload) {
+        return [];
+    }
+
+    const rows: [string, string][] = [];
+    for (const [key, value] of Object.entries(payload)) {
+        if (
+            value === null ||
+            value === undefined ||
+            value === '' ||
+            value === false
+        ) {
+            continue;
+        }
+        switch (key) {
+            case 'radius_m':
+                rows.push([t('Search radius'), km(Number(value))]);
+                break;
+            case 'driver_id':
+                rows.push([t('Driver'), text(value)]);
+                break;
+            case 'reason':
+                rows.push([t('Reason'), text(value)]);
+                break;
+            case 'at':
+                rows.push([t('Time'), formatDateTime(text(value))]);
+                break;
+            case 'price':
+                rows.push([t('Price'), formatMoney(Number(value))]);
+                break;
+            case 'commission_base':
+                rows.push([t('Commission base'), formatMoney(Number(value))]);
+                break;
+            case 'reported_m':
+                rows.push([t('Distance (driver)'), km(Number(value))]);
+                break;
+            case 'track_m':
+                rows.push([t('Distance (GPS track)'), km(Number(value))]);
+                break;
+            case 'distance_capped':
+                rows.push([
+                    t('Distance capped, driver reported'),
+                    km(Number(value)),
+                ]);
+                break;
+            case 'suspicious':
+                rows.push([t('Check'), t('Distance looks suspicious')]);
+                break;
+            case 'rating':
+                rows.push([t('Rating'), `${text(value)} ★`]);
+                break;
+            case 'message':
+                rows.push([t('Message'), text(value)]);
+                break;
+            case 'status':
+                rows.push([t('Call status'), text(value)]);
+                break;
+            case 'fields':
+                if (Array.isArray(value)) {
+                    const labels = [
+                        ...new Set(
+                            value
+                                .map((field) => EDITED_FIELDS[text(field)])
+                                .filter(Boolean),
+                        ),
+                    ].map((label) => t(label));
+                    if (labels.length > 0) {
+                        rows.push([t('Changed'), labels.join(', ')]);
+                    }
+                }
+                break;
+            default:
+                rows.push([key, text(value)]);
+        }
+    }
+
+    return rows;
+}
+
 export default function OrderShow({
     order,
     events,
@@ -122,7 +225,7 @@ export default function OrderShow({
                 </div>
                 <Card>
                     <CardContent className="pt-6">
-                        <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-sm">
+                        <dl className="grid grid-cols-[140px_minmax(0,1fr)] gap-y-2 text-sm">
                             {rows.map(([label, value]) => (
                                 <div key={label} className="contents">
                                     <dt className="text-muted-foreground">
@@ -154,7 +257,7 @@ export default function OrderShow({
                             {events.map((e, i) => (
                                 <li
                                     key={i}
-                                    className="grid grid-cols-[120px_1fr] gap-2"
+                                    className="grid grid-cols-[120px_minmax(0,1fr)] gap-2"
                                 >
                                     <span className="text-xs text-muted-foreground">
                                         {formatDateTime(e.created_at)}
@@ -169,10 +272,15 @@ export default function OrderShow({
                                                 · {e.actor}
                                             </span>
                                         )}
-                                        {e.payload && (
-                                            <span className="block text-xs text-muted-foreground">
-                                                {JSON.stringify(e.payload)}
-                                            </span>
+                                        {eventDetails(e.payload, t).map(
+                                            ([label, value]) => (
+                                                <span
+                                                    key={label}
+                                                    className="block text-xs text-muted-foreground"
+                                                >
+                                                    {label}: {value}
+                                                </span>
+                                            ),
                                         )}
                                     </span>
                                 </li>

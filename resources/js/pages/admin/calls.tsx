@@ -168,7 +168,7 @@ export default function Calls({
         <>
             <Head title={t('Calls')} />
             <div className="grid gap-6 p-4">
-                <section className="grid gap-3 lg:grid-cols-[1fr_320px]">
+                <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
                     <div>
                         <div className="mb-2 flex items-center gap-2">
                             <h2 className="text-sm font-semibold">
