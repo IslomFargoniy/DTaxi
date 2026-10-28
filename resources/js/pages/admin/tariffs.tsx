@@ -1,17 +1,18 @@
-import { Head, router, useForm } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { Head, useForm } from '@inertiajs/react';
+import { Pencil, Plus } from 'lucide-react';
+import { Fragment, useState } from 'react';
 import TariffController from '@/actions/App/Http/Controllers/Admin/TariffController';
+import { EditDialog } from '@/components/edit-dialog';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MoneyInput } from '@/components/money-input';
-import { formatNumber } from '@/lib/format';
+import { formatMoney, formatNumber } from '@/lib/format';
 import { useTrans } from '@/hooks/use-trans';
 import { index } from '@/routes/admin/tariffs';
 
@@ -110,6 +111,7 @@ function MoneyField({
  */
 function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
     const { t } = useTrans();
+    const [open, setOpen] = useState(false);
     const tariff = tariffClass.tariff;
     const form = useForm({
         name: tariffClass.name,
@@ -149,191 +151,257 @@ function ClassCard({ tariffClass }: { tariffClass: TariffClass }) {
         </label>
     );
 
+    const tariffData = form.data.tariff;
+    const summary: [string, string][] = [
+        [t("Base fare, so'm"), formatMoney(tariffData.base_fare)],
+        [t('Km included'), String(tariffData.base_km)],
+        [t("Each next km, so'm"), formatMoney(tariffData.per_km)],
+        ...(tariffData.waiting_enabled
+            ? [
+                  [
+                      t('Charge for waiting'),
+                      `${tariffData.waiting_free_min} ${t('min free')}, ${formatMoney(tariffData.waiting_per_min)}`,
+                  ] as [string, string],
+              ]
+            : []),
+        ...(tariffData.night_enabled
+            ? [
+                  [
+                      t('Night rate'),
+                      `${tariffData.night_from}–${tariffData.night_to} × ${tariffData.night_coeff}`,
+                  ] as [string, string],
+              ]
+            : []),
+        ...(tariffData.outside_enabled
+            ? [
+                  [
+                      t('Separate price outside the city'),
+                      formatMoney(tariffData.outside_per_km),
+                  ] as [string, string],
+              ]
+            : []),
+    ];
+
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center gap-2">
+        <>
+            <Card>
+                <CardHeader className="flex flex-row items-center gap-2">
+                    <CardTitle>{tariffClass.name}</CardTitle>
+                    {tariffClass.is_default && <Badge>{t('Default')}</Badge>}
+                    {!tariffClass.is_active && (
+                        <Badge variant="secondary">{t('Disabled')}</Badge>
+                    )}
+                    <Button
+                        className="ml-auto"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setOpen(true)}
+                    >
+                        <Pencil /> {t('Edit')}
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 text-sm">
+                        {summary.map(([label, value]) => (
+                            <Fragment key={label}>
+                                <dt className="text-muted-foreground">
+                                    {label}
+                                </dt>
+                                <dd className="text-right font-medium">
+                                    {value}
+                                </dd>
+                            </Fragment>
+                        ))}
+                    </dl>
+                </CardContent>
+            </Card>
+            <EditDialog
+                open={open}
+                onOpenChange={(next) => {
+                    setOpen(next);
+                    if (!next) {
+                        form.reset();
+                        form.clearErrors();
+                    }
+                }}
+                title="Edit tariff"
+                className="sm:max-w-2xl"
+                processing={form.processing}
+                onSubmit={() =>
+                    form.put(TariffController.update.url(tariffClass.id), {
+                        preserveScroll: true,
+                        onSuccess: () => {
+                            // Saqlangan qiymatlar endi "bekor qilish" nuqtasi
+                            form.setDefaults();
+                            setOpen(false);
+                        },
+                    })
+                }
+            >
                 <div className="grid gap-1">
+                    <Label className="text-xs font-normal text-muted-foreground">
+                        {t('Name')}
+                    </Label>
                     <Input
-                        className="max-w-48 font-semibold"
-                        aria-label={t('Name')}
                         maxLength={50}
                         value={form.data.name}
                         onChange={(e) => form.setData('name', e.target.value)}
                     />
                     <InputError message={errors.name} />
                 </div>
-                {form.data.is_default && <Badge>{t('Default')}</Badge>}
-                {!form.data.is_active && (
-                    <Badge variant="secondary">{t('Disabled')}</Badge>
-                )}
-            </CardHeader>
-            <CardContent>
-                <form
-                    className="grid gap-4"
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        form.put(TariffController.update.url(tariffClass.id), {
-                            preserveScroll: true,
-                        });
-                    }}
-                >
-                    <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-4">
-                        <MoneyField
-                            label="Base fare, so'm"
-                            value={form.data.tariff.base_fare}
-                            onChange={(v) => set('base_fare', v)}
-                            error={errors['tariff.base_fare']}
-                        />
-                        <NumberField
-                            label="Km included"
-                            step="0.1"
-                            max={100}
-                            value={form.data.tariff.base_km}
-                            onChange={(v) => set('base_km', v)}
-                            error={errors['tariff.base_km']}
-                        />
-                        <MoneyField
-                            label="Each next km, so'm"
-                            value={form.data.tariff.per_km}
-                            onChange={(v) => set('per_km', v)}
-                            error={errors['tariff.per_km']}
-                        />
-                        <div className="grid gap-1">
-                            <Label className="text-xs font-normal text-muted-foreground">
-                                {t("Price rounding step, so'm")}
-                            </Label>
-                            <select
-                                className="h-9 rounded-md border bg-transparent px-2 text-sm"
-                                value={form.data.tariff.rounding_step}
-                                onChange={(e) =>
-                                    set('rounding_step', Number(e.target.value))
-                                }
-                            >
-                                {[1, 100, 500, 1000].map((s) => (
-                                    <option key={s} value={s}>
-                                        {formatNumber(s)}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-4">
+                    <MoneyField
+                        label="Base fare, so'm"
+                        value={form.data.tariff.base_fare}
+                        onChange={(v) => set('base_fare', v)}
+                        error={errors['tariff.base_fare']}
+                    />
+                    <NumberField
+                        label="Km included"
+                        step="0.1"
+                        max={100}
+                        value={form.data.tariff.base_km}
+                        onChange={(v) => set('base_km', v)}
+                        error={errors['tariff.base_km']}
+                    />
+                    <MoneyField
+                        label="Each next km, so'm"
+                        value={form.data.tariff.per_km}
+                        onChange={(v) => set('per_km', v)}
+                        error={errors['tariff.per_km']}
+                    />
+                    <div className="grid gap-1">
+                        <Label className="text-xs font-normal text-muted-foreground">
+                            {t("Price rounding step, so'm")}
+                        </Label>
+                        <select
+                            className="h-9 rounded-md border bg-transparent px-2 text-sm"
+                            value={form.data.tariff.rounding_step}
+                            onChange={(e) =>
+                                set('rounding_step', Number(e.target.value))
+                            }
+                        >
+                            {[1, 100, 500, 1000].map((s) => (
+                                <option key={s} value={s}>
+                                    {formatNumber(s)}
+                                </option>
+                            ))}
+                        </select>
                     </div>
+                </div>
 
-                    <div className="grid gap-2 rounded-md border p-3">
-                        {toggle('waiting_enabled', 'Charge for waiting')}
-                        {form.data.tariff.waiting_enabled && (
-                            <div className="grid grid-cols-2 items-start gap-3">
-                                <NumberField
-                                    label="Free minutes"
-                                    max={60}
-                                    value={form.data.tariff.waiting_free_min}
-                                    onChange={(v) => set('waiting_free_min', v)}
-                                    error={errors['tariff.waiting_free_min']}
-                                />
-                                <MoneyField
-                                    label="Each next minute, so'm"
-                                    value={form.data.tariff.waiting_per_min}
-                                    onChange={(v) => set('waiting_per_min', v)}
-                                    error={errors['tariff.waiting_per_min']}
-                                />
-                            </div>
-                        )}
-                    </div>
-                    <div className="grid gap-2 rounded-md border p-3">
-                        {toggle('night_enabled', 'Night rate')}
-                        {form.data.tariff.night_enabled && (
-                            <div className="grid grid-cols-3 items-start gap-3">
-                                <div className="grid gap-1">
-                                    <Label className="text-xs font-normal text-muted-foreground">
-                                        {t('From')}
-                                    </Label>
-                                    <Input
-                                        type="time"
-                                        value={form.data.tariff.night_from}
-                                        onChange={(e) =>
-                                            set('night_from', e.target.value)
-                                        }
-                                    />
-                                    <InputError
-                                        message={errors['tariff.night_from']}
-                                    />
-                                </div>
-                                <div className="grid gap-1">
-                                    <Label className="text-xs font-normal text-muted-foreground">
-                                        {t('To')}
-                                    </Label>
-                                    <Input
-                                        type="time"
-                                        value={form.data.tariff.night_to}
-                                        onChange={(e) =>
-                                            set('night_to', e.target.value)
-                                        }
-                                    />
-                                    <InputError
-                                        message={errors['tariff.night_to']}
-                                    />
-                                </div>
-                                <NumberField
-                                    label="Coefficient"
-                                    step="0.05"
-                                    min={1}
-                                    max={5}
-                                    value={form.data.tariff.night_coeff}
-                                    onChange={(v) => set('night_coeff', v)}
-                                    error={errors['tariff.night_coeff']}
-                                />
-                            </div>
-                        )}
-                    </div>
-                    <div className="grid gap-2 rounded-md border p-3">
-                        {toggle(
-                            'outside_enabled',
-                            'Separate price outside the city',
-                        )}
-                        {form.data.tariff.outside_enabled && (
+                <div className="grid gap-2 rounded-md border p-3">
+                    {toggle('waiting_enabled', 'Charge for waiting')}
+                    {form.data.tariff.waiting_enabled && (
+                        <div className="grid grid-cols-2 items-start gap-3">
+                            <NumberField
+                                label="Free minutes"
+                                max={60}
+                                value={form.data.tariff.waiting_free_min}
+                                onChange={(v) => set('waiting_free_min', v)}
+                                error={errors['tariff.waiting_free_min']}
+                            />
                             <MoneyField
-                                label="Each km outside the service area, so'm"
-                                value={form.data.tariff.outside_per_km}
-                                onChange={(v) => set('outside_per_km', v)}
-                                error={errors['tariff.outside_per_km']}
+                                label="Each next minute, so'm"
+                                value={form.data.tariff.waiting_per_min}
+                                onChange={(v) => set('waiting_per_min', v)}
+                                error={errors['tariff.waiting_per_min']}
                             />
-                        )}
-                    </div>
+                        </div>
+                    )}
+                </div>
+                <div className="grid gap-2 rounded-md border p-3">
+                    {toggle('night_enabled', 'Night rate')}
+                    {form.data.tariff.night_enabled && (
+                        <div className="grid grid-cols-3 items-start gap-3">
+                            <div className="grid gap-1">
+                                <Label className="text-xs font-normal text-muted-foreground">
+                                    {t('From')}
+                                </Label>
+                                <Input
+                                    type="time"
+                                    value={form.data.tariff.night_from}
+                                    onChange={(e) =>
+                                        set('night_from', e.target.value)
+                                    }
+                                />
+                                <InputError
+                                    message={errors['tariff.night_from']}
+                                />
+                            </div>
+                            <div className="grid gap-1">
+                                <Label className="text-xs font-normal text-muted-foreground">
+                                    {t('To')}
+                                </Label>
+                                <Input
+                                    type="time"
+                                    value={form.data.tariff.night_to}
+                                    onChange={(e) =>
+                                        set('night_to', e.target.value)
+                                    }
+                                />
+                                <InputError
+                                    message={errors['tariff.night_to']}
+                                />
+                            </div>
+                            <NumberField
+                                label="Coefficient"
+                                step="0.05"
+                                min={1}
+                                max={5}
+                                value={form.data.tariff.night_coeff}
+                                onChange={(v) => set('night_coeff', v)}
+                                error={errors['tariff.night_coeff']}
+                            />
+                        </div>
+                    )}
+                </div>
+                <div className="grid gap-2 rounded-md border p-3">
+                    {toggle(
+                        'outside_enabled',
+                        'Separate price outside the city',
+                    )}
+                    {form.data.tariff.outside_enabled && (
+                        <MoneyField
+                            label="Each km outside the service area, so'm"
+                            value={form.data.tariff.outside_per_km}
+                            onChange={(v) => set('outside_per_km', v)}
+                            error={errors['tariff.outside_per_km']}
+                        />
+                    )}
+                </div>
 
-                    <div className="flex flex-wrap items-center gap-4 text-sm">
-                        <label className="flex items-center gap-2">
-                            <Checkbox
-                                checked={form.data.is_delivery}
-                                onCheckedChange={(v) =>
-                                    form.setData('is_delivery', v === true)
-                                }
-                            />
-                            {t('Delivery (sender and recipient fields)')}
-                        </label>
-                        <label className="flex items-center gap-2">
-                            <Checkbox
-                                checked={form.data.is_default}
-                                onCheckedChange={(v) =>
-                                    form.setData('is_default', v === true)
-                                }
-                            />
-                            {t('Default')}
-                        </label>
-                        <label className="flex items-center gap-2">
-                            <Checkbox
-                                checked={form.data.is_active}
-                                onCheckedChange={(v) =>
-                                    form.setData('is_active', v === true)
-                                }
-                            />
-                            {t('Active')}
-                        </label>
-                        <Button className="ml-auto" disabled={form.processing}>
-                            {t('Save')}
-                        </Button>
-                    </div>
-                </form>
-            </CardContent>
-        </Card>
+                <div className="flex flex-wrap items-center gap-4 text-sm">
+                    <label className="flex items-center gap-2">
+                        <Checkbox
+                            checked={form.data.is_delivery}
+                            onCheckedChange={(v) =>
+                                form.setData('is_delivery', v === true)
+                            }
+                        />
+                        {t('Delivery (sender and recipient fields)')}
+                    </label>
+                    <label className="flex items-center gap-2">
+                        <Checkbox
+                            checked={form.data.is_default}
+                            onCheckedChange={(v) =>
+                                form.setData('is_default', v === true)
+                            }
+                        />
+                        {t('Default')}
+                    </label>
+                    <label className="flex items-center gap-2">
+                        <Checkbox
+                            checked={form.data.is_active}
+                            onCheckedChange={(v) =>
+                                form.setData('is_active', v === true)
+                            }
+                        />
+                        {t('Active')}
+                    </label>
+                </div>
+            </EditDialog>
+        </>
     );
 }
 
@@ -346,6 +414,9 @@ export default function Tariffs({
 }) {
     const { t } = useTrans();
     const [branchId, setBranchId] = useState(branches[0]?.id ?? 0);
+    const [adding, setAdding] = useState(false);
+    const addForm = useForm({ name: '' });
+    addForm.transform((data) => ({ ...data, branch_id: branchId }));
 
     return (
         <>
@@ -374,18 +445,7 @@ export default function Tariffs({
                         )}
                         <Button
                             variant="outline"
-                            onClick={() => {
-                                const name = window.prompt(
-                                    t('New tariff class name'),
-                                );
-                                if (name) {
-                                    router.post(
-                                        TariffController.store.url(),
-                                        { branch_id: branchId, name },
-                                        { preserveScroll: true },
-                                    );
-                                }
-                            }}
+                            onClick={() => setAdding(true)}
                         >
                             <Plus /> {t('Add class')}
                         </Button>
@@ -399,6 +459,43 @@ export default function Tariffs({
                         ))}
                 </div>
             </div>
+            <EditDialog
+                open={adding}
+                onOpenChange={(next) => {
+                    setAdding(next);
+                    if (!next) {
+                        addForm.reset();
+                        addForm.clearErrors();
+                    }
+                }}
+                title="Add class"
+                processing={addForm.processing}
+                onSubmit={() =>
+                    addForm.post(TariffController.store.url(), {
+                        preserveScroll: true,
+                        onSuccess: () => {
+                            setAdding(false);
+                            addForm.reset();
+                        },
+                    })
+                }
+            >
+                <div className="grid gap-2">
+                    <Label htmlFor="new-class-name">
+                        {t('New tariff class name')}
+                    </Label>
+                    <Input
+                        id="new-class-name"
+                        autoFocus
+                        maxLength={50}
+                        value={addForm.data.name}
+                        onChange={(e) =>
+                            addForm.setData('name', e.target.value)
+                        }
+                    />
+                    <InputError message={addForm.errors.name} />
+                </div>
+            </EditDialog>
         </>
     );
 }
