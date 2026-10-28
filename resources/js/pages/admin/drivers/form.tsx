@@ -1,6 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/confirm-dialog';
+import { EditDialog } from '@/components/edit-dialog';
 import { useState } from 'react';
 import DriverController from '@/actions/App/Http/Controllers/Admin/DriverController';
 import { DataTable, formatDateTime } from '@/components/data-table';
@@ -9,16 +10,16 @@ import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCan } from '@/hooks/use-can';
 import { useTrans } from '@/hooks/use-trans';
+import { DriverFields, useDriverForm, VehicleFields } from './fields';
+import type { TariffClassOption } from './fields';
 import { index } from '@/routes/admin/drivers';
 import type { DriverRow } from './index';
 import { MoneyInput } from '@/components/money-input';
-import { PhoneInput } from '@/components/phone-input';
-import { formatMoney, formatNumber, formatPlate } from '@/lib/format';
+import { formatMoney, formatNumber } from '@/lib/format';
 
 type Driver = DriverRow & {
     license_no: string | null;
@@ -53,69 +54,11 @@ type Driver = DriverRow & {
 type Props = {
     driver: Driver | null;
     branches: { id: number; name: string }[];
-    tariffClasses: { id: number; branch_id: number; name: string }[];
+    tariffClasses: TariffClassOption[];
     documentTypes: string[];
     /** Faqat yangi haydovchi: keyingi bo'sh pozivnoy */
     nextCallsign?: string;
 };
-
-// Mashina maydonlari: klaviatura, uzunlik va yozilishi
-const VEHICLE_INPUT: Record<
-    'brand' | 'model' | 'color' | 'plate_number' | 'year' | 'tech_passport_no',
-    {
-        maxLength?: number;
-        inputMode?: 'numeric' | 'text';
-        placeholder?: string;
-        clean?: (value: string) => string;
-    }
-> = {
-    brand: { maxLength: 50 },
-    model: { maxLength: 50 },
-    color: { maxLength: 30 },
-    // "01 A 123 BC" yoki "01 123 ABC"
-    plate_number: {
-        maxLength: 11,
-        placeholder: '01 A 123 BC',
-        clean: (v) =>
-            v
-                .toUpperCase()
-                .replace(/[^0-9A-Z ]/g, '')
-                .replace(/\s+/g, ' ')
-                .trimStart(),
-    },
-    year: {
-        maxLength: 4,
-        inputMode: 'numeric',
-        placeholder: String(new Date().getFullYear()),
-        clean: (v) => v.replace(/\D/g, ''),
-    },
-    tech_passport_no: {
-        maxLength: 50,
-        clean: (v) => v.toUpperCase(),
-    },
-};
-
-function Field({
-    id,
-    label,
-    error,
-    children,
-}: {
-    id: string;
-    label: string;
-    error?: string;
-    children: React.ReactNode;
-}) {
-    const { t } = useTrans();
-
-    return (
-        <div className="grid gap-1.5">
-            <Label htmlFor={id}>{t(label)}</Label>
-            {children}
-            <InputError message={error} />
-        </div>
-    );
-}
 
 export default function DriverForm({
     driver,
@@ -127,33 +70,10 @@ export default function DriverForm({
     const { t } = useTrans();
     const confirm = useConfirm();
     const { can } = useCan();
-    const form = useForm({
-        branch_id: driver?.branch_id ?? branches[0]?.id ?? 0,
-        name: driver?.name ?? '',
-        phone: driver?.phone ?? '',
-        password: '',
-        // Yangi haydovchi — keyingi bo'sh pozivnoy oldindan (o'zgartirish mumkin)
-        callsign: driver?.callsign ?? nextCallsign ?? '',
-        license_no: driver?.license_no ?? '',
-        license_expires_at: driver?.license_expires_at ?? '',
-        vehicle: {
-            brand: driver?.vehicle?.brand ?? 'Chevrolet',
-            model: driver?.vehicle?.model ?? '',
-            color: driver?.vehicle?.color ?? '',
-            plate_number: formatPlate(driver?.vehicle?.plate_number),
-            year: driver?.vehicle?.year ?? '',
-            tech_passport_no: driver?.vehicle?.tech_passport_no ?? '',
-            tariff_class_ids:
-                driver?.vehicle?.tariff_class_ids ?? ([] as number[]),
-        },
-    });
-    const errors = form.errors as Record<string, string>;
-    const classes = tariffClasses.filter(
-        (c) => c.branch_id === form.data.branch_id,
-    );
-    const setVehicle = (key: keyof typeof form.data.vehicle, value: unknown) =>
-        form.setData('vehicle', { ...form.data.vehicle, [key]: value });
+    const form = useDriverForm(driver, branches, nextCallsign);
 
+    const [blockOpen, setBlockOpen] = useState(false);
+    const block = useForm({ minutes: 60 });
     const adjust = useForm({ amount: null as number | null, comment: '' });
     const [doc, setDoc] = useState<{
         type: string;
@@ -234,36 +154,19 @@ export default function DriverForm({
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => {
-                                        const blocked =
-                                            driver.blocked_until &&
-                                            new Date(driver.blocked_until) >
-                                                new Date();
-                                        const answer = blocked
-                                            ? '0'
-                                            : window.prompt(
-                                                  t(
-                                                      'Block for how many minutes?',
+                                    onClick={() =>
+                                        driver.blocked_until &&
+                                        new Date(driver.blocked_until) >
+                                            new Date()
+                                            ? router.post(
+                                                  DriverController.block.url(
+                                                      driver.id,
                                                   ),
-                                                  '60',
-                                              );
-                                        // Bekor qilinsa yoki son bo'lmasa — hech narsa yuborilmaydi
-                                        const minutes = Number(
-                                            answer?.trim() || NaN,
-                                        );
-                                        if (
-                                            Number.isInteger(minutes) &&
-                                            minutes >= 0
-                                        ) {
-                                            router.post(
-                                                DriverController.block.url(
-                                                    driver.id,
-                                                ),
-                                                { minutes },
-                                                { preserveScroll: true },
-                                            );
-                                        }
-                                    }}
+                                                  { minutes: 0 },
+                                                  { preserveScroll: true },
+                                              )
+                                            : setBlockOpen(true)
+                                    }
                                 >
                                     {driver.blocked_until &&
                                     new Date(driver.blocked_until) > new Date()
@@ -279,128 +182,11 @@ export default function DriverForm({
                             <CardTitle>{t('Driver')}</CardTitle>
                         </CardHeader>
                         <CardContent className="grid items-start gap-3 sm:grid-cols-2">
-                            {branches.length > 1 && (
-                                <Field
-                                    id="branch"
-                                    label="Branch"
-                                    error={errors.branch_id}
-                                >
-                                    <select
-                                        id="branch"
-                                        className="h-9 rounded-md border bg-transparent px-2 text-sm"
-                                        value={form.data.branch_id}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'branch_id',
-                                                Number(e.target.value),
-                                            )
-                                        }
-                                    >
-                                        {branches.map((b) => (
-                                            <option key={b.id} value={b.id}>
-                                                {b.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </Field>
-                            )}
-                            <Field
-                                id="callsign"
-                                label="Callsign"
-                                error={errors.callsign}
-                            >
-                                <Input
-                                    id="callsign"
-                                    inputMode="numeric"
-                                    autoComplete="off"
-                                    maxLength={6}
-                                    placeholder="101"
-                                    value={form.data.callsign}
-                                    onChange={(e) =>
-                                        form.setData(
-                                            'callsign',
-                                            e.target.value.replace(/\D/g, ''),
-                                        )
-                                    }
-                                />
-                            </Field>
-                            <Field
-                                id="name"
-                                label="Full name"
-                                error={errors.name}
-                            >
-                                <Input
-                                    id="name"
-                                    autoComplete="off"
-                                    maxLength={100}
-                                    value={form.data.name}
-                                    onChange={(e) =>
-                                        form.setData('name', e.target.value)
-                                    }
-                                />
-                            </Field>
-                            <Field
-                                id="phone"
-                                label="Phone"
-                                error={errors.phone}
-                            >
-                                <PhoneInput
-                                    id="phone"
-                                    autoComplete="off"
-                                    value={form.data.phone}
-                                    onChange={(v) => form.setData('phone', v)}
-                                />
-                            </Field>
-                            <Field
-                                id="password"
-                                label={driver ? 'New password' : 'Password'}
-                                error={errors.password}
-                            >
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    autoComplete="new-password"
-                                    value={form.data.password}
-                                    onChange={(e) =>
-                                        form.setData('password', e.target.value)
-                                    }
-                                />
-                            </Field>
-                            <Field
-                                id="license_no"
-                                label="Driving licence"
-                                error={errors.license_no}
-                            >
-                                <Input
-                                    id="license_no"
-                                    autoComplete="off"
-                                    maxLength={50}
-                                    value={form.data.license_no}
-                                    onChange={(e) =>
-                                        form.setData(
-                                            'license_no',
-                                            e.target.value.toUpperCase(),
-                                        )
-                                    }
-                                />
-                            </Field>
-                            <Field
-                                id="license_expires_at"
-                                label="Licence valid until"
-                                error={errors.license_expires_at}
-                            >
-                                <Input
-                                    id="license_expires_at"
-                                    type="date"
-                                    value={form.data.license_expires_at}
-                                    onChange={(e) =>
-                                        form.setData(
-                                            'license_expires_at',
-                                            e.target.value,
-                                        )
-                                    }
-                                />
-                            </Field>
+                            <DriverFields
+                                form={form}
+                                branches={branches}
+                                isNew={!driver}
+                            />
                         </CardContent>
                     </Card>
 
@@ -414,91 +200,10 @@ export default function DriverForm({
                             )}
                         </CardHeader>
                         <CardContent className="grid items-start gap-3 sm:grid-cols-2">
-                            {(
-                                [
-                                    'brand',
-                                    'model',
-                                    'color',
-                                    'plate_number',
-                                    'year',
-                                    'tech_passport_no',
-                                ] as const
-                            ).map((key) => (
-                                <Field
-                                    key={key}
-                                    id={`vehicle-${key}`}
-                                    label={key}
-                                    error={errors[`vehicle.${key}`]}
-                                >
-                                    <Input
-                                        id={`vehicle-${key}`}
-                                        autoComplete="off"
-                                        maxLength={VEHICLE_INPUT[key].maxLength}
-                                        inputMode={VEHICLE_INPUT[key].inputMode}
-                                        placeholder={
-                                            VEHICLE_INPUT[key].placeholder
-                                        }
-                                        value={String(
-                                            form.data.vehicle[key] ?? '',
-                                        )}
-                                        onChange={(e) =>
-                                            setVehicle(
-                                                key,
-                                                VEHICLE_INPUT[key].clean?.(
-                                                    e.target.value,
-                                                ) ?? e.target.value,
-                                            )
-                                        }
-                                        onBlur={() =>
-                                            key === 'plate_number' &&
-                                            setVehicle(
-                                                key,
-                                                formatPlate(
-                                                    form.data.vehicle
-                                                        .plate_number,
-                                                ),
-                                            )
-                                        }
-                                    />
-                                </Field>
-                            ))}
-                            <div className="grid gap-2 sm:col-span-2">
-                                <Label>
-                                    {t('Tariff classes this car works in')}
-                                </Label>
-                                <div className="flex flex-wrap gap-4">
-                                    {classes.map((c) => (
-                                        <label
-                                            key={c.id}
-                                            className="flex items-center gap-2 text-sm"
-                                        >
-                                            <Checkbox
-                                                checked={form.data.vehicle.tariff_class_ids.includes(
-                                                    c.id,
-                                                )}
-                                                onCheckedChange={(v) =>
-                                                    setVehicle(
-                                                        'tariff_class_ids',
-                                                        v
-                                                            ? [
-                                                                  ...form.data
-                                                                      .vehicle
-                                                                      .tariff_class_ids,
-                                                                  c.id,
-                                                              ]
-                                                            : form.data.vehicle.tariff_class_ids.filter(
-                                                                  (id) =>
-                                                                      id !==
-                                                                      c.id,
-                                                              ),
-                                                    )
-                                                }
-                                            />
-                                            {c.name}
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
+                            <VehicleFields
+                                form={form}
+                                tariffClasses={tariffClasses}
+                            />
                         </CardContent>
                     </Card>
 
@@ -844,6 +549,43 @@ export default function DriverForm({
                     </div>
                 )}
             </div>
+            {driver && (
+                <EditDialog
+                    open={blockOpen}
+                    onOpenChange={(open) => {
+                        setBlockOpen(open);
+                        if (!open) {
+                            block.reset();
+                            block.clearErrors();
+                        }
+                    }}
+                    title="Block driver"
+                    processing={block.processing}
+                    onSubmit={() =>
+                        block.post(DriverController.block.url(driver.id), {
+                            preserveScroll: true,
+                            onSuccess: () => setBlockOpen(false),
+                        })
+                    }
+                >
+                    <div className="grid gap-1.5">
+                        <Label htmlFor="block-minutes">
+                            {t('Block for how many minutes?')}
+                        </Label>
+                        <Input
+                            id="block-minutes"
+                            type="number"
+                            min={1}
+                            autoFocus
+                            value={block.data.minutes}
+                            onChange={(e) =>
+                                block.setData('minutes', Number(e.target.value))
+                            }
+                        />
+                        <InputError message={block.errors.minutes} />
+                    </div>
+                </EditDialog>
+            )}
         </>
     );
 }

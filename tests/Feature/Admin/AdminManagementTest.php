@@ -330,7 +330,7 @@ test('every admin page renders for a branch admin', function (string $route) {
     $params = str_contains($route, 'edit') ? [$driver] : [];
 
     $this->actingAs($this->admin)->get(route($route, $params))->assertOk();
-})->with(['dashboard', 'admin.drivers.index', 'admin.drivers.create', 'admin.drivers.edit', 'admin.staff.index', 'admin.tariffs.index', 'admin.orders.index', 'admin.clients.index', 'admin.landmarks.index']);
+})->with(['dashboard', 'admin.drivers.index', 'admin.drivers.edit', 'admin.staff.index', 'admin.tariffs.index', 'admin.orders.index', 'admin.clients.index', 'admin.landmarks.index']);
 
 test('operator lands on the operator panel', function () {
     $operator = User::factory()->create(['branch_id' => $this->branch->id])->assignRole(Role::Operator);
@@ -477,8 +477,8 @@ test('chat messages and threads are paginated for infinite scroll', function () 
         ->and($this->getJson(route('operator.chat.threads', ['offset' => 30]))->json())->toHaveCount(3);
 });
 
-test('new driver form suggests the next free callsign across all branches', function () {
-    $this->actingAs($this->admin)->get(route('admin.drivers.create'))
+test('new driver dialog suggests the next free callsign across all branches', function () {
+    $this->actingAs($this->admin)->get(route('admin.drivers.index'))
         ->assertInertia(fn ($page) => $page->where('nextCallsign', '101'));
 
     Driver::factory()->create(['branch_id' => $this->branch->id, 'callsign' => '150']);
@@ -487,11 +487,11 @@ test('new driver form suggests the next free callsign across all branches', func
     Driver::factory()->create(['branch_id' => $this->branch->id, 'callsign' => 'A-900']);
 
     // 101 dan boshlab birinchi bo'sh raqam
-    $this->get(route('admin.drivers.create'))->assertInertia(fn ($page) => $page->where('nextCallsign', '101'));
+    $this->get(route('admin.drivers.index'))->assertInertia(fn ($page) => $page->where('nextCallsign', '101'));
 
     Driver::factory()->create(['branch_id' => $this->branch->id, 'callsign' => '101']);
     Driver::factory()->create(['branch_id' => $this->branch->id, 'callsign' => '102']);
     Driver::factory()->create(['branch_id' => $this->branch->id, 'callsign' => '104']);
 
-    $this->get(route('admin.drivers.create'))->assertInertia(fn ($page) => $page->where('nextCallsign', '103'));
+    $this->get(route('admin.drivers.index'))->assertInertia(fn ($page) => $page->where('nextCallsign', '103'));
 });

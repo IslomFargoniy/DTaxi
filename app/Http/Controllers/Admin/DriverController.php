@@ -62,12 +62,10 @@ class DriverController extends Controller
         return Inertia::render('admin/drivers/index', [
             'drivers' => $drivers->through(fn (Driver $d) => $this->row($d)),
             'filters' => $filters,
+            // "Haydovchi qo'shish" oynasi uchun
+            'nextCallsign' => Driver::nextCallsign(),
+            ...$this->formOptions($request),
         ]);
-    }
-
-    public function create(Request $request): Response
-    {
-        return Inertia::render('admin/drivers/form', ['driver' => null, 'nextCallsign' => Driver::nextCallsign(), ...$this->formOptions($request)]);
     }
 
     public function edit(Request $request, Driver $driver, ShiftTracker $shifts): Response

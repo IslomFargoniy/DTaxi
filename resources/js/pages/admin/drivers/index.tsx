@@ -1,14 +1,19 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
+import { useState } from 'react';
+import DriverController from '@/actions/App/Http/Controllers/Admin/DriverController';
 import { DataTable, Pagination } from '@/components/data-table';
 import type { Paginated } from '@/components/data-table';
 import Heading from '@/components/heading';
 import { SearchInput } from '@/components/search-input';
 import { Badge } from '@/components/ui/badge';
+import { EditDialog } from '@/components/edit-dialog';
 import { Button } from '@/components/ui/button';
 import { useTrans } from '@/hooks/use-trans';
-import { create, edit, index } from '@/routes/admin/drivers';
+import { edit, index } from '@/routes/admin/drivers';
 import { formatMoney, formatPhone, formatPlate } from '@/lib/format';
+import { DriverFields, useDriverForm, VehicleFields } from './fields';
+import type { TariffClassOption } from './fields';
 
 export type DriverRow = {
     id: number;
@@ -44,11 +49,19 @@ const statusVariant = {
 export default function DriversIndex({
     drivers,
     filters,
+    nextCallsign,
+    branches,
+    tariffClasses,
 }: {
     drivers: Paginated<DriverRow>;
     filters: { q?: string; pending?: boolean };
+    nextCallsign: string;
+    branches: { id: number; name: string }[];
+    tariffClasses: TariffClassOption[];
 }) {
     const { t } = useTrans();
+    const [adding, setAdding] = useState(false);
+    const form = useDriverForm(null, branches, nextCallsign);
 
     return (
         <>
@@ -59,10 +72,8 @@ export default function DriversIndex({
                         title="Drivers"
                         description="Partners working with their own cars. A driver goes on air only after approval."
                     />
-                    <Button asChild>
-                        <Link href={create()}>
-                            <Plus /> {t('Add driver')}
-                        </Link>
+                    <Button onClick={() => setAdding(true)}>
+                        <Plus /> {t('Add driver')}
                     </Button>
                 </div>
                 <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -177,6 +188,29 @@ export default function DriversIndex({
                 />
                 <Pagination links={drivers.links} />
             </div>
+            <EditDialog
+                open={adding}
+                onOpenChange={(open) => {
+                    setAdding(open);
+                    if (!open) {
+                        form.reset();
+                        form.clearErrors();
+                    }
+                }}
+                title="Add driver"
+                className="sm:max-w-2xl"
+                processing={form.processing}
+                // Saqlangach profil sahifasi ochiladi (hujjatlar, balans)
+                onSubmit={() => form.post(DriverController.store.url())}
+            >
+                <div className="grid items-start gap-3 sm:grid-cols-2">
+                    <DriverFields form={form} branches={branches} isNew />
+                </div>
+                <h3 className="mt-2 text-sm font-medium">{t('Car')}</h3>
+                <div className="grid items-start gap-3 sm:grid-cols-2">
+                    <VehicleFields form={form} tariffClasses={tariffClasses} />
+                </div>
+            </EditDialog>
         </>
     );
 }

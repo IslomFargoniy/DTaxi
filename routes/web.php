@@ -106,7 +106,6 @@ Route::middleware(['auth', 'permission:users.manage'])->prefix('admin')->name('a
 
 Route::middleware(['auth', 'permission:drivers.manage'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('drivers', [DriverController::class, 'index'])->name('drivers.index');
-    Route::get('drivers/create', [DriverController::class, 'create'])->name('drivers.create');
     Route::post('drivers', [DriverController::class, 'store'])->name('drivers.store');
     Route::get('drivers/{driver}', [DriverController::class, 'edit'])->name('drivers.edit');
     Route::put('drivers/{driver}', [DriverController::class, 'update'])->name('drivers.update');
