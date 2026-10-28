@@ -77,14 +77,23 @@ class Driver extends Model
     }
 
     /**
-     * Yangi haydovchi uchun keyingi bo'sh pozivnoy: eng katta raqamli + 1 (pozivnoy barcha filiallar bo'yicha yagona —
-     * u operator tergan ichki raqam ham). Haydovchilar hali yo'q bo'lsa — 101.
+     * Yangi haydovchi uchun taklif qilinadigan pozivnoy: 101 dan boshlab birinchi bo'sh raqam — bo'shatilgan raqamlar
+     * qayta ishlatiladi (pozivnoy barcha filiallar bo'yicha yagona — u operator tergan ichki raqam ham).
      */
     public static function nextCallsign(): string
     {
-        $max = (int) DB::scalar("SELECT COALESCE(MAX(callsign::int), 100) FROM drivers WHERE callsign ~ '^[0-9]{1,6}$'");
+        /** @var list<int> $taken */
+        $taken = DB::table('drivers')->whereRaw("callsign ~ '^[0-9]{1,6}$'")
+            ->selectRaw('DISTINCT callsign::int AS n')->pluck('n')->map(fn ($n) => (int) $n)->all();
+        $taken = array_flip($taken);
 
-        return (string) min(999999, max(101, $max + 1));
+        for ($n = 101; $n <= 999999; $n++) {
+            if (! isset($taken[$n])) {
+                return (string) $n;
+            }
+        }
+
+        return '999999';
     }
 
     /**

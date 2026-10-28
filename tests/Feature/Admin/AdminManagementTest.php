@@ -486,5 +486,12 @@ test('new driver form suggests the next free callsign across all branches', func
     // Eski, raqam bo'lmagan pozivnoy hisobga olinmaydi
     Driver::factory()->create(['branch_id' => $this->branch->id, 'callsign' => 'A-900']);
 
-    $this->get(route('admin.drivers.create'))->assertInertia(fn ($page) => $page->where('nextCallsign', '206'));
+    // 101 dan boshlab birinchi bo'sh raqam
+    $this->get(route('admin.drivers.create'))->assertInertia(fn ($page) => $page->where('nextCallsign', '101'));
+
+    Driver::factory()->create(['branch_id' => $this->branch->id, 'callsign' => '101']);
+    Driver::factory()->create(['branch_id' => $this->branch->id, 'callsign' => '102']);
+    Driver::factory()->create(['branch_id' => $this->branch->id, 'callsign' => '104']);
+
+    $this->get(route('admin.drivers.create'))->assertInertia(fn ($page) => $page->where('nextCallsign', '103'));
 });
