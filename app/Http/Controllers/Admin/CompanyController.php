@@ -9,7 +9,7 @@ use App\Models\Client;
 use App\Models\Company;
 use App\Models\Order;
 use App\Models\User;
-use App\Rules\UzPhone;
+use App\Rules\Phone;
 use App\Support\Csv;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -112,7 +112,7 @@ class CompanyController extends Controller
         $data = $request->validate([
             'branch_id' => ['required', 'integer', Rule::in($user->isSuperadmin() ? Branch::query()->pluck('id')->all() : $user->branchIds())],
             'name' => ['required', 'string', 'max:150'],
-            'contact_phone' => ['nullable', 'string', 'max:25', new UzPhone],
+            'contact_phone' => ['nullable', 'string', 'max:25', new Phone],
             'discount_percent' => ['required', 'integer', 'min:0', 'max:100'],
             'note' => ['nullable', 'string', 'max:1000'],
             'is_active' => ['boolean'],

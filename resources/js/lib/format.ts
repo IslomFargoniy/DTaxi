@@ -1,68 +1,6 @@
 import { currencyLabel } from '@/lib/locales';
 
-/** O'zbekiston raqamining milliy qismi (operator kodi + 7 raqam) */
-export const PHONE_NATIONAL_LENGTH = 9;
-
-/**
- * Har qanday ko'rinishdagi raqamdan milliy qism: "+998 90 123-45-67",
- * "998901234567", "8 90 123 45 67", "(90) 123 45 67" → "901234567".
- * Server tomoni — Client::normalizePhone bilan bir xil qoidalar.
- */
-export function phoneNational(raw: string | null | undefined): string {
-    let digits = (raw ?? '').replace(/\D/g, '');
-    // "+998..." — har doim mamlakat kodi (to'liq bo'lmagan qiymat ham: maydon yozish davomida "+9989" beradi)
-    const international = (raw ?? '').trim().startsWith('+998');
-    if (
-        digits.startsWith('998') &&
-        (international || digits.length > PHONE_NATIONAL_LENGTH)
-    ) {
-        digits = digits.slice(3);
-    } else if (
-        digits.startsWith('8') &&
-        digits.length === PHONE_NATIONAL_LENGTH + 1
-    ) {
-        // Eski "8 90 ..." yozuvi
-        digits = digits.slice(1);
-    }
-
-    return digits.slice(0, PHONE_NATIONAL_LENGTH);
-}
-
-/** "901234567" → "90 123 45 67" (yozish davomida qisman ham) */
-export function formatPhoneNational(national: string): string {
-    const parts = [
-        national.slice(0, 2),
-        national.slice(2, 5),
-        national.slice(5, 7),
-        national.slice(7, 9),
-    ];
-
-    return parts.filter((p) => p !== '').join(' ');
-}
-
-/** Milliy qism → E.164 ("" bo'sh bo'lsa) */
-export function phoneE164(national: string): string {
-    return national === '' ? '' : `+998${national}`;
-}
-
-/**
- * Ko'rsatish uchun: "+998901234567" → "+998 90 123 45 67".
- * O'zbek raqami bo'lmasa (ichki raqam, chet el) — o'zgarishsiz.
- */
-export function formatPhone(value: string | null | undefined): string {
-    if (!value) {
-        return '';
-    }
-    const digits = value.replace(/\D/g, '');
-    const uz =
-        (digits.length === 12 && digits.startsWith('998')) ||
-        digits.length === PHONE_NATIONAL_LENGTH;
-    if (!uz) {
-        return value;
-    }
-
-    return `+998 ${formatPhoneNational(digits.slice(-PHONE_NATIONAL_LENGTH))}`;
-}
+export { formatPhone } from '@/lib/phone';
 
 const numberFormat = new Intl.NumberFormat('ru-RU', {
     maximumFractionDigits: 2,

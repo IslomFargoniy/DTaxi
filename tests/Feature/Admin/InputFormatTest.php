@@ -9,7 +9,8 @@ use App\Models\Pjsip\PsEndpoint;
 use App\Models\TariffClass;
 use App\Models\User;
 use App\Models\Vehicle;
-use App\Rules\UzPhone;
+use App\Rules\Phone;
+use App\Support\Settings;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Validator;
@@ -40,16 +41,35 @@ function formatDriverPayload(Branch $branch, array $overrides = [], array $vehic
 
 test('phone numbers in any pasted form normalize to E.164', function (string $input) {
     expect(Client::normalizePhone($input))->toBe('+998901234567')
-        ->and(UzPhone::passes($input))->toBeTrue();
+        ->and(Phone::passes($input))->toBeTrue();
 })->with([
     '+998901234567', '998901234567', '901234567', '90 123 45 67', '+998 (90) 123-45-67',
     '8 90 123 45 67', '00998901234567', ' 90-123-45-67 ',
 ]);
 
-test('uz phone rule rejects incomplete, foreign and non-numeric values', function (string $input) {
-    expect(UzPhone::passes($input))->toBeFalse()
-        ->and(Validator::make(['phone' => $input], ['phone' => [new UzPhone]])->fails())->toBeTrue();
-})->with(['90 123 45', '+7 912 345 67 89', '90123456789', 'abc901234567', '+998 90 123 45 678']);
+test('phone rule rejects incomplete, invalid and non-numeric values', function (string $input) {
+    expect(Phone::passes($input))->toBeFalse()
+        ->and(Validator::make(['phone' => $input], ['phone' => [new Phone]])->fails())->toBeTrue();
+})->with(['90 123 45', '+7 912 345', '90123456789', 'abc901234567', '+998 90 123 45 678', '+999 123 456 789']);
+
+test('foreign numbers with a country code are accepted and formatted', function (string $input, string $e164, string $display) {
+    expect(Phone::passes($input))->toBeTrue()
+        ->and(Client::normalizePhone($input))->toBe($e164)
+        ->and(Client::formatPhone($e164))->toBe($display);
+})->with([
+    ['+7 912 345 67 89', '+79123456789', '+7 912 345 67 89'],
+    ['+7 701 234 5678', '+77012345678', '+7 701 234 5678'],
+    ['00 996 555 123 456', '+996555123456', '+996 555 123 456'],
+    ['+90 532 123 45 67', '+905321234567', '+90 532 123 45 67'],
+]);
+
+test('numbers without a country code belong to the firm country', function () {
+    app(Settings::class)->set('company.phone_country', 'KZ');
+
+    expect(Client::normalizePhone('701 234 5678'))->toBe('+77012345678')
+        ->and(Phone::passes('701 234 5678'))->toBeTrue()
+        ->and(Phone::passes('90 123 45 67'))->toBeFalse();
+});
 
 test('phone helpers format for display and search', function () {
     expect(Client::formatPhone('+998901234567'))->toBe('+998 90 123 45 67')
@@ -111,4 +131,14 @@ test('a newly created driver gets an active SIP endpoint so in-app calls work at
 
     $user = Driver::query()->where('callsign', '777')->firstOrFail()->user;
     expect(PsEndpoint::query()->whereKey($user->sip_extension)->value('context'))->toBe('from-internal');
+});
+
+test('driver licence and tech passport need a letter series and a number', function () {
+    $this->actingAs($this->admin)->post(route('admin.drivers.store'), formatDriverPayload($this->branch, [
+        'license_no' => '12345',
+    ], ['tech_passport_no' => 'ABCDEF']))->assertSessionHasErrors(['license_no', 'vehicle.tech_passport_no']);
+
+    $this->post(route('admin.drivers.store'), formatDriverPayload($this->branch, [
+        'license_no' => 'AF 1234567',
+    ], ['tech_passport_no' => 'AAF1234567']))->assertSessionHasNoErrors();
 });

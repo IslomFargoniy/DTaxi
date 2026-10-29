@@ -30,6 +30,7 @@ import { PlacePicker } from './place-picker';
 import type { PickedPlace } from './place-picker';
 import type { CallCard } from '@/components/webphone/webphone';
 import { PhoneInput } from '@/components/phone-input';
+import { maskWords } from '@/lib/masks';
 
 const emptyPlace: PickedPlace = {
     text: '',
@@ -585,7 +586,10 @@ export function OrderForm({
                         maxLength={100}
                         value={form.data.client_name}
                         onChange={(e) =>
-                            form.setData('client_name', e.target.value)
+                            form.setData(
+                                'client_name',
+                                maskWords(e.target.value),
+                            )
                         }
                     />
                 </div>

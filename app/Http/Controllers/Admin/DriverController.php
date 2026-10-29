@@ -16,7 +16,7 @@ use App\Models\DriverTransaction;
 use App\Models\TariffClass;
 use App\Models\User;
 use App\Models\Vehicle;
-use App\Rules\UzPhone;
+use App\Rules\Phone;
 use App\Services\Dispatch\DriverDiscipline;
 use App\Services\Drivers\DriverBalance;
 use App\Services\Drivers\ShiftTracker;
@@ -208,12 +208,13 @@ class DriverController extends Controller
         $data = $request->validate([
             'branch_id' => ['required', Rule::in($branchIds)],
             'name' => ['required', 'string', 'max:100'],
-            'phone' => ['required', 'string', 'max:25', new UzPhone],
+            'phone' => ['required', 'string', 'max:25', new Phone],
             'password' => [$driver ? 'nullable' : 'required', Password::min(8)],
             // Pozivnoy faqat raqamlardan (haydovchi ichki raqami ham shu); eski qiymat o'zgarmasa tekshirilmaydi
             'callsign' => ['required', 'string', 'max:16', Rule::unique('drivers')->ignore($driver?->id),
                 ...($driver !== null && $driver->callsign === $request->input('callsign') ? [] : ['regex:/^\d{1,6}$/'])],
-            'license_no' => ['nullable', 'string', 'max:50'],
+            // Seriya (lotin harflari) + raqam: "AF 1234567"
+            'license_no' => ['nullable', 'string', 'max:50', 'regex:/^[A-Z]{1,3} ?\d{5,8}$/'],
             'license_expires_at' => ['nullable', 'date'],
             'vehicle.brand' => ['required', 'string', 'max:50'],
             'vehicle.model' => ['required', 'string', 'max:50'],
@@ -227,7 +228,7 @@ class DriverController extends Controller
                 },
             ],
             'vehicle.year' => ['nullable', 'integer', 'min:1980', 'max:'.(now()->year + 1)],
-            'vehicle.tech_passport_no' => ['nullable', 'string', 'max:50'],
+            'vehicle.tech_passport_no' => ['nullable', 'string', 'max:50', 'regex:/^[A-Z]{1,3} ?\d{5,8}$/'],
             'vehicle.tariff_class_ids' => ['array'],
             'vehicle.tariff_class_ids.*' => [Rule::exists('tariff_classes', 'id')->where('branch_id', $request->integer('branch_id'))],
         ], [

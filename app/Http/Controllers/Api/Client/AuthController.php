@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Client;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\ClientDeviceToken;
-use App\Rules\UzPhone;
+use App\Rules\Phone;
 use App\Services\Clients\LoginCodes;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,7 +23,7 @@ class AuthController extends Controller
 
     public function requestCode(Request $request): JsonResponse
     {
-        $data = $request->validate(['phone' => ['required', 'string', 'max:25', new UzPhone]]);
+        $data = $request->validate(['phone' => ['required', 'string', 'max:25', new Phone]]);
 
         if (! $this->codes->send(Client::normalizePhone($data['phone']))) {
             return response()->json(['message' => __('Too many sign-in requests right now. Please try again later.')], 429);
@@ -35,7 +35,7 @@ class AuthController extends Controller
     public function verify(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'phone' => ['required', 'string', 'max:25', new UzPhone],
+            'phone' => ['required', 'string', 'max:25', new Phone],
             'code' => ['required', 'string', 'digits:4'],
             'device_name' => ['required', 'string', 'max:100'],
         ]);

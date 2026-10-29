@@ -19,6 +19,8 @@ class Settings
     public const DEFAULTS = [
         'company.name' => 'Dtaxi',
         'company.default_locale' => 'uz',
+        // Milliy ko'rinishda yozilgan telefon raqamlari shu davlatniki (ISO kodi); panelda — standart davlat
+        'company.phone_country' => 'UZ',
         'drivers.commission_percent' => 10,
         'drivers.min_balance' => 5000,
         'tariffs.rounding_step' => 500,

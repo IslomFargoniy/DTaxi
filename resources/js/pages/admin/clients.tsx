@@ -15,6 +15,7 @@ import InputError from '@/components/input-error';
 import { formatPhone, toPercent } from '@/lib/format';
 import { useTrans } from '@/hooks/use-trans';
 import { index } from '@/routes/admin/clients';
+import { maskWords } from '@/lib/masks';
 
 type Client = {
     id: number;
@@ -69,7 +70,9 @@ function ClientDialog({
                     maxLength={100}
                     autoComplete="off"
                     value={form.data.name}
-                    onChange={(e) => form.setData('name', e.target.value)}
+                    onChange={(e) =>
+                        form.setData('name', maskWords(e.target.value))
+                    }
                 />
                 <InputError message={form.errors.name} />
             </div>

@@ -11,6 +11,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use libphonenumber\PhoneNumberUtil;
 
 /**
  * Butun firma uchun umumiy sozlamalar (filial o'zinikini bermasa shu qiymatlar ishlatiladi).
@@ -27,6 +28,7 @@ class CompanySettingsController extends Controller
         return [
             'company.name' => ['required', 'string', 'max:100'],
             'company.default_locale' => ['required', Rule::in(SetLocale::LOCALES)],
+            'company.phone_country' => ['sometimes', 'required', Rule::in(PhoneNumberUtil::getInstance()->getSupportedRegions())],
             'drivers.commission_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'drivers.min_balance' => ['required', 'integer', 'min:0'],
             'tariffs.rounding_step' => ['required', 'integer', Rule::in([1, 100, 500, 1000])],

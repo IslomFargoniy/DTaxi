@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { PhoneInput } from '@/components/phone-input';
 import { useTrans } from '@/hooks/use-trans';
 import { formatPlate } from '@/lib/format';
+import { maskDocument, maskPlate, maskWords } from '@/lib/masks';
 import type { DriverRow } from './index';
 
 export type DriverFormData = {
@@ -44,17 +45,12 @@ const VEHICLE_INPUT: Record<
 > = {
     brand: { maxLength: 50 },
     model: { maxLength: 50 },
-    color: { maxLength: 30 },
-    // "01 A 123 BC" yoki "01 123 ABC"
+    color: { maxLength: 30, clean: maskWords },
+    // "01 A 123 BC" yoki "01 123 ABC" — har o'ringa faqat mos belgi
     plate_number: {
         maxLength: 11,
         placeholder: '01 A 123 BC',
-        clean: (v) =>
-            v
-                .toUpperCase()
-                .replace(/[^0-9A-Z ]/g, '')
-                .replace(/\s+/g, ' ')
-                .trimStart(),
+        clean: maskPlate,
     },
     year: {
         maxLength: 4,
@@ -62,9 +58,11 @@ const VEHICLE_INPUT: Record<
         placeholder: String(new Date().getFullYear()),
         clean: (v) => v.replace(/\D/g, ''),
     },
+    // Texpasport: 3 harfli seriya + 7 raqam
     tech_passport_no: {
-        maxLength: 50,
-        clean: (v) => v.toUpperCase(),
+        maxLength: 11,
+        placeholder: 'AAF 1234567',
+        clean: (v) => maskDocument(v, 3, 7),
     },
 };
 
@@ -177,7 +175,9 @@ export function DriverFields({
                     autoComplete="off"
                     maxLength={100}
                     value={form.data.name}
-                    onChange={(e) => form.setData('name', e.target.value)}
+                    onChange={(e) =>
+                        form.setData('name', maskWords(e.target.value))
+                    }
                 />
             </Field>
             <Field id="phone" label="Phone" error={errors.phone}>
@@ -209,10 +209,14 @@ export function DriverFields({
                 <Input
                     id="license_no"
                     autoComplete="off"
-                    maxLength={50}
+                    maxLength={10}
+                    placeholder="AF 1234567"
                     value={form.data.license_no}
                     onChange={(e) =>
-                        form.setData('license_no', e.target.value.toUpperCase())
+                        form.setData(
+                            'license_no',
+                            maskDocument(e.target.value, 2, 7),
+                        )
                     }
                 />
             </Field>
@@ -279,13 +283,6 @@ export function VehicleFields({
                                 key,
                                 VEHICLE_INPUT[key].clean?.(e.target.value) ??
                                     e.target.value,
-                            )
-                        }
-                        onBlur={() =>
-                            key === 'plate_number' &&
-                            setVehicle(
-                                key,
-                                formatPlate(form.data.vehicle.plate_number),
                             )
                         }
                     />

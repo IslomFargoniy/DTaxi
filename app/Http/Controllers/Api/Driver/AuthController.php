@@ -9,7 +9,7 @@ use App\Models\Client;
 use App\Models\DeviceToken;
 use App\Models\Driver;
 use App\Models\User;
-use App\Rules\UzPhone;
+use App\Rules\Phone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -23,7 +23,7 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'phone' => ['required', 'string', 'max:25', new UzPhone],
+            'phone' => ['required', 'string', 'max:25', new Phone],
             'password' => ['required', 'string'],
             'device_name' => ['required', 'string', 'max:100'],
         ]);

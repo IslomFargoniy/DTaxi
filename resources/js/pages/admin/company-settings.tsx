@@ -1,6 +1,6 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import CompanySettingsController from '@/actions/App/Http/Controllers/Admin/CompanySettingsController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -18,6 +18,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { LOCALES } from '@/lib/locales';
+import { callingCode, COUNTRIES, countryName } from '@/lib/phone';
 import { useTrans } from '@/hooks/use-trans';
 import { edit } from '@/routes/admin/company-settings';
 
@@ -168,6 +169,16 @@ export default function CompanySettings({ settings }: { settings: Settings }) {
     });
     transform((form) => ({ ...form, chat__quick_replies: quickReplies }));
     const fieldErrors = errors as Record<string, string>;
+    const { locale } = usePage<{ locale: string }>().props;
+    const countries = useMemo(
+        () =>
+            COUNTRIES.map((code) => ({
+                code,
+                name: countryName(code, locale),
+                dial: callingCode(code),
+            })).sort((a, b) => a.name.localeCompare(b.name, locale)),
+        [locale],
+    );
     const numberField = ({
         key,
         label,
@@ -253,6 +264,40 @@ export default function CompanySettings({ settings }: { settings: Settings }) {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label>{t('Phone numbers country')}</Label>
+                                <Select
+                                    value={data.company__phone_country}
+                                    onValueChange={(v) =>
+                                        setData('company__phone_country', v)
+                                    }
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {countries.map((c) => (
+                                            <SelectItem
+                                                key={c.code}
+                                                value={c.code}
+                                            >
+                                                {c.name} (+{c.dial})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">
+                                    {t(
+                                        'Numbers typed without a country code belong to this country.',
+                                    )}
+                                </p>
+                                <InputError
+                                    message={
+                                        fieldErrors['company.phone_country']
+                                    }
+                                />
                             </div>
 
                             {numericFields

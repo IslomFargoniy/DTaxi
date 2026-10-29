@@ -49,6 +49,8 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => fn () => $this->permissions($request->user()),
             ],
             'locale' => app()->getLocale(),
+            // Telefon maydoni uchun standart davlat (brauzer vaqt mintaqasi aniqlanmasa)
+            'phoneCountry' => fn () => app(Settings::class)->get('company.phone_country'),
             'translations' => fn () => $this->translations(app()->getLocale()),
             // Tizim muammolari — faqat superadmin ko'radi (§10.9)
             'health' => fn () => $request->user()?->isSuperadmin() ? array_values(HealthCheck::problems()) : [],

@@ -5,7 +5,7 @@ namespace App\Http\Requests\Operator;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\User;
-use App\Rules\UzPhone;
+use App\Rules\Phone;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -28,7 +28,7 @@ class StoreOrderRequest extends FormRequest
 
         return [
             'branch_id' => ['required', 'integer', $user->isSuperadmin() ? Rule::exists('branches', 'id') : Rule::in($user->branchIds())],
-            'phone' => ['required', 'string', 'max:25', new UzPhone],
+            'phone' => ['required', 'string', 'max:25', new Phone],
             'client_name' => ['nullable', 'string', 'max:100'],
             'tariff_class_id' => ['nullable', 'integer', Rule::exists('tariff_classes', 'id')->where('branch_id', $this->integer('branch_id'))],
             'pickup_text' => ['required', 'string', 'max:255'],
@@ -46,9 +46,9 @@ class StoreOrderRequest extends FormRequest
             'stops.*.lng' => ['required', 'numeric', 'between:55,74'],
             'delivery' => ['nullable', 'array'],
             'delivery.sender_name' => ['nullable', 'string', 'max:100'],
-            'delivery.sender_phone' => ['nullable', 'string', 'max:25', new UzPhone],
+            'delivery.sender_phone' => ['nullable', 'string', 'max:25', new Phone],
             'delivery.recipient_name' => ['nullable', 'string', 'max:100'],
-            'delivery.recipient_phone' => ['nullable', 'string', 'max:25', new UzPhone],
+            'delivery.recipient_phone' => ['nullable', 'string', 'max:25', new Phone],
             'delivery.description' => ['nullable', 'string', 'max:500'],
             // Buyurtma qaysi qo'ng'iroqdan yaratildi (pop-up orqali) — yozuv va raqam statistikasi uchun
             'call_id' => ['nullable', 'integer', Rule::exists('calls', 'id')],

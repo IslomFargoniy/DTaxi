@@ -15,6 +15,7 @@ import { PhoneInput } from '@/components/phone-input';
 import { formatPhone } from '@/lib/format';
 import { useTrans } from '@/hooks/use-trans';
 import { index } from '@/routes/admin/staff';
+import { maskWords } from '@/lib/masks';
 
 type StaffUser = {
     id: number;
@@ -112,8 +113,12 @@ function StaffDialog({
                                 field,
                                 // Login serverda ham kichik harfga o'tadi
                                 field === 'username'
-                                    ? e.target.value.toLowerCase().trim()
-                                    : e.target.value,
+                                    ? e.target.value
+                                          .toLowerCase()
+                                          .replace(/[^a-z0-9._-]/g, '')
+                                    : field === 'name'
+                                      ? maskWords(e.target.value)
+                                      : e.target.value,
                             )
                         }
                     />
