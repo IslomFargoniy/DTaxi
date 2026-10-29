@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.ui.unit.dp
@@ -85,11 +86,7 @@ fun VoicePicker() {
     var open by remember { mutableStateOf(false) }
     val current = voices.indexOfFirst { it.name == selected }
         .takeIf { it >= 0 }?.let { label(it, voices[it]) } ?: stringResource(R.string.nav_voice_default)
-    Row(Modifier.fillMaxWidth().clickable { open = true }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.nav_voice), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-        Text(current, color = LocalAppColors.current.muted)
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = LocalAppColors.current.muted)
-    }
+    uz.dtaxi.core.ui.SettingsItem(Icons.AutoMirrored.Filled.VolumeUp, stringResource(R.string.nav_voice), value = current, onClick = { open = true })
 
     if (open) {
         AlertDialog(

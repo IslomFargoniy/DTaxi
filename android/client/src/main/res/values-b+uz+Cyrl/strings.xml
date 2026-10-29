@@ -97,4 +97,11 @@
     <string name="name_hint">Исм фақат ҳайдовчига кўринади.</string>
     <string name="step_of">%1$d-қадам, %2$d тадан</string>
     <string name="code_digit">%1$d-рақам</string>
+    <string name="name_placeholder">Исмингизни ёзинг</string>
+    <string name="my_addresses">Манзилларим</string>
+    <string name="add_address">Манзил қўшиш</string>
+    <string name="settings_app">Илова</string>
+    <string name="settings_help">Ёрдам</string>
+    <string name="app_version">Версия %1$s</string>
+    <string name="settings_call_dispatcher">Диспетчерга қўнғироқ</string>
 </resources>

@@ -179,8 +179,8 @@ class MainActivity : ComponentActivity() {
                             if (target == Screen.Call) callDispatcher() else screen = target
                         }, requestPermissions = ::withPermissions)
                         Screen.Chat -> ChatScreen(onBack = { screen = Screen.Home }, onCall = ::callDispatcher)
-                        Screen.Balance -> BalanceScreen(onBack = { screen = Screen.Home }, onOrders = { screen = Screen.Orders })
-                        Screen.Orders -> OrderHistoryScreen { screen = Screen.Home }
+                        Screen.Balance -> AccountScreen(onBack = { screen = Screen.Home }, initialTab = ACCOUNT_BALANCE)
+                        Screen.Orders -> AccountScreen(onBack = { screen = Screen.Home }, initialTab = ACCOUNT_TRIPS)
                         Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Home }, onLocaleChange = { code ->
                             app.session.locale = code
                             // Server xabarlari va xarita nomlari ham shu tilda (ilova scope'ida — ekran qayta yaratilsa ham)

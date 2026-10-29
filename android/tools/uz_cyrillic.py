@@ -78,7 +78,7 @@ def convert(text: str) -> str:
         if idx % 2 == 1:
             out.append(part)
         else:
-            out.append(re.sub(r"[A-Za-z][A-Za-z']*", lambda m: word(m.group(0)), part))
+            out.append(re.sub(r"Wi-Fi|[A-Za-z][A-Za-z']*", lambda m: word(m.group(0)), part))
     return ''.join(out).replace("'", "\\'")
 
 

@@ -298,7 +298,7 @@ fun NameScreen(onSkip: () -> Unit) {
         TileTextField(
             value = name,
             // Ismda raqam va belgilar bo'lmaydi (panel bilan bir xil)
-            onValueChange = { value -> name = value.filter { it.isLetter() || it == ' ' || it in "'ʻʼ‘’`-" }.take(100) },
+            onValueChange = { name = cleanName(it) },
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { save() }),
         )
@@ -403,3 +403,6 @@ private fun CodeCells(code: String, onChange: (String) -> Unit) {
         },
     )
 }
+
+/** Ismda raqam va belgilar bo'lmaydi (panel bilan bir xil) */
+internal fun cleanName(value: String): String = value.filter { it.isLetter() || it == ' ' || it in "'ʻʼ‘’`-" }.take(100)

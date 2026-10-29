@@ -96,4 +96,11 @@
     <string name="name_hint">Ism faqat haydovchiga ko\'rinadi.</string>
     <string name="step_of">%1$d-qadam, %2$d tadan</string>
     <string name="code_digit">%1$d-raqam</string>
+    <string name="name_placeholder">Ismingizni yozing</string>
+    <string name="my_addresses">Manzillarim</string>
+    <string name="add_address">Manzil qo\'shish</string>
+    <string name="settings_app">Ilova</string>
+    <string name="settings_help">Yordam</string>
+    <string name="app_version">Versiya %1$s</string>
+    <string name="settings_call_dispatcher">Dispetcherga qo\'ng\'iroq</string>
 </resources>

@@ -96,4 +96,11 @@
     <string name="name_hint">Имя видит только водитель.</string>
     <string name="step_of">Шаг %1$d из %2$d</string>
     <string name="code_digit">Цифра %1$d</string>
+    <string name="name_placeholder">Укажите имя</string>
+    <string name="my_addresses">Мои адреса</string>
+    <string name="add_address">Добавить адрес</string>
+    <string name="settings_app">Приложение</string>
+    <string name="settings_help">Помощь</string>
+    <string name="app_version">Версия %1$s</string>
+    <string name="settings_call_dispatcher">Позвонить диспетчеру</string>
 </resources>

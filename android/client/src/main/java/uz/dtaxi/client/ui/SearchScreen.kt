@@ -59,7 +59,15 @@ import uz.dtaxi.core.ui.LocalAppColors
  * Manzil qidiruvi (operator panelidagi bilan bir xil baza): bo'sh bo'lsa — saqlangan va ko'p ishlatilgan manzillar.
  */
 @Composable
-fun SearchScreen(target: SearchTarget, near: LatLng?, onPick: (Place) -> Unit, onBack: () -> Unit, onMap: (() -> Unit)? = null) {
+fun SearchScreen(
+    target: SearchTarget,
+    near: LatLng?,
+    onPick: (Place) -> Unit,
+    onBack: () -> Unit,
+    onMap: (() -> Unit)? = null,
+    label: String? = null,
+    showSaved: Boolean = true,
+) {
     val repository = ClientApp.instance.repository
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
@@ -95,7 +103,7 @@ fun SearchScreen(target: SearchTarget, near: LatLng?, onPick: (Place) -> Unit, o
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                label = { Text(stringResource(if (target == SearchTarget.Pickup) R.string.from else R.string.to)) },
+                label = { Text(label ?: stringResource(if (target == SearchTarget.Pickup) R.string.from else R.string.to)) },
                 placeholder = { Text(stringResource(R.string.search_hint)) },
                 singleLine = true,
                 modifier = Modifier.weight(1f).focusRequester(focus),
@@ -108,7 +116,7 @@ fun SearchScreen(target: SearchTarget, near: LatLng?, onPick: (Place) -> Unit, o
                     PlaceRow(title = stringResource(R.string.choose_on_map), subtitle = null, starred = false, icon = Icons.Default.Map, onClick = onMap)
                 }
             }
-            if (query.trim().length < 2 && saved.isNotEmpty()) {
+            if (showSaved && query.trim().length < 2 && saved.isNotEmpty()) {
                 item { SectionLabel(stringResource(R.string.saved_addresses)) }
                 items(saved, key = { "s${it.id}" }) { address ->
                     PlaceRow(
@@ -199,7 +207,7 @@ private fun PlaceRow(
 }
 
 @Composable
-private fun SaveAddressDialog(onSave: (String) -> Unit, onDismiss: () -> Unit) {
+internal fun SaveAddressDialog(onSave: (String) -> Unit, onDismiss: () -> Unit) {
     var label by remember { mutableStateOf("") }
     val home = stringResource(R.string.home)
     val work = stringResource(R.string.work)
@@ -223,4 +231,32 @@ private fun SaveAddressDialog(onSave: (String) -> Unit, onDismiss: () -> Unit) {
         confirmButton = { TextButton(onClick = { onSave(label.trim()) }, enabled = label.isNotBlank()) { Text(stringResource(R.string.save)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
+}
+
+/** Sozlamalardan manzil qo'shish: qidiruvda tanlanadi, nomi beriladi (Uy, Ish...), saqlangach sozlamalarga qaytadi */
+@Composable
+fun AddAddressScreen(near: LatLng?, onDone: () -> Unit) {
+    val repository = ClientApp.instance.repository
+    val scope = rememberCoroutineScope()
+    var picked by remember { mutableStateOf<Place?>(null) }
+    SearchScreen(
+        target = SearchTarget.Pickup,
+        near = near,
+        onPick = { picked = it },
+        onBack = onDone,
+        label = stringResource(R.string.add_address),
+        showSaved = false,
+    )
+    picked?.let { place ->
+        SaveAddressDialog(
+            onSave = { label ->
+                picked = null
+                scope.launch {
+                    repository.saveAddress(label, place)
+                    onDone()
+                }
+            },
+            onDismiss = { picked = null },
+        )
+    }
 }

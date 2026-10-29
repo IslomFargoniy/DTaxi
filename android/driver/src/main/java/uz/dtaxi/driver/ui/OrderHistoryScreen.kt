@@ -99,7 +99,7 @@ private val FinishRed = Color(0xFFE5484D)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OrderHistoryScreen(onBack: () -> Unit) {
+fun OrderHistoryScreen(onBack: () -> Unit, title: String, header: @Composable () -> Unit) {
     val repository = DtaxiApp.instance.repository
     val items = remember { mutableStateListOf<HistoryOrder>() }
     var nextPage by remember { mutableStateOf<Int?>(1) }
@@ -136,13 +136,9 @@ fun OrderHistoryScreen(onBack: () -> Unit) {
         return
     }
 
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.order_history)) }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
-        })
-    }) { padding ->
+    ScreenScaffold(title, onBack, header) { modifier ->
         LazyColumn(
-            Modifier.padding(padding).fillMaxSize(),
+            modifier.fillMaxSize(),
             state = listState,
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),

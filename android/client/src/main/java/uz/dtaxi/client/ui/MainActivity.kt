@@ -42,6 +42,7 @@ private sealed interface Screen {
     data class Search(val target: SearchTarget) : Screen
     data object History : Screen
     data object Settings : Screen
+    data object AddAddress : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -210,7 +211,17 @@ private fun Root(dark: Boolean, onLocaleChange: (String) -> Unit, onThemeChange:
                                 screen = Screen.Home
                             },
                         )
-                        Screen.Settings -> SettingsScreen(current, onLocaleChange, onThemeChange, onBack = { screen = Screen.Home })
+                        Screen.Settings -> SettingsScreen(
+                            current,
+                            onLocaleChange,
+                            onThemeChange,
+                            onAddAddress = { screen = Screen.AddAddress },
+                            onBack = { screen = Screen.Home },
+                        )
+                        Screen.AddAddress -> AddAddressScreen(
+                            near = draft.pickup?.let { LatLng(it.lat, it.lng) } ?: current.config.mapCenter,
+                            onDone = { screen = Screen.Settings },
+                        )
                     }
                 }
             }
