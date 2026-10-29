@@ -558,7 +558,7 @@ export function OrderForm({
             )}
 
             {/* Telefon (davlat kodi bilan) kengroq — ism qisqa */}
-            <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start gap-2">
+            <div className="grid grid-cols-[minmax(0,5fr)_minmax(0,4fr)] items-start gap-2">
                 <div className="grid min-w-0 gap-1.5">
                     <Label htmlFor="phone">{t('Phone')}</Label>
                     <PhoneInput
