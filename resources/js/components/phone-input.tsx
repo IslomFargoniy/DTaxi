@@ -287,11 +287,11 @@ function CountryPicker({
                 type="button"
                 disabled={disabled}
                 aria-label={t('Country code')}
-                className="flex shrink-0 items-center gap-1.5 rounded-l-md pr-1 pl-3 text-base tabular-nums outline-none hover:bg-accent focus-visible:bg-accent md:text-sm"
+                className="flex shrink-0 items-center gap-1 rounded-l-md pr-0.5 pl-2.5 text-base tabular-nums outline-none hover:bg-accent focus-visible:bg-accent md:text-sm"
             >
                 <Flag country={country} />
                 <span>+{callingCode(country)}</span>
-                <ChevronDown className="size-3.5 text-muted-foreground" />
+                <ChevronDown className="size-3 text-muted-foreground" />
             </PopoverTrigger>
             <PopoverContent className="w-72 p-0">
                 <div className="border-b p-2">

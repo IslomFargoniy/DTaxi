@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
+import android.view.Gravity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.platform.LocalContext
@@ -158,8 +159,10 @@ fun ClientMap(
             mapView.also { view ->
                 view.getMapAsync { map ->
                     controller.map = map
-                    map.uiSettings.isRotateGesturesEnabled = false
-                    map.uiSettings.isCompassEnabled = false
+                    // Ikki barmoq bilan aylantirish; burilganda kompas chiqadi (bosilsa — shimol tepada)
+                    map.uiSettings.isRotateGesturesEnabled = true
+                    map.uiSettings.isCompassEnabled = true
+                    map.uiSettings.compassGravity = Gravity.TOP or Gravity.END
                     map.uiSettings.isAttributionEnabled = true
                     // Undan yaqinda xarita fayllari yo'q — bo'sh kulrang ekran ko'rinardi
                     map.setMaxZoomPreference(19.0)
@@ -204,6 +207,8 @@ fun ClientMap(
     LaunchedEffect(controller.top, controller.bottom) {
         val map = controller.map ?: return@LaunchedEffect
         map.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(map.cameraPosition).padding(0.0, controller.top, 0.0, controller.bottom).build()))
+        val margin = (16 * mapView.resources.displayMetrics.density).toInt()
+        map.uiSettings.setCompassMargins(0, controller.top.toInt() + margin, margin, 0)
     }
 
     LaunchedEffect(styleUrl) {

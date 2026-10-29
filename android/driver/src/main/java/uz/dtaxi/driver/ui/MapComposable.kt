@@ -18,6 +18,7 @@ import uz.dtaxi.driver.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.LocalDensity
+import android.view.Gravity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.runtime.setValue
@@ -132,8 +133,10 @@ fun TaxiMap(
         mapView.also { view ->
             view.getMapAsync { map ->
                 holder[0] = map
-                map.uiSettings.isRotateGesturesEnabled = false
-                map.uiSettings.isCompassEnabled = false
+                // Ikki barmoq bilan aylantirish; burilganda kompas chiqadi (bosilsa — shimol tepada)
+                map.uiSettings.isRotateGesturesEnabled = true
+                map.uiSettings.isCompassEnabled = true
+                map.uiSettings.compassGravity = Gravity.TOP or Gravity.END
                 // Undan yaqinda xarita fayllari yo'q — bo'sh kulrang ekran ko'rinardi
                 map.setMaxZoomPreference(19.0)
                 map.addOnCameraMoveStartedListener { reason ->
@@ -206,6 +209,12 @@ fun TaxiMap(
                 styleVersion++
             }
         }
+    }
+
+    // Kompas yuqori panel ostida
+    LaunchedEffect(topPx, styleVersion) {
+        val margin = with(density) { 16.dp.roundToPx() }
+        holder[0]?.uiSettings?.setCompassMargins(0, topPx.toInt() + margin, margin, 0)
     }
 
     LaunchedEffect(me, pickup, dropoff, route, recenter, stops, navigating, bearing, topPx, bottomPx, styleVersion) {
