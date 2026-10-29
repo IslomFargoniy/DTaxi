@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- values/strings.xml dan yasalgan: python3 android/tools/uz_cyrillic.py -->
+<resources>
+    <string name="phone_country">Давлат: %1$s, +%2$d. Ўзгартириш</string>
+    <string name="choose_country">Давлатни танланг</string>
+    <string name="search_country">Давлат номи ёки коди</string>
+    <string name="nearby_countries">Яқин давлатлар</string>
+    <string name="all_countries">Барча давлатлар</string>
+    <string name="close_sheet">Ёпиш</string>
+    <string name="nothing_found_country">Ҳеч нарса топилмади</string>
+    <string name="language_label">Тил: %1$s</string>
+</resources>

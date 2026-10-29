@@ -27,6 +27,9 @@ android {
         // Faqat lokal sinov ilovasi: server manzili login ekranida o'zgartiriladi (Mac IP'si har Wi-Fi'da boshqa)
         buildConfigField("boolean", "SERVER_EDITABLE", firmProp("serverEditable", "false"))
         buildConfigField("String", "PRIMARY_COLOR", "\"${firmProp("primaryColor", "#FFC800")}\"")
+        // Kirish ekrani: kodsiz raqam davlati (SIM aniqlanmasa) va "Parolni unutdingizmi?" uchun dispetcher raqami
+        buildConfigField("String", "PHONE_COUNTRY", "\"${firmProp("phoneCountry", "UZ")}\"")
+        buildConfigField("String", "DISPATCHER_PHONE", "\"${firmProp("dispatcherPhone")}\"")
         buildConfigField("String", "FIREBASE_PROJECT_ID", "\"${firmProp("firebaseProjectId")}\"")
         buildConfigField("String", "FIREBASE_APPLICATION_ID", "\"${firmProp("firebaseApplicationId")}\"")
         buildConfigField("String", "FIREBASE_API_KEY", "\"${firmProp("firebaseApiKey")}\"")

@@ -7,48 +7,8 @@ import java.util.Locale
  * va server (Client::normalizePhone, Vehicle::formatPlate) bilan bir xil qoidalar.
  */
 object Formats {
-    /** O'zbekiston raqamining milliy qismi (operator kodi + 7 raqam) */
-    const val PHONE_NATIONAL_LENGTH = 9
-
-    /** "+998 90 123-45-67", "998901234567", "8 90 123 45 67" → "901234567" */
-    fun phoneNational(raw: String): String {
-        var digits = raw.filter(Char::isDigit)
-        if (digits.startsWith("00")) digits = digits.drop(2)
-        if (digits.startsWith("998") && digits.length > PHONE_NATIONAL_LENGTH) {
-            digits = digits.drop(3)
-        } else if (digits.startsWith("8") && digits.length == PHONE_NATIONAL_LENGTH + 1) {
-            // Eski "8 90 ..." yozuvi
-            digits = digits.drop(1)
-        }
-        return digits.take(PHONE_NATIONAL_LENGTH)
-    }
-
-    /**
-     * Kiritish maydoni uchun: yozilgan raqamlar (to'liq raqam joylansa yoki
-     * avtoto'ldirilsa — milliy qismi) — ko'pi bilan 9 ta raqam.
-     */
-    fun phoneInput(raw: String): String {
-        val digits = raw.filter(Char::isDigit)
-        return if (raw.contains('+') || digits.length > PHONE_NATIONAL_LENGTH + 1) {
-            phoneNational(raw)
-        } else {
-            digits.take(PHONE_NATIONAL_LENGTH)
-        }
-    }
-
-    /** "901234567" → "90 123 45 67" (yozish davomida qisman ham) */
-    fun formatPhoneNational(national: String): String =
-        listOf(0..1, 2..4, 5..6, 7..8)
-            .mapNotNull { range -> national.substring(minOf(range.first, national.length), minOf(range.last + 1, national.length)).ifEmpty { null } }
-            .joinToString(" ")
-
-    /** "+998901234567" → "+998 90 123 45 67"; boshqa raqamlar o'zgarishsiz */
-    fun formatPhone(value: String?): String {
-        if (value.isNullOrBlank()) return ""
-        val digits = value.filter(Char::isDigit)
-        val uz = (digits.length == 12 && digits.startsWith("998")) || digits.length == PHONE_NATIONAL_LENGTH
-        return if (uz) "+998 " + formatPhoneNational(digits.takeLast(PHONE_NATIONAL_LENGTH)) else value
-    }
+    /** "+998901234567" → "+998 90 123 45 67", "+79123456789" → "+7 912 345 67 89"; boshqa qiymatlar o'zgarishsiz */
+    fun formatPhone(value: String?): String = Phones.format(value)
 
     /** 25000 → "25 000" (qurilma tilidan qat'i nazar bir xil) */
     fun formatMoney(value: Long?): String = value?.let { String.format(Locale.ROOT, "%,d", it).replace(',', ' ') } ?: "—"

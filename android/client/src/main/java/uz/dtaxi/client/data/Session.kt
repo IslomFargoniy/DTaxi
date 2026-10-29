@@ -31,6 +31,11 @@ class Session(context: Context) {
         get() = prefs.getInt("active_order_id", 0).takeIf { it > 0 }
         set(value) = prefs.edit().putInt("active_order_id", value ?: 0).apply()
 
+    /** Kirishdagi ism qadamida "Keyinroq" bosilgan — har ochilishda qayta so'ralmaydi */
+    var nameSkipped: Boolean
+        get() = prefs.getBoolean("name_skipped", false)
+        set(value) = prefs.edit().putBoolean("name_skipped", value).apply()
+
     /** "Keyinroq" bosilgan safarlar — server har ochilishda to_rate qaytaradi, oyna qayta chiqmasin */
     fun isRatingDismissed(orderId: Int): Boolean = orderId in dismissedRatings()
 
@@ -43,5 +48,5 @@ class Session(context: Context) {
     private fun dismissedRatings(): LinkedHashSet<Int> =
         prefs.getString("dismissed_ratings", null).orEmpty().split(',').mapNotNullTo(LinkedHashSet()) { it.toIntOrNull() }
 
-    fun clear() = prefs.edit().remove("token").remove("active_order_id").apply()
+    fun clear() = prefs.edit().remove("token").remove("active_order_id").remove("name_skipped").apply()
 }

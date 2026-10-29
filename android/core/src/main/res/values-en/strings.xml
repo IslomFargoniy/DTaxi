@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="phone_country">Country: %1$s, +%2$d. Change</string>
+    <string name="choose_country">Choose a country</string>
+    <string name="search_country">Country name or code</string>
+    <string name="nearby_countries">Nearby countries</string>
+    <string name="all_countries">All countries</string>
+    <string name="close_sheet">Close</string>
+    <string name="nothing_found_country">Nothing found</string>
+    <string name="language_label">Language: %1$s</string>
+</resources>

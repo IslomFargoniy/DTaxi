@@ -34,6 +34,7 @@ dependencies {
     api(libs.androidx.security.crypto)
     api(libs.okhttp)
     api(libs.pusher)
+    api(libs.libphonenumber)
     implementation(libs.okhttp.logging)
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)

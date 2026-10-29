@@ -26,6 +26,7 @@ android {
         resValue("string", "app_name", firm.prop("clientAppName").ifBlank { firm.prop("appName", "DTaxi") })
         buildConfigField("String", "SERVER_URL", "\"${firm.prop("serverUrl").trimEnd('/')}\"")
         buildConfigField("String", "PRIMARY_COLOR", "\"${firm.prop("primaryColor", "#FFC800")}\"")
+        buildConfigField("String", "PHONE_COUNTRY", "\"${firm.prop("phoneCountry", "UZ")}\"")
         // Firebase — firmaning o'sha loyihasi, mijoz ilovasi alohida Android ilova sifatida qo'shiladi; bo'sh — push o'chiq
         buildConfigField("String", "FIREBASE_PROJECT_ID", "\"${firm.prop("firebaseProjectId")}\"")
         buildConfigField("String", "FIREBASE_APPLICATION_ID", "\"${firm.prop("clientFirebaseApplicationId")}\"")

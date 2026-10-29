@@ -143,6 +143,7 @@ private fun Root(dark: Boolean, onLocaleChange: (String) -> Unit, onThemeChange:
         }
     }
 
+    var nameSkipped by remember { mutableStateOf(ClientApp.instance.session.nameSkipped) }
     val current = profile
     when {
         loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -150,7 +151,10 @@ private fun Root(dark: Boolean, onLocaleChange: (String) -> Unit, onThemeChange:
             Button(onClick = { attempt++ }) { Text(stringResource(R.string.network_error)) }
         }
         current == null -> LoginScreen(onLocaleChange)
-        current.needsName -> NameScreen()
+        current.needsName && !nameSkipped -> NameScreen(onSkip = {
+            ClientApp.instance.session.nameSkipped = true
+            nameSkipped = true
+        })
         // Bosh ekran doim chizilgan — qidiruv/tarix/sozlamalar ustidan ochiladi: xarita va tanlangan nuqta saqlanadi
         else -> Box(Modifier.fillMaxSize()) {
             HomeScreen(

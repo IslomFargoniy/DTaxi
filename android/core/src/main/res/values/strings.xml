@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="phone_country">Davlat: %1$s, +%2$d. O\'zgartirish</string>
+    <string name="choose_country">Davlatni tanlang</string>
+    <string name="search_country">Davlat nomi yoki kodi</string>
+    <string name="nearby_countries">Yaqin davlatlar</string>
+    <string name="all_countries">Barcha davlatlar</string>
+    <string name="close_sheet">Yopish</string>
+    <string name="nothing_found_country">Hech narsa topilmadi</string>
+    <string name="language_label">Til: %1$s</string>
+</resources>

@@ -86,4 +86,15 @@
     <string name="call_dispatcher">Диспетчерга</string>
     <string name="call_failed">Қўнғироқ очилмади. Интернетни текширинг.</string>
     <string name="mic_permission_needed">Қўнғироқ учун микрофонга рухсат беринг</string>
+    <string name="phone_title">Телефон рақамингиз</string>
+    <string name="phone_hint">Шу рақамга қўнғироқ қилиб, 4 хонали кодни айтамиз. SMS кутиш шарт эмас.</string>
+    <string name="privacy_consent">Давом этиб, махфийлик сиёсатига розилик билдирасиз</string>
+    <string name="enter_code">Кодни киритинг</string>
+    <string name="calling_number">Ҳозир %1$s рақамига қўнғироқ қиламиз — робот 4 хонали кодни айтади.</string>
+    <string name="calling">Қўнғироқ қилинмоқда…</string>
+    <string name="calling_hint">Жавоб беринг, айтилган кодни шу ерга ёзинг</string>
+    <string name="resend_after">Қайта қўнғироқ %1$s дан кейин</string>
+    <string name="name_hint">Исм фақат ҳайдовчига кўринади.</string>
+    <string name="step_of">%1$d-қадам, %2$d тадан</string>
+    <string name="code_digit">%1$d-рақам</string>
 </resources>

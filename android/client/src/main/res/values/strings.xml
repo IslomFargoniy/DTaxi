@@ -85,4 +85,15 @@
     <string name="call_dispatcher">Dispetcherga</string>
     <string name="call_failed">Qo\'ng\'iroq ochilmadi. Internetni tekshiring.</string>
     <string name="mic_permission_needed">Qo\'ng\'iroq uchun mikrofonga ruxsat bering</string>
+    <string name="phone_title">Telefon raqamingiz</string>
+    <string name="phone_hint">Shu raqamga qo\'ng\'iroq qilib, 4 xonali kodni aytamiz. SMS kutish shart emas.</string>
+    <string name="privacy_consent">Davom etib, maxfiylik siyosatiga rozilik bildirasiz</string>
+    <string name="enter_code">Kodni kiriting</string>
+    <string name="calling_number">Hozir %1$s raqamiga qo\'ng\'iroq qilamiz — robot 4 xonali kodni aytadi.</string>
+    <string name="calling">Qo\'ng\'iroq qilinmoqda…</string>
+    <string name="calling_hint">Javob bering, aytilgan kodni shu yerga yozing</string>
+    <string name="resend_after">Qayta qo\'ng\'iroq %1$s dan keyin</string>
+    <string name="name_hint">Ism faqat haydovchiga ko\'rinadi.</string>
+    <string name="step_of">%1$d-qadam, %2$d tadan</string>
+    <string name="code_digit">%1$d-raqam</string>
 </resources>

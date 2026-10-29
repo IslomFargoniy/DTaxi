@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="phone_country">Страна: %1$s, +%2$d. Изменить</string>
+    <string name="choose_country">Выберите страну</string>
+    <string name="search_country">Название страны или код</string>
+    <string name="nearby_countries">Соседние страны</string>
+    <string name="all_countries">Все страны</string>
+    <string name="close_sheet">Закрыть</string>
+    <string name="nothing_found_country">Ничего не найдено</string>
+    <string name="language_label">Язык: %1$s</string>
+</resources>

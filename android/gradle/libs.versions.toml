@@ -15,6 +15,7 @@ pusher = "2.4.4"
 playServicesLocation = "21.3.0"
 firebaseBom = "33.16.0"
 junit = "4.13.2"
+libphonenumber = "8.13.52"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -42,6 +43,7 @@ pusher = { group = "com.pusher", name = "pusher-java-client", version.ref = "pus
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+libphonenumber = { group = "com.googlecode.libphonenumber", name = "libphonenumber", version.ref = "libphonenumber" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 
 [plugins]

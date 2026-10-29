@@ -85,4 +85,15 @@
     <string name="call_dispatcher">Диспетчеру</string>
     <string name="call_failed">Не удалось начать звонок. Проверьте интернет.</string>
     <string name="mic_permission_needed">Разрешите доступ к микрофону для звонка</string>
+    <string name="phone_title">Ваш номер телефона</string>
+    <string name="phone_hint">Позвоним на этот номер и продиктуем 4-значный код. Ждать SMS не нужно.</string>
+    <string name="privacy_consent">Продолжая, вы соглашаетесь с политикой конфиденциальности</string>
+    <string name="enter_code">Введите код</string>
+    <string name="calling_number">Сейчас позвоним на %1$s — робот продиктует 4-значный код.</string>
+    <string name="calling">Звоним…</string>
+    <string name="calling_hint">Ответьте и введите названный код здесь</string>
+    <string name="resend_after">Повторный звонок через %1$s</string>
+    <string name="name_hint">Имя видит только водитель.</string>
+    <string name="step_of">Шаг %1$d из %2$d</string>
+    <string name="code_digit">Цифра %1$d</string>
 </resources>

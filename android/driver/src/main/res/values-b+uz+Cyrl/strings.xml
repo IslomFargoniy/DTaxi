@@ -179,4 +179,9 @@
     <string name="notifications_denied_text">Билдиришномаларга рухсат йўқ — илова фонда бўлганда янги буюртма ва диспетчер қўнғироғи билинмайди. Созламаларда билдиришномаларни ёқинг.</string>
     <string name="full_screen_denied_title">Қулфланган экранда буюртма кўринмайди</string>
     <string name="full_screen_denied_text">Илова қулфланган экранда буюртма ва қўнғироқни тўлиқ экранда кўрсата олмайди. Созламаларда \"Тўлиқ экранли билдиришномалар\" рухсатини ёқинг.</string>
+    <string name="driver_app">Ҳайдовчи иловаси</string>
+    <string name="login_subtitle">Телефон рақамингиз ва диспетчер берган парол</string>
+    <string name="password_placeholder">Паролни киритинг</string>
+    <string name="forgot_password">Паролни унутдингизми?</string>
+    <string name="ask_dispatcher">Паролни диспетчердан сўранг</string>
 </resources>
