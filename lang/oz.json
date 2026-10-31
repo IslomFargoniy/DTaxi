@@ -363,7 +363,6 @@
     "Category": "Категория",
     "Channels": "Каналлар",
     "Clips for client voice messages and the IVR. Listen to every clip after generating.": "Мижозга овозли хабарлар ва IVR учун бўлаклар. Генератсиядан кейин ҳар бирини эшитиб текширинг.",
-    "Code (latin)": "Код (лотин)",
     "Colors": "Ранглар",
     "Connected": "Уланган",
     "Delete?": "Ўчирилсинми?",
@@ -372,7 +371,6 @@
     "Edit SIP trunk": "SIP трункни таҳрирлаш",
     "Edit phone number": "Рақамни таҳрирлаш",
     "Failed": "Хато",
-    "From user (if the provider requires)": "Фром усер (провайдер талаб қилса)",
     "Generate": "Генератсия",
     "Generate missing": "Етишмаётганларни генератсия",
     "Greetings": "Саломлашувлар",
@@ -791,5 +789,9 @@
     "You are already on a call.": "Сизда қўнғироқ давом этмоқда.",
     "The driver can be called only during an active trip.": "Ҳайдовчига фақат фаол буюртма давомида қўнғироқ қилиш мумкин.",
     "The dispatcher is not available now.": "Диспетчер ҳозир ишламаяпти.",
-    "Calls from the client app over the internet (to the driver and dispatcher)": "Мижоз иловасидан интернет орқали қўнғироқ (ҳайдовчи ва диспетчерга)"
+    "Calls from the client app over the internet (to the driver and dispatcher)": "Мижоз иловасидан интернет орқали қўнғироқ (ҳайдовчи ва диспетчерга)",
+    "Host/IP": "Ҳост/IP",
+    "Username": "Логин",
+    "DID (number)": "DID (рақам)",
+    "Transport": "Транспорт"
 }

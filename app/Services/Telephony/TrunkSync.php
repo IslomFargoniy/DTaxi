@@ -70,17 +70,22 @@ class TrunkSync
                 // Faqat IP bo'yicha: endpoint_identifier_order'da "username" ham bor — aks holda /ws (127.0.0.1 dan)
                 // orqali "From: trunk-<nom>" yuborgan har kim parolsiz trunk deb tanilardi (firewall chetlab o'tiladi)
                 'identify_by' => 'ip',
+                // Media parametrlari panel.1call.uz bilan bir xil (Sarkor bilan sinalgan)
                 'disallow' => 'all',
-                'allow' => 'alaw,ulaw',
+                'allow' => 'alaw,ulaw,gsm,g722',
                 'direct_media' => 'no',
-                'dtmf_mode' => 'auto',
+                'dtmf_mode' => 'inband',
                 'outbound_auth' => $registered ? "auth-{$id}" : null,
+                // from_user — DID (raqam), bo'lmasa login
                 'from_user' => $trunk->from_user ?: $trunk->username,
                 'from_domain' => $trunk->host,
-                'rewrite_contact' => 'yes',
+                'rewrite_contact' => $registered ? 'yes' : 'no',
                 'force_rport' => 'yes',
                 'rtp_symmetric' => 'yes',
-                'rtp_timeout' => 60,
+                '100rel' => 'no',
+                'rtp_keepalive' => 5,
+                'rtp_timeout' => 30,
+                'rtp_timeout_hold' => 60,
             ]);
         });
     }

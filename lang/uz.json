@@ -363,7 +363,6 @@
     "Category": "Kategoriya",
     "Channels": "Kanallar",
     "Clips for client voice messages and the IVR. Listen to every clip after generating.": "Mijozga ovozli xabarlar va IVR uchun bo'laklar. Generatsiyadan keyin har birini eshitib tekshiring.",
-    "Code (latin)": "Kod (lotin)",
     "Colors": "Ranglar",
     "Connected": "Ulangan",
     "Delete?": "O'chirilsinmi?",
@@ -372,7 +371,6 @@
     "Edit SIP trunk": "SIP trunkni tahrirlash",
     "Edit phone number": "Raqamni tahrirlash",
     "Failed": "Xato",
-    "From user (if the provider requires)": "From user (provayder talab qilsa)",
     "Generate": "Generatsiya",
     "Generate missing": "Yetishmayotganlarni generatsiya",
     "Greetings": "Salomlashuvlar",
@@ -791,5 +789,9 @@
     "You are already on a call.": "Sizda qo'ng'iroq davom etmoqda.",
     "The driver can be called only during an active trip.": "Haydovchiga faqat faol buyurtma davomida qo'ng'iroq qilish mumkin.",
     "The dispatcher is not available now.": "Dispetcher hozir ishlamayapti.",
-    "Calls from the client app over the internet (to the driver and dispatcher)": "Mijoz ilovasidan internet orqali qo'ng'iroq (haydovchi va dispetcherga)"
+    "Calls from the client app over the internet (to the driver and dispatcher)": "Mijoz ilovasidan internet orqali qo'ng'iroq (haydovchi va dispetcherga)",
+    "Host/IP": "Host/IP",
+    "Username": "Login",
+    "DID (number)": "DID (raqam)",
+    "Transport": "Transport"
 }

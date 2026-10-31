@@ -11,6 +11,7 @@ use App\Support\Settings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -49,7 +50,7 @@ class TelephonyController extends Controller
 
         return Inertia::render('admin/telephony', [
             'trunks' => SipTrunk::query()->orderBy('id')->get()->map(fn (SipTrunk $t) => [
-                ...$t->only(['id', 'name', 'title', 'host', 'port', 'username', 'from_user', 'max_channels', 'max_inbound', 'max_outbound', 'is_active']),
+                ...$t->only(['id', 'name', 'title', 'host', 'port', 'transport', 'username', 'from_user', 'max_channels', 'max_inbound', 'max_outbound', 'is_active']),
                 'has_password' => (bool) $t->password,
                 'state' => $states[$t->endpoint()] ?? null,
             ]),
@@ -69,14 +70,16 @@ class TelephonyController extends Controller
 
     public function storeTrunk(Request $request): RedirectResponse
     {
-        SipTrunk::query()->create($this->trunkData($request));
+        $data = $this->trunkData($request);
+        // Panelda faqat nom (panel.1call.uz kabi); Asterisk endpoint kodi undan bir marta yasaladi va o'zgarmaydi
+        SipTrunk::query()->create([...$data, 'name' => $this->trunkCode($data['title'])]);
 
         return back();
     }
 
     public function updateTrunk(Request $request, SipTrunk $trunk): RedirectResponse
     {
-        $data = $this->trunkData($request, $trunk);
+        $data = $this->trunkData($request);
         // Parol bo'sh qoldirilsa — eskisi saqlanadi
         if (($data['password'] ?? '') === '') {
             unset($data['password']);
@@ -167,13 +170,13 @@ class TelephonyController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function trunkData(Request $request, ?SipTrunk $trunk = null): array
+    private function trunkData(Request $request): array
     {
         return $request->validate([
-            'name' => ['required', 'string', 'max:32', 'regex:/^[a-z0-9_-]+$/', Rule::unique('sip_trunks', 'name')->ignore($trunk)],
             'title' => ['required', 'string', 'max:100'],
             'host' => ['required', 'string', 'max:255'],
             'port' => ['required', 'integer', 'min:1', 'max:65535'],
+            'transport' => ['required', Rule::in(['transport-udp', 'transport-tcp'])],
             'username' => ['nullable', 'string', 'max:100'],
             'password' => ['nullable', 'string', 'max:255'],
             'from_user' => ['nullable', 'string', 'max:100'],
@@ -182,6 +185,18 @@ class TelephonyController extends Controller
             'max_outbound' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'is_active' => ['boolean'],
         ]);
+    }
+
+    /** "Sarkor" → "sarkor", band bo'lsa "sarkor-2" (endpoint: trunk-sarkor) */
+    private function trunkCode(string $title): string
+    {
+        $base = Str::limit(Str::slug($title), 24, '') ?: 'sip';
+        $code = $base;
+        for ($i = 2; SipTrunk::query()->where('name', $code)->exists(); $i++) {
+            $code = "{$base}-{$i}";
+        }
+
+        return $code;
     }
 
     /**

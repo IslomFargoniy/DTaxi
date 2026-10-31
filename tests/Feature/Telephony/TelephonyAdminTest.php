@@ -33,7 +33,7 @@ beforeEach(function () {
 
 test('superadmin adds a SIP trunk and it is written to Asterisk realtime', function () {
     $this->actingAs($this->superadmin)->post(route('admin.telephony.trunks.store'), [
-        'name' => 'sarkor', 'title' => 'Sarkor', 'host' => '10.0.0.5', 'port' => 5060,
+        'title' => 'Sarkor', 'host' => '10.0.0.5', 'port' => 5060, 'transport' => 'transport-udp',
         'username' => '712000000', 'password' => 'secret', 'max_channels' => 4, 'is_active' => true,
     ])->assertRedirect();
 
@@ -45,6 +45,29 @@ test('superadmin adds a SIP trunk and it is written to Asterisk realtime', funct
 
     $this->actingAs($this->superadmin)->get(route('admin.telephony.index'))->assertOk()
         ->assertInertia(fn ($page) => $page->component('admin/telephony')->where('trunks.0.state', 'online')->where('trunks.0.has_password', true));
+});
+
+test('trunk is added with just a name like in panel.1call.uz: the Asterisk code is derived from it', function () {
+    $data = ['host' => 'bell.uz', 'port' => 5060, 'transport' => 'transport-tcp', 'username' => '998785551055',
+        'password' => 'secret', 'from_user' => '998785551055', 'max_channels' => 5, 'is_active' => true];
+
+    $post = fn (string $title) => $this->actingAs($this->superadmin)
+        ->post(route('admin.telephony.trunks.store'), ['title' => $title, ...$data])->assertSessionHasNoErrors();
+    $post('Sarkor');
+    $post('Sarkor');
+
+    expect(SipTrunk::query()->orderBy('id')->pluck('name')->all())->toBe(['sarkor', 'sarkor-2']);
+    $endpoint = PsEndpoint::query()->findOrFail('trunk-sarkor');
+    expect($endpoint->transport)->toBe('transport-tcp')
+        ->and($endpoint->from_user)->toBe('998785551055')
+        ->and($endpoint->allow)->toBe('alaw,ulaw,gsm,g722')
+        ->and($endpoint->dtmf_mode)->toBe('inband');
+
+    // Nom o'zgarsa ham Asterisk kodi o'zgarmaydi (raqamlar va qo'ng'iroqlar shu endpointga bog'liq)
+    $trunk = SipTrunk::query()->where('name', 'sarkor')->sole();
+    $this->actingAs($this->superadmin)->put(route('admin.telephony.trunks.update', $trunk), ['title' => 'Sarkor Telecom', ...$data])
+        ->assertSessionHasNoErrors();
+    expect($trunk->refresh()->name)->toBe('sarkor')->and($trunk->title)->toBe('Sarkor Telecom');
 });
 
 test('superadmin links a number to branches with IVR digits', function () {

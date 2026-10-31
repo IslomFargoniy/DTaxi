@@ -363,7 +363,6 @@
     "Category": "Категория",
     "Channels": "Каналы",
     "Clips for client voice messages and the IVR. Listen to every clip after generating.": "Фрагменты для голосовых сообщений клиентам и IVR. После генерации прослушайте каждый.",
-    "Code (latin)": "Код (латиница)",
     "Colors": "Цвета",
     "Connected": "Подключён",
     "Delete?": "Удалить?",
@@ -372,7 +371,6 @@
     "Edit SIP trunk": "Редактировать SIP-транк",
     "Edit phone number": "Редактировать номер",
     "Failed": "Ошибка",
-    "From user (if the provider requires)": "From user (если требует провайдер)",
     "Generate": "Сгенерировать",
     "Generate missing": "Сгенерировать недостающие",
     "Greetings": "Приветствия",
@@ -791,5 +789,9 @@
     "You are already on a call.": "У вас уже идёт звонок.",
     "The driver can be called only during an active trip.": "Позвонить водителю можно только во время активного заказа.",
     "The dispatcher is not available now.": "Диспетчер сейчас не работает.",
-    "Calls from the client app over the internet (to the driver and dispatcher)": "Звонки из клиентского приложения через интернет (водителю и диспетчеру)"
+    "Calls from the client app over the internet (to the driver and dispatcher)": "Звонки из клиентского приложения через интернет (водителю и диспетчеру)",
+    "Host/IP": "Хост/IP",
+    "Username": "Логин",
+    "DID (number)": "DID (номер)",
+    "Transport": "Транспорт"
 }

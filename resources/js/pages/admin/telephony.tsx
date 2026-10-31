@@ -23,6 +23,7 @@ type Trunk = {
     title: string;
     host: string;
     port: number;
+    transport: 'transport-udp' | 'transport-tcp';
     username: string | null;
     from_user: string | null;
     max_channels: number;
@@ -116,10 +117,10 @@ function TrunkDialog({
     const { t } = useTrans();
     const existing = trunk === 'new' ? null : trunk;
     const form = useForm({
-        name: existing?.name ?? '',
         title: existing?.title ?? '',
         host: existing?.host ?? '',
         port: existing?.port ?? 5060,
+        transport: existing?.transport ?? 'transport-udp',
         username: existing?.username ?? '',
         password: '',
         from_user: existing?.from_user ?? '',
@@ -129,9 +130,7 @@ function TrunkDialog({
         is_active: existing?.is_active ?? true,
     });
     const e = form.errors as Record<string, string>;
-    const text = (
-        key: 'name' | 'title' | 'host' | 'username' | 'from_user',
-    ) => (
+    const text = (key: 'title' | 'host' | 'username' | 'from_user') => (
         <Input
             autoComplete="off"
             maxLength={key === 'host' ? 255 : 100}
@@ -185,16 +184,12 @@ function TrunkDialog({
                       })
             }
         >
+            {/* Maydonlar panel.1call.uz trunk formasi bilan bir xil; Asterisk kodi nomdan o'zi yasaladi */}
+            <Field label="Name" error={e.title}>
+                {text('title')}
+            </Field>
             <div className="grid grid-cols-2 items-start gap-2">
-                <Field label="Code (latin)" error={e.name}>
-                    {text('name')}
-                </Field>
-                <Field label="Name" error={e.title}>
-                    {text('title')}
-                </Field>
-            </div>
-            <div className="grid grid-cols-[minmax(0,1fr)_100px] items-start gap-2">
-                <Field label="SIP host" error={e.host}>
+                <Field label="Host/IP" error={e.host}>
                     {text('host')}
                 </Field>
                 <Field label="Port" error={e.port}>
@@ -202,7 +197,7 @@ function TrunkDialog({
                 </Field>
             </div>
             <div className="grid grid-cols-2 items-start gap-2">
-                <Field label="Login" error={e.username}>
+                <Field label="Username" error={e.username}>
                     {text('username')}
                 </Field>
                 <Field label="Password" error={e.password}>
@@ -217,12 +212,26 @@ function TrunkDialog({
                     />
                 </Field>
             </div>
-            <Field
-                label="From user (if the provider requires)"
-                error={e.from_user}
-            >
-                {text('from_user')}
-            </Field>
+            <div className="grid grid-cols-2 items-start gap-2">
+                <Field label="DID (number)" error={e.from_user}>
+                    {text('from_user')}
+                </Field>
+                <Field label="Transport" error={e.transport}>
+                    <select
+                        className="h-9 rounded-md border bg-transparent px-2 text-sm"
+                        value={form.data.transport}
+                        onChange={(ev) =>
+                            form.setData(
+                                'transport',
+                                ev.target.value as Trunk['transport'],
+                            )
+                        }
+                    >
+                        <option value="transport-udp">UDP</option>
+                        <option value="transport-tcp">TCP</option>
+                    </select>
+                </Field>
+            </div>
             <div className="grid grid-cols-3 items-start gap-2">
                 <Field label="Channels" error={e.max_channels}>
                     {num('max_channels')}

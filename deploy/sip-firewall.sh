@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SIP (5060/udp) faqat firma trunk'lari IP'lariga ochiq — internetdagi SIP skanerlar parol tanlay olmaydi.
+# SIP (5060 udp/tcp) faqat firma trunk'lari IP'lariga ochiq — internetdagi SIP skanerlar parol tanlay olmaydi.
 # Operator va haydovchilar WSS (443) orqali ulanadi, ularga 5060 kerak emas.
 # install.sh --prod cron'ga qo'yadi (har 5 daqiqada); trunk panelda o'zgarsa qoidalar o'zi yangilanadi.
 set -euo pipefail
@@ -8,7 +8,8 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 APP_DIR="${APP_DIR:-/var/www/dtaxi}"
 APP_USER="${APP_USER:-www-data}"
-STATE=/var/lib/dtaxi/sip-ips
+# .tcp — TCP qoidalari qo'shilgach: eski serverlarda IP'lar o'zgarmasa ham qoidalar bir marta qayta yoziladi
+STATE=/var/lib/dtaxi/sip-ips.tcp
 
 mkdir -p "$(dirname "$STATE")"
 # Baza yoki kod vaqtincha ishlamasa (yangilanish paytida) yoki trunk host nomi DNS'da topilmasa (buyruq xato kodi
@@ -29,6 +30,8 @@ done < <(ufw status numbered | grep 'dtaxi-sip' | sed -E 's/^\[ *([0-9]+)\].*/\1
 
 for ip in $WANT; do
     ufw allow from "$ip" to any port 5060 proto udp comment 'dtaxi-sip' >/dev/null
+    # TCP transportli trunk'lar uchun (pjsip.conf: transport-tcp)
+    ufw allow from "$ip" to any port 5060 proto tcp comment 'dtaxi-sip' >/dev/null
 done
 
 echo "$WANT" > "$STATE"
